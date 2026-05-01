@@ -1,0 +1,124 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  * {
+    box-sizing: border-box;
+  }
+
+  html, body {
+    @apply bg-bg-primary text-text-primary font-mono;
+    min-height: 100vh;
+  }
+
+  /* Scrollbar custom thème cyber */
+  ::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+  ::-webkit-scrollbar-track {
+    @apply bg-bg-secondary;
+  }
+  ::-webkit-scrollbar-thumb {
+    @apply bg-border-bright rounded-full;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    @apply bg-cyber-cyan;
+  }
+
+  /* Sélection texte */
+  ::selection {
+    @apply bg-cyber-cyan/30 text-cyber-cyan;
+  }
+}
+
+@layer components {
+  /* Boutons */
+  .btn-primary {
+    @apply bg-cyber-cyan text-bg-primary font-semibold px-4 py-2 rounded
+           hover:bg-cyber-cyan/80 transition-colors duration-150
+           disabled:opacity-40 disabled:cursor-not-allowed;
+  }
+  .btn-secondary {
+    @apply bg-transparent border border-border text-text-primary px-4 py-2 rounded
+           hover:border-cyber-cyan hover:text-cyber-cyan transition-colors duration-150;
+  }
+  .btn-danger {
+    @apply bg-transparent border border-cyber-red text-cyber-red px-4 py-2 rounded
+           hover:bg-cyber-red hover:text-white transition-colors duration-150;
+  }
+
+  /* Cards */
+  .card {
+    @apply bg-bg-card border border-border rounded-lg p-5
+           hover:border-border-bright transition-colors duration-150;
+  }
+
+  /* Inputs */
+  .input {
+    @apply bg-bg-secondary border border-border rounded px-3 py-2
+           text-text-primary placeholder-text-muted
+           focus:outline-none focus:border-cyber-cyan
+           transition-colors duration-150 w-full;
+  }
+
+  .input-cyber {
+    @apply bg-gray-900/50 border border-gray-800 rounded px-3 py-2
+           text-text-primary placeholder-text-muted
+           focus:outline-none focus:border-cyber-cyan focus:border-2 focus:bg-gray-900
+           transition-colors duration-150 w-full;
+  }
+
+  /* Badges catégorie */
+  .badge-offensive {
+    @apply text-xs px-2 py-0.5 rounded-full bg-cyber-red/20 text-cyber-red border border-cyber-red/30;
+  }
+  .badge-defensive {
+    @apply text-xs px-2 py-0.5 rounded-full bg-cyber-green/20 text-cyber-green border border-cyber-green/30;
+  }
+  .badge-os {
+    @apply text-xs px-2 py-0.5 rounded-full bg-cyber-cyan/10 text-cyber-cyan border border-cyber-cyan/20;
+  }
+  .badge-tag {
+    @apply text-xs px-2 py-0.5 rounded bg-bg-hover text-text-secondary;
+  }
+
+  /* Code blocks dans le markdown */
+  .prose-cyber pre {
+    @apply bg-bg-primary border border-border rounded-lg p-4 overflow-x-auto my-3;
+  }
+  .prose-cyber code {
+    @apply text-cyber-cyan font-mono text-sm;
+  }
+  .prose-cyber pre code {
+    @apply text-text-primary;
+  }
+  .prose-cyber h1, .prose-cyber h2, .prose-cyber h3 {
+    @apply text-text-primary font-semibold mt-4 mb-2;
+  }
+  .prose-cyber p {
+    @apply text-text-secondary my-2 leading-relaxed;
+  }
+  .prose-cyber ul, .prose-cyber ol {
+    @apply text-text-secondary my-2 pl-5;
+  }
+  .prose-cyber li {
+    @apply my-1;
+  }
+  .prose-cyber strong {
+    @apply text-text-primary font-semibold;
+  }
+  .prose-cyber a {
+    @apply text-cyber-cyan hover:underline;
+  }
+
+  /* Sidebar item actif */
+  .nav-item {
+    @apply flex items-center gap-3 px-3 py-2 rounded text-text-secondary
+           hover:bg-bg-hover hover:text-text-primary transition-colors duration-150 cursor-pointer;
+  }
+  .nav-item.active {
+    @apply bg-cyber-cyan/10 text-cyber-cyan border-l-2 border-cyber-cyan;
+  }
+}

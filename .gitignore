@@ -1,0 +1,72 @@
+# ============================================
+# Cyber-Hub .gitignore
+# ============================================
+
+# === Binaires ===
+*.exe
+*.exe~
+*.pid
+cyber-hub
+cyber-hub.exe
+
+# === Base de données ===
+*.db
+*.db-shm
+*.db-wal
+*.db.bak
+*.bak
+
+# === Backend ===
+backend/web/
+backend/vendor/
+backend/cyber-hub*
+backend/*.log
+backend/*.bak
+
+# === Frontend ===
+frontend/node_modules/
+frontend/dist/
+frontend/package-lock.json
+frontend/yarn.lock
+
+# === Logs ===
+*.log
+cyber-hub-log.txt
+cyber-hub-run.log
+
+# === Configuration ===
+config.yaml
+.env
+*.env
+.env.local
+.env.*.local
+
+# === IDE ===
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+*.suo
+*.user
+
+# === OS ===
+.DS_Store
+Thumbs.db
+desktop.ini
+ehthumbs.db
+Folder.jpg
+
+# === Build / Temp ===
+build/
+dist/
+temp/
+tmp/
+*.cache
+
+# === Scripts temporaires ===
+rebuild-backend.ps1
+run-build-phase2.bat
+start-build.ps1
+setup-windows.ps1
+build.sh
