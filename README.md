@@ -7,8 +7,9 @@
 ![React](https://img.shields.io/badge/React-18-61DAFB?logo=react&logoColor=black)
 ![SQLite](https://img.shields.io/badge/SQLite-DB-003B57?logo=sqlite&logoColor=white)
 ![MITRE ATT&CK](https://img.shields.io/badge/MITRE_ATT%26CK-Enterprise-E71D29)
+![CLOAK](https://img.shields.io/badge/CLOAK-OpSec_TTPs-6B21A8)
 
-Application de bureau pour centraliser vos outils, writeups CTF, veille CVE, playbooks de réponse à incident et gestion d'IOC. Conçue pour les praticiens de la sécurité offensive et défensive.
+Application de bureau pour centraliser vos outils, writeups CTF, veille CVE, playbooks de réponse à incident, gestion d'IOC et base de connaissances OpSec. Conçue pour les praticiens de la sécurité offensive et défensive.
 
 ---
 
@@ -19,6 +20,9 @@ Application de bureau pour centraliser vos outils, writeups CTF, veille CVE, pla
 
 ### MITRE ATT&CK
 ![MITRE ATT&CK](./.github/screenshots/mittreattack.png)
+
+### CLOAK OpSec
+![CLOAK](./.github/screenshots/cloak.png)
 
 ### Outils
 ![Outils](./.github/screenshots/outils.png)
@@ -51,6 +55,7 @@ Application de bureau pour centraliser vos outils, writeups CTF, veille CVE, pla
 - **Playbooks** — 19 procédures de réponse à incident interactives (checklist step-by-step)
 - **MITRE ATT&CK Enterprise** — 823 techniques, 14 tactiques, indexées offline dans SQLite
 - **IOC Manager** — Gestionnaire centralisé d'Indicateurs de Compromission (IP, domaine, hash, URL)
+- **CLOAK OpSec** — 720 sous-techniques adversariales (anonymat, dissimulation, OpSec) · 13 tactiques · embarqué offline
 
 ---
 
@@ -58,17 +63,18 @@ Application de bureau pour centraliser vos outils, writeups CTF, veille CVE, pla
 
 | Composant        | Technologie                                         |
 |------------------|-----------------------------------------------------|
-| Backend          | Go 1.26+ · Gin · GORM · SQLite                      |
+| Backend          | Go 1.22+ · Gin · GORM · SQLite                      |
 | Frontend         | React 18 · TypeScript strict · Vite · Tailwind CSS  |
 | Base de données  | SQLite WAL (fichier local `cyber-hub.db`)           |
 | Authentification | JWT HS256 · bcrypt                                  |
 | MITRE ATT&CK     | JSON STIX 2.0 officiel · seed offline               |
+| CLOAK            | concealment-data.json · embarqué via go:embed       |
 
 ---
 
 ## Prérequis
 
-- **Go** ≥ 1.26 — [golang.org/dl](https://golang.org/dl/)
+- **Go** ≥ 1.22 — [golang.org/dl](https://golang.org/dl/)
 - **Node.js** ≥ 18 + npm — [nodejs.org](https://nodejs.org/)
 
 ---
@@ -78,8 +84,8 @@ Application de bureau pour centraliser vos outils, writeups CTF, veille CVE, pla
 ### 1. Cloner le projet
 
 ```bash
-git clone https://github.com/votre-utilisateur/cyber-hub.git
-cd cyber-hub
+git clone https://github.com/loic31000/CyberHub.git
+cd CyberHub
 ```
 
 ### 2. Build du frontend (React)
@@ -120,6 +126,7 @@ L'application démarre sur **http://localhost:7743** et ouvre le navigateur auto
 2. Créer un compte local (mot de passe — stocké localement, jamais envoyé)
 3. L'application charge automatiquement les données de référence (outils, playbooks, CVE, CTF writeups)
 4. Le seed MITRE ATT&CK s'exécute en arrière-plan (nécessite une connexion internet une seule fois)
+5. CLOAK est disponible immédiatement — données embarquées, aucune connexion requise
 
 ---
 
@@ -180,8 +187,18 @@ L'application démarre sur **http://localhost:7743** et ouvre le navigateur auto
 
 **823 techniques · 14 tactiques · Format STIX 2.0**
 
-Tactiques couvertes : 
+Tactiques couvertes :
 Reconnaissance → Resource Development → Initial Access → Execution → Persistence → Privilege Escalation → Defense Evasion → Credential Access → Discovery → Lateral Movement → Collection → Command and Control → Exfiltration → Impact.
+
+### CLOAK OpSec
+
+**720 sous-techniques · 13 tactiques · 100% offline**
+
+Base de connaissances sur les techniques d'anonymat et de dissimulation adversariale. Source : [Mick Deben, Leiden University](https://github.com/mickdeben/concealment) — Licence GPL v2.
+
+Tactiques couvertes : Anonymous Browsing · Anonymous Communication · Anonymous Cryptocurrency · Anonymous Hosting · Anonymous Identity · Anonymous Transactions · Data Obfuscation · Physical Security · Plausible Deniability · Reduce Attack Surface · Risk Management · Secure Behavior · Tamper Protection.
+
+Niveaux : `Technical` · `Behavioral` · `Physical`
 
 ### IOC Manager
 
@@ -217,17 +234,18 @@ cyber-hub/
 ├── backend/
 │   ├── internal/
 │   │   ├── api/
-│   │   │   ├── handlers/      # Auth, Tools, CTF, CVE, Playbooks, MITRE, IOC
+│   │   │   ├── handlers/      # Auth, Tools, CTF, CVE, Playbooks, MITRE, IOC, CLOAK
 │   │   │   ├── middleware/    # Auth, Rate limiter
 │   │   │   └── router.go
 │   │   ├── mitre/             # Seed MITRE STIX 2.0
+│   │   ├── cloak/             # Seed CLOAK (concealment-data.json)
 │   │   ├── models/            # Structs GORM
 │   │   └── store/             # Couche données
 │   ├── web/                   # Build React embarqué (go:embed)
 │   └── main.go
 ├── frontend/
 │   └── src/
-│       ├── pages/             # Dashboard, Tools, CTF, CVE, Playbooks, MITRE, IOC
+│       ├── pages/             # Dashboard, Tools, CTF, CVE, Playbooks, MITRE, IOC, CLOAK
 │       ├── components/        # Layout, Sidebar, SearchModal, Pagination, Toast
 │       ├── api/client.ts      # Axios + tous les endpoints
 │       ├── store/             # Zustand (auth, toast, ioc)
@@ -237,7 +255,8 @@ cyber-hub/
 ├── .github/
 │   └── screenshots/
 │       ├── dashboard.png
-│       ├── mittreatattack.png
+│       ├── mittreattack.png
+│       ├── cloak.png
 │       ├── outils.png
 │       ├── playbook.png
 │       ├── veillecve.png
@@ -275,6 +294,8 @@ cd backend && gofmt -w .
 
 Cyber-Hub est destiné **exclusivement à un usage légal et éthique** : tests sur vos propres systèmes, environnements de lab, CTF, formation. L'utilisation sur des systèmes sans autorisation explicite est illégale.
 
+CLOAK est distribué sous licence GPL v2 — crédit : Mick Deben, Leiden University.
+
 ---
 
-*README mis à jour le 01/05/2026 — Cyber-Hub v0.6*
+*README mis à jour le 02/05/2026 — Cyber-Hub v0.6*
