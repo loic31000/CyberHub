@@ -17,6 +17,7 @@ import PlaybookDetail from '@/pages/PlaybookDetail'
 import PlaybookForm from '@/pages/PlaybookForm'
 import SettingsPage from '@/pages/Settings'
 import MITREPage from '@/pages/MITRE'
+import CLOAKPage from '@/pages/CLOAKPage'
 import IOCPage from '@/pages/IOCPage'
 
 // Guard : redirige vers /login si non authentifié
@@ -71,10 +72,13 @@ export default function App() {
           {/* MITRE ATT&CK */}
           <Route path="mitre" element={<MITREPage />} />
 
+          {/* CLOAK - OpSec concealment TTPs */}
+          <Route path="cloak" element={<CLOAKPage />} />
+
           {/* IOC Manager */}
           <Route path="ioc" element={<IOCPage />} />
 
-          {/* Paramètres */}
+          {/* Parametres */}
           <Route path="settings" element={<SettingsPage />} />
         </Route>
 

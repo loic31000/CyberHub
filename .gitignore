@@ -66,7 +66,13 @@ tmp/
 
 # === Scripts temporaires ===
 rebuild-backend.ps1
+rebuild-frontend.ps1
 run-build-phase2.bat
 start-build.ps1
 setup-windows.ps1
 build.sh
+
+# === Artefacts de build Linux (rollup natif, vite timestamps) ===
+frontend/rollup-rollup-*.tgz
+frontend/package/
+frontend/vite.config.ts.timestamp-*.mjs

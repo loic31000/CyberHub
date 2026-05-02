@@ -12,6 +12,7 @@ import {
   Settings,
   Crosshair,
   ShieldBan,
+  EyeOff,
 } from 'lucide-react'
 import clsx from 'clsx'
 
@@ -29,8 +30,9 @@ const navItems: NavItem[] = [
   { to: '/cve',       label: 'Veille CVE',   icon: <ShieldAlert size={18} /> },
   { to: '/playbooks', label: 'Playbooks',    icon: <BookOpen size={18} /> },
   { to: '/mitre',     label: 'MITRE ATT&CK', icon: <Crosshair size={18} /> },
+  { to: '/cloak',     label: 'CLOAK OpSec',  icon: <EyeOff size={18} /> },
   { to: '/ioc',       label: 'IOC Manager',  icon: <ShieldBan size={18} /> },
-  { to: '/settings',  label: 'Paramètres',   icon: <Settings size={18} /> },
+  { to: '/settings',  label: 'Parametres',   icon: <Settings size={18} /> },
 ]
 
 interface Props {
@@ -56,7 +58,7 @@ export default function Sidebar({ onSearchOpen }: Props) {
             CYBER<span className="text-text-primary">HUB</span>
           </span>
         </div>
-        <p className="text-text-muted text-xs mt-1">v0.6 · local & offline</p>
+        <p className="text-text-muted text-xs mt-1">v0.6 - local & offline</p>
       </div>
 
       {/* Barre de recherche rapide Ctrl+K */}
@@ -67,9 +69,9 @@ export default function Sidebar({ onSearchOpen }: Props) {
           title="Recherche globale (Ctrl+K)"
         >
           <Search size={14} className="flex-shrink-0" />
-          <span className="flex-1 text-left text-xs truncate">Rechercher…</span>
+          <span className="flex-1 text-left text-xs truncate">Rechercher...</span>
           <kbd className="hidden group-hover:inline-block text-xs border border-border rounded px-1 leading-tight flex-shrink-0">
-            ⌃K
+            Ctrl+K
           </kbd>
         </button>
       </div>
@@ -109,7 +111,7 @@ export default function Sidebar({ onSearchOpen }: Props) {
           className="nav-item text-sm w-full text-cyber-red hover:text-cyber-red hover:bg-cyber-red/10"
         >
           <LogOut size={18} />
-          <span>Déconnexion</span>
+          <span>Deconnexion</span>
         </button>
       </div>
     </aside>
