@@ -81,7 +81,8 @@ func main() {
 	gin.SetMode(gin.ReleaseMode)
 
 	// Initialisation du moteur de corrélation (singleton)
-	correlationEngine := correlation.NewCorrelationEngine(store.DB)
+	cloakData, _ := fs.ReadFile(webFiles, "web/data/cloak.json")
+	correlationEngine := correlation.NewCorrelationEngine(store.DB, cloakData)
 	// Initialiser le moteur global pour les handlers
 	handlers.InitCorrelationEngine(correlationEngine)
 

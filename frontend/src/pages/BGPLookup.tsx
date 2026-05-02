@@ -1,4 +1,5 @@
 import { useState, useCallback, useEffect } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import {
   Network, Search, Camera, Copy, ShieldBan,
   ChevronRight, Globe, Server, ArrowUpCircle,
@@ -535,6 +536,16 @@ export default function BGPLookup() {
   const navigate = useNavigate()
   const [mode, setMode] = useState<SearchMode>('asn')
   const [inputValue, setInputValue] = useState('')
+  const [searchParams] = useSearchParams()
+
+  // Pré-remplir depuis ?prefill= (ex: depuis la page Corrélation ou IOC)
+  useEffect(() => {
+    const prefill = searchParams.get('prefill')
+    if (prefill) {
+      setInputValue(prefill)
+      setMode(prefill.includes('/') ? 'search' : 'ip')
+    }
+  }, [searchParams])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 

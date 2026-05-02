@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useSearchParams } from 'react-router-dom'
 import { cveApi } from '@/api/client'
 import type { CVEEntry, CVEFilter, CVESeverity, CVEStatus } from '@/types'
 import { RowListSkeleton } from '@/components/Skeleton'
@@ -34,6 +34,7 @@ export default function CVEList() {
   const [loading, setLoading]       = useState(true)
   const [importing, setImporting]   = useState(false)
   const [filters, setFilters]       = useState<CVEFilter>({ severity: '', status: '', search: '' })
+  const [searchParams] = useSearchParams()
   const fileRef = useRef<HTMLInputElement>(null)
 
   const STATUS_LABELS: Record<CVEStatus, string> = {
@@ -59,6 +60,13 @@ export default function CVEList() {
   }, [filters, page])
 
   useEffect(() => { fetchCVE() }, [fetchCVE])
+
+  useEffect(() => {
+    const find = searchParams.get('find')
+    if (find) {
+      setFilters((f) => ({ ...f, search: find }))
+    }
+  }, [searchParams])
 
   const updateFilter = <K extends keyof CVEFilter>(k: K, v: CVEFilter[K]) => {
     setPage(1)

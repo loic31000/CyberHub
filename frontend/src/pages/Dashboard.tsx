@@ -1,8 +1,12 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { statsApi, toolsApi } from '@/api/client'
+import { statsApi, toolsApi, bgpApi, iocApi, correlationApi, notesApi } from '@/api/client'
 import type { Stats, Tool } from '@/types'
-import { Database, Trophy, ShieldAlert, BookOpen, ChevronRight, Activity, Crosshair } from 'lucide-react'
+import type { BGPAlert } from '@/types/bgp'
+import type { IOC } from '@/types/ioc'
+import type { CorrelationHistoryItem } from '@/types/correlation'
+import type { Note } from '@/types/note'
+import { Database, Trophy, ShieldAlert, BookOpen, ChevronRight, Activity, Crosshair, AlertTriangle, Shield, GitBranch, FileText } from 'lucide-react'
 import ToolCard from '@/components/ToolCard'
 
 // Composant interne pour l'effet "Spotlight/Glow" façon React Bits
@@ -58,8 +62,17 @@ export default function Dashboard() {
   const navigate = useNavigate()
     const [stats, setStats] = useState<Stats | null>(null)
   const [recentTools, setRecentTools] = useState<Tool[]>([])
+  const [bgpAlerts, setBgpAlerts] = useState<BGPAlert[]>([])
+  const [recentIOCs, setRecentIOCs] = useState<IOC[]>([])
+  const [recentCorrelations, setRecentCorrelations] = useState<CorrelationHistoryItem[]>([])
+  const [recentNotes, setRecentNotes] = useState<Note[]>([])
 
   useEffect(() => {
+    // Widgets supplémentaires Dashboard
+    bgpApi.getAlerts(5, 0).then((r) => setBgpAlerts(r.items ?? [])).catch(() => {})
+    iocApi.list({ limit: 5 } as import('@/types/ioc').IOCFilter).then((r) => setRecentIOCs(r.items ?? [])).catch(() => {})
+    correlationApi.correlationHistory().then((items) => setRecentCorrelations(items.slice(0, 5))).catch(() => {})
+    notesApi.list().then((r) => setRecentNotes((r.notes ?? []).slice(0, 3))).catch(() => {})
     statsApi.get().then(setStats).catch(() => {})
     toolsApi.list().then(r => setRecentTools(r.tools)).catch(() => {})
   }, [])
@@ -192,6 +205,103 @@ export default function Dashboard() {
           {recentTools.slice(0, 6).map((tool) => (
             <ToolCard key={tool.id} tool={tool} />
           ))}
+        </div>
+      </div>
+
+      {/* Widgets secondaires */}
+      <div className="mt-10 grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-5">
+        {/* BGP Alerts */}
+        <div
+          className="card cursor-pointer hover:border-cyber-cyan/40 transition-colors"
+          onClick={() => navigate('/bgp/historian')}
+        >
+          <div className="flex items-center gap-2 mb-3">
+            <AlertTriangle size={16} className="text-red-400" />
+            <h3 className="text-sm font-semibold text-text-primary">BGP Alertes</h3>
+            {bgpAlerts.length > 0 && (
+              <span className="ml-auto px-2 py-0.5 rounded-full bg-red-500 text-white text-xs font-bold">{bgpAlerts.length}</span>
+            )}
+          </div>
+          {bgpAlerts.length === 0 ? (
+            <p className="text-xs text-text-muted">Aucune alerte BGP</p>
+          ) : (
+            <div className="space-y-1.5">
+              {bgpAlerts.slice(0, 3).map((a) => (
+                <div key={a.id} className="text-xs text-red-300 truncate font-mono">{a.alert_type} — ASN {a.asn}</div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* IOCs récents */}
+        <div
+          className="card cursor-pointer hover:border-cyber-cyan/40 transition-colors"
+          onClick={() => navigate('/ioc')}
+        >
+          <div className="flex items-center gap-2 mb-3">
+            <Shield size={16} className="text-cyber-cyan" />
+            <h3 className="text-sm font-semibold text-text-primary">IOCs récents</h3>
+          </div>
+          {recentIOCs.length === 0 ? (
+            <p className="text-xs text-text-muted">Aucun IOC</p>
+          ) : (
+            <div className="space-y-1.5">
+              {recentIOCs.map((ioc) => (
+                <div key={ioc.id} className="flex items-center gap-2 text-xs">
+                  <span className="text-text-muted border border-border rounded px-1 font-mono">{ioc.type}</span>
+                  <span className="text-text-primary truncate font-mono">{ioc.value}</span>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Dernières corrélations */}
+        <div
+          className="card cursor-pointer hover:border-cyber-cyan/40 transition-colors"
+          onClick={() => navigate('/correlation')}
+        >
+          <div className="flex items-center gap-2 mb-3">
+            <GitBranch size={16} className="text-purple-400" />
+            <h3 className="text-sm font-semibold text-text-primary">Corrélations récentes</h3>
+          </div>
+          {recentCorrelations.length === 0 ? (
+            <p className="text-xs text-text-muted">Aucune corrélation</p>
+          ) : (
+            <div className="space-y-1.5">
+              {recentCorrelations.map((item, i) => (
+                <div key={i} className="flex items-center gap-2 text-xs">
+                  <span className="text-text-muted border border-border rounded px-1 font-mono">{item.ioc_type}</span>
+                  <span className="text-text-primary truncate font-mono">{item.ioc_value}</span>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Notes récentes */}
+        <div
+          className="card cursor-pointer hover:border-cyber-cyan/40 transition-colors"
+          onClick={() => navigate('/notes')}
+        >
+          <div className="flex items-center gap-2 mb-3">
+            <FileText size={16} className="text-amber-400" />
+            <h3 className="text-sm font-semibold text-text-primary">Notes récentes</h3>
+          </div>
+          {recentNotes.length === 0 ? (
+            <p className="text-xs text-text-muted">Aucune note</p>
+          ) : (
+            <div className="space-y-2">
+              {recentNotes.map((note) => (
+                <div key={note.id} className="text-xs">
+                  <p className="text-text-primary truncate font-medium">{note.title}</p>
+                  <p className="text-text-muted">
+                    {new Date(note.updated_at).toLocaleDateString('fr-FR')}
+                  </p>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       </div>
     </div>

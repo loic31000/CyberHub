@@ -3,6 +3,7 @@ package correlation
 import (
 	"encoding/json"
 	"fmt"
+	"strings"
 	"sync"
 	"time"
 
@@ -99,19 +100,51 @@ type CorrelationRules struct {
 	} `json:"cidr"`
 }
 
-type CorrelationEngine struct {
-	db    *gorm.DB
-	rules CorrelationRules
+// cloakJSONData représente le format du fichier cloak.json embarqué
+type cloakJSONData struct {
+	Tactics []cloakJSONTactic `json:"tactics"`
 }
 
-func NewCorrelationEngine(db *gorm.DB) *CorrelationEngine {
+type cloakJSONTactic struct {
+	ID          int                `json:"id"`
+	Name        string             `json:"name"`
+	Description string             `json:"description"`
+	Techniques  []cloakJSONTechnique `json:"techniques"`
+}
+
+type cloakJSONTechnique struct {
+	ID          int    `json:"id"`
+	Name        string `json:"name"`
+	Description string `json:"description"`
+}
+
+type CorrelationEngine struct {
+	db         *gorm.DB
+	rules      CorrelationRules
+	cloakData  cloakJSONData
+}
+
+// NewCorrelationEngine crée le moteur de corrélation.
+// cloakData contient le JSON embarqué de cloak.json (lue depuis le FS embed du main).
+func NewCorrelationEngine(db *gorm.DB, cloakData []byte) *CorrelationEngine {
 	var rules CorrelationRules
 	if err := json.Unmarshal(rulesJSON, &rules); err != nil {
 		fmt.Printf("Erreur parsing règles de corrélation : %v\n", err)
 	}
+
+	var cloak cloakJSONData
+	if len(cloakData) > 0 {
+		if err := json.Unmarshal(cloakData, &cloak); err != nil {
+			fmt.Printf("Erreur parsing cloak.json : %v\n", err)
+		} else {
+			fmt.Printf("[CLOAK] %d tactiques chargées en mémoire\n", len(cloak.Tactics))
+		}
+	}
+
 	return &CorrelationEngine{
-		db:    db,
-		rules: rules,
+		db:        db,
+		rules:     rules,
+		cloakData: cloak,
 	}
 }
 
@@ -212,6 +245,36 @@ func (ce *CorrelationEngine) getRulesForType(iocType string) *struct {
 	}
 }
 
+// lookupCloakTactics fait un lookup in-memory case-insensitive dans le JSON CLOAK embarqué.
+// Retourne les tactiques trouvées avec leurs 5 premières techniques.
+func (ce *CorrelationEngine) lookupCloakTactics(tacticNames []string) []CorrelationCloakTactic {
+	result := make([]CorrelationCloakTactic, 0)
+	for _, ruleName := range tacticNames {
+		for _, tactic := range ce.cloakData.Tactics {
+			if strings.EqualFold(tactic.Name, ruleName) {
+				// Construire la description avec les techniques (max 5)
+				desc := tactic.Description
+				if len(tactic.Techniques) > 0 {
+					techNames := make([]string, 0, 5)
+					for i, tech := range tactic.Techniques {
+						if i >= 5 {
+							break
+						}
+						techNames = append(techNames, tech.Name)
+					}
+					desc = strings.Join(techNames, ", ")
+				}
+				result = append(result, CorrelationCloakTactic{
+					Name:        tactic.Name,
+					Description: desc,
+				})
+				break // Une tactique trouvée par nom de règle suffit
+			}
+		}
+	}
+	return result
+}
+
 func (ce *CorrelationEngine) Analyze(iocType, iocValue string) CorrelationResult {
 	result := CorrelationResult{
 		IOCType:      iocType,
@@ -245,11 +308,11 @@ func (ce *CorrelationEngine) Analyze(iocType, iocValue string) CorrelationResult
 
 	// 3. Lancer 5 goroutines en parallèle
 	var wg sync.WaitGroup
-	techsChan := make(chan []CorrelationTechnique, 1)
-	cloakChan := make(chan []CorrelationCloakTactic, 1)
-	toolsChan := make(chan []CorrelationTool, 1)
+	techsChan     := make(chan []CorrelationTechnique, 1)
+	cloakChan     := make(chan []CorrelationCloakTactic, 1)
+	toolsChan     := make(chan []CorrelationTool, 1)
 	playbooksChan := make(chan []CorrelationPlaybook, 1)
-	cvesChan := make(chan []CorrelationCVE, 1)
+	cvesChan      := make(chan []CorrelationCVE, 1)
 
 	// Goroutine 1 : MITRE Techniques
 	wg.Add(1)
@@ -257,31 +320,23 @@ func (ce *CorrelationEngine) Analyze(iocType, iocValue string) CorrelationResult
 		defer wg.Done()
 		var techs []models.MITRETechnique
 		ce.db.Where("technique_id IN ?", rules.MitreTechniqueIDs).Find(&techs)
-		result := make([]CorrelationTechnique, 0)
+		r := make([]CorrelationTechnique, 0)
 		for _, t := range techs {
-			result = append(result, CorrelationTechnique{
+			r = append(r, CorrelationTechnique{
 				TechniqueID: t.TechniqueID,
 				Name:        t.Name,
 				Tactic:      t.Tactics,
 			})
 		}
-		techsChan <- result
+		techsChan <- r
 	}()
 
-	// Goroutine 2 : CLOAK Tactics
+	// Goroutine 2 : CLOAK Tactics — lookup in-memory depuis cloak.json embarqué
+	// ⚠️ Ne pas interroger la DB cloak_overrides (généralement vide) — utiliser les données JSON officielles
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
-		var cloaks []models.CloakOverride
-		ce.db.Where("tactic_name IN ?", rules.CloakTactics).Find(&cloaks)
-		result := make([]CorrelationCloakTactic, 0)
-		for _, c := range cloaks {
-			result = append(result, CorrelationCloakTactic{
-				Name:        c.TacticName,
-				Description: c.Description,
-			})
-		}
-		cloakChan <- result
+		cloakChan <- ce.lookupCloakTactics(rules.CloakTactics)
 	}()
 
 	// Goroutine 3 : Tools
@@ -290,14 +345,14 @@ func (ce *CorrelationEngine) Analyze(iocType, iocValue string) CorrelationResult
 		defer wg.Done()
 		var tools []models.Tool
 		ce.db.Where("name IN ?", rules.ToolNames).Find(&tools)
-		result := make([]CorrelationTool, 0)
+		r := make([]CorrelationTool, 0)
 		for _, t := range tools {
-			result = append(result, CorrelationTool{
+			r = append(r, CorrelationTool{
 				Name:     t.Name,
 				Category: string(t.Category),
 			})
 		}
-		toolsChan <- result
+		toolsChan <- r
 	}()
 
 	// Goroutine 4 : Playbooks
@@ -315,35 +370,34 @@ func (ce *CorrelationEngine) Analyze(iocType, iocValue string) CorrelationResult
 		}
 		query.Find(&playbooks)
 
-		// Dédupliqué par ID
 		seen := make(map[uint]bool)
-		result := make([]CorrelationPlaybook, 0)
+		r := make([]CorrelationPlaybook, 0)
 		for _, p := range playbooks {
 			if !seen[p.ID] {
-				result = append(result, CorrelationPlaybook{ID: p.ID, Title: p.Title})
+				r = append(r, CorrelationPlaybook{ID: p.ID, Title: p.Title})
 				seen[p.ID] = true
 			}
 		}
-		playbooksChan <- result
+		playbooksChan <- r
 	}()
 
 	// Goroutine 5 : CVEs (si activé)
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
-		result := make([]CorrelationCVE, 0)
+		r := make([]CorrelationCVE, 0)
 		if rules.CVELookup {
 			var cves []models.CVEEntry
 			ce.db.Where("cvss_score >= ?", 7.0).Order("cvss_score DESC").Limit(5).Find(&cves)
 			for _, c := range cves {
-				result = append(result, CorrelationCVE{
+				r = append(r, CorrelationCVE{
 					CVEID:       c.CVEID,
 					Description: c.Description,
 					CVSSScore:   c.CVSSScore,
 				})
 			}
 		}
-		cvesChan <- result
+		cvesChan <- r
 	}()
 
 	wg.Wait()
@@ -353,11 +407,11 @@ func (ce *CorrelationEngine) Analyze(iocType, iocValue string) CorrelationResult
 	close(playbooksChan)
 	close(cvesChan)
 
-	result.Techniques = <-techsChan
+	result.Techniques   = <-techsChan
 	result.CloakTactics = <-cloakChan
-	result.Tools = <-toolsChan
-	result.Playbooks = <-playbooksChan
-	result.CVEs = <-cvesChan
+	result.Tools        = <-toolsChan
+	result.Playbooks    = <-playbooksChan
+	result.CVEs         = <-cvesChan
 
 	// 4. Sérialiser et upsert dans le cache
 	resultJSON, _ := json.Marshal(result)

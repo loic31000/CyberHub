@@ -1,4 +1,4 @@
-# CYBER-HUB v0.7
+# CYBER-HUB v0.9
 
 > Hub de ressources cybersécurité — 100% local, 100% offline
 
@@ -9,8 +9,12 @@
 ![MITRE ATT&CK](https://img.shields.io/badge/MITRE_ATT%26CK-Enterprise-E71D29)
 ![CLOAK](https://img.shields.io/badge/CLOAK-OpSec_TTPs-6B21A8)
 ![BGP](https://img.shields.io/badge/BGP-AS_Lookup-0EA5E9)
+![OSINT](https://img.shields.io/badge/OSINT-Runner-10B981?logo=search&logoColor=white)
+![Notes](https://img.shields.io/badge/Notes-Op%C3%A9rationnelles-F59E0B?logo=notion&logoColor=white)
+![MalwareBazaar](https://img.shields.io/badge/MalwareBazaar-Hash_Analysis-E11D48?logo=shield&logoColor=white)
+![Cheatsheets](https://img.shields.io/badge/Cheatsheets-Interactives-6366F1?logo=terminal&logoColor=white)
 
-Application de bureau pour centraliser vos outils, writeups CTF, veille CVE, playbooks de réponse à incident, gestion d'IOC, base de connaissances OpSec et analyse BGP/AS. Conçue pour les praticiens de la sécurité offensive et défensive.
+Application de bureau pour centraliser vos outils, writeups CTF, veille CVE, playbooks de réponse à incident, gestion d'IOC, base de connaissances OpSec, analyse BGP/AS, OSINT et investigation.
 
 ---
 
@@ -59,6 +63,11 @@ Application de bureau pour centraliser vos outils, writeups CTF, veille CVE, pla
 - **CLOAK OpSec** — 720 sous-techniques adversariales (anonymat, dissimulation, OpSec) · 13 tactiques · embarqué offline
 - **BGP / AS Lookup** — Proxy BGPView avec cache SQLite TTL 1h, bascule vers RIPE Stat en cas d’échec, résolution DNS-over-HTTPS, et statut de santé exposé dans l’UI
 - **BGP Historian** — Snapshots périodiques d'AS, diff entre snapshots, alertes sur changements de routage
+- **OSINT Runner** — Execution locale d'outils OSINT (theHarvester, Sherlock, Maigret) avec stream de sortie, extraction d'IOCs et import direct dans l'IOC Manager
+- **Notes d'investigation** — éditeur opérationnel avec liens vers IOCs, MITRE, CVE et recherche fulltext
+- **Hash Analyzer MalwareBazaar** — analyse de hashes MD5/SHA256 avec cache SQLite 6h pour enrichir les IOC et les investigations
+- **Cheatsheets interactives** — plus de 16 outils avec commandes paramétrables, preview en temps réel et copie en un clic
+- **Dashboard v2** — widgets supplémentaires BGP Alerts, IOCs récents, corrélations récentes et notes récentes
 
 ---
 
@@ -152,6 +161,11 @@ L'application démarre sur **http://localhost:7743** et ouvre le navigateur auto
 | Antivirus | ClamAV |
 | Reverse | Ghidra |
 | Forensics | Volatility 3, YARA |
+
+### OSINT Runner & Cheatsheets
+
+- **OSINT Runner** — exécution locale d'outils OSINT avec extraction automatique d'IOCs et flux de sortie en temps réel.
+- **Cheatsheets interactives** — commandes paramétrables pour plus de 16 outils, variables dynamiques et copier/coller rapide.
 
 ### CTF Writeups (8 writeups)
 

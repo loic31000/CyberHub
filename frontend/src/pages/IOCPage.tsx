@@ -1,9 +1,10 @@
 import { useState, useEffect, useCallback } from 'react'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import { useIocStore } from '@/store/useIocStore'
 import type { IOC, IOCCreatePayload, IOCType, IOCTLP, IOCStatus } from '@/types/ioc'
 import { toast } from '@/store/toast'
 import CorrelationPanel from '@/components/CorrelationPanel'
-import { correlationApi } from '@/api/client'
+import { correlationApi, hashApi, iocApi } from '@/api/client'
 import type { CorrelationResult } from '@/types/correlation'
 import {
   ShieldBan, Plus, Search, Download, X, Trash2, Edit2,
@@ -169,7 +170,20 @@ export default function IOCPage() {
   const [correlationResult, setCorrelationResult] = useState<CorrelationResult | null>(null)
   const [correlationLoading, setCorrelationLoading] = useState(false)
   const [correlationError, setCorrelationError] = useState<string | null>(null)
-  const [activeTab, setActiveTab] = useState<'details' | 'correlation'>('details')
+  const [activeTab, setActiveTab] = useState<'details' | 'correlation' | 'malwarebazaar'>('details')
+  const [hashResult, setHashResult] = useState<import('@/types/hash').HashAnalysisResult | null>(null)
+  const [hashLoading, setHashLoading] = useState(false)
+  const navigate = useNavigate()
+  const [searchParams] = useSearchParams()
+
+  useEffect(() => {
+    const selectedId = searchParams.get('selected')
+    if (!selectedId) return
+    const id = Number(selectedId)
+    if (Number.isNaN(id)) return
+
+    iocApi.get(id).then((ioc) => setSelectedIOC(ioc)).catch(() => {})
+  }, [searchParams])
 
   useEffect(() => { fetchIocs(); fetchStats() }, [])
 
@@ -207,10 +221,24 @@ export default function IOCPage() {
     try {
       const result = await correlationApi.correlationByIOCId(ioc.id)
       setCorrelationResult(result)
-    } catch (err: any) {
-      setCorrelationError(err.message || 'Erreur de chargement')
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Erreur de chargement'
+      setCorrelationError(msg)
     } finally {
       setCorrelationLoading(false)
+    }
+  }
+
+  const loadHashAnalysis = async (ioc: IOC) => {
+    setHashLoading(true)
+    setHashResult(null)
+    try {
+      const result = await hashApi.hashAnalyze(ioc.value)
+      setHashResult(result)
+    } catch {
+      // silencieux si MalwareBazaar indisponible
+    } finally {
+      setHashLoading(false)
     }
   }
 
@@ -412,6 +440,18 @@ export default function IOCPage() {
                 <GitBranch size={14} />
                 Corrélation
               </button>
+              {selectedIOC.type === 'hash' && (
+                <button
+                  onClick={() => { setActiveTab('malwarebazaar'); loadHashAnalysis(selectedIOC) }}
+                  className={`flex-1 px-4 py-3 text-sm font-medium transition-colors ${
+                    activeTab === 'malwarebazaar'
+                      ? 'text-cyber-cyan border-b-2 border-cyber-cyan'
+                      : 'text-text-muted hover:text-text-primary'
+                  }`}
+                >
+                  MalwareBazaar
+                </button>
+              )}
             </div>
 
             {/* Contenu onglet */}
@@ -469,12 +509,72 @@ export default function IOCPage() {
                     </button>
                   </div>
                 </div>
-              ) : (
+              ) : activeTab === 'correlation' ? (
                 <CorrelationPanel
                   result={correlationResult}
                   loading={correlationLoading}
                   error={correlationError}
                 />
+              ) : (
+                <div className="space-y-4">
+                  <div className="flex items-center gap-2 mb-3">
+                    <span className="text-sm font-semibold text-text-primary">Analyse MalwareBazaar</span>
+                    {hashLoading && <span className="text-xs text-text-muted animate-pulse">Chargement…</span>}
+                  </div>
+                  {!hashLoading && !hashResult && (
+                    <p className="text-xs text-text-muted">Impossible de contacter MalwareBazaar.</p>
+                  )}
+                  {hashResult && (
+                    <div className="space-y-3">
+                      <div className="flex items-center gap-2">
+                        <span className={`text-xs px-2 py-0.5 rounded border font-mono ${
+                          hashResult.query_status === 'ok'
+                            ? 'text-red-400 border-red-400/40 bg-red-400/10'
+                            : 'text-green-400 border-green-400/40 bg-green-400/10'
+                        }`}>
+                          {hashResult.query_status === 'ok' ? 'Malveillant détecté' : hashResult.query_status}
+                        </span>
+                        {hashResult.from_cache && (
+                          <span className="text-xs text-text-muted">(cache)</span>
+                        )}
+                      </div>
+                      {hashResult.data && !Array.isArray(hashResult.data) && (
+                        <div className="space-y-2 text-sm">
+                          {hashResult.data.file_name && (
+                            <div><span className="text-text-muted text-xs">Nom fichier:</span> <span className="font-mono text-text-primary">{hashResult.data.file_name}</span></div>
+                          )}
+                          {hashResult.data.file_type && (
+                            <div><span className="text-text-muted text-xs">Type:</span> <span className="text-text-primary">{hashResult.data.file_type}</span></div>
+                          )}
+                          {hashResult.data.file_size !== undefined && (
+                            <div><span className="text-text-muted text-xs">Taille:</span> <span className="text-text-primary">{hashResult.data.file_size} bytes</span></div>
+                          )}
+                          {hashResult.data.first_seen && (
+                            <div><span className="text-text-muted text-xs">1ère vue:</span> <span className="text-text-primary">{hashResult.data.first_seen}</span></div>
+                          )}
+                          {hashResult.data.tags && hashResult.data.tags.length > 0 && (
+                            <div>
+                              <span className="text-text-muted text-xs block mb-1">Tags:</span>
+                              <div className="flex flex-wrap gap-1">
+                                {hashResult.data.tags.map((tag) => (
+                                  <span key={tag} className="text-xs px-1.5 py-0.5 rounded border border-red-400/40 text-red-400">{tag}</span>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  )}
+                  {(selectedIOC.type === 'ip' || selectedIOC.type === 'domain' || selectedIOC.type === 'cidr') && (
+                    <button
+                      onClick={() => navigate(`/bgp?prefill=${encodeURIComponent(selectedIOC.value)}`)}
+                      className="btn-secondary flex items-center gap-2 text-sm border-blue-500/40 text-blue-400 hover:bg-blue-500/10 mt-2"
+                    >
+                      <Globe size={14} /> Voir l'AS dans BGP Lookup
+                    </button>
+                  )}
+                </div>
               )}
             </div>
           </div>

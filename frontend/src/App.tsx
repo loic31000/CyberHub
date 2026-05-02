@@ -22,6 +22,9 @@ import IOCPage from '@/pages/IOCPage'
 import BGPLookup from '@/pages/BGPLookup'
 import BGPHistorian from '@/pages/BGPHistorian'
 import CorrelationPage from '@/pages/CorrelationPage'
+import OSINTRunner from '@/pages/OSINTRunner'
+import NotesPage from '@/pages/NotesPage'
+import CheatsheetsPage from '@/pages/CheatsheetsPage'
 
 // Guard : redirige vers /login si non authentifié
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
@@ -87,6 +90,15 @@ export default function App() {
           {/* BGP / AS Lookup + Historian */}
           <Route path="bgp" element={<BGPLookup />} />
           <Route path="bgp/historian" element={<BGPHistorian />} />
+
+          {/* OSINT Runner */}
+          <Route path="osint" element={<OSINTRunner />} />
+
+          {/* Notes opérationnelles */}
+          <Route path="notes" element={<NotesPage />} />
+
+          {/* Cheatsheets */}
+          <Route path="cheatsheets" element={<CheatsheetsPage />} />
 
           {/* Paramètres */}
           <Route path="settings" element={<SettingsPage />} />

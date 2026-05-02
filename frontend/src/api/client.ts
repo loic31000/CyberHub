@@ -372,3 +372,85 @@ export const correlationApi = {
   correlationInvalidateCache: (iocValue: string) =>
     http.delete(`/correlation/cache/${encodeURIComponent(iocValue)}`).then((r) => r.data),
 }
+
+// ---- OSINT Runner ----
+// ⚠️ Usage légal uniquement — OSINT sur systèmes autorisés seulement
+export const osintApi = {
+  listTools: () =>
+    http
+      .get<import('@/types/osint').OSINTToolsResponse>('/osint/tools')
+      .then((r) => r.data),
+
+  runJob: (req: import('@/types/osint').OSINTRunRequest) =>
+    http
+      .post<{ id: number; status: string }>('/osint/run', req)
+      .then((r) => r.data),
+
+  listJobs: () =>
+    http
+      .get<import('@/types/osint').OSINTJobsResponse>('/osint/jobs')
+      .then((r) => r.data),
+
+  getJob: (id: number) =>
+    http
+      .get<import('@/types/osint').OSINTJob>(`/osint/jobs/${id}`)
+      .then((r) => r.data),
+
+  deleteJob: (id: number) =>
+    http.delete(`/osint/jobs/${id}`).then((r) => r.data),
+
+  streamJobUrl: (id: number) => `/api/osint/jobs/${id}/stream`,
+}
+
+// ---- Notes opérationnelles ----
+export const notesApi = {
+  list: () =>
+    http
+      .get<import('@/types/note').NotesResponse>('/notes')
+      .then((r) => r.data),
+
+  get: (id: number) =>
+    http.get<import('@/types/note').Note>(`/notes/${id}`).then((r) => r.data),
+
+  create: (req: import('@/types/note').NoteCreateRequest) =>
+    http.post<import('@/types/note').Note>('/notes', req).then((r) => r.data),
+
+  update: (id: number, req: import('@/types/note').NoteCreateRequest) =>
+    http
+      .put<import('@/types/note').Note>(`/notes/${id}`, req)
+      .then((r) => r.data),
+
+  delete: (id: number) =>
+    http.delete(`/notes/${id}`).then((r) => r.data),
+
+  search: (q: string) =>
+    http
+      .get<import('@/types/note').NotesResponse>('/notes/search', { params: { q } })
+      .then((r) => r.data),
+}
+
+// ---- Hash Analyzer (MalwareBazaar) ----
+export const hashApi = {
+  hashAnalyze: (hash: string) =>
+    http
+      .get<import('@/types/hash').HashAnalysisResult>(`/hash/analyze/${hash}`)
+      .then((r) => r.data),
+
+  bulkAnalyze: (hashes: string[]) =>
+    http
+      .post<import('@/types/hash').BulkHashResponse>('/hash/bulk', { hashes })
+      .then((r) => r.data),
+}
+
+// ---- Cheatsheets ----
+export const cheatsheetsApi = {
+  list: () =>
+    http
+      .get<import('@/types/cheatsheet').CheatsheetsListResponse>('/cheatsheets')
+      .then((r) => r.data),
+
+  getByTool: (toolName: string) =>
+    http
+      .get<import('@/types/cheatsheet').Cheatsheet>(`/cheatsheets/${toolName}`)
+      .then((r) => r.data),
+}

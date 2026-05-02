@@ -5,6 +5,7 @@ import (
 
 	"github.com/cyber-hub/cyber-hub/internal/api/handlers"
 	"github.com/cyber-hub/cyber-hub/internal/api/middleware"
+	"github.com/cyber-hub/cyber-hub/internal/cheatsheets"
 	"github.com/cyber-hub/cyber-hub/internal/correlation"
 	"github.com/cyber-hub/cyber-hub/internal/store"
 	"github.com/gin-contrib/cors"
@@ -165,6 +166,46 @@ func NewRouter(correlationEngine *correlation.CorrelationEngine) *gin.Engine {
 				correlation.POST("/analyze", corrHandlers.PostCorrelationAnalyze)
 				correlation.GET("/history", corrHandlers.GetCorrelationHistory)
 				correlation.DELETE("/cache/:ioc_value", corrHandlers.DeleteCorrelationCache)
+			}
+
+			// OSINT Runner
+			osintH := handlers.NewOSINTHandler(store.DB)
+			osint := protected.Group("/osint")
+			{
+				osint.GET("/tools", osintH.ListTools)
+				osint.POST("/run", osintH.RunJob)
+				osint.GET("/jobs", osintH.ListJobs)
+				osint.GET("/jobs/:id", osintH.GetJob)
+				osint.DELETE("/jobs/:id", osintH.DeleteJob)
+				osint.GET("/jobs/:id/stream", osintH.StreamJob)
+			}
+
+			// Notes opérationnelles
+			notesH := handlers.NewNotesHandler(store.DB)
+			notes := protected.Group("/notes")
+			{
+				notes.GET("", notesH.List)
+				notes.POST("", notesH.Create)
+				notes.GET("/search", notesH.Search)
+				notes.GET("/:id", notesH.GetByID)
+				notes.PUT("/:id", notesH.Update)
+				notes.DELETE("/:id", notesH.Delete)
+			}
+
+			// Hash Analyzer (MalwareBazaar)
+			hashH := handlers.NewHashHandler(store.DB)
+			hash := protected.Group("/hash")
+			{
+				hash.GET("/analyze/:hash", hashH.Analyze)
+				hash.POST("/bulk", hashH.BulkAnalyze)
+			}
+
+			// Cheatsheets (données embarquées)
+			cheatH := cheatsheets.NewCheatsheetsHandler()
+			cheat := protected.Group("/cheatsheets")
+			{
+				cheat.GET("", cheatH.List)
+				cheat.GET("/:tool_name", cheatH.GetByTool)
 			}
 		}
 	}

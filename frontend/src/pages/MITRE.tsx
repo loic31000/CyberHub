@@ -1,4 +1,5 @@
 import { useEffect, useState, useCallback, useRef } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import {
   Shield, Search, ChevronRight, ExternalLink, X,
   Loader2, RefreshCw, Globe, Monitor, Server,
@@ -207,6 +208,7 @@ export default function MITRE() {
   const [selected, setSelected]             = useState<MITRETechnique | null>(null)
   const [detailFull, setDetailFull]         = useState<MITRETechnique | null>(null)
   const [detailLoading, setDetailLoading]   = useState(false)
+  const [searchParams] = useSearchParams()
 
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null)
   const LIMIT = 60
@@ -229,6 +231,13 @@ export default function MITRE() {
     const timer = setTimeout(() => setDebouncedQ(query), 300)
     return () => clearTimeout(timer)
   }, [query])
+
+  useEffect(() => {
+    const find = searchParams.get('find')
+    if (find) {
+      setQuery(find)
+    }
+  }, [searchParams])
 
   useEffect(() => {
     if (!status?.seeded) return

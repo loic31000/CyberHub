@@ -1,5 +1,6 @@
 import { useState } from 'react'
-import { GitBranch, Search, Clock, ShieldPlus, Trash2 } from 'lucide-react'
+import { useNavigate } from 'react-router-dom'
+import { GitBranch, Search, Clock, ShieldPlus, Trash2, Globe } from 'lucide-react'
 import { correlationApi, iocApi } from '@/api/client'
 import type { CorrelationResult, CorrelationHistoryItem } from '@/types/correlation'
 import type { IOCCreatePayload } from '@/types/ioc'
@@ -18,6 +19,7 @@ const IOC_TYPES: { value: IOCType; label: string }[] = [
 ]
 
 export default function CorrelationPage() {
+  const navigate = useNavigate()
   const [iocType,  setIocType]  = useState<IOCType>('ip')
   const [iocValue, setIocValue] = useState('')
   const [loading,  setLoading]  = useState(false)
@@ -161,7 +163,7 @@ export default function CorrelationPage() {
           <CorrelationPanel result={result} loading={loading} error={error} />
 
           {result && !loading && (
-            <div className="flex gap-3">
+            <div className="flex flex-wrap gap-3">
               <button
                 onClick={handleSaveAsIOC}
                 disabled={saving}
@@ -177,6 +179,22 @@ export default function CorrelationPage() {
                 <Trash2 size={15} />
                 Invalider le cache
               </button>
+              {(iocType === 'ip' || iocType === 'cidr') && (
+                <button
+                  onClick={() => navigate(`/bgp?prefill=${encodeURIComponent(iocValue)}`)}
+                  className="btn-secondary flex items-center gap-2 text-sm border-blue-500/40 text-blue-400 hover:bg-blue-500/10"
+                >
+                  <Globe size={15} /> Voir l'AS dans BGP Lookup
+                </button>
+              )}
+              {iocType === 'hash' && (
+                <button
+                  onClick={() => navigate(`/ioc?search=${encodeURIComponent(iocValue)}`)}
+                  className="btn-secondary flex items-center gap-2 text-sm"
+                >
+                  🔍 Analyser sur MalwareBazaar
+                </button>
+              )}
             </div>
           )}
         </div>
