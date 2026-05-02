@@ -15,19 +15,20 @@ const osIcon = (os: Tool['os']) => {
   }
 }
 
-const osLabel = (os: Tool['os']) => {
-  switch (os) {
-    case 'windows': return 'Windows'
-    case 'linux':   return 'Linux'
-    case 'both':    return 'Win + Linux'
-  }
-}
+// osLabel is resolved via t() inside the component
 
 export default function ToolCard({ tool }: Props) {
   const navigate = useNavigate()
+    const osLabel = (os: Tool['os']): string => {
+    switch (os) {
+      case 'windows': return `Windows`
+      case 'linux':   return `Linux`
+      case 'both':    return `Win + Linux`
+    }
+  }
 
   const tags = tool.tags
-    ? tool.tags.split(',').map((t) => t.trim()).filter(Boolean)
+    ? tool.tags.split(',').map((tag) => tag.trim()).filter(Boolean)
     : []
 
   return (
@@ -71,12 +72,12 @@ export default function ToolCard({ tool }: Props) {
           {osLabel(tool.os)}
         </span>
         {tool.ethical_level === 'warning' && (
-          <span className="badge-tag border-cyber-red/40 text-cyber-red" title="Outil offensif — pédagogique uniquement">
+          <span className="badge-tag border-cyber-red/40 text-cyber-red" title={`Outil offensif — pédagogique uniquement`}>
             ⚠️
           </span>
         )}
         {tool.ethical_level === 'elevated' && (
-          <span className="badge-tag border-cyber-orange/40 text-cyber-orange" title="Audit autorisé requis">
+          <span className="badge-tag border-cyber-orange/40 text-cyber-orange" title={`Audit autorisé requis`}>
             ⚡
           </span>
         )}

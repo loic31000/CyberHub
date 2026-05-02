@@ -6,9 +6,6 @@ import { Save, ArrowLeft } from 'lucide-react'
 
 const SEVERITIES: CVESeverity[] = ['critical', 'high', 'medium', 'low', 'none']
 const STATUSES: CVEStatus[] = ['new', 'analyzed', 'patched', 'na']
-const STATUS_LABELS: Record<CVEStatus, string> = {
-  new: 'Nouveau', analyzed: 'Analysé', patched: 'Patché', na: 'N/A',
-}
 
 const DEFAULT_FORM: CVECreateRequest = {
   cve_id: '',
@@ -22,13 +19,20 @@ const DEFAULT_FORM: CVECreateRequest = {
 }
 
 export default function CVEForm() {
-  const { id } = useParams<{ id: string }>()
+    const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
   const isEdit = Boolean(id)
   const [form, setForm] = useState<CVECreateRequest>(DEFAULT_FORM)
   const [loading, setLoading] = useState(isEdit)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
+
+  const STATUS_LABELS: Record<CVEStatus, string> = {
+    new: `Nouveau`,
+    analyzed: `Analysé`,
+    patched: `Patché`,
+    na: `N/A`,
+  }
 
   useEffect(() => {
     if (!isEdit || !id) return
@@ -49,7 +53,7 @@ export default function CVEForm() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!form.cve_id.trim()) { setError('Le CVE-ID est requis'); return }
+    if (!form.cve_id.trim()) { setError(`Le CVE-ID est requis`); return }
     setSaving(true)
     setError('')
     const payload = { ...form, published_at: form.published_at ? new Date(form.published_at).toISOString() : new Date().toISOString() }
@@ -63,7 +67,7 @@ export default function CVEForm() {
       }
     } catch (err: unknown) {
       const e = err as { response?: { data?: { error?: string } } }
-      setError(e?.response?.data?.error ?? 'Erreur lors de la sauvegarde')
+      setError(e?.response?.data?.error ?? `Erreur lors de la sauvegarde`)
       setSaving(false)
     }
   }
@@ -71,7 +75,7 @@ export default function CVEForm() {
   const set = <K extends keyof CVECreateRequest>(field: K, value: CVECreateRequest[K]) =>
     setForm((f) => ({ ...f, [field]: value }))
 
-  if (loading) return <div className="p-6 text-text-muted">Chargement...</div>
+  if (loading) return <div className="p-6 text-text-muted">{`Chargement…`}</div>
 
   return (
     <div className="p-6 max-w-2xl">
@@ -80,7 +84,7 @@ export default function CVEForm() {
           <ArrowLeft size={20} />
         </button>
         <h1 className="text-xl font-bold text-text-primary">
-          {isEdit ? 'Modifier la CVE' : 'Nouvelle CVE'}
+          {isEdit ? `Modifier la CVE` : `Nouvelle CVE`}
         </h1>
       </div>
 
@@ -93,11 +97,11 @@ export default function CVEForm() {
       <form onSubmit={handleSubmit} className="space-y-5">
         {/* CVE-ID */}
         <div>
-          <label className="block text-sm text-text-secondary mb-1">CVE-ID *</label>
+          <label className="block text-sm text-text-secondary mb-1">{`CVE-ID *`} *</label>
           <input
             type="text"
             className="input-cyber w-full px-3 py-2 text-sm font-mono"
-            placeholder="Ex: CVE-2024-12345"
+            placeholder={`Ex: CVE-2024-12345`}
             value={form.cve_id}
             onChange={(e) => set('cve_id', e.target.value.toUpperCase())}
             disabled={isEdit}
@@ -106,7 +110,7 @@ export default function CVEForm() {
 
         {/* Description */}
         <div>
-          <label className="block text-sm text-text-secondary mb-1">Description</label>
+          <label className="block text-sm text-text-secondary mb-1">{`Description`}</label>
           <textarea
             className="input-cyber w-full px-3 py-2 text-sm resize-y"
             rows={3}
@@ -118,7 +122,7 @@ export default function CVEForm() {
         {/* Score + Severity + Status */}
         <div className="grid grid-cols-3 gap-4">
           <div>
-            <label className="block text-sm text-text-secondary mb-1">Score CVSS</label>
+            <label className="block text-sm text-text-secondary mb-1">{`CVSS:`}</label>
             <input
               type="number"
               min="0" max="10" step="0.1"
@@ -128,7 +132,7 @@ export default function CVEForm() {
             />
           </div>
           <div>
-            <label className="block text-sm text-text-secondary mb-1">Sévérité</label>
+            <label className="block text-sm text-text-secondary mb-1">{`Sévérité`}</label>
             <select
               className="input-cyber w-full px-3 py-2 text-sm capitalize"
               value={form.severity}
@@ -138,7 +142,7 @@ export default function CVEForm() {
             </select>
           </div>
           <div>
-            <label className="block text-sm text-text-secondary mb-1">Statut</label>
+            <label className="block text-sm text-text-secondary mb-1">{`Statut`}</label>
             <select
               className="input-cyber w-full px-3 py-2 text-sm"
               value={form.status}
@@ -152,17 +156,17 @@ export default function CVEForm() {
         {/* Products + Published */}
         <div className="grid grid-cols-2 gap-4">
           <div>
-            <label className="block text-sm text-text-secondary mb-1">Produits affectés (virgule-séparés)</label>
+            <label className="block text-sm text-text-secondary mb-1">{`Produits affectés`}</label>
             <input
               type="text"
               className="input-cyber w-full px-3 py-2 text-sm"
-              placeholder="Ex: Apache, OpenSSL, Windows..."
+              placeholder={`Ex: Apache, OpenSSL, Windows...`}
               value={form.products}
               onChange={(e) => set('products', e.target.value)}
             />
           </div>
           <div>
-            <label className="block text-sm text-text-secondary mb-1">Date de publication</label>
+            <label className="block text-sm text-text-secondary mb-1">{`Publié le`}</label>
             <input
               type="date"
               className="input-cyber w-full px-3 py-2 text-sm"
@@ -174,11 +178,11 @@ export default function CVEForm() {
 
         {/* Notes */}
         <div>
-          <label className="block text-sm text-text-secondary mb-1">Notes & Analyse</label>
+          <label className="block text-sm text-text-secondary mb-1">{`📝 Notes & Analyse`}</label>
           <textarea
             className="input-cyber w-full px-3 py-2 text-sm resize-y"
             rows={5}
-            placeholder="Impact dans notre environnement, POC disponible, patch appliqué le..."
+            placeholder={`Impact dans notre environnement, POC disponible, patch appliqué le...`}
             value={form.notes}
             onChange={(e) => set('notes', e.target.value)}
           />
@@ -192,14 +196,14 @@ export default function CVEForm() {
             className="btn-cyber flex items-center gap-2 px-5 py-2 rounded text-sm font-medium disabled:opacity-50"
           >
             <Save size={15} />
-            {saving ? 'Sauvegarde...' : isEdit ? 'Enregistrer' : 'Créer la CVE'}
+            {saving ? `Sauvegarde…` : isEdit ? `Enregistrer` : `Nouvelle CVE`}
           </button>
           <button
             type="button"
             onClick={() => navigate('/cve')}
             className="px-5 py-2 rounded text-sm border border-border text-text-secondary hover:text-text-primary transition-colors"
           >
-            Annuler
+            {`Annuler`}
           </button>
         </div>
       </form>

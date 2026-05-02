@@ -239,3 +239,22 @@ export const iocApi = {
         window.URL.revokeObjectURL(url)
       }),
 }
+
+// ---- CLOAK Annotations (couche personnelle — source inchangée) ----
+export const cloakAnnotationsApi = {
+  list: () =>
+    http
+      .get<import('@/types/cloakAnnotation').CloakAnnotation[]>('/cloak/annotations')
+      .then((r) => r.data),
+
+  upsert: (data: import('@/types/cloakAnnotation').CloakAnnotationRequest) =>
+    http
+      .post<import('@/types/cloakAnnotation').CloakAnnotation>('/cloak/annotations', data)
+      .then((r) => r.data),
+
+  deleteById: (id: number) =>
+    http.delete(`/cloak/annotations/${id}`).then((r) => r.data),
+
+  deleteByRef: (ref: string) =>
+    http.delete(`/cloak/annotations/ref/${encodeURIComponent(ref)}`).then((r) => r.data),
+}

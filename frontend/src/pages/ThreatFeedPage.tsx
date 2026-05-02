@@ -21,45 +21,38 @@ const addToast = (msg: string, type: 'success' | 'error' | 'warning' | 'info') =
 
 const FEED_LABELS: Record<string, string> = {
   cisa_kev: 'CISA KEV',
-  nvd_api: 'NVD API v2',
-}
-
-const FEED_DESCRIPTIONS: Record<string, string> = {
-  cisa_kev:
-    'Known Exploited Vulnerabilities Catalog — CISA. Vulnérabilités activement exploitées in-the-wild.',
-  nvd_api:
-    'National Vulnerability Database — NIST. CVE des 7 derniers jours avec scores CVSS officiels.',
+  nvd_api:  'NVD API v2',
 }
 
 function StatusBadge({ status }: { status: FeedStatus }) {
-  if (status === 'ok')
+    if (status === 'ok')
     return (
       <span className="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full bg-green-500/15 text-green-400">
-        <CheckCircle2 size={12} /> OK
+        <CheckCircle2 size={12} /> {`OK`}
       </span>
     )
   if (status === 'running')
     return (
       <span className="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full bg-blue-500/15 text-blue-400">
-        <Loader2 size={12} className="animate-spin" /> En cours
+        <Loader2 size={12} className="animate-spin" /> {`En cours`}
       </span>
     )
   if (status === 'error')
     return (
       <span className="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full bg-red-500/15 text-red-400">
-        <XCircle size={12} /> Erreur
+        <XCircle size={12} /> {`Erreur`}
       </span>
     )
   return (
     <span className="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full bg-border text-text-muted">
-      <Clock size={12} /> En attente
+      <Clock size={12} /> {`En attente`}
     </span>
   )
 }
 
-function formatDate(iso: string) {
+function formatDate(iso: string, locale: string) {
   if (!iso || iso.startsWith('0001')) return '—'
-  return new Date(iso).toLocaleString('fr-FR', {
+  return new Date(iso).toLocaleString(locale, {
     day: '2-digit', month: '2-digit', year: 'numeric',
     hour: '2-digit', minute: '2-digit',
   })
@@ -76,13 +69,19 @@ function severityColor(s: string) {
 }
 
 export default function ThreatFeedPage() {
-  const navigate = useNavigate()
-  const [feeds, setFeeds] = useState<ThreatFeedLog[]>([])
-  const [alerts, setAlerts] = useState<CVEEntry[]>([])
+    const navigate = useNavigate()
+  const [feeds, setFeeds]           = useState<ThreatFeedLog[]>([])
+  const [alerts, setAlerts]         = useState<CVEEntry[]>([])
   const [alertCount, setAlertCount] = useState(0)
   const [alertSince, setAlertSince] = useState('')
-  const [loading, setLoading] = useState(true)
+  const [loading, setLoading]       = useState(true)
   const [runningFeed, setRunningFeed] = useState<string | null>(null)
+
+  // Feed descriptions use translation keys
+  const FEED_DESCRIPTIONS: Record<string, string> = {
+    cisa_kev: `Known Exploited Vulnerabilities Catalog — CISA. Vulnérabilités activement exploitées in-the-wild.`,
+    nvd_api:  `National Vulnerability Database — NIST. CVE des 7 derniers jours avec scores CVSS officiels.`,
+  }
 
   const refresh = useCallback(async () => {
     try {
@@ -103,7 +102,7 @@ export default function ThreatFeedPage() {
 
   useEffect(() => {
     refresh()
-    const interval = setInterval(refresh, 10_000) // poll every 10s to catch feed updates
+    const interval = setInterval(refresh, 10_000)
     return () => clearInterval(interval)
   }, [refresh])
 
@@ -112,7 +111,6 @@ export default function ThreatFeedPage() {
     try {
       await threatApi.runFeed(name)
       addToast(`Feed ${FEED_LABELS[name]} lancé en arrière-plan`, 'info')
-      // Refresh after short delay to show "running" status
       setTimeout(refresh, 1500)
     } catch {
       addToast(`Erreur lors du lancement du feed ${FEED_LABELS[name]}`, 'error')
@@ -125,7 +123,7 @@ export default function ThreatFeedPage() {
     return (
       <div className="flex items-center justify-center h-64 text-text-muted">
         <Loader2 size={24} className="animate-spin mr-2" />
-        Chargement…
+        {`Chargement…`}
       </div>
     )
   }
@@ -137,19 +135,19 @@ export default function ThreatFeedPage() {
         <div>
           <h1 className="text-xl font-bold text-text-primary flex items-center gap-2">
             <Rss size={20} className="text-cyber-cyan" />
-            Threat Intelligence
+            {`Threat Intelligence`}
           </h1>
           <p className="text-text-muted text-sm mt-0.5">
-            Feeds CVE automatiques — NVD API &amp; CISA KEV · Rafraîchissement hebdomadaire
+            {`Feeds CVE automatiques — NVD API & CISA KEV · Rafraîchissement hebdomadaire`}
           </p>
         </div>
         <button
           onClick={refresh}
           className="btn-secondary flex items-center gap-2 text-sm"
-          title="Rafraîchir"
+          title={`Actualiser`}
         >
           <RefreshCw size={14} />
-          Actualiser
+          {`Actualiser`}
         </button>
       </div>
 
@@ -179,29 +177,29 @@ export default function ThreatFeedPage() {
                   ) : (
                     <RefreshCw size={12} />
                   )}
-                  {isRunning ? 'En cours…' : 'Lancer'}
+                  {isRunning ? `En cours…` : `Lancer`}
                 </button>
               </div>
 
               <div className="grid grid-cols-2 gap-2 text-xs">
                 <div className="bg-bg-hover rounded p-2">
-                  <p className="text-text-muted">CVE ajoutés</p>
+                  <p className="text-text-muted">{`CVE ajoutés`}</p>
                   <p className="text-green-400 font-bold text-base">{feed?.cves_added ?? 0}</p>
                 </div>
                 <div className="bg-bg-hover rounded p-2">
-                  <p className="text-text-muted">CVE mis à jour</p>
+                  <p className="text-text-muted">{`CVE mis à jour`}</p>
                   <p className="text-blue-400 font-bold text-base">{feed?.cves_updated ?? 0}</p>
                 </div>
               </div>
 
               <div className="text-xs text-text-muted space-y-0.5">
                 <div className="flex justify-between">
-                  <span>Dernier run</span>
-                  <span className="text-text-secondary">{formatDate(feed?.last_run ?? '')}</span>
+                  <span>{`Dernier run`}</span>
+                  <span className="text-text-secondary">{formatDate(feed?.last_run ?? '', 'fr-FR')}</span>
                 </div>
                 <div className="flex justify-between">
-                  <span>Prochain run</span>
-                  <span className="text-text-secondary">{formatDate(feed?.next_run ?? '')}</span>
+                  <span>{`Prochain run`}</span>
+                  <span className="text-text-secondary">{formatDate(feed?.next_run ?? '', 'fr-FR')}</span>
                 </div>
               </div>
 
@@ -221,10 +219,10 @@ export default function ThreatFeedPage() {
         <div className="flex items-center gap-2 mb-3">
           <ShieldAlert size={16} className="text-cyber-red" />
           <h2 className="font-semibold text-text-primary">
-            Alertes Critiques
+            {`Alertes Critiques`}
             <span className="ml-2 text-xs font-normal text-text-muted">
-              CVSS ≥ 9.0 · 7 derniers jours
-              {alertSince && ` · depuis ${new Date(alertSince).toLocaleDateString('fr-FR')}`}
+              {`CVSS ≥ 9.0 · 7 derniers jours`}
+              {alertSince && ' ' + `· depuis ${new Date(alertSince).toLocaleDateString('fr-FR'),}`}
             </span>
           </h2>
           {alertCount > 0 && (
@@ -237,8 +235,8 @@ export default function ThreatFeedPage() {
         {alerts.length === 0 ? (
           <div className="card p-8 text-center text-text-muted">
             <CheckCircle2 size={28} className="mx-auto mb-2 text-green-500/50" />
-            <p>Aucune CVE critique détectée cette semaine.</p>
-            <p className="text-xs mt-1">Lancez un feed pour importer les dernières vulnérabilités.</p>
+            <p>{`Aucune CVE critique détectée cette semaine.`}</p>
+            <p className="text-xs mt-1">{`Lancez un feed pour importer les dernières vulnérabilités.`}</p>
           </div>
         ) : (
           <div className="space-y-2">
@@ -275,7 +273,7 @@ export default function ThreatFeedPage() {
                 <button
                   onClick={() => navigate('/cve')}
                   className="flex-shrink-0 text-text-muted hover:text-cyber-cyan transition-colors"
-                  title="Voir dans la veille CVE"
+                  title={`Voir dans la veille CVE`}
                 >
                   <ExternalLink size={14} />
                 </button>

@@ -14,20 +14,24 @@ const SEV_COLORS: Record<string, string> = {
   none:     'bg-gray-500/20 text-gray-400 border-gray-400/40',
 }
 
-const STATUS_LABELS: Record<CVEStatus, string> = {
-  new: 'Nouveau', analyzed: 'Analysé', patched: 'Patché', na: 'N/A',
-}
 const STATUS_COLORS: Record<CVEStatus, string> = {
   new: 'text-cyber-cyan', analyzed: 'text-yellow-400', patched: 'text-cyber-green', na: 'text-text-muted',
 }
 
 export default function CVEDetail() {
-  const { id } = useParams<{ id: string }>()
+    const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
   const [cve, setCve] = useState<CVEEntry | null>(null)
   const [loading, setLoading]       = useState(true)
   const [deleting, setDeleting]     = useState(false)
   const [confirmOpen, setConfirmOpen] = useState(false)
+
+  const STATUS_LABELS: Record<CVEStatus, string> = {
+    new: `Nouveau`,
+    analyzed: `Analysé`,
+    patched: `Patché`,
+    na: `N/A`,
+  }
 
   useEffect(() => {
     if (!id) return
@@ -42,10 +46,10 @@ export default function CVEDetail() {
     setDeleting(true)
     try {
       await cveApi.delete(cve.id)
-      toast.success(`${cve.cve_id} supprimée`)
+      toast.success(`CVE ${cve.cve_id} supprimée`)
       navigate('/cve')
     } catch {
-      toast.error('Erreur lors de la suppression')
+      toast.error(`Erreur lors de la sauvegarde`)
       setDeleting(false)
     }
   }
@@ -67,7 +71,7 @@ export default function CVEDetail() {
       <div className="flex items-center justify-between">
         <Link to="/cve" className="flex items-center gap-2 text-text-muted hover:text-text-primary text-sm transition-colors">
           <ArrowLeft size={16} />
-          Retour aux CVE
+          {`Retour aux CVE`}
         </Link>
         <div className="flex gap-2">
           <Link
@@ -75,7 +79,7 @@ export default function CVEDetail() {
             className="flex items-center gap-1.5 px-3 py-1.5 text-sm rounded border border-border text-text-secondary hover:text-cyber-cyan hover:border-cyber-cyan/40 transition-colors"
           >
             <Edit size={14} />
-            Modifier
+            {`Modifier`}
           </Link>
           <button
             onClick={() => setConfirmOpen(true)}
@@ -83,7 +87,7 @@ export default function CVEDetail() {
             className="flex items-center gap-1.5 px-3 py-1.5 text-sm rounded border border-border text-text-secondary hover:text-cyber-red hover:border-cyber-red/40 transition-colors"
           >
             <Trash2 size={14} />
-            {deleting ? '...' : 'Supprimer'}
+            {deleting ? '...' : `Supprimer`}
           </button>
         </div>
       </div>
@@ -98,7 +102,7 @@ export default function CVEDetail() {
               </span>
               {cve.cvss_score > 0 && (
                 <span className="text-xs font-mono text-text-secondary">
-                  CVSS: <span className="text-text-primary font-bold">{cve.cvss_score.toFixed(1)}</span>
+                  {`Score CVSS`}: <span className="text-text-primary font-bold">{cve.cvss_score.toFixed(1)}</span>
                 </span>
               )}
               <span className={`text-xs font-medium ${STATUS_COLORS[cve.status]}`}>
@@ -126,7 +130,7 @@ export default function CVEDetail() {
         {cve.cvss_score > 0 && (
           <div>
             <div className="flex justify-between text-xs text-text-muted mb-1">
-              <span>Score CVSS</span>
+              <span>{`CVSS:`}</span>
               <span className="text-text-primary font-mono font-bold">{cve.cvss_score.toFixed(1)} / 10</span>
             </div>
             <div className="h-2 bg-bg-hover rounded-full overflow-hidden">
@@ -145,7 +149,7 @@ export default function CVEDetail() {
         {/* Products */}
         {products.length > 0 && (
           <div>
-            <p className="text-xs text-text-muted mb-2">Produits affectés</p>
+            <p className="text-xs text-text-muted mb-2">{`Produits affectés`}</p>
             <div className="flex flex-wrap gap-2">
               {products.map((p, i) => (
                 <span key={i} className="text-xs bg-bg-hover border border-border px-2 py-0.5 rounded text-text-secondary">
@@ -159,13 +163,13 @@ export default function CVEDetail() {
         {/* Dates */}
         <div className="grid grid-cols-2 gap-4 pt-2 border-t border-border text-xs text-text-muted">
           <div>
-            <span>Publié le</span>
+            <span>{`Publié le`}</span>
             <p className="text-text-secondary mt-0.5">
               {cve.published_at ? new Date(cve.published_at).toLocaleDateString('fr-FR') : '—'}
             </p>
           </div>
           <div>
-            <span>Ajouté le</span>
+            <span>{`Ajouté le`}</span>
             <p className="text-text-secondary mt-0.5">
               {new Date(cve.created_at).toLocaleDateString('fr-FR')}
             </p>
@@ -185,9 +189,9 @@ export default function CVEDetail() {
 
       <ConfirmModal
         open={confirmOpen}
-        title="Supprimer la CVE"
+        title={`Supprimer`}
         message={`Supprimer ${cve.cve_id} ? Cette action est irréversible.`}
-        confirmLabel="Supprimer"
+        confirmLabel={`Supprimer`}
         danger
         onConfirm={() => { setConfirmOpen(false); handleDelete() }}
         onCancel={() => setConfirmOpen(false)}

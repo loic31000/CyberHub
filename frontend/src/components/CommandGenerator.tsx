@@ -7,39 +7,7 @@ interface Props {
   schemaJson: string
 }
 
-// Validations légères selon type — purement informatives, pas bloquantes
-function validate(field: InputField, value: string): string | null {
-  if (!value && field.required) return 'Champ requis'
-  if (!value) return null
-  switch (field.type) {
-    case 'ip': {
-      const ok = /^(\d{1,3}\.){3}\d{1,3}(\/\d{1,2})?$/.test(value)
-      return ok ? null : 'Format IP attendu (ex: 192.168.1.10 ou 10.0.0.0/24)'
-    }
-    case 'domain': {
-      const ok = /^(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,}$/i.test(value)
-      return ok ? null : 'Format domaine attendu (ex: example.com)'
-    }
-    case 'email': {
-      const ok = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)
-      return ok ? null : 'Format email attendu'
-    }
-    case 'url': {
-      try { new URL(value); return null } catch { return 'URL invalide' }
-    }
-    case 'username': {
-      // pseudo-validation pseudo : pas d'espaces
-      return /\s/.test(value) ? 'Pas d\'espace dans un pseudo' : null
-    }
-    case 'number':
-      return /^\d+$/.test(value) ? null : 'Nombre attendu'
-    default:
-      return null
-  }
-}
-
 function shellEscape(value: string): string {
-  // Si la valeur contient un espace, un guillemet ou un caractère shell, on l'entoure de quotes simples
   if (/[\s"'`$\\<>|&;]/.test(value)) {
     return "'" + value.replace(/'/g, "'\\''") + "'"
   }
@@ -47,6 +15,35 @@ function shellEscape(value: string): string {
 }
 
 export default function CommandGenerator({ template, schemaJson }: Props) {
+    // Validation messages use t() — built inside component so they react to lang change
+  function validate(field: InputField, value: string): string | null {
+    if (!value && field.required) return `Champ requis`
+    if (!value) return null
+    switch (field.type) {
+      case 'ip': {
+        const ok = /^(\d{1,3}\.){3}\d{1,3}(\/\d{1,2})?$/.test(value)
+        return ok ? null : `Format IP attendu (ex: 192.168.1.10 ou 10.0.0.0/24)`
+      }
+      case 'domain': {
+        const ok = /^(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,}$/i.test(value)
+        return ok ? null : `Format domaine attendu (ex: example.com)`
+      }
+      case 'email': {
+        const ok = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)
+        return ok ? null : `Format email attendu`
+      }
+      case 'url': {
+        try { new URL(value); return null } catch { return `URL invalide` }
+      }
+      case 'username':
+        return /\s/.test(value) ? `Pas d'espace dans un pseudo` : null
+      case 'number':
+        return /^\d+$/.test(value) ? null : `Nombre attendu`
+      default:
+        return null
+    }
+  }
+
   const fields: InputField[] = useMemo(() => {
     if (!schemaJson.trim()) return []
     try {
@@ -55,7 +52,6 @@ export default function CommandGenerator({ template, schemaJson }: Props) {
     } catch { return [] }
   }, [schemaJson])
 
-  // État initial : valeurs par défaut du schéma
   const [values, setValues] = useState<Record<string, string>>(() => {
     const init: Record<string, string> = {}
     fields.forEach(f => { init[f.key] = f.default ?? '' })
@@ -71,6 +67,7 @@ export default function CommandGenerator({ template, schemaJson }: Props) {
       if (err) e[f.key] = err
     })
     return e
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [fields, values])
 
   const generatedCommand = useMemo(() => {
@@ -95,7 +92,7 @@ export default function CommandGenerator({ template, schemaJson }: Props) {
     <div className="card mb-4">
       <h2 className="text-text-primary font-semibold flex items-center gap-2 mb-4 pb-3 border-b border-border">
         <Wand2 size={16} className="text-cyber-cyan" />
-        Générateur de commande
+        {`Générateur de commande`}
       </h2>
 
       {fields.length > 0 && (
@@ -112,7 +109,7 @@ export default function CommandGenerator({ template, schemaJson }: Props) {
                   onChange={e => setValues(prev => ({ ...prev, [f.key]: e.target.value }))}
                   className="input"
                 >
-                  <option value="">— sélectionner —</option>
+                  <option value="">{`— sélectionner —`}</option>
                   {f.options.map(opt => <option key={opt} value={opt}>{opt}</option>)}
                 </select>
               ) : (
@@ -141,15 +138,13 @@ export default function CommandGenerator({ template, schemaJson }: Props) {
           onClick={copy}
           disabled={!allFilled || hasErrors}
           className="absolute top-2 right-2 p-1.5 rounded bg-bg-hover border border-border hover:border-cyber-cyan text-text-muted hover:text-cyber-cyan transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
-          title={hasErrors ? 'Corrige les erreurs avant de copier' : 'Copier la commande'}
+          title={hasErrors ? `Corrigez les erreurs avant de copier` : `Copier la commande`}
         >
           {copied ? <Check size={12} className="text-cyber-green" /> : <Copy size={12} />}
         </button>
       </div>
 
-      <p className="text-text-muted text-xs mt-2">
-        ⚠️ Cette commande est à exécuter dans <strong>ton propre terminal</strong>, jamais depuis Cyber-Hub.
-      </p>
+      <p className="text-text-muted text-xs mt-2">{`⚠️ Cette commande est à exécuter dans votre propre terminal, jamais depuis Cyber-Hub.`}</p>
     </div>
   )
 }

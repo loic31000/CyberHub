@@ -26,12 +26,8 @@ const STATUS_COLORS: Record<CVEStatus, string> = {
   na:       'text-text-muted',
 }
 
-const STATUS_LABELS: Record<CVEStatus, string> = {
-  new: 'Nouveau', analyzed: 'Analysé', patched: 'Patché', na: 'N/A',
-}
-
 export default function CVEList() {
-  const [cves, setCves]             = useState<CVEEntry[]>([])
+    const [cves, setCves]             = useState<CVEEntry[]>([])
   const [count, setCount]           = useState(0)
   const [totalPages, setTotalPages] = useState(1)
   const [page, setPage]             = useState(1)
@@ -39,6 +35,13 @@ export default function CVEList() {
   const [importing, setImporting]   = useState(false)
   const [filters, setFilters]       = useState<CVEFilter>({ severity: '', status: '', search: '' })
   const fileRef = useRef<HTMLInputElement>(null)
+
+  const STATUS_LABELS: Record<CVEStatus, string> = {
+    new: `Nouveau`,
+    analyzed: `Analysé`,
+    patched: `Patché`,
+    na: `N/A`,
+  }
 
   const fetchCVE = useCallback(async () => {
     setLoading(true)
@@ -48,7 +51,7 @@ export default function CVEList() {
       setCount(Number(res.count))
       setTotalPages((res as { total_pages?: number }).total_pages ?? 1)
     } catch {
-      toast.error('Impossible de charger les CVE')
+      toast.error(`Aucune CVE trouvée`)
       setCves([])
     } finally {
       setLoading(false)
@@ -74,7 +77,7 @@ export default function CVEList() {
       toast.success(`Import terminé : ${res.created} ajoutés, ${res.skipped} ignorés`)
       fetchCVE()
     } catch {
-      toast.error("Erreur lors de l'import — vérifiez le format NVD JSON 2.0")
+      toast.error(`Erreur lors de l'import — vérifiez le format NVD JSON 2.0`)
     } finally {
       setImporting(false)
       if (fileRef.current) fileRef.current.value = ''
@@ -88,7 +91,7 @@ export default function CVEList() {
         <div>
           <h1 className="text-2xl font-bold text-text-primary flex items-center gap-2">
             <ShieldAlert size={24} className="text-cyber-red" />
-            Veille CVE
+            {`Veille CVE`}
           </h1>
           <p className="text-text-muted text-sm mt-1">
             {count} vulnérabilité{count > 1 ? 's' : ''} indexée{count > 1 ? 's' : ''}
@@ -99,10 +102,10 @@ export default function CVEList() {
             onClick={() => fileRef.current?.click()}
             disabled={importing}
             className="flex items-center gap-2 px-3 py-2 text-sm rounded border border-border text-text-secondary hover:text-cyber-cyan hover:border-cyber-cyan/40 transition-colors disabled:opacity-50"
-            title="Importer un fichier NVD JSON 2.0 (nvd.nist.gov)"
+            title={`Importer un fichier NVD JSON 2.0 (nvd.nist.gov)`}
           >
             <Upload size={15} />
-            {importing ? 'Import...' : 'Import NVD'}
+            {importing ? `Import...` : `Import NVD`}
           </button>
           <input ref={fileRef} type="file" accept=".json" className="hidden" onChange={handleImport} />
           <Link
@@ -110,7 +113,7 @@ export default function CVEList() {
             className="btn-cyber flex items-center gap-2 px-4 py-2 rounded text-sm font-medium"
           >
             <Plus size={16} />
-            Nouvelle CVE
+            {`Nouvelle CVE`}
           </Link>
         </div>
       </div>
@@ -121,7 +124,7 @@ export default function CVEList() {
           <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-text-muted" />
           <input
             type="text"
-            placeholder="Rechercher CVE-ID, description, produit..."
+            placeholder={`Rechercher CVE-ID, description, produit...`}
             className="input w-full pl-9 pr-4 py-2 text-sm"
             value={filters.search ?? ''}
             onChange={(e) => updateFilter('search', e.target.value)}
@@ -132,7 +135,7 @@ export default function CVEList() {
           value={filters.severity ?? ''}
           onChange={(e) => updateFilter('severity', e.target.value as CVESeverity | '')}
         >
-          <option value="">Toutes les sévérités</option>
+          <option value="">{`Toutes les sévérités`}</option>
           {SEVERITIES.map((s) => <option key={s} value={s} className="capitalize">{s}</option>)}
         </select>
         <select
@@ -140,7 +143,7 @@ export default function CVEList() {
           value={filters.status ?? ''}
           onChange={(e) => updateFilter('status', e.target.value as CVEStatus | '')}
         >
-          <option value="">Tous les statuts</option>
+          <option value="">{`Tous les statuts`}</option>
           {STATUSES.map((s) => <option key={s} value={s}>{STATUS_LABELS[s]}</option>)}
         </select>
       </div>
@@ -151,8 +154,8 @@ export default function CVEList() {
       ) : cves.length === 0 ? (
         <div className="text-center py-20 text-text-muted">
           <AlertTriangle size={40} className="mx-auto mb-3 opacity-20" />
-          <p>Aucune CVE trouvée</p>
-          <p className="text-xs mt-2">Importez un fichier NVD JSON ou créez une entrée manuellement</p>
+          <p>{`Aucune CVE trouvée`}</p>
+          <p className="text-xs mt-2">{`Importez un fichier NVD JSON ou créez une entrée manuellement`}</p>
         </div>
       ) : (
         <>
@@ -160,12 +163,12 @@ export default function CVEList() {
             <table className="w-full text-sm">
               <thead className="bg-bg-secondary border-b border-border">
                 <tr className="text-text-muted text-xs uppercase tracking-wider">
-                  <th className="px-4 py-3 text-left">CVE-ID</th>
-                  <th className="px-4 py-3 text-left">Sévérité</th>
-                  <th className="px-4 py-3 text-left">Score</th>
-                  <th className="px-4 py-3 text-left">Produits</th>
-                  <th className="px-4 py-3 text-left">Statut</th>
-                  <th className="px-4 py-3 text-left">Publié</th>
+                  <th className="px-4 py-3 text-left">{`CVE-ID`}</th>
+                  <th className="px-4 py-3 text-left">{`Sévérité`}</th>
+                  <th className="px-4 py-3 text-left">{`Score`}</th>
+                  <th className="px-4 py-3 text-left">{`Produits`}</th>
+                  <th className="px-4 py-3 text-left">{`Statut`}</th>
+                  <th className="px-4 py-3 text-left">{`Publié`}</th>
                 </tr>
               </thead>
               <tbody>

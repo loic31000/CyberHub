@@ -10,7 +10,7 @@ import { toast } from '@/store/toast'
 const LIMIT = 12
 
 export default function PlaybookList() {
-  const [playbooks, setPlaybooks]   = useState<Playbook[]>([])
+    const [playbooks, setPlaybooks]   = useState<Playbook[]>([])
   const [count, setCount]           = useState(0)
   const [totalPages, setTotalPages] = useState(1)
   const [page, setPage]             = useState(1)
@@ -24,7 +24,7 @@ export default function PlaybookList() {
       setCount(Number(res.count ?? (res.playbooks ?? []).length))
       setTotalPages((res as { total_pages?: number }).total_pages ?? 1)
     } catch {
-      toast.error('Impossible de charger les playbooks')
+      toast.error(`Chargement…`)
       setPlaybooks([])
     } finally {
       setLoading(false)
@@ -40,10 +40,10 @@ export default function PlaybookList() {
         <div>
           <h1 className="text-2xl font-bold text-text-primary flex items-center gap-2">
             <BookOpen size={24} className="text-cyber-cyan" />
-            Playbooks IR
+            {`Playbooks IR`}
           </h1>
           <p className="text-text-muted text-sm mt-1">
-            Procédures de réponse à incident — {count} scénario{count > 1 ? 's' : ''}
+            {`Procédures de réponse à incident`}
           </p>
         </div>
         <Link
@@ -51,7 +51,7 @@ export default function PlaybookList() {
           className="btn-cyber flex items-center gap-2 px-4 py-2 rounded text-sm font-medium"
         >
           <Plus size={16} />
-          Nouveau playbook
+          {`Nouveau playbook`}
         </Link>
       </div>
 
@@ -61,9 +61,9 @@ export default function PlaybookList() {
       ) : playbooks.length === 0 ? (
         <div className="text-center py-20 text-text-muted">
           <BookOpen size={40} className="mx-auto mb-3 opacity-20" />
-          <p>Aucun playbook</p>
+          <p>{`Aucun playbook`}</p>
           <Link to="/playbooks/new" className="text-cyber-cyan text-sm hover:underline mt-2 block">
-            Créer le premier playbook
+            {`Créer le premier playbook`}
           </Link>
         </div>
       ) : (
@@ -106,7 +106,7 @@ export default function PlaybookList() {
                           ? <CheckCircle2 size={12} className="text-cyber-green" />
                           : <Circle size={12} />
                         }
-                        {done}/{total} étapes
+                        {`${done}/${total} étapes complétées`}
                       </span>
                       <span className={`font-medium ${pct === 100 ? 'text-cyber-green' : 'text-text-muted'}`}>
                         {pct}%

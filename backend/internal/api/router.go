@@ -114,6 +114,21 @@ func NewRouter() *gin.Engine {
 				playbooks.PATCH("/:id/steps/:stepId/toggle", handlers.ToggleStep)
 			}
 
+			// CLOAK — overrides et entrées custom utilisateur
+			// ⚠️ Usage légal et éducatif uniquement
+			cloak := protected.Group("/cloak")
+			{
+				cloak.GET("/overrides", handlers.ListCloakOverrides)
+				cloak.POST("/overrides", handlers.UpsertCloakOverride)
+				cloak.DELETE("/overrides/:id", handlers.DeleteCloakOverride)
+
+				// Annotations personnelles (couche séparée — source CLOAK inchangée)
+				cloak.GET("/annotations", handlers.ListCloakAnnotations)
+				cloak.POST("/annotations", handlers.UpsertCloakAnnotation)
+				cloak.DELETE("/annotations/:id", handlers.DeleteCloakAnnotation)
+				cloak.DELETE("/annotations/ref/*ref", handlers.DeleteCloakAnnotationByRef)
+			}
+
 			// MITRE ATT&CK — tactiques, techniques, statut seed
 			mitre := protected.Group("/mitre")
 			{

@@ -15,7 +15,7 @@ const DIFF_COLORS: Record<string, string> = {
 }
 
 export default function CTFDetail() {
-  const { id } = useParams<{ id: string }>()
+    const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
   const [writeup, setWriteup] = useState<CTFWriteup | null>(null)
   const [loading, setLoading] = useState(true)
@@ -35,10 +35,10 @@ export default function CTFDetail() {
     setDeleting(true)
     try {
       await ctfApi.delete(writeup.id)
-      toast.success(`Writeup "${writeup.title}" supprimé`)
+      toast.success(`Supprimer "${writeup.title}" ? Cette action est irréversible.`)
       navigate('/ctf')
     } catch {
-      toast.error('Erreur lors de la suppression')
+      toast.error(`Erreur lors de la sauvegarde`)
       setDeleting(false)
     }
   }
@@ -58,7 +58,7 @@ export default function CTFDetail() {
   if (!writeup) return null
 
   const flags = writeup.flags ? writeup.flags.split(',').map((f) => f.trim()).filter(Boolean) : []
-  const tags = writeup.tags ? writeup.tags.split(',').map((t) => t.trim()).filter(Boolean) : []
+  const tags = writeup.tags ? writeup.tags.split(',').map((tag) => tag.trim()).filter(Boolean) : []
 
   return (
     <div className="p-6 max-w-4xl space-y-6">
@@ -66,7 +66,7 @@ export default function CTFDetail() {
       <div className="flex items-center justify-between">
         <Link to="/ctf" className="flex items-center gap-2 text-text-muted hover:text-text-primary text-sm transition-colors">
           <ArrowLeft size={16} />
-          Retour aux writeups
+          {`Retour aux writeups`}
         </Link>
         <div className="flex gap-2">
           <Link
@@ -74,7 +74,7 @@ export default function CTFDetail() {
             className="flex items-center gap-1.5 px-3 py-1.5 text-sm rounded border border-border text-text-secondary hover:text-cyber-cyan hover:border-cyber-cyan/40 transition-colors"
           >
             <Edit size={14} />
-            Modifier
+            {`Modifier`}
           </Link>
           <button
             onClick={() => setConfirmOpen(true)}
@@ -82,7 +82,7 @@ export default function CTFDetail() {
             className="flex items-center gap-1.5 px-3 py-1.5 text-sm rounded border border-border text-text-secondary hover:text-cyber-red hover:border-cyber-red/40 transition-colors"
           >
             <Trash2 size={14} />
-            {deleting ? '...' : 'Supprimer'}
+            {deleting ? '...' : `Supprimer`}
           </button>
         </div>
       </div>
@@ -99,16 +99,16 @@ export default function CTFDetail() {
                 {writeup.difficulty}
               </span>
               {writeup.completed
-                ? <span className="flex items-center gap-1 text-xs text-cyber-green"><CheckCircle2 size={13} /> Complété</span>
-                : <span className="flex items-center gap-1 text-xs text-text-muted"><Circle size={13} /> En cours</span>
+                ? <span className="flex items-center gap-1 text-xs text-cyber-green"><CheckCircle2 size={13} /> {`Complété`}</span>
+                : <span className="flex items-center gap-1 text-xs text-text-muted"><Circle size={13} /> {`En cours`}</span>
               }
             </div>
             <h1 className="text-2xl font-bold text-text-primary">{writeup.title}</h1>
             {writeup.machine_name && (
-              <p className="text-text-muted text-sm mt-1">📦 Machine : <span className="text-text-secondary">{writeup.machine_name}</span></p>
+              <p className="text-text-muted text-sm mt-1">📦 {`Machine :`} : <span className="text-text-secondary">{writeup.machine_name}</span></p>
             )}
             {writeup.category && (
-              <p className="text-text-muted text-sm">🏷️ Catégorie : <span className="text-text-secondary">{writeup.category}</span></p>
+              <p className="text-text-muted text-sm">🏷️ {`Catégorie :`} : <span className="text-text-secondary">{writeup.category}</span></p>
             )}
           </div>
         </div>
@@ -117,7 +117,7 @@ export default function CTFDetail() {
         {flags.length > 0 && (
           <div className="mt-4 pt-4 border-t border-border">
             <p className="text-xs text-text-muted mb-2 flex items-center gap-1">
-              <Flag size={12} /> Flags capturés
+              <Flag size={12} /> {`Flags capturés`}
             </p>
             <div className="flex flex-wrap gap-2">
               {flags.map((f, i) => (
@@ -132,9 +132,9 @@ export default function CTFDetail() {
         {/* Tags */}
         {tags.length > 0 && (
           <div className="mt-3 flex flex-wrap gap-2">
-            {tags.map((t) => (
-              <span key={t} className="flex items-center gap-1 text-xs text-text-muted bg-bg-hover px-2 py-0.5 rounded">
-                <Tag size={10} /> {t}
+            {tags.map((tag) => (
+              <span key={tag} className="flex items-center gap-1 text-xs text-text-muted bg-bg-hover px-2 py-0.5 rounded">
+                <Tag size={10} /> {tag}
               </span>
             ))}
           </div>
@@ -145,7 +145,7 @@ export default function CTFDetail() {
       {writeup.content && (
         <div className="card">
           <h2 className="text-sm font-semibold text-cyber-cyan mb-4 uppercase tracking-wider">
-            📝 Writeup
+            📝 {`Writeup`}
           </h2>
           <div className="prose-cyber">
             <ReactMarkdown>{writeup.content}</ReactMarkdown>
@@ -155,9 +155,9 @@ export default function CTFDetail() {
 
       <ConfirmModal
         open={confirmOpen}
-        title="Supprimer le writeup"
+        title={`Supprimer`}
         message={`Supprimer "${writeup.title}" ? Cette action est irréversible.`}
-        confirmLabel="Supprimer"
+        confirmLabel={`Supprimer`}
         danger
         onConfirm={() => { setConfirmOpen(false); handleDelete() }}
         onCancel={() => setConfirmOpen(false)}

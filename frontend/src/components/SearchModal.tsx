@@ -11,12 +11,7 @@ const CATEGORY_ICON: Record<SearchCategory, string> = {
   playbook: '📖',
 }
 
-const CATEGORY_LABEL: Record<SearchCategory, string> = {
-  tool:     'Outils',
-  ctf:      'Writeups CTF',
-  cve:      'Veille CVE',
-  playbook: 'Playbooks',
-}
+// CATEGORY_LABEL is now resolved via t() inside the component
 
 const CATEGORY_ORDER: SearchCategory[] = ['tool', 'ctf', 'cve', 'playbook']
 
@@ -27,7 +22,7 @@ interface Props {
 }
 
 export default function SearchModal({ open, onClose }: Props) {
-  const [query, setQuery]     = useState('')
+    const [query, setQuery]     = useState('')
   const [results, setResults] = useState<SearchResult[]>([])
   const [loading, setLoading] = useState(false)
   const [activeIdx, setActiveIdx] = useState(0)
@@ -35,6 +30,13 @@ export default function SearchModal({ open, onClose }: Props) {
   const inputRef   = useRef<HTMLInputElement>(null)
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const navigate   = useNavigate()
+
+  const CATEGORY_LABEL: Record<SearchCategory, string> = {
+    tool:     `Outils`,
+    ctf:      `Writeups CTF`,
+    cve:      `Veille CVE`,
+    playbook: `Playbooks`,
+  }
 
   // Focus l'input à l'ouverture
   useEffect(() => {
@@ -145,11 +147,11 @@ export default function SearchModal({ open, onClose }: Props) {
             value={query}
             onChange={(e) => handleChange(e.target.value)}
             onKeyDown={handleKeyDown}
-            placeholder="Rechercher dans les outils, CVE, writeups, playbooks…"
+            placeholder={`Rechercher dans les outils, CVE, writeups, playbooks…`}
             className="flex-1 bg-transparent outline-none text-text-primary placeholder-text-muted text-sm"
           />
           {loading && (
-            <span className="text-xs text-text-muted animate-pulse">Recherche…</span>
+            <span className="text-xs text-text-muted animate-pulse">{`Recherche…`}</span>
           )}
           <kbd
             className="hidden sm:inline-block px-2 py-0.5 rounded text-xs border border-border text-text-muted"
@@ -162,13 +164,13 @@ export default function SearchModal({ open, onClose }: Props) {
         <div className="max-h-96 overflow-y-auto">
           {query.trim() === '' && (
             <p className="px-5 py-8 text-center text-text-muted text-sm">
-              Tapez pour rechercher dans tous les modules…
+              {`Tapez pour rechercher dans tous les modules…`}
             </p>
           )}
 
           {query.trim() !== '' && !loading && results.length === 0 && (
             <p className="px-5 py-8 text-center text-text-muted text-sm">
-              Aucun résultat pour «&nbsp;<span className="text-text-primary">{query}</span>&nbsp;»
+              {`Aucun résultat pour « ${query} »`}
             </p>
           )}
 
@@ -211,7 +213,7 @@ export default function SearchModal({ open, onClose }: Props) {
                         )}
                       </div>
                       {isActive && (
-                        <span className="text-xs text-text-muted flex-shrink-0">↵ Ouvrir</span>
+                        <span className="text-xs text-text-muted flex-shrink-0">↵ {`↵ ouvrir`}</span>
                       )}
                     </button>
                   )
@@ -224,10 +226,10 @@ export default function SearchModal({ open, onClose }: Props) {
         {/* ---- Footer ---- */}
         {results.length > 0 && (
           <div className="px-4 py-2 border-t border-border flex items-center gap-4 text-xs text-text-muted">
-            <span><kbd className="border border-border rounded px-1">↑↓</kbd> naviguer</span>
-            <span><kbd className="border border-border rounded px-1">↵</kbd> ouvrir</span>
-            <span><kbd className="border border-border rounded px-1">Esc</kbd> fermer</span>
-            <span className="ml-auto">{results.length} résultat{results.length > 1 ? 's' : ''}</span>
+            <span><kbd className="border border-border rounded px-1">↑↓</kbd> {`↑↓ naviguer`}</span>
+            <span><kbd className="border border-border rounded px-1">↵</kbd> {`↵ ouvrir`}</span>
+            <span><kbd className="border border-border rounded px-1">Esc</kbd> {`Esc fermer`}</span>
+            <span className="ml-auto">{`${results.length} résultat`}</span>
           </div>
         )}
       </div>

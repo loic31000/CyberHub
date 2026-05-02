@@ -12,7 +12,7 @@ const LIMIT = 18
 
 export default function Tools() {
   const navigate = useNavigate()
-  const [tools, setTools]       = useState<Tool[]>([])
+    const [tools, setTools]       = useState<Tool[]>([])
   const [count, setCount]       = useState(0)
   const [totalPages, setTotalPages] = useState(1)
   const [page, setPage]         = useState(1)
@@ -29,7 +29,7 @@ export default function Tools() {
         setCount(Number(r.count))
         setTotalPages((r as { total_pages?: number }).total_pages ?? 1)
       })
-      .catch(() => toast.error('Impossible de charger les outils'))
+      .catch(() => toast.error(`Impossible de charger les outils`))
       .finally(() => setLoading(false))
   }, [filters, page])
 
@@ -52,12 +52,12 @@ export default function Tools() {
       <div className="flex items-center justify-between mb-6">
         <div>
           <h1 className="text-2xl font-bold text-text-primary">
-            <span className="text-cyber-cyan">&gt;</span> Outils
+            <span className="text-cyber-cyan">&gt;</span> {`Outils`}
           </h1>
-          <p className="text-text-muted text-sm mt-1">{count} outils indexés</p>
+          <p className="text-text-muted text-sm mt-1">{count} outil{count > 1 ? 's' : ''} indexé{count > 1 ? 's' : ''}</p>
         </div>
         <button onClick={() => navigate('/tools/new')} className="btn-primary flex items-center gap-2">
-          <Plus size={16} /> Nouvel outil
+          <Plus size={16} /> {`Nouvel outil`}
         </button>
       </div>
 
@@ -70,7 +70,7 @@ export default function Tools() {
               type="text"
               value={filters.search ?? ''}
               onChange={e => updateFilter('search', e.target.value)}
-              placeholder="Rechercher un outil, tag, description…"
+              placeholder={`Rechercher un outil, tag, description…`}
               className="input pl-9"
             />
           </div>
@@ -78,11 +78,11 @@ export default function Tools() {
             onClick={() => setShowFilters(!showFilters)}
             className={`btn-secondary flex items-center gap-2 ${showFilters ? 'border-cyber-cyan text-cyber-cyan' : ''}`}
           >
-            <SlidersHorizontal size={16} /> Filtres
+            <SlidersHorizontal size={16} /> {`Filtres`}
           </button>
           {hasActiveFilters && (
             <button onClick={clearFilters} className="btn-secondary flex items-center gap-1 text-cyber-red border-cyber-red/40">
-              <X size={14} /> Effacer
+              <X size={14} /> {`Effacer`}
             </button>
           )}
         </div>
@@ -90,7 +90,7 @@ export default function Tools() {
         {showFilters && (
           <div className="card flex flex-wrap gap-6">
             <div>
-              <label className="text-text-muted text-xs block mb-2">Catégorie</label>
+              <label className="text-text-muted text-xs block mb-2">{`Catégorie`}</label>
               <div className="flex gap-2">
                 {(['', 'offensive', 'defensive'] as const).map(c => (
                   <button key={c} onClick={() => updateFilter('category', c as ToolCategory | '')}
@@ -100,26 +100,26 @@ export default function Tools() {
                         : c === 'defensive' ? 'bg-cyber-green/20 border-cyber-green text-cyber-green'
                         : 'bg-cyber-cyan/20 border-cyber-cyan text-cyber-cyan'
                         : 'border-border text-text-secondary hover:border-border-bright'}`}>
-                    {c === '' ? 'Tous' : c}
+                    {c === '' ? `Tous` : c}
                   </button>
                 ))}
               </div>
             </div>
             <div>
-              <label className="text-text-muted text-xs block mb-2">OS</label>
+              <label className="text-text-muted text-xs block mb-2">{`OS`}</label>
               <div className="flex gap-2">
                 {(['', 'windows', 'linux', 'both'] as const).map(o => (
                   <button key={o} onClick={() => updateFilter('os', o as ToolOS | '')}
                     className={`text-xs px-3 py-1.5 rounded border transition-colors ${
                       filters.os === o ? 'bg-cyber-cyan/20 border-cyber-cyan text-cyber-cyan' : 'border-border text-text-secondary hover:border-border-bright'}`}>
-                    {o === '' ? 'Tous' : o}
+                    {o === '' ? `Tous` : o}
                   </button>
                 ))}
               </div>
             </div>
             {categories.length > 0 && (
               <div>
-                <label className="text-text-muted text-xs block mb-2">Sous-catégorie</label>
+                <label className="text-text-muted text-xs block mb-2">{`Sous-catégorie`}</label>
                 <div className="flex gap-2 flex-wrap">
                   {['', ...categories].map(c => (
                     <button key={c} onClick={() => updateFilter('sub_category', c)}
@@ -127,7 +127,7 @@ export default function Tools() {
                         (filters.sub_category ?? '') === c
                           ? 'bg-cyber-purple/20 border-cyber-purple text-cyber-purple'
                           : 'border-border text-text-secondary hover:border-border-bright'}`}>
-                      {c === '' ? 'Toutes' : c}
+                      {c === '' ? `Toutes` : c}
                     </button>
                   ))}
                 </div>
@@ -142,11 +142,11 @@ export default function Tools() {
         <CardGridSkeleton count={6} />
       ) : tools.length === 0 ? (
         <div className="text-center py-20">
-          <p className="text-text-muted text-lg">Aucun outil trouvé</p>
+          <p className="text-text-muted text-lg">{`Aucun outil trouvé`}</p>
           <p className="text-text-muted text-sm mt-2">
-            {hasActiveFilters ? 'Modifie tes filtres ou ' : ''}
+            {hasActiveFilters ? `${`Modifie tes filtres ou`} ` : ''}
             <button onClick={() => navigate('/tools/new')} className="text-cyber-cyan hover:underline">
-              crée le premier outil
+              {`crée le premier outil`}
             </button>
           </p>
         </div>

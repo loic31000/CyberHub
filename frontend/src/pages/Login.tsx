@@ -5,7 +5,7 @@ import { useAuthStore } from '@/store/auth'
 import { Shield, Eye, EyeOff, Lock } from 'lucide-react'
 
 export default function Login() {
-  const [password, setPassword] = useState('')
+    const [password, setPassword] = useState('')
   const [showPassword, setShowPassword] = useState(false)
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
@@ -35,7 +35,7 @@ export default function Login() {
       setToken(data.token)
       navigate('/dashboard')
     } catch {
-      setError(isSetup ? 'Mot de passe incorrect' : 'Erreur lors du setup')
+      setError(isSetup ? `Mot de passe incorrect` : `Erreur lors du setup`)
       setPassword('')
     } finally {
       setLoading(false)
@@ -58,13 +58,13 @@ export default function Login() {
             <Shield size={32} className="text-cyber-cyan" />
           </div>
           <h1 className="text-3xl font-bold text-cyber-cyan tracking-widest">CYBER-HUB</h1>
-          <p className="text-text-muted text-sm mt-2">Hub de cybersécurité local · offline</p>
+          <p className="text-text-muted text-sm mt-2">{`Hub de cybersécurité local · offline`}</p>
         </div>
         <div className="bg-bg-secondary border border-border rounded-xl p-8">
           {!statusLoading && !isSetup && (
             <div className="mb-6 p-3 rounded bg-cyber-orange/10 border border-cyber-orange/30">
               <p className="text-cyber-orange text-sm text-center">
-                Premier lancement — Définissez votre mot de passe
+                {`Premier lancement — Définissez votre mot de passe`}
               </p>
             </div>
           )}
@@ -72,14 +72,14 @@ export default function Login() {
             <div>
               <label className="block text-text-secondary text-sm mb-2">
                 <Lock size={14} className="inline mr-1" />
-                {isSetup ? 'Mot de passe' : 'Nouveau mot de passe'}
+                {isSetup ? `Mot de passe` : `Nouveau mot de passe`}
               </label>
               <div className="relative">
                 <input
                   type={showPassword ? 'text' : 'password'}
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  placeholder={isSetup ? '••••••••' : 'Min. 4 caractères'}
+                  placeholder={isSetup ? '••••••••' : `Min. 4 caractères`}
                   className="input pr-10"
                   autoFocus
                   disabled={loading || statusLoading}
@@ -96,14 +96,14 @@ export default function Login() {
               {loading ? (
                 <span className="flex items-center justify-center gap-2">
                   <span className="animate-spin w-4 h-4 border-2 border-bg-primary border-t-transparent rounded-full" />
-                  Connexion...
+                  {`Connexion...`}
                 </span>
-              ) : isSetup ? 'Connexion' : 'Configurer'}
+              ) : isSetup ? `Connexion` : `Configurer`}
             </button>
           </form>
         </div>
         <p className="text-center text-text-muted text-xs mt-6">
-          Usage légal uniquement · Données 100% locales
+          {`Usage légal uniquement · Données 100% locales`}
         </p>
       </div>
     </div>

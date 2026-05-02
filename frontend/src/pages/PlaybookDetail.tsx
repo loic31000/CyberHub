@@ -7,7 +7,7 @@ import ConfirmModal from '@/components/ConfirmModal'
 import { toast } from '@/store/toast'
 
 export default function PlaybookDetail() {
-  const { id } = useParams<{ id: string }>()
+    const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
   const [playbook, setPlaybook] = useState<Playbook | null>(null)
   const [loading, setLoading] = useState(true)
@@ -46,9 +46,9 @@ export default function PlaybookDetail() {
       setPlaybook((pb) =>
         pb ? { ...pb, steps: pb.steps.map((s) => ({ ...s, checked: false })) } : pb
       )
-      toast.success('Étapes remises à zéro')
+      toast.success(`Étapes remises à zéro`)
     } catch {
-      toast.error('Erreur lors du reset')
+      toast.error(`Erreur lors du reset`)
     } finally {
       setResetting(false)
     }
@@ -59,10 +59,10 @@ export default function PlaybookDetail() {
     setDeleting(true)
     try {
       await playbookApi.delete(playbook.id)
-      toast.success(`Playbook "${playbook.title}" supprimé`)
+      toast.success(`Supprimer "${playbook.title}" ? Cette action est irréversible.`)
       navigate('/playbooks')
     } catch {
-      toast.error('Erreur lors de la suppression')
+      toast.error(`Supprimer`)
       setDeleting(false)
     }
   }
@@ -92,24 +92,24 @@ export default function PlaybookDetail() {
       <div className="flex items-center justify-between">
         <Link to="/playbooks" className="flex items-center gap-2 text-text-muted hover:text-text-primary text-sm transition-colors">
           <ArrowLeft size={16} />
-          Retour aux playbooks
+          {`Retour aux playbooks`}
         </Link>
         <div className="flex gap-2">
           <button
             onClick={() => setResetOpen(true)}
             disabled={resetting || done === 0}
             className="flex items-center gap-1.5 px-3 py-1.5 text-sm rounded border border-border text-text-secondary hover:text-yellow-400 hover:border-yellow-400/40 transition-colors disabled:opacity-40"
-            title="Remettre toutes les étapes à zéro"
+            title={`Remettre toutes les étapes à zéro`}
           >
             <RotateCcw size={14} />
-            Reset
+            {`Reset`}
           </button>
           <Link
             to={`/playbooks/${playbook.id}/edit`}
             className="flex items-center gap-1.5 px-3 py-1.5 text-sm rounded border border-border text-text-secondary hover:text-cyber-cyan hover:border-cyber-cyan/40 transition-colors"
           >
             <Edit size={14} />
-            Modifier
+            {`Modifier`}
           </Link>
           <button
             onClick={() => setConfirmOpen(true)}
@@ -117,7 +117,7 @@ export default function PlaybookDetail() {
             className="flex items-center gap-1.5 px-3 py-1.5 text-sm rounded border border-border text-text-secondary hover:text-cyber-red hover:border-cyber-red/40 transition-colors"
           >
             <Trash2 size={14} />
-            {deleting ? '...' : 'Supprimer'}
+            {deleting ? '...' : `Supprimer`}
           </button>
         </div>
       </div>
@@ -145,8 +145,8 @@ export default function PlaybookDetail() {
         {/* Progress bar */}
         <div className="space-y-1">
           <div className="flex justify-between text-xs text-text-muted">
-            <span>{done}/{total} étapes complétées</span>
-            {pct === 100 && <span className="text-cyber-green font-medium">✓ Playbook terminé</span>}
+            <span>{`${done}/${total} étapes complétées`}</span>
+            {pct === 100 && <span className="text-cyber-green font-medium">✓ `Playbook terminé`</span>}
           </div>
           <div className="h-2 bg-bg-hover rounded-full overflow-hidden">
             <div
@@ -186,17 +186,17 @@ export default function PlaybookDetail() {
 
       <ConfirmModal
         open={resetOpen}
-        title="Remettre à zéro"
-        message="Remettre toutes les étapes à zéro ? La progression sera perdue."
-        confirmLabel="Remettre à zéro"
+        title={`Reset`}
+        message={`Remettre toutes les étapes à zéro ? La progression sera perdue.`}
+        confirmLabel={`Reset`}
         onConfirm={() => { setResetOpen(false); handleReset() }}
         onCancel={() => setResetOpen(false)}
       />
       <ConfirmModal
         open={confirmOpen}
-        title="Supprimer le playbook"
-        message={`Supprimer "${playbook.title}" ? Cette action est irréversible.`}
-        confirmLabel="Supprimer"
+        title={`Supprimer`}
+        message={`${`Supprimer "${playbook.title}" ? Cette action est irréversible.`} ${`Cette action est irréversible.`}`}
+        confirmLabel={`Supprimer`}
         danger
         onConfirm={() => { setConfirmOpen(false); handleDelete() }}
         onCancel={() => setConfirmOpen(false)}

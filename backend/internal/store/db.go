@@ -33,7 +33,7 @@ func InitDB(dbPath string) error {
 	DB.Exec("PRAGMA foreign_keys = ON")
 	DB.Exec("PRAGMA journal_mode = WAL") // Meilleures performances concurrent
 
-	// Auto-migration des modèles (v0.7 — pivot knowledge base)
+	// Auto-migration des modèles (v0.6 — pivot knowledge base)
 	if err = DB.AutoMigrate(
 		&models.Settings{},
 		&models.Tool{},
@@ -45,6 +45,8 @@ func InitDB(dbPath string) error {
 		&models.MITRETactic{},    // tactiques MITRE ATT&CK
 		&models.MITRETechnique{}, // techniques MITRE ATT&CK
 		&models.IOC{},            // IOC Manager — Phase 3
+		&models.CloakOverride{},     // CLOAK — modifications et entrées custom utilisateur
+		&models.CloakAnnotation{},   // CLOAK — annotations personnelles (couche séparée, source inchangée)
 	); err != nil {
 		return err
 	}

@@ -20,7 +20,7 @@ const DEFAULT_FORM: CTFCreateRequest = {
 }
 
 export default function CTFForm() {
-  const { id } = useParams<{ id: string }>()
+    const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
   const isEdit = Boolean(id)
   const [form, setForm] = useState<CTFCreateRequest>(DEFAULT_FORM)
@@ -48,7 +48,7 @@ export default function CTFForm() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!form.title.trim()) { setError('Le titre est requis'); return }
+    if (!form.title.trim()) { setError(`Le titre est requis`); return }
     setSaving(true)
     setError('')
     try {
@@ -61,7 +61,7 @@ export default function CTFForm() {
       }
     } catch (err: unknown) {
       const e = err as { response?: { data?: { error?: string } } }
-      setError(e?.response?.data?.error ?? 'Erreur lors de la sauvegarde')
+      setError(e?.response?.data?.error ?? `Erreur lors de la sauvegarde`)
       setSaving(false)
     }
   }
@@ -69,7 +69,7 @@ export default function CTFForm() {
   const set = (field: keyof CTFCreateRequest, value: CTFCreateRequest[keyof CTFCreateRequest]) =>
     setForm((f) => ({ ...f, [field]: value }))
 
-  if (loading) return <div className="p-6 text-text-muted">Chargement...</div>
+  if (loading) return <div className="p-6 text-text-muted">{`Chargement…`}</div>
 
   return (
     <div className="p-6 max-w-3xl">
@@ -78,7 +78,7 @@ export default function CTFForm() {
           <ArrowLeft size={20} />
         </button>
         <h1 className="text-xl font-bold text-text-primary">
-          {isEdit ? 'Modifier le writeup' : 'Nouveau writeup CTF'}
+          {isEdit ? `Modifier le writeup` : `Nouveau writeup CTF`}
         </h1>
       </div>
 
@@ -91,11 +91,11 @@ export default function CTFForm() {
       <form onSubmit={handleSubmit} className="space-y-5">
         {/* Title */}
         <div>
-          <label className="block text-sm text-text-secondary mb-1">Titre *</label>
+          <label className="block text-sm text-text-secondary mb-1">{`Titre *`} *</label>
           <input
             type="text"
             className="input-cyber w-full px-3 py-2 text-sm"
-            placeholder="Ex: Lame — HackTheBox"
+            placeholder={`Ex: Lame — HackTheBox`}
             value={form.title}
             onChange={(e) => set('title', e.target.value)}
           />
@@ -104,7 +104,7 @@ export default function CTFForm() {
         {/* Platform + Machine + Difficulty */}
         <div className="grid grid-cols-3 gap-4">
           <div>
-            <label className="block text-sm text-text-secondary mb-1">Plateforme</label>
+            <label className="block text-sm text-text-secondary mb-1">{`Plateforme`}</label>
             <select
               className="input-cyber w-full px-3 py-2 text-sm"
               value={form.platform}
@@ -114,17 +114,17 @@ export default function CTFForm() {
             </select>
           </div>
           <div>
-            <label className="block text-sm text-text-secondary mb-1">Nom machine</label>
+            <label className="block text-sm text-text-secondary mb-1">{`Nom machine`}</label>
             <input
               type="text"
               className="input-cyber w-full px-3 py-2 text-sm"
-              placeholder="Ex: Lame"
+              placeholder={`Ex: Lame`}
               value={form.machine_name}
               onChange={(e) => set('machine_name', e.target.value)}
             />
           </div>
           <div>
-            <label className="block text-sm text-text-secondary mb-1">Difficulté</label>
+            <label className="block text-sm text-text-secondary mb-1">{`Difficulté`}</label>
             <select
               className="input-cyber w-full px-3 py-2 text-sm capitalize"
               value={form.difficulty}
@@ -138,21 +138,21 @@ export default function CTFForm() {
         {/* Category + Tags */}
         <div className="grid grid-cols-2 gap-4">
           <div>
-            <label className="block text-sm text-text-secondary mb-1">Catégorie</label>
+            <label className="block text-sm text-text-secondary mb-1">{`Catégorie`}</label>
             <input
               type="text"
               className="input-cyber w-full px-3 py-2 text-sm"
-              placeholder="Ex: Web, Pwn, Forensic..."
+              placeholder={`Ex: Web, Pwn, Forensic...`}
               value={form.category}
               onChange={(e) => set('category', e.target.value)}
             />
           </div>
           <div>
-            <label className="block text-sm text-text-secondary mb-1">Tags (virgule-séparés)</label>
+            <label className="block text-sm text-text-secondary mb-1">{`Tags (virgule-séparés)`}</label>
             <input
               type="text"
               className="input-cyber w-full px-3 py-2 text-sm"
-              placeholder="Ex: privesc, linux, smb"
+              placeholder={`Ex: privesc, linux, smb`}
               value={form.tags}
               onChange={(e) => set('tags', e.target.value)}
             />
@@ -161,11 +161,11 @@ export default function CTFForm() {
 
         {/* Flags */}
         <div>
-          <label className="block text-sm text-text-secondary mb-1">Flags (virgule-séparés)</label>
+          <label className="block text-sm text-text-secondary mb-1">{`Flags (virgule-séparés)`}</label>
           <input
             type="text"
             className="input-cyber w-full px-3 py-2 text-sm font-mono"
-            placeholder="Ex: HTB{abc123}, user.txt: abc..."
+            placeholder={`Ex: HTB{abc123}, user.txt: abc...`}
             value={form.flags}
             onChange={(e) => set('flags', e.target.value)}
           />
@@ -174,7 +174,7 @@ export default function CTFForm() {
         {/* Content */}
         <div>
           <label className="block text-sm text-text-secondary mb-1">
-            Writeup <span className="text-text-muted">(Markdown)</span>
+            {`Writeup`} <span className="text-text-muted">{`(Markdown)`}</span>
           </label>
           <textarea
             className="input-cyber w-full px-3 py-2 text-sm font-mono resize-y"
@@ -193,7 +193,7 @@ export default function CTFForm() {
             checked={form.completed}
             onChange={(e) => set('completed', e.target.checked)}
           />
-          <span className="text-sm text-text-secondary">Machine complétée (root/pwned)</span>
+          <span className="text-sm text-text-secondary">{`Machine complétée (root/pwned)`}</span>
         </label>
 
         {/* Submit */}
@@ -204,14 +204,14 @@ export default function CTFForm() {
             className="btn-cyber flex items-center gap-2 px-5 py-2 rounded text-sm font-medium disabled:opacity-50"
           >
             <Save size={15} />
-            {saving ? 'Sauvegarde...' : isEdit ? 'Enregistrer' : 'Créer le writeup'}
+            {saving ? `Sauvegarde…` : isEdit ? `Enregistrer` : `Créer le writeup`}
           </button>
           <button
             type="button"
             onClick={() => navigate('/ctf')}
             className="px-5 py-2 rounded text-sm border border-border text-text-secondary hover:text-text-primary transition-colors"
           >
-            Annuler
+            {`Annuler`}
           </button>
         </div>
       </form>

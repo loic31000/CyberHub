@@ -46,38 +46,33 @@ function MarkdownSection({ title, content, icon }: { title: string; content: str
   )
 }
 
-// Bandeau d'avertissement éthique en haut de la fiche selon le niveau.
 function EthicalBanner({ level }: { level: EthicalLevel }) {
-  if (level === 'standard') return null
-
+    if (level === 'standard') return null
   const isWarning = level === 'warning'
   const cls = isWarning
     ? 'border-cyber-red/50 bg-cyber-red/10 text-cyber-red'
     : 'border-cyber-orange/50 bg-cyber-orange/10 text-cyber-orange'
   const Icon = isWarning ? AlertTriangle : Info
-  const title = isWarning
-    ? "Outil offensif — référencé à titre pédagogique uniquement"
-    : "Usage réglementé — autorisation écrite obligatoire"
-  const body = isWarning
-    ? "L'utilisation de cet outil contre un système sans autorisation est punie par le Code Pénal (Art. 323-1 à 323-7 en France). Cyber-Hub ne lance pas cet outil — il est documenté ici uniquement à des fins éducatives et défensives (CTF, lab perso, recherche académique)."
-    : "Légal uniquement dans le cadre d'un audit autorisé : tes propres systèmes, lab personnel, CTF, programme de bug bounty avec scope écrit. Toute utilisation hors de ce cadre relève du Code Pénal Art. 323-1 à 323-7."
-
   return (
     <div className={`border rounded-lg p-4 mb-6 flex gap-3 items-start ${cls}`}>
       <Icon size={20} className="flex-shrink-0 mt-0.5" />
       <div>
-        <p className="font-semibold text-sm mb-1">{title}</p>
-        <p className="text-xs leading-relaxed opacity-90">{body}</p>
+        <p className="font-semibold text-sm mb-1">
+          {isWarning ? `Outil offensif — référencé à titre pédagogique uniquement` : `Usage réglementé — autorisation écrite obligatoire`}
+        </p>
+        <p className="text-xs leading-relaxed opacity-90">
+          {isWarning ? `L'utilisation de cet outil contre un système sans autorisation est punie par le Code Pénal (Art. 323-1 à 323-7 en France). Cyber-Hub ne lance pas cet outil — il est documenté ici uniquement à des fins éducatives et défensives (CTF, lab perso, recherche académique).` : `Légal uniquement dans le cadre d'un audit autorisé : tes propres systèmes, lab personnel, CTF, programme de bug bounty avec scope écrit. Toute utilisation hors de ce cadre relève du Code Pénal Art. 323-1 à 323-7.`}
+        </p>
       </div>
     </div>
   )
 }
 
 function EthicalBadge({ level }: { level: EthicalLevel }) {
-  const cfg = {
-    standard: { label: '🟢 Standard', cls: 'border-cyber-green/40 text-cyber-green' },
-    elevated: { label: '🟡 Élevé',    cls: 'border-cyber-orange/40 text-cyber-orange' },
-    warning:  { label: '🔴 Avertissement', cls: 'border-cyber-red/40 text-cyber-red' },
+    const cfg = {
+    standard: { label: '🟢 Standard',                    cls: 'border-cyber-green/40 text-cyber-green' },
+    elevated:  { label: `🟡 Élevé`,     cls: 'border-cyber-orange/40 text-cyber-orange' },
+    warning:   { label: `🔴 Avertissement`,      cls: 'border-cyber-red/40 text-cyber-red' },
   }[level] ?? { label: level, cls: 'border-border text-text-muted' }
   return <span className={`badge-tag ${cfg.cls}`}>{cfg.label}</span>
 }
@@ -85,7 +80,7 @@ function EthicalBadge({ level }: { level: EthicalLevel }) {
 export default function ToolDetail() {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
-  const [tool, setTool] = useState<Tool | null>(null)
+    const [tool, setTool] = useState<Tool | null>(null)
   const [loading, setLoading] = useState(true)
   const [deleting, setDeleting] = useState(false)
   const [confirmOpen, setConfirmOpen] = useState(false)
@@ -101,10 +96,10 @@ export default function ToolDetail() {
     setDeleting(true)
     try {
       await toolsApi.delete(Number(id))
-      toast.success(`Fiche "${tool.name}" supprimée`)
+      toast.success(`Supprimer "${tool.name}" ? Cette action est irréversible.`)
       navigate('/tools')
     } catch {
-      toast.error('Erreur lors de la suppression')
+      toast.error(`Erreur`)
       setDeleting(false)
     }
   }
@@ -119,12 +114,12 @@ export default function ToolDetail() {
 
   if (!tool) return (
     <div className="p-8 text-center">
-      <p className="text-text-muted">Fiche non trouvée</p>
-      <button onClick={() => navigate('/tools')} className="btn-primary mt-4">Retour</button>
+      <p className="text-text-muted">{`Fiche non trouvée`}</p>
+      <button onClick={() => navigate('/tools')} className="btn-primary mt-4">{`Retour`}</button>
     </div>
   )
 
-  const tags = tool.tags ? tool.tags.split(',').map(t => t.trim()).filter(Boolean) : []
+  const tags = tool.tags ? tool.tags.split(',').map(tg => tg.trim()).filter(Boolean) : []
   const level = tool.ethical_level ?? 'standard'
 
   return (
@@ -132,19 +127,18 @@ export default function ToolDetail() {
       {/* Header */}
       <div className="flex items-center justify-between mb-6">
         <button onClick={() => navigate('/tools')} className="flex items-center gap-2 text-text-secondary hover:text-cyber-cyan transition-colors text-sm">
-          <ArrowLeft size={16} /> Retour aux outils
+          <ArrowLeft size={16} /> {`Retour aux outils`}
         </button>
         <div className="flex gap-2">
           <button onClick={() => navigate(`/tools/${id}/edit`)} className="btn-secondary flex items-center gap-2 text-sm">
-            <Pencil size={14} /> Éditer
+            <Pencil size={14} /> {`Modifier`}
           </button>
           <button onClick={() => setConfirmOpen(true)} disabled={deleting} className="btn-danger flex items-center gap-2 text-sm">
-            <Trash2 size={14} /> Supprimer
+            <Trash2 size={14} /> {`Supprimer`}
           </button>
         </div>
       </div>
 
-      {/* Bandeau éthique */}
       <EthicalBanner level={level} />
 
       {/* Title + badges */}
@@ -168,68 +162,54 @@ export default function ToolDetail() {
         </div>
       </div>
 
-      {/* Description */}
       <div className="card mb-4">
         <p className="text-text-secondary leading-relaxed">{tool.description}</p>
       </div>
 
-      {/* Procédure pas-à-pas (markdown) */}
-      <MarkdownSection title="Procédure pas-à-pas" content={tool.procedure ?? ''} icon={<BookOpen size={16} className="text-cyber-cyan" />} />
-
-      {/* Générateur de commande */}
+      <MarkdownSection title={`Procédure pas-à-pas`} content={tool.procedure ?? ''} icon={<BookOpen size={16} className="text-cyber-cyan" />} />
       <CommandGenerator template={tool.command_template ?? ''} schemaJson={tool.input_schema ?? ''} />
+      <MarkdownSection title={`Installation`} content={tool.install} icon={<Download size={16} className="text-cyber-cyan" />} />
+      <MarkdownSection title={`Utilisation`} content={tool.usage} icon={<Terminal size={16} className="text-cyber-orange" />} />
+      <MarkdownSection title={`Exemples`} content={tool.examples} icon={<Copy size={16} className="text-cyber-purple" />} />
+      <MarkdownSection title={`Détection & Contre-mesures`} content={tool.defense} icon={<ShieldAlert size={16} className="text-cyber-green" />} />
+      <MarkdownSection title={`⚠️ Notes légales (Art. 323-1, scope, etc.)`} content={tool.legal_notes ?? ''} icon={<Scale size={16} className="text-cyber-red" />} />
+      <MarkdownSection title={`Cas d'usage éthiques`} content={tool.ethical_use_cases ?? ''} icon={<Scale size={16} className="text-cyber-green" />} />
 
-      {/* Sections markdown standards */}
-      <MarkdownSection title="Installation" content={tool.install} icon={<Download size={16} className="text-cyber-cyan" />} />
-      <MarkdownSection title="Utilisation" content={tool.usage} icon={<Terminal size={16} className="text-cyber-orange" />} />
-      <MarkdownSection title="Exemples" content={tool.examples} icon={<Copy size={16} className="text-cyber-purple" />} />
-      <MarkdownSection title="Détection & Contre-mesures" content={tool.defense} icon={<ShieldAlert size={16} className="text-cyber-green" />} />
-
-      {/* Encadrement légal et éthique */}
-      <MarkdownSection title="⚠️ Notes légales" content={tool.legal_notes ?? ''} icon={<Scale size={16} className="text-cyber-red" />} />
-      <MarkdownSection title="Cas d'usage éthiques" content={tool.ethical_use_cases ?? ''} icon={<Scale size={16} className="text-cyber-green" />} />
-
-      {/* Notes perso (repliables) */}
+      {/* Notes perso */}
       {(tool.user_notes || showNotes) && (
         <div className="card mb-4">
-          <button
-            onClick={() => setShowNotes(v => !v)}
-            className="w-full text-left text-text-primary font-semibold flex items-center justify-between gap-2 pb-3 border-b border-border"
-          >
+          <button onClick={() => setShowNotes(v => !v)}
+            className="w-full text-left text-text-primary font-semibold flex items-center justify-between gap-2 pb-3 border-b border-border">
             <span className="flex items-center gap-2">
               <FileText size={16} className="text-cyber-cyan" />
-              Notes personnelles
-              <span className="text-text-muted text-xs font-normal">(privées, isolées du contenu officiel)</span>
+              {`Notes personnelles (privées)`}
+              <span className="text-text-muted text-xs font-normal">{`(privées, isolées du contenu officiel)`}</span>
             </span>
             <span className="text-xs text-text-muted">{showNotes ? '▼' : '▶'}</span>
           </button>
           {showNotes && tool.user_notes && (
-            <div className="prose-cyber mt-4">
-              <ReactMarkdown>{tool.user_notes}</ReactMarkdown>
-            </div>
+            <div className="prose-cyber mt-4"><ReactMarkdown>{tool.user_notes}</ReactMarkdown></div>
           )}
           {showNotes && !tool.user_notes && (
             <p className="text-text-muted text-sm mt-4">
-              Aucune note pour le moment. Clique sur <strong>Éditer</strong> pour en ajouter.
+              {`Cliquez sur Modifier pour ajouter des notes personnelles.`}
             </p>
           )}
         </div>
       )}
       {!tool.user_notes && !showNotes && (
-        <button
-          onClick={() => setShowNotes(true)}
-          className="w-full card text-left text-text-muted hover:text-text-primary text-sm flex items-center gap-2"
-        >
+        <button onClick={() => setShowNotes(true)}
+          className="w-full card text-left text-text-muted hover:text-text-primary text-sm flex items-center gap-2">
           <FileText size={14} />
-          Ajouter des notes personnelles…
+          {`Ajouter des notes personnelles…`}
         </button>
       )}
 
       <ConfirmModal
         open={confirmOpen}
-        title="Supprimer la fiche"
+        title={`Confirmation`}
         message={`Supprimer "${tool.name}" ? Cette action est irréversible.`}
-        confirmLabel="Supprimer"
+        confirmLabel={`Supprimer`}
         danger
         onConfirm={() => { setConfirmOpen(false); handleDelete() }}
         onCancel={() => setConfirmOpen(false)}

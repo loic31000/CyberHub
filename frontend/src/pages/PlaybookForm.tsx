@@ -10,7 +10,7 @@ interface StepDraft {
 }
 
 export default function PlaybookForm() {
-  const { id } = useParams<{ id: string }>()
+    const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
   const isEdit = Boolean(id)
 
@@ -48,8 +48,8 @@ export default function PlaybookForm() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!title.trim()) { setError('Le titre est requis'); return }
-    if (steps.every((s) => !s.content.trim())) { setError('Au moins une étape est requise'); return }
+    if (!title.trim()) { setError(`Le titre est requis`); return }
+    if (steps.every((s) => !s.content.trim())) { setError(`Au moins une étape est requise`); return }
 
     setSaving(true)
     setError('')
@@ -73,12 +73,12 @@ export default function PlaybookForm() {
       }
     } catch (err: unknown) {
       const e = err as { response?: { data?: { error?: string } } }
-      setError(e?.response?.data?.error ?? 'Erreur lors de la sauvegarde')
+      setError(e?.response?.data?.error ?? `Enregistrer`)
       setSaving(false)
     }
   }
 
-  if (loading) return <div className="p-6 text-text-muted">Chargement...</div>
+  if (loading) return <div className="p-6 text-text-muted">{`Chargement…`}</div>
 
   return (
     <div className="p-6 max-w-2xl">
@@ -87,7 +87,7 @@ export default function PlaybookForm() {
           <ArrowLeft size={20} />
         </button>
         <h1 className="text-xl font-bold text-text-primary">
-          {isEdit ? 'Modifier le playbook' : 'Nouveau playbook'}
+          {isEdit ? `Modifier le playbook` : `Nouveau playbook`}
         </h1>
       </div>
 
@@ -100,11 +100,11 @@ export default function PlaybookForm() {
       <form onSubmit={handleSubmit} className="space-y-5">
         {/* Title */}
         <div>
-          <label className="block text-sm text-text-secondary mb-1">Titre *</label>
+          <label className="block text-sm text-text-secondary mb-1">{`Titre *`}</label>
           <input
             type="text"
             className="input-cyber w-full px-3 py-2 text-sm"
-            placeholder="Ex: Réponse Ransomware"
+            placeholder={`Ex: Réponse Ransomware`}
             value={title}
             onChange={(e) => setTitle(e.target.value)}
           />
@@ -113,21 +113,21 @@ export default function PlaybookForm() {
         {/* Scenario + Description */}
         <div className="grid grid-cols-2 gap-4">
           <div>
-            <label className="block text-sm text-text-secondary mb-1">Scénario (slug)</label>
+            <label className="block text-sm text-text-secondary mb-1">{`Scénario (slug)`}</label>
             <input
               type="text"
               className="input-cyber w-full px-3 py-2 text-sm font-mono"
-              placeholder="Ex: ransomware, phishing..."
+              placeholder={`Ex: ransomware, phishing...`}
               value={scenario}
               onChange={(e) => setScenario(e.target.value.toLowerCase().replace(/\s+/g, '-'))}
             />
           </div>
           <div>
-            <label className="block text-sm text-text-secondary mb-1">Description courte</label>
+            <label className="block text-sm text-text-secondary mb-1">{`Description courte`}</label>
             <input
               type="text"
               className="input-cyber w-full px-3 py-2 text-sm"
-              placeholder="Résumé du scénario..."
+              placeholder={`Résumé du scénario...`}
               value={description}
               onChange={(e) => setDescription(e.target.value)}
             />
@@ -137,14 +137,14 @@ export default function PlaybookForm() {
         {/* Steps */}
         <div>
           <div className="flex items-center justify-between mb-3">
-            <label className="text-sm text-text-secondary">Étapes de la checklist</label>
+            <label className="text-sm text-text-secondary">{`Étapes de la checklist`}</label>
             <button
               type="button"
               onClick={addStep}
               className="flex items-center gap-1 text-xs text-cyber-cyan hover:text-cyber-cyan/80 transition-colors"
             >
               <Plus size={14} />
-              Ajouter une étape
+              {`Ajouter une étape`}
             </button>
           </div>
           <div className="space-y-2">
@@ -157,7 +157,7 @@ export default function PlaybookForm() {
                 <input
                   type="text"
                   className="input-cyber flex-1 px-3 py-2 text-sm"
-                  placeholder={`Étape ${i + 1}...`}
+                  placeholder={`${`étapes`} ${i + 1}...`}
                   value={step.content}
                   onChange={(e) => updateStep(i, e.target.value)}
                 />
@@ -183,14 +183,14 @@ export default function PlaybookForm() {
             className="btn-cyber flex items-center gap-2 px-5 py-2 rounded text-sm font-medium disabled:opacity-50"
           >
             <Save size={15} />
-            {saving ? 'Sauvegarde...' : isEdit ? 'Enregistrer' : 'Créer le playbook'}
+            {saving ? `Sauvegarde…` : isEdit ? `Mettre à jour` : `Nouveau playbook`}
           </button>
           <button
             type="button"
             onClick={() => navigate('/playbooks')}
             className="px-5 py-2 rounded text-sm border border-border text-text-secondary hover:text-text-primary transition-colors"
           >
-            Annuler
+            {`Annuler`}
           </button>
         </div>
       </form>

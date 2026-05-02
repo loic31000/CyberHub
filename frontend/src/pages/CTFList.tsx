@@ -27,7 +27,7 @@ const PLATFORM_COLORS: Record<CTFPlatform, string> = {
 }
 
 export default function CTFList() {
-  const [writeups, setWriteups]     = useState<CTFWriteup[]>([])
+    const [writeups, setWriteups]     = useState<CTFWriteup[]>([])
   const [count, setCount]           = useState(0)
   const [totalPages, setTotalPages] = useState(1)
   const [page, setPage]             = useState(1)
@@ -42,7 +42,7 @@ export default function CTFList() {
       setCount(Number(res.count))
       setTotalPages((res as { total_pages?: number }).total_pages ?? 1)
     } catch {
-      toast.error('Impossible de charger les writeups')
+      toast.error(`Aucun writeup trouvé`)
       setWriteups([])
     } finally {
       setLoading(false)
@@ -64,15 +64,15 @@ export default function CTFList() {
         <div>
           <h1 className="text-2xl font-bold text-text-primary flex items-center gap-2">
             <Trophy size={24} className="text-yellow-400" />
-            Writeups CTF
+            {`Writeups CTF`}
           </h1>
           <p className="text-text-muted text-sm mt-1">
             {count} writeup{count > 1 ? 's' : ''} —{' '}
-            <span className="text-cyber-green">{completed} complétés (page en cours)</span>
+            <span className="text-cyber-green">{completed} {`Complété`} (page en cours)</span>
           </p>
         </div>
         <Link to="/ctf/new" className="btn-primary flex items-center gap-2 px-4 py-2 rounded text-sm font-medium">
-          <Plus size={16} /> Nouveau writeup
+          <Plus size={16} /> {`Nouveau writeup`}
         </Link>
       </div>
 
@@ -82,7 +82,7 @@ export default function CTFList() {
           <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-text-muted" />
           <input
             type="text"
-            placeholder="Rechercher..."
+            placeholder={`Rechercher...`}
             className="input w-full pl-9 pr-4 py-2 text-sm"
             value={filters.search ?? ''}
             onChange={(e) => updateFilter('search', e.target.value)}
@@ -93,7 +93,7 @@ export default function CTFList() {
           value={filters.platform ?? ''}
           onChange={(e) => updateFilter('platform', e.target.value as CTFPlatform | '')}
         >
-          <option value="">Toutes les plateformes</option>
+          <option value="">{`Toutes les plateformes`}</option>
           {PLATFORMS.map((p) => <option key={p} value={p}>{p}</option>)}
         </select>
         <select
@@ -101,7 +101,7 @@ export default function CTFList() {
           value={filters.difficulty ?? ''}
           onChange={(e) => updateFilter('difficulty', e.target.value as CTFDifficulty | '')}
         >
-          <option value="">Toutes les difficultés</option>
+          <option value="">{`Toutes les difficultés`}</option>
           {DIFFICULTIES.map((d) => <option key={d} value={d} className="capitalize">{d}</option>)}
         </select>
       </div>
@@ -112,9 +112,9 @@ export default function CTFList() {
       ) : writeups.length === 0 ? (
         <div className="text-center py-20 text-text-muted">
           <Trophy size={40} className="mx-auto mb-3 opacity-20" />
-          <p>Aucun writeup trouvé</p>
+          <p>{`Aucun writeup trouvé`}</p>
           <Link to="/ctf/new" className="text-cyber-cyan text-sm hover:underline mt-2 block">
-            Créer le premier writeup
+            {`Créer le premier writeup`}
           </Link>
         </div>
       ) : (
