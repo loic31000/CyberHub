@@ -16,6 +16,8 @@ import (
 	"time"
 
 	"github.com/cyber-hub/cyber-hub/internal/api"
+	"github.com/cyber-hub/cyber-hub/internal/api/handlers"
+	"github.com/cyber-hub/cyber-hub/internal/correlation"
 	"github.com/cyber-hub/cyber-hub/internal/mitre"
 	"github.com/cyber-hub/cyber-hub/internal/store"
 	"github.com/gin-gonic/gin"
@@ -78,8 +80,13 @@ func main() {
 	// Mode production (pas de logs Gin colorisés)
 	gin.SetMode(gin.ReleaseMode)
 
+	// Initialisation du moteur de corrélation (singleton)
+	correlationEngine := correlation.NewCorrelationEngine(store.DB)
+	// Initialiser le moteur global pour les handlers
+	handlers.InitCorrelationEngine(correlationEngine)
+
 	// Initialisation du router API
-	r := api.NewRouter()
+	r := api.NewRouter(correlationEngine)
 
 	// Servir le frontend React embarqué
 	staticFS, err := fs.Sub(webFiles, "web")

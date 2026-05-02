@@ -2,9 +2,12 @@ import { useState, useEffect, useCallback } from 'react'
 import { useIocStore } from '@/store/useIocStore'
 import type { IOC, IOCCreatePayload, IOCType, IOCTLP, IOCStatus } from '@/types/ioc'
 import { toast } from '@/store/toast'
+import CorrelationPanel from '@/components/CorrelationPanel'
+import { correlationApi } from '@/api/client'
+import type { CorrelationResult } from '@/types/correlation'
 import {
   ShieldBan, Plus, Search, Download, X, Trash2, Edit2,
-  Globe, Hash, Link, Mail, Network,
+  Globe, Hash, Link, Mail, Network, GitBranch,
 } from 'lucide-react'
 
 // TLP labels sont standards — pas traduits
@@ -161,6 +164,13 @@ export default function IOCPage() {
   const [search, setSearch]         = useState('')
   const [searchTimeout, setSearchTimeout] = useState<ReturnType<typeof setTimeout> | null>(null)
 
+  // Vue détail
+  const [selectedIOC, setSelectedIOC] = useState<IOC | null>(null)
+  const [correlationResult, setCorrelationResult] = useState<CorrelationResult | null>(null)
+  const [correlationLoading, setCorrelationLoading] = useState(false)
+  const [correlationError, setCorrelationError] = useState<string | null>(null)
+  const [activeTab, setActiveTab] = useState<'details' | 'correlation'>('details')
+
   useEffect(() => { fetchIocs(); fetchStats() }, [])
 
   const handleSearch = (v: string) => {
@@ -191,7 +201,19 @@ export default function IOCPage() {
     catch { toast.error(`Erreur lors de l'export`) }
   }
 
-  const activePanel = showForm || editTarget !== null
+  const loadCorrelation = async (ioc: IOC) => {
+    setCorrelationLoading(true)
+    setCorrelationError(null)
+    try {
+      const result = await correlationApi.correlationByIOCId(ioc.id)
+      setCorrelationResult(result)
+    } catch (err: any) {
+      setCorrelationError(err.message || 'Erreur de chargement')
+    } finally {
+      setCorrelationLoading(false)
+    }
+  }
+
 
   return (
     <div className="p-6 space-y-6">
@@ -332,7 +354,11 @@ export default function IOCPage() {
                       </td>
                       <td className="px-4 py-3 text-right">
                         <div className="flex items-center justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                          <button onClick={() => { setEditTarget(ioc); setShowForm(false) }}
+                          <button onClick={() => { setSelectedIOC(ioc); setActiveTab('details'); loadCorrelation(ioc) }}
+                            className="p-1.5 rounded hover:bg-cyber-cyan/10 text-text-muted hover:text-cyber-cyan transition-colors" title={`Voir détails`}>
+                            <ShieldBan size={13} />
+                          </button>
+                          <button onClick={() => { setEditTarget(ioc); setShowForm(true) }}
                             className="p-1.5 rounded hover:bg-cyber-cyan/10 text-text-muted hover:text-cyber-cyan transition-colors" title={`Modifier`}>
                             <Edit2 size={13} />
                           </button>
@@ -350,8 +376,112 @@ export default function IOCPage() {
           )}
         </div>
 
-        {/* Panel latéral */}
-        {activePanel && (
+        {/* Vue détail */}
+        {selectedIOC && (
+          <div className="w-[500px] shrink-0 bg-bg-secondary border border-cyber-cyan/30 rounded-lg overflow-hidden">
+            <div className="flex items-center justify-between p-4 border-b border-border">
+              <h2 className="text-sm font-semibold text-text-primary flex items-center gap-2">
+                {typeIcon(selectedIOC.type)} IOC #{selectedIOC.id}
+              </h2>
+              <button onClick={() => setSelectedIOC(null)}
+                className="p-1 rounded hover:bg-bg-primary text-text-muted hover:text-text-primary transition-colors">
+                <X size={16} />
+              </button>
+            </div>
+
+            {/* Onglets */}
+            <div className="flex border-b border-border">
+              <button
+                onClick={() => setActiveTab('details')}
+                className={`flex-1 px-4 py-3 text-sm font-medium transition-colors ${
+                  activeTab === 'details'
+                    ? 'text-cyber-cyan border-b-2 border-cyber-cyan'
+                    : 'text-text-muted hover:text-text-primary'
+                }`}
+              >
+                Détails
+              </button>
+              <button
+                onClick={() => { setActiveTab('correlation'); loadCorrelation(selectedIOC) }}
+                className={`flex-1 px-4 py-3 text-sm font-medium transition-colors flex items-center justify-center gap-2 ${
+                  activeTab === 'correlation'
+                    ? 'text-cyber-cyan border-b-2 border-cyber-cyan'
+                    : 'text-text-muted hover:text-text-primary'
+                }`}
+              >
+                <GitBranch size={14} />
+                Corrélation
+              </button>
+            </div>
+
+            {/* Contenu onglet */}
+            <div className="p-4">
+              {activeTab === 'details' ? (
+                <div className="space-y-4">
+                  <div>
+                    <label className="text-xs text-text-muted block mb-1">Type</label>
+                    <span className="text-sm text-text-primary uppercase">{selectedIOC.type}</span>
+                  </div>
+                  <div>
+                    <label className="text-xs text-text-muted block mb-1">Valeur</label>
+                    <span className="text-sm text-text-primary font-mono break-all">{selectedIOC.value}</span>
+                  </div>
+                  <div>
+                    <label className="text-xs text-text-muted block mb-1">Source</label>
+                    <span className="text-sm text-text-primary">{selectedIOC.source || '—'}</span>
+                  </div>
+                  <div>
+                    <label className="text-xs text-text-muted block mb-1">TLP</label>
+                    {tlpBadge(selectedIOC.tlp)}
+                  </div>
+                  <div>
+                    <label className="text-xs text-text-muted block mb-1">Statut</label>
+                    <span className={`text-sm ${STATUS_COLORS[selectedIOC.status] ?? 'text-text-muted'}`}>
+                      {selectedIOC.status === 'active' ? 'Actif'
+                        : selectedIOC.status === 'archived' ? 'Archivé'
+                        : 'Faux positif'}
+                    </span>
+                  </div>
+                  <div>
+                    <label className="text-xs text-text-muted block mb-1">Tags</label>
+                    <div className="flex flex-wrap gap-1">
+                      {parseTags(selectedIOC.tags).map((tag) => (
+                        <span key={tag} className="text-xs bg-bg-primary border border-border rounded px-2 py-1 text-text-muted">{tag}</span>
+                      ))}
+                    </div>
+                  </div>
+                  <div>
+                    <label className="text-xs text-text-muted block mb-1">Technique MITRE</label>
+                    <span className="text-sm text-text-primary">{selectedIOC.mitre_tech_id || '—'}</span>
+                  </div>
+                  <div>
+                    <label className="text-xs text-text-muted block mb-1">Notes</label>
+                    <p className="text-sm text-text-primary whitespace-pre-wrap">{selectedIOC.notes || '—'}</p>
+                  </div>
+                  <div className="flex gap-2 pt-2">
+                    <button onClick={() => { setEditTarget(selectedIOC); setShowForm(true); setSelectedIOC(null) }}
+                      className="flex-1 px-3 py-2 text-sm bg-cyber-cyan text-bg-primary font-semibold rounded hover:bg-cyber-cyan/80 transition-colors">
+                      Modifier
+                    </button>
+                    <button onClick={() => { handleDelete(selectedIOC); setSelectedIOC(null) }}
+                      className="px-3 py-2 text-sm border border-cyber-red text-cyber-red rounded hover:bg-cyber-red/10 transition-colors">
+                      Supprimer
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <CorrelationPanel
+                  result={correlationResult}
+                  loading={correlationLoading}
+                  error={correlationError}
+                />
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* Panel création/modification */}
+        {showForm && (
           <div className="w-[380px] shrink-0 bg-bg-secondary border border-cyber-cyan/30 rounded-lg p-5">
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-sm font-semibold text-text-primary">

@@ -4,7 +4,7 @@ import { useAuthStore } from '@/store/auth'
 import {
   LayoutDashboard, Wrench, FileText, ShieldAlert,
   BookOpen, LogOut, Shield, Search, Settings,
-  Crosshair, ShieldBan, EyeOff, Network, History,
+  Crosshair, ShieldBan, EyeOff, Network, History, GitBranch,
 } from 'lucide-react'
 import clsx from 'clsx'
 import { bgpApi } from '@/api/client'
@@ -15,6 +15,7 @@ interface NavItem {
   icon: React.ReactNode
   disabled?: boolean
   badge?: number
+  end?: boolean
 }
 
 interface Props {
@@ -48,17 +49,18 @@ export default function Sidebar({ onSearchOpen }: Props) {
   }, [isAuthenticated])
 
   const navItems: NavItem[] = [
-    { to: '/dashboard', label: 'Dashboard',      icon: <LayoutDashboard size={18} /> },
-    { to: '/tools',     label: 'Outils',          icon: <Wrench size={18} /> },
-    { to: '/ctf',       label: 'Writeups CTF',    icon: <FileText size={18} /> },
-    { to: '/cve',       label: 'Veille CVE',      icon: <ShieldAlert size={18} /> },
-    { to: '/playbooks', label: 'Playbooks',       icon: <BookOpen size={18} /> },
-    { to: '/mitre',     label: 'MITRE ATT&CK',   icon: <Crosshair size={18} /> },
-    { to: '/cloak',     label: 'CLOAK OpSec',     icon: <EyeOff size={18} /> },
-    { to: '/ioc',       label: 'IOC Manager',     icon: <ShieldBan size={18} /> },
-    { to: '/bgp',       label: 'BGP Lookup',      icon: <Network size={18} /> },
+    { to: '/dashboard',   label: 'Dashboard',      icon: <LayoutDashboard size={18} /> },
+    { to: '/tools',       label: 'Outils',          icon: <Wrench size={18} /> },
+    { to: '/ctf',         label: 'Writeups CTF',    icon: <FileText size={18} /> },
+    { to: '/cve',         label: 'Veille CVE',      icon: <ShieldAlert size={18} /> },
+    { to: '/playbooks',   label: 'Playbooks',       icon: <BookOpen size={18} /> },
+    { to: '/mitre',       label: 'MITRE ATT&CK',   icon: <Crosshair size={18} /> },
+    { to: '/cloak',       label: 'CLOAK OpSec',     icon: <EyeOff size={18} /> },
+    { to: '/ioc',         label: 'IOC Manager',     icon: <ShieldBan size={18} /> },
+    { to: '/correlation', label: 'Corrélation',     icon: <GitBranch size={18} /> },
+    { to: '/bgp',         label: 'BGP Lookup',      icon: <Network size={18} />, end: true },
     { to: '/bgp/historian', label: 'BGP Historian', icon: <History size={18} />, badge: bgpAlertCount },
-    { to: '/settings',  label: 'Paramètres',      icon: <Settings size={18} /> },
+    { to: '/settings',    label: 'Paramètres',      icon: <Settings size={18} /> },
   ]
 
   const handleLogout = () => {
@@ -76,7 +78,7 @@ export default function Sidebar({ onSearchOpen }: Props) {
             CYBER<span className="text-text-primary">HUB</span>
           </span>
         </div>
-        <p className="text-text-muted text-xs mt-1">v0.6 · local & offline</p>
+        <p className="text-text-muted text-xs mt-1">v0.8 · local & offline</p>
       </div>
 
       {/* Barre de recherche rapide Ctrl+K */}
@@ -111,14 +113,14 @@ export default function Sidebar({ onSearchOpen }: Props) {
             <NavLink
               key={item.to}
               to={item.to}
-              end={item.to === '/bgp'}
+              end={item.end ?? false}
               className={({ isActive }) =>
                 clsx('nav-item text-sm', isActive && 'active')
               }
             >
               {item.icon}
               <span className="flex-1">{item.label}</span>
-              {/* Badge alertes BGP non acquittées */}
+              {/* Badge (ex: alertes BGP non acquittées) */}
               {item.badge !== undefined && item.badge > 0 && (
                 <span className="ml-auto px-1.5 py-0.5 rounded-full bg-red-500 text-white text-xs font-bold leading-none min-w-[18px] text-center">
                   {item.badge > 99 ? '99+' : item.badge}

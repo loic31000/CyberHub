@@ -351,3 +351,24 @@ export const threatApi = {
   runFeed: (name: 'cisa_kev' | 'nvd_api') =>
     http.post(`/threat/run/${name}`).then((r) => r.data),
 }
+
+// ---- Corrélation Globale ----
+export const correlationApi = {
+  correlationByIOCId: (id: number) =>
+    http
+      .get<import('@/types/correlation').CorrelationResult>(`/correlation/ioc/${id}`)
+      .then((r) => r.data),
+
+  correlationAnalyze: (type: string, value: string) =>
+    http
+      .post<import('@/types/correlation').CorrelationResult>('/correlation/analyze', { type, value })
+      .then((r) => r.data),
+
+  correlationHistory: () =>
+    http
+      .get<{ items: import('@/types/correlation').CorrelationHistoryItem[] }>('/correlation/history')
+      .then((r) => r.data.items),
+
+  correlationInvalidateCache: (iocValue: string) =>
+    http.delete(`/correlation/cache/${encodeURIComponent(iocValue)}`).then((r) => r.data),
+}

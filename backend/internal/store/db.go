@@ -47,6 +47,7 @@ func InitDB(dbPath string) error {
 		&models.BGPCache{},
 		&models.BGPSnapshot{},
 		&models.BGPAlert{},
+		&models.CorrelationCache{},
 	); err != nil {
 		return err
 	}

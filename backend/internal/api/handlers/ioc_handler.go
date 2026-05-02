@@ -8,6 +8,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/cyber-hub/cyber-hub/internal/correlation"
 	"github.com/cyber-hub/cyber-hub/internal/models"
 	"github.com/cyber-hub/cyber-hub/internal/store"
 	"github.com/gin-gonic/gin"
@@ -24,6 +25,14 @@ var validTLPs = map[string]bool{
 
 var validStatuses = map[string]bool{
 	"active": true, "archived": true, "false_positive": true,
+}
+
+// Variable globale pour le moteur de corrélation (initialisée par main.go)
+var CorrelationEngineGlobal *correlation.CorrelationEngine
+
+// InitCorrelationEngine initialise le moteur de corrélation global (appelé par main.go)
+func InitCorrelationEngine(engine *correlation.CorrelationEngine) {
+	CorrelationEngineGlobal = engine
 }
 
 func ListIOCs(c *gin.Context) {
@@ -109,6 +118,12 @@ func CreateIOC(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
+
+	// Hook fire-and-forget : analyser la corrélation sans bloquer la réponse
+	if CorrelationEngineGlobal != nil {
+		go CorrelationEngineGlobal.Analyze(string(ioc.Type), ioc.Value)
+	}
+
 	c.JSON(http.StatusCreated, ioc)
 }
 

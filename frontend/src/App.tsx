@@ -21,6 +21,7 @@ import CLOAKPage from '@/pages/CLOAKPage'
 import IOCPage from '@/pages/IOCPage'
 import BGPLookup from '@/pages/BGPLookup'
 import BGPHistorian from '@/pages/BGPHistorian'
+import CorrelationPage from '@/pages/CorrelationPage'
 
 // Guard : redirige vers /login si non authentifié
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
@@ -79,6 +80,9 @@ export default function App() {
 
           {/* IOC Manager */}
           <Route path="ioc" element={<IOCPage />} />
+
+          {/* Corrélation Globale */}
+          <Route path="correlation" element={<CorrelationPage />} />
 
           {/* BGP / AS Lookup + Historian */}
           <Route path="bgp" element={<BGPLookup />} />

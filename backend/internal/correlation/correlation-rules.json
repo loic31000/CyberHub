@@ -1,0 +1,44 @@
+{
+  "ip": {
+    "mitre_technique_ids": ["T1071.001", "T1090.002", "T1219", "T1046", "T1595.001"],
+    "cloak_tactics": ["Anonymous Hosting", "Anonymous Browsing"],
+    "tool_names": ["Nmap", "Masscan", "theHarvester"],
+    "playbook_keywords": ["exfiltration", "ddos", "lateral", "brute force"],
+    "cve_lookup": true
+  },
+  "domain": {
+    "mitre_technique_ids": ["T1566.002", "T1071.004", "T1568", "T1583.001"],
+    "cloak_tactics": ["Anonymous Identity", "Plausible Deniability", "Anonymous Communication"],
+    "tool_names": ["theHarvester", "Gobuster", "Nikto"],
+    "playbook_keywords": ["phishing", "web shell", "reconnaissance"],
+    "cve_lookup": false
+  },
+  "hash": {
+    "mitre_technique_ids": ["T1204.002", "T1027", "T1566.001", "T1059"],
+    "cloak_tactics": ["Data Obfuscation", "Tamper Protection"],
+    "tool_names": ["Ghidra", "YARA", "Volatility 3"],
+    "playbook_keywords": ["malware", "ransomware", "supply chain"],
+    "cve_lookup": false
+  },
+  "url": {
+    "mitre_technique_ids": ["T1566.002", "T1189", "T1059.007", "T1190"],
+    "cloak_tactics": ["Anonymous Browsing", "Data Obfuscation"],
+    "tool_names": ["OWASP ZAP", "SQLmap", "ffuf", "WPScan"],
+    "playbook_keywords": ["web shell", "injection sql", "api"],
+    "cve_lookup": false
+  },
+  "email": {
+    "mitre_technique_ids": ["T1566.001", "T1598", "T1114", "T1087"],
+    "cloak_tactics": ["Anonymous Communication", "Anonymous Identity"],
+    "tool_names": ["theHarvester", "Maigret", "Sherlock"],
+    "playbook_keywords": ["phishing", "insider"],
+    "cve_lookup": false
+  },
+  "cidr": {
+    "mitre_technique_ids": ["T1595", "T1046", "T1090.002", "T1018"],
+    "cloak_tactics": ["Anonymous Hosting", "Reduce Attack Surface"],
+    "tool_names": ["Nmap", "Masscan"],
+    "playbook_keywords": ["reconnaissance", "ddos", "lateral"],
+    "cve_lookup": true
+  }
+}

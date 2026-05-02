@@ -5,13 +5,14 @@ import (
 
 	"github.com/cyber-hub/cyber-hub/internal/api/handlers"
 	"github.com/cyber-hub/cyber-hub/internal/api/middleware"
+	"github.com/cyber-hub/cyber-hub/internal/correlation"
 	"github.com/cyber-hub/cyber-hub/internal/store"
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
 )
 
 // NewRouter configure et retourne le router Gin
-func NewRouter() *gin.Engine {
+func NewRouter(correlationEngine *correlation.CorrelationEngine) *gin.Engine {
 	r := gin.New()
 	r.Use(gin.Logger())
 	r.Use(gin.Recovery())
@@ -154,6 +155,16 @@ func NewRouter() *gin.Engine {
 				bgp.GET("/alerts", handlers.GetBGPAlerts)
 				bgp.PATCH("/alerts/:id/ack", handlers.AckBGPAlert)
 				bgp.POST("/export-ioc", handlers.PostBGPExportIOC)
+			}
+
+			// Corrélation globale
+			corrHandlers := handlers.MakeCorrelationHandlers(correlationEngine)
+			correlation := protected.Group("/correlation")
+			{
+				correlation.GET("/ioc/:id", corrHandlers.GetCorrelationByIOC)
+				correlation.POST("/analyze", corrHandlers.PostCorrelationAnalyze)
+				correlation.GET("/history", corrHandlers.GetCorrelationHistory)
+				correlation.DELETE("/cache/:ioc_value", corrHandlers.DeleteCorrelationCache)
 			}
 		}
 	}
