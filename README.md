@@ -1,15 +1,16 @@
-# CYBER-HUB v0.6
+# CYBER-HUB v0.7
 
 > Hub de ressources cybersécurité — 100% local, 100% offline
 
-![Go](https://img.shields.io/badge/Go-1.22+-00ADD8?logo=go&logoColor=white)
+![Go](https://img.shields.io/badge/Go-1.26+-00ADD8?logo=go&logoColor=white)
 ![TypeScript](https://img.shields.io/badge/TypeScript-Strict-3178C6?logo=typescript&logoColor=white)
 ![React](https://img.shields.io/badge/React-18-61DAFB?logo=react&logoColor=black)
 ![SQLite](https://img.shields.io/badge/SQLite-DB-003B57?logo=sqlite&logoColor=white)
 ![MITRE ATT&CK](https://img.shields.io/badge/MITRE_ATT%26CK-Enterprise-E71D29)
 ![CLOAK](https://img.shields.io/badge/CLOAK-OpSec_TTPs-6B21A8)
+![BGP](https://img.shields.io/badge/BGP-AS_Lookup-0EA5E9)
 
-Application de bureau pour centraliser vos outils, writeups CTF, veille CVE, playbooks de réponse à incident, gestion d'IOC et base de connaissances OpSec. Conçue pour les praticiens de la sécurité offensive et défensive.
+Application de bureau pour centraliser vos outils, writeups CTF, veille CVE, playbooks de réponse à incident, gestion d'IOC, base de connaissances OpSec et analyse BGP/AS. Conçue pour les praticiens de la sécurité offensive et défensive.
 
 ---
 
@@ -54,27 +55,30 @@ Application de bureau pour centraliser vos outils, writeups CTF, veille CVE, pla
 - **Veille CVE** — Base locale + import NVD JSON 2.0 + recherche par sévérité/CVSS
 - **Playbooks** — 19 procédures de réponse à incident interactives (checklist step-by-step)
 - **MITRE ATT&CK Enterprise** — 823 techniques, 14 tactiques, indexées offline dans SQLite
-- **IOC Manager** — Gestionnaire centralisé d'Indicateurs de Compromission (IP, domaine, hash, URL)
+- **IOC Manager** — Gestionnaire centralisé d'Indicateurs de Compromission (IP, domaine, hash, URL, email, CIDR)
 - **CLOAK OpSec** — 720 sous-techniques adversariales (anonymat, dissimulation, OpSec) · 13 tactiques · embarqué offline
+- **BGP / AS Lookup** — Proxy BGPView avec cache SQLite TTL 1h, bascule vers RIPE Stat en cas d’échec, résolution DNS-over-HTTPS, et statut de santé exposé dans l’UI
+- **BGP Historian** — Snapshots périodiques d'AS, diff entre snapshots, alertes sur changements de routage
 
 ---
 
 ## Stack technique
 
-| Composant        | Technologie                                         |
-|------------------|-----------------------------------------------------|
-| Backend          | Go 1.22+ · Gin · GORM · SQLite                      |
+| Composant        | Technologie                                                    |
+|------------------|----------------------------------------------------------------|
+| Backend          | Go 1.26+ · Gin · GORM · SQLite                                |
 | Frontend         | React 18 · TypeScript strict · Vite · Tailwind CSS · Node.js  |
-| Base de données  | SQLite WAL (fichier local `cyber-hub.db`)           |
-| Authentification | JWT HS256 · bcrypt                                  |
-| MITRE ATT&CK     | JSON STIX 2.0 officiel · seed offline               |
-| CLOAK            | concealment-data.json · embarqué via go:embed       |
+| Base de données  | SQLite WAL (fichier local `cyber-hub.db`)                     |
+| Authentification | JWT HS256 · bcrypt                                            |
+| MITRE ATT&CK     | JSON STIX 2.0 officiel · seed offline                         |
+| CLOAK            | concealment-data.json · embarqué via go:embed                 |
+| BGP              | BGPView API (bgpview.io) · cache SQLite · fallback RIPE Stat · DNS-over-HTTPS · aucune clé API |
 
 ---
 
 ## Prérequis
 
-- **Go** ≥ 1.22 — [golang.org/dl](https://golang.org/dl/)
+- **Go** ≥ 1.26 — [golang.org/dl](https://golang.org/dl/)
 - **Node.js** ≥ 18 + npm — [nodejs.org](https://nodejs.org/) (uniquement pour compiler le frontend React/TypeScript)
 
 ---
@@ -127,6 +131,7 @@ L'application démarre sur **http://localhost:7743** et ouvre le navigateur auto
 3. L'application charge automatiquement les données de référence (outils, playbooks, CVE, CTF writeups)
 4. Le seed MITRE ATT&CK s'exécute en arrière-plan (nécessite une connexion internet une seule fois)
 5. CLOAK est disponible immédiatement — données embarquées, aucune connexion requise
+6. BGP Lookup nécessite une connexion internet pour interroger BGPView; le backend supporte un fallback RIPE Stat et une résolution DNS-over-HTTPS en cas d’échec (résultats mis en cache 1h)
 
 ---
 
@@ -206,11 +211,36 @@ Gestionnaire centralisé des Indicateurs de Compromission :
 
 | Champ | Détail |
 |-------|--------|
-| Types | IP, Domaine, Hash (MD5/SHA256), URL, Email |
+| Types | IP, Domaine, Hash (MD5/SHA256), URL, Email, **CIDR** |
 | TLP | White / Green / Amber / Red |
 | Statut | Actif / Archivé / Faux positif |
 | Lien MITRE | Technique ATT&CK associable |
 | Export | CSV |
+
+> Le type **CIDR** a été ajouté pour permettre l'export direct des préfixes réseau depuis le module BGP Lookup.
+
+### BGP / AS Lookup
+
+Proxy vers l'API BGPView avec mise en cache SQLite (TTL 1h) — aucune clé API requise.
+
+| Mode | Description |
+|------|-------------|
+| ASN | Lookup complet d'un Autonomous System (infos, préfixes IPv4/IPv6, peers, upstreams, downstreams) |
+| IP | Résolution d'une adresse IP vers son AS et ses préfixes |
+| Recherche | Recherche libre par nom d'organisation ou description |
+
+Fonctionnalités : navigation entre AS peers, copie en un clic, export IOC (CIDR → IOC Manager), snapshot d'AS, état de santé de l'API BGP.
+
+Implémentation : proxy Go avec cache `BGPCache` (upsert SQLite), timeout 30s, support de fallback RIPE Stat en cas d'échec BGPView ou DNS, cache stale en secours, TypeScript strict (zéro `any`).
+
+### BGP Historian
+
+Suivi des changements de routage BGP dans le temps :
+
+- **Snapshots** — capture parallèle en 5 goroutines (`sync.WaitGroup`) : infos AS, préfixes, peers, upstreams, downstreams
+- **Diff** — comparaison de deux snapshots avec détection des préfixes/peers ajoutés ou supprimés (normalisation des slices pour comparaison indépendante de l'ordre)
+- **Alertes** — détection automatique des changements lors d'un nouveau snapshot (`prefix_change`, `upstream_change`, `peer_change`, `downstream_change`) · badge rouge dans la sidebar · acquittement manuel
+- **Export IOC** — conversion d'un préfixe BGP en IOC de type CIDR
 
 ---
 
@@ -224,6 +254,7 @@ Gestionnaire centralisé des Indicateurs de Compromission :
 | Headers | `X-Frame-Options: DENY` · `X-Content-Type-Options` · `Referrer-Policy` |
 | Frontend | TypeScript strict · inputs validés |
 | Secrets | Aucun secret en dur — JWT secret stocké en DB |
+| BGP | Proxy local uniquement — aucune clé ni credential transmis |
 
 ---
 
@@ -234,35 +265,26 @@ cyber-hub/
 ├── backend/
 │   ├── internal/
 │   │   ├── api/
-│   │   │   ├── handlers/      # Auth, Tools, CTF, CVE, Playbooks, MITRE, IOC, CLOAK
+│   │   │   ├── handlers/      # Auth, Tools, CTF, CVE, Playbooks, MITRE, IOC, CLOAK, BGP
 │   │   │   ├── middleware/    # Auth, Rate limiter
 │   │   │   └── router.go
 │   │   ├── mitre/             # Seed MITRE STIX 2.0
 │   │   ├── cloak/             # Seed CLOAK (concealment-data.json)
-│   │   ├── models/            # Structs GORM
+│   │   ├── models/            # Structs GORM (+ BGPCache, BGPSnapshot, BGPAlert)
 │   │   └── store/             # Couche données
 │   ├── web/                   # Build React embarqué (go:embed)
 │   └── main.go
 ├── frontend/
 │   └── src/
-│       ├── pages/             # Dashboard, Tools, CTF, CVE, Playbooks, MITRE, IOC, CLOAK
+│       ├── pages/             # Dashboard, Tools, CTF, CVE, Playbooks, MITRE, IOC, CLOAK, BGPLookup, BGPHistorian
 │       ├── components/        # Layout, Sidebar, SearchModal, Pagination, Toast
-│       ├── api/client.ts      # Axios + tous les endpoints
+│       ├── api/client.ts      # Axios + tous les endpoints (bgpApi, cloakAnnotationsApi, threatApi…)
 │       ├── store/             # Zustand (auth, toast, ioc)
-│       ├── types/             # Types TypeScript
+│       ├── types/             # Types TypeScript (bgp.ts, ioc.ts, threat.ts…)
 │       ├── App.tsx
 │       └── main.tsx
 ├── .github/
 │   └── screenshots/
-│       ├── dashboard.png
-│       ├── mittreattack.png
-│       ├── cloak.png
-│       ├── outils.png
-│       ├── playbook.png
-│       ├── veillecve.png
-│       ├── writeups.png
-│       ├── ioc.png
-│       └── parametres.png
 └── README.md
 ```
 
@@ -272,21 +294,45 @@ cyber-hub/
 
 ```bash
 # Terminal 1 — Backend
-cd backend && go run main.go
+cd backend
+go run cmd/server/main.go
 
 # Terminal 2 — Frontend (hot reload)
-cd frontend && npm run dev
+cd frontend
+npm run dev
 ```
 
 Frontend sur `http://localhost:5173` (proxy automatique vers backend `7743`).
 
 ```bash
 # Vérification TypeScript
-cd frontend && npx tsc --noEmit
+cd frontend
+npx tsc --noEmit
 
 # Formatage Go
-cd backend && gofmt -w .
+cd backend
+gofmt -w ./internal/...
 ```
+
+---
+
+## Changelog
+
+### v0.7 — BGP / AS Lookup + Historian
+- **Nouveau module BGP Lookup** — proxy BGPView, 3 modes (ASN / IP / recherche), onglets lazy-loaded, pagination, export IOC
+- **Nouveau module BGP Historian** — snapshots parallèles, diff visuel, alertes automatiques sur changements de routage, badge sidebar
+- **IOC Manager** — ajout du type `cidr` pour les préfixes réseau
+- **Backend** — 3 nouveaux modèles SQLite (`BGPCache`, `BGPSnapshot`, `BGPAlert`), 13 routes `/api/bgp/...`
+- **Frontend** — `BGPLookup.tsx`, `BGPHistorian.tsx`, `types/bgp.ts`, `types/threat.ts`, `store/useToastStore.ts`
+- **client.ts** — ajout de `bgpApi`, `cloakAnnotationsApi`, `threatApi`
+
+### v0.6
+- IOC Manager (IP, domaine, hash, URL, email · TLP · export CSV)
+- CLOAK OpSec (720 sous-techniques · annotations utilisateur)
+- MITRE ATT&CK Enterprise (823 techniques · 14 tactiques · offline)
+- Playbooks interactifs (19 procédures)
+- Veille CVE + import NVD
+- Dashboard avec KPIs et graphiques
 
 ---
 
@@ -298,4 +344,4 @@ CLOAK est distribué sous licence GPL v2 — crédit : Mick Deben, Leiden Univer
 
 ---
 
-*README mis à jour le 02/05/2026 — Cyber-Hub v0.6*
+*README mis à jour le 02/05/2026 — Cyber-Hub v0.7*
