@@ -11,7 +11,7 @@ const LIMIT = 12
 
 export default function PlaybookList() {
     const [playbooks, setPlaybooks]   = useState<Playbook[]>([])
-  const [count, setCount]           = useState(0)
+  const [_count, setCount]           = useState(0)
   const [totalPages, setTotalPages] = useState(1)
   const [page, setPage]             = useState(1)
   const [loading, setLoading]       = useState(true)

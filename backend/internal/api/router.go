@@ -16,7 +16,6 @@ func NewRouter() *gin.Engine {
 	r.Use(gin.Logger())
 	r.Use(gin.Recovery())
 
-	// ⚠️ Security headers — défense en profondeur
 	r.Use(func(c *gin.Context) {
 		c.Header("X-Content-Type-Options", "nosniff")
 		c.Header("X-Frame-Options", "DENY")
@@ -26,17 +25,15 @@ func NewRouter() *gin.Engine {
 		c.Next()
 	})
 
-	// CORS : uniquement localhost (sécurité : pas d'accès depuis des origines externes)
 	r.Use(cors.New(cors.Config{
 		AllowOrigins:     []string{"http://localhost:7743", "http://127.0.0.1:7743", "http://localhost:5173"},
-		AllowMethods:     []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
+		AllowMethods:     []string{"GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"},
 		AllowHeaders:     []string{"Origin", "Content-Type", "Authorization"},
 		ExposeHeaders:    []string{"Content-Length", "Content-Disposition"},
 		AllowCredentials: false,
 		MaxAge:           12 * time.Hour,
 	}))
 
-	// Fonction qui récupère le secret JWT depuis la DB (lazy — settings peut ne pas exister au boot)
 	getSecret := func() string {
 		s, _ := store.GetSettings()
 		if s == nil {
@@ -45,43 +42,34 @@ func NewRouter() *gin.Engine {
 		return s.JWTSecret
 	}
 
-	// Rate limiter pour la route de login : 8 tentatives par minute par IP
 	loginLimiter := middleware.NewRateLimiter(8, time.Minute)
 
 	api := r.Group("/api")
 	{
-		// Routes publiques (auth)
 		auth := api.Group("/auth")
 		{
 			auth.GET("/status", handlers.GetStatus)
 			auth.POST("/setup", handlers.Setup)
-			// Rate limiting sur le login pour prévenir le brute force
 			auth.POST("/login", loginLimiter.Middleware(), handlers.Login)
 		}
 
-		// Routes protégées (JWT requis)
 		protected := api.Group("")
 		protected.Use(middleware.AuthRequired(getSecret))
 		{
-			// Statistiques dashboard
 			protected.GET("/stats", handlers.GetStats)
-
-			// Recherche globale — tous modules (outils, CTF, CVE, playbooks)
 			protected.GET("/search", handlers.GlobalSearch)
 
-			// Outils — fiches éducatives éditables
 			tools := protected.Group("/tools")
 			{
 				tools.GET("", handlers.ListTools)
 				tools.GET("/categories", handlers.GetSubCategories)
 				tools.GET("/:id", handlers.GetTool)
-				tools.GET("/:id/commands", handlers.GetToolCommands) // autocomplétion
+				tools.GET("/:id/commands", handlers.GetToolCommands)
 				tools.POST("", handlers.CreateTool)
 				tools.PUT("/:id", handlers.UpdateTool)
 				tools.DELETE("/:id", handlers.DeleteTool)
 			}
 
-			// Writeups CTF
 			ctf := protected.Group("/ctf")
 			{
 				ctf.GET("", handlers.ListCTF)
@@ -91,7 +79,6 @@ func NewRouter() *gin.Engine {
 				ctf.DELETE("/:id", handlers.DeleteCTF)
 			}
 
-			// Veille CVE
 			cve := protected.Group("/cve")
 			{
 				cve.GET("", handlers.ListCVE)
@@ -99,10 +86,9 @@ func NewRouter() *gin.Engine {
 				cve.POST("", handlers.CreateCVE)
 				cve.PUT("/:id", handlers.UpdateCVE)
 				cve.DELETE("/:id", handlers.DeleteCVE)
-				cve.POST("/import-nvd", handlers.ImportNVD) // Import JSON NVD 2.0
+				cve.POST("/import-nvd", handlers.ImportNVD)
 			}
 
-			// Playbooks de réponse à incident
 			playbooks := protected.Group("/playbooks")
 			{
 				playbooks.GET("", handlers.ListPlaybooks)
@@ -114,22 +100,17 @@ func NewRouter() *gin.Engine {
 				playbooks.PATCH("/:id/steps/:stepId/toggle", handlers.ToggleStep)
 			}
 
-			// CLOAK — overrides et entrées custom utilisateur
-			// ⚠️ Usage légal et éducatif uniquement
 			cloak := protected.Group("/cloak")
 			{
 				cloak.GET("/overrides", handlers.ListCloakOverrides)
 				cloak.POST("/overrides", handlers.UpsertCloakOverride)
 				cloak.DELETE("/overrides/:id", handlers.DeleteCloakOverride)
-
-				// Annotations personnelles (couche séparée — source CLOAK inchangée)
 				cloak.GET("/annotations", handlers.ListCloakAnnotations)
 				cloak.POST("/annotations", handlers.UpsertCloakAnnotation)
 				cloak.DELETE("/annotations/:id", handlers.DeleteCloakAnnotation)
 				cloak.DELETE("/annotations/ref/*ref", handlers.DeleteCloakAnnotationByRef)
 			}
 
-			// MITRE ATT&CK — tactiques, techniques, statut seed
 			mitre := protected.Group("/mitre")
 			{
 				mitre.GET("/status", handlers.GetMITREStatus)
@@ -138,8 +119,6 @@ func NewRouter() *gin.Engine {
 				mitre.GET("/techniques/:id", handlers.GetMITRETechnique)
 			}
 
-			// IOC Manager — Indicateurs de Compromission
-			// ⚠️ Usage légal uniquement — données sensibles (TLP à respecter)
 			ioc := protected.Group("/ioc")
 			{
 				ioc.GET("", handlers.ListIOCs)
@@ -151,12 +130,30 @@ func NewRouter() *gin.Engine {
 				ioc.DELETE("/:id", handlers.DeleteIOC)
 			}
 
-			// Paramètres — export / import / backup
 			settings := protected.Group("/settings")
 			{
-				settings.GET("/export", handlers.ExportData)     // Export JSON complet
-				settings.POST("/import", handlers.ImportData)    // Import JSON
-				settings.POST("/backup", handlers.TriggerBackup) // Backup manuel BDD
+				settings.GET("/export", handlers.ExportData)
+				settings.POST("/import", handlers.ImportData)
+				settings.POST("/backup", handlers.TriggerBackup)
+			}
+
+			// BGP / AS Lookup + Historian
+			bgp := protected.Group("/bgp")
+			{
+				bgp.GET("/asn/:asn", handlers.GetBGPASN)
+				bgp.GET("/asn/:asn/prefixes", handlers.GetBGPASNPrefixes)
+				bgp.GET("/asn/:asn/peers", handlers.GetBGPASNPeers)
+				bgp.GET("/asn/:asn/upstreams", handlers.GetBGPASNUpstreams)
+				bgp.GET("/asn/:asn/downstreams", handlers.GetBGPASNDownstreams)
+				bgp.GET("/ip/:ip", handlers.GetBGPIP)
+				bgp.GET("/status", handlers.GetBGPStatus)
+				bgp.GET("/search", handlers.GetBGPSearch)
+				bgp.POST("/snapshot/:asn", handlers.PostBGPSnapshot)
+				bgp.GET("/snapshots/:asn", handlers.GetBGPSnapshots)
+				bgp.GET("/snapshots/:asn/diff", handlers.GetBGPSnapshotDiff)
+				bgp.GET("/alerts", handlers.GetBGPAlerts)
+				bgp.PATCH("/alerts/:id/ack", handlers.AckBGPAlert)
+				bgp.POST("/export-ioc", handlers.PostBGPExportIOC)
 			}
 		}
 	}

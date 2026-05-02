@@ -222,7 +222,7 @@ export default function ThreatFeedPage() {
             {`Alertes Critiques`}
             <span className="ml-2 text-xs font-normal text-text-muted">
               {`CVSS ≥ 9.0 · 7 derniers jours`}
-              {alertSince && ' ' + `· depuis ${new Date(alertSince).toLocaleDateString('fr-FR'),}`}
+              {alertSince && ' ' + `· depuis ${new Date(alertSince).toLocaleDateString('fr-FR')}`}
             </span>
           </h2>
           {alertCount > 0 && (

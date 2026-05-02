@@ -19,6 +19,8 @@ import SettingsPage from '@/pages/Settings'
 import MITREPage from '@/pages/MITRE'
 import CLOAKPage from '@/pages/CLOAKPage'
 import IOCPage from '@/pages/IOCPage'
+import BGPLookup from '@/pages/BGPLookup'
+import BGPHistorian from '@/pages/BGPHistorian'
 
 // Guard : redirige vers /login si non authentifié
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
@@ -78,12 +80,13 @@ export default function App() {
           {/* IOC Manager */}
           <Route path="ioc" element={<IOCPage />} />
 
-          {/* Parametres */}
+          {/* BGP / AS Lookup + Historian */}
+          <Route path="bgp" element={<BGPLookup />} />
+          <Route path="bgp/historian" element={<BGPHistorian />} />
+
+          {/* Paramètres */}
           <Route path="settings" element={<SettingsPage />} />
         </Route>
-
-        {/* Fallback */}
-        <Route path="*" element={<Navigate to="/dashboard" replace />} />
       </Routes>
     </BrowserRouter>
   )

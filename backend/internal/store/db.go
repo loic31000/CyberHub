@@ -12,11 +12,10 @@ import (
 
 var DB *gorm.DB
 
-// InitDB initialise la connexion SQLite et exécute les migrations
+// InitDB initialise la connexion SQLite et execute les migrations
 func InitDB(dbPath string) error {
 	var err error
 
-	// Configuration GORM : logs uniquement en cas d'erreur en production
 	logLevel := logger.Error
 	if os.Getenv("GIN_MODE") != "release" {
 		logLevel = logger.Info
@@ -29,33 +28,33 @@ func InitDB(dbPath string) error {
 		return err
 	}
 
-	// Activer les foreign keys SQLite
 	DB.Exec("PRAGMA foreign_keys = ON")
-	DB.Exec("PRAGMA journal_mode = WAL") // Meilleures performances concurrent
+	DB.Exec("PRAGMA journal_mode = WAL")
 
-	// Auto-migration des modèles (v0.6 — pivot knowledge base)
 	if err = DB.AutoMigrate(
 		&models.Settings{},
 		&models.Tool{},
-		&models.ToolCommand{}, // templates de commandes paramétrables (générateur dans les fiches)
+		&models.ToolCommand{},
 		&models.CTFWriteup{},
 		&models.CVEEntry{},
 		&models.Playbook{},
 		&models.PlaybookStep{},
-		&models.MITRETactic{},    // tactiques MITRE ATT&CK
-		&models.MITRETechnique{}, // techniques MITRE ATT&CK
-		&models.IOC{},            // IOC Manager — Phase 3
-		&models.CloakOverride{},     // CLOAK — modifications et entrées custom utilisateur
-		&models.CloakAnnotation{},   // CLOAK — annotations personnelles (couche séparée, source inchangée)
+		&models.MITRETactic{},
+		&models.MITRETechnique{},
+		&models.IOC{},
+		&models.CloakOverride{},
+		&models.CloakAnnotation{},
+		&models.BGPCache{},
+		&models.BGPSnapshot{},
+		&models.BGPAlert{},
 	); err != nil {
 		return err
 	}
 
-	// Cleanup tables retirées au pivot v0.7 (silencieux si déjà absentes)
 	for _, t := range []string{"run_histories", "osint_histories", "spiderfoot_scans"} {
 		DB.Exec("DROP TABLE IF EXISTS " + t)
 	}
 
-	log.Printf("[DB] Base de données initialisée : %s", dbPath)
+	log.Printf("[DB] Base de donnees initialisee : %s", dbPath)
 	return nil
 }

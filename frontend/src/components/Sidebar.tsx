@@ -1,30 +1,21 @@
 import { NavLink, useNavigate } from 'react-router-dom'
+import { useEffect, useState } from 'react'
 import { useAuthStore } from '@/store/auth'
 import {
   LayoutDashboard, Wrench, FileText, ShieldAlert,
   BookOpen, LogOut, Shield, Search, Settings,
-  Crosshair, ShieldBan, EyeOff,
+  Crosshair, ShieldBan, EyeOff, Network, History,
 } from 'lucide-react'
 import clsx from 'clsx'
+import { bgpApi } from '@/api/client'
 
 interface NavItem {
   to: string
   label: string
   icon: React.ReactNode
   disabled?: boolean
+  badge?: number
 }
-
-const navItems: NavItem[] = [
-  { to: '/dashboard', label: 'Dashboard',      icon: <LayoutDashboard size={18} /> },
-  { to: '/tools',     label: 'Outils',          icon: <Wrench size={18} /> },
-  { to: '/ctf',       label: 'Writeups CTF',    icon: <FileText size={18} /> },
-  { to: '/cve',       label: 'Veille CVE',      icon: <ShieldAlert size={18} /> },
-  { to: '/playbooks', label: 'Playbooks',       icon: <BookOpen size={18} /> },
-  { to: '/mitre',     label: 'MITRE ATT&CK',   icon: <Crosshair size={18} /> },
-  { to: '/cloak',     label: 'CLOAK OpSec',     icon: <EyeOff size={18} /> },
-  { to: '/ioc',       label: 'IOC Manager',     icon: <ShieldBan size={18} /> },
-  { to: '/settings',  label: 'Paramètres',      icon: <Settings size={18} /> },
-]
 
 interface Props {
   onSearchOpen?: () => void
@@ -33,6 +24,42 @@ interface Props {
 export default function Sidebar({ onSearchOpen }: Props) {
   const logout = useAuthStore((s) => s.logout)
   const navigate = useNavigate()
+  const isAuthenticated = useAuthStore((s) => s.isAuthenticated)
+
+  // Badge alertes BGP non acquittées
+  const [bgpAlertCount, setBgpAlertCount] = useState(0)
+
+  useEffect(() => {
+    if (!isAuthenticated) return
+
+    const fetchAlertCount = () => {
+      bgpApi
+        .getAlerts(1, 0)
+        .then((r) => setBgpAlertCount(r.total))
+        .catch(() => {
+          // Silencieux — le module BGP peut ne pas avoir de données encore
+        })
+    }
+
+    fetchAlertCount()
+    // Vérification périodique toutes les 60 secondes
+    const interval = setInterval(fetchAlertCount, 60_000)
+    return () => clearInterval(interval)
+  }, [isAuthenticated])
+
+  const navItems: NavItem[] = [
+    { to: '/dashboard', label: 'Dashboard',      icon: <LayoutDashboard size={18} /> },
+    { to: '/tools',     label: 'Outils',          icon: <Wrench size={18} /> },
+    { to: '/ctf',       label: 'Writeups CTF',    icon: <FileText size={18} /> },
+    { to: '/cve',       label: 'Veille CVE',      icon: <ShieldAlert size={18} /> },
+    { to: '/playbooks', label: 'Playbooks',       icon: <BookOpen size={18} /> },
+    { to: '/mitre',     label: 'MITRE ATT&CK',   icon: <Crosshair size={18} /> },
+    { to: '/cloak',     label: 'CLOAK OpSec',     icon: <EyeOff size={18} /> },
+    { to: '/ioc',       label: 'IOC Manager',     icon: <ShieldBan size={18} /> },
+    { to: '/bgp',       label: 'BGP Lookup',      icon: <Network size={18} /> },
+    { to: '/bgp/historian', label: 'BGP Historian', icon: <History size={18} />, badge: bgpAlertCount },
+    { to: '/settings',  label: 'Paramètres',      icon: <Settings size={18} /> },
+  ]
 
   const handleLogout = () => {
     logout()
@@ -84,12 +111,19 @@ export default function Sidebar({ onSearchOpen }: Props) {
             <NavLink
               key={item.to}
               to={item.to}
+              end={item.to === '/bgp'}
               className={({ isActive }) =>
                 clsx('nav-item text-sm', isActive && 'active')
               }
             >
               {item.icon}
-              <span>{item.label}</span>
+              <span className="flex-1">{item.label}</span>
+              {/* Badge alertes BGP non acquittées */}
+              {item.badge !== undefined && item.badge > 0 && (
+                <span className="ml-auto px-1.5 py-0.5 rounded-full bg-red-500 text-white text-xs font-bold leading-none min-w-[18px] text-center">
+                  {item.badge > 99 ? '99+' : item.badge}
+                </span>
+              )}
             </NavLink>
           ),
         )}

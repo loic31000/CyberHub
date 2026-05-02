@@ -1,4 +1,5 @@
-export type IOCType = 'ip' | 'domain' | 'hash' | 'url' | 'email'
+// 'cidr' ajouté pour les préfixes réseau exportés depuis le module BGP Lookup
+export type IOCType = 'ip' | 'domain' | 'hash' | 'url' | 'email' | 'cidr'
 
 export type IOCTLP = 'white' | 'green' | 'amber' | 'red'
 

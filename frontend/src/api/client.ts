@@ -240,21 +240,114 @@ export const iocApi = {
       }),
 }
 
-// ---- CLOAK Annotations (couche personnelle — source inchangée) ----
+// ---- BGP / AS Lookup + Historian ----
+export const bgpApi = {
+  // Proxy BGPView avec cache TTL 1h
+  lookupASN: (asn: number) =>
+    http
+      .get<import('@/types/bgp').BGPViewResponse<import('@/types/bgp').ASNInfo>>(`/bgp/asn/${asn}`)
+      .then((r) => r.data),
+
+  lookupASNPrefixes: (asn: number) =>
+    http
+      .get<import('@/types/bgp').PrefixList>(`/bgp/asn/${asn}/prefixes`)
+      .then((r) => r.data),
+
+  lookupASNPeers: (asn: number) =>
+    http
+      .get<import('@/types/bgp').PeerList>(`/bgp/asn/${asn}/peers`)
+      .then((r) => r.data),
+
+  lookupASNUpstreams: (asn: number) =>
+    http
+      .get<import('@/types/bgp').UpstreamList>(`/bgp/asn/${asn}/upstreams`)
+      .then((r) => r.data),
+
+  lookupASNDownstreams: (asn: number) =>
+    http
+      .get<import('@/types/bgp').DownstreamList>(`/bgp/asn/${asn}/downstreams`)
+      .then((r) => r.data),
+
+  lookupIP: (ip: string) =>
+    http
+      .get<import('@/types/bgp').IPInfo>(`/bgp/ip/${ip}`)
+      .then((r) => r.data),
+
+  getStatus: () =>
+    http
+      .get<import('@/types/bgp').BGPStatusResponse>('/bgp/status')
+      .then((r) => r.data),
+
+  search: (q: string) =>
+    http
+      .get<import('@/types/bgp').SearchResult>('/bgp/search', { params: { q } })
+      .then((r) => r.data),
+
+  takeSnapshot: (asn: number) =>
+    http
+      .post<import('@/types/bgp').BGPSnapshotResponse>(`/bgp/snapshot/${asn}`)
+      .then((r) => r.data),
+
+  getSnapshots: (asn: number, limit = 20, offset = 0) =>
+    http
+      .get<import('@/types/bgp').PaginatedResponse<import('@/types/bgp').BGPSnapshot>>(
+        `/bgp/snapshots/${asn}`,
+        { params: { limit, offset } },
+      )
+      .then((r) => r.data),
+
+  getDiff: (asn: number, idA: number, idB: number) =>
+    http
+      .get<import('@/types/bgp').BGPDiffResponse>(`/bgp/snapshots/${asn}/diff`, {
+        params: { id_a: idA, id_b: idB },
+      })
+      .then((r) => r.data),
+
+  getAlerts: (limit = 50, offset = 0) =>
+    http
+      .get<import('@/types/bgp').PaginatedResponse<import('@/types/bgp').BGPAlert>>(
+        '/bgp/alerts',
+        { params: { limit, offset } },
+      )
+      .then((r) => r.data),
+
+  ackAlert: (id: number) =>
+    http.patch(`/bgp/alerts/${id}/ack`).then((r) => r.data),
+
+  exportIOC: (payload: { type: 'ip' | 'cidr'; value: string; source?: string }) =>
+    http
+      .post<import('@/types/ioc').IOC>('/bgp/export-ioc', payload)
+      .then((r) => r.data),
+}
+
+// ---- CLOAK Annotations ----
 export const cloakAnnotationsApi = {
   list: () =>
     http
       .get<import('@/types/cloakAnnotation').CloakAnnotation[]>('/cloak/annotations')
       .then((r) => r.data),
 
-  upsert: (data: import('@/types/cloakAnnotation').CloakAnnotationRequest) =>
+  upsert: (req: import('@/types/cloakAnnotation').CloakAnnotationRequest) =>
     http
-      .post<import('@/types/cloakAnnotation').CloakAnnotation>('/cloak/annotations', data)
+      .post<import('@/types/cloakAnnotation').CloakAnnotation>('/cloak/annotations', req)
       .then((r) => r.data),
-
-  deleteById: (id: number) =>
-    http.delete(`/cloak/annotations/${id}`).then((r) => r.data),
 
   deleteByRef: (ref: string) =>
     http.delete(`/cloak/annotations/ref/${encodeURIComponent(ref)}`).then((r) => r.data),
+}
+
+// ---- Threat Feed (feeds CVE automatiques) ----
+export const threatApi = {
+  feeds: () =>
+    http
+      .get<import('@/types/threat').ThreatFeedLog[]>('/threat/feeds')
+      .then((r) => r.data),
+
+  alerts: () =>
+    http
+      .get<{ alerts: import('@/types').CVEEntry[]; count: number; since: string }>('/threat/alerts')
+      .then((r) => r.data),
+
+  runFeed: (name: 'cisa_kev' | 'nvd_api') =>
+    http.post(`/threat/run/${name}`).then((r) => r.data),
 }
