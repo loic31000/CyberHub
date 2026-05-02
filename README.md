@@ -64,7 +64,7 @@ Application de bureau pour centraliser vos outils, writeups CTF, veille CVE, pla
 | Composant        | Technologie                                         |
 |------------------|-----------------------------------------------------|
 | Backend          | Go 1.22+ · Gin · GORM · SQLite                      |
-| Frontend         | React 18 · TypeScript strict · Vite · Tailwind CSS  |
+| Frontend         | React 18 · TypeScript strict · Vite · Tailwind CSS · Node.js  |
 | Base de données  | SQLite WAL (fichier local `cyber-hub.db`)           |
 | Authentification | JWT HS256 · bcrypt                                  |
 | MITRE ATT&CK     | JSON STIX 2.0 officiel · seed offline               |
@@ -75,7 +75,7 @@ Application de bureau pour centraliser vos outils, writeups CTF, veille CVE, pla
 ## Prérequis
 
 - **Go** ≥ 1.22 — [golang.org/dl](https://golang.org/dl/)
-- **Node.js** ≥ 18 + npm — [nodejs.org](https://nodejs.org/)
+- **Node.js** ≥ 18 + npm — [nodejs.org](https://nodejs.org/) (uniquement pour compiler le frontend React/TypeScript)
 
 ---
 
