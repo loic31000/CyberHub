@@ -28,30 +28,6 @@ Application de bureau pour centraliser vos outils, writeups CTF, veille CVE, pla
 ### Dashboard
 ![Dashboard](./.github/screenshots/dashboard.png)
 
-### MITRE ATT&CK
-![MITRE ATT&CK](./.github/screenshots/mittreattack.png)
-
-### CLOAK OpSec
-![CLOAK](./.github/screenshots/cloak.png)
-
-### Outils
-![Outils](./.github/screenshots/outils.png)
-
-### Playbooks
-![Playbooks](./.github/screenshots/playbook.png)
-
-### Veille CVE
-![Veille CVE](./.github/screenshots/veillecve.png)
-
-### Writeups CTF
-![Writeups CTF](./.github/screenshots/writeups.png)
-
-### IOC Manager
-![IOC Manager](./.github/screenshots/ioc.png)
-
-### Paramètres
-![Paramètres](./.github/screenshots/parametres.png)
-
 ---
 
 ## Fonctionnalités
