@@ -3,7 +3,9 @@ package handlers
 import (
 	"encoding/csv"
 	"fmt"
+	"io"
 	"net/http"
+	"regexp"
 	"strconv"
 	"strings"
 	"time"
@@ -209,4 +211,196 @@ func ExportIOCsCSV(c *gin.Context) {
 		})
 	}
 	w.Flush()
+}
+
+// ImportIOCs importe des IOCs depuis un fichier CSV ou TXT (multipart/form-data)
+// POST /api/ioc/import
+func ImportIOCs(c *gin.Context) {
+	file, err := c.FormFile("file")
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "fichier requis"})
+		return
+	}
+	// Sécurité : limiter la taille du fichier à 10 MB
+	if file.Size > 10*1024*1024 {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "fichier trop grand (max 10MB)"})
+		return
+	}
+
+	defaultTLP := c.DefaultPostForm("default_tlp", "white")
+	defaultStatus := c.DefaultPostForm("default_status", "active")
+	defaultSource := c.DefaultPostForm("source", "import")
+
+	f, err := file.Open()
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	defer f.Close()
+
+	data, _ := io.ReadAll(f)
+	content := string(data)
+	lines := strings.Split(strings.ReplaceAll(content, "\r\n", "\n"), "\n")
+
+	imported := 0
+	skippedDuplicates := 0
+	skippedInvalid := 0
+	errs := []string{}
+	const maxIOCs = 10000
+
+	isCSV := strings.HasSuffix(strings.ToLower(file.Filename), ".csv")
+	if !isCSV && len(lines) > 0 {
+		isCSV = strings.Contains(lines[0], ",")
+	}
+
+	type iocEntry struct {
+		Value  string
+		Type   string
+		TLP    string
+		Status string
+		Source string
+	}
+
+	var entries []iocEntry
+	if isCSV {
+		firstLine := ""
+		if len(lines) > 0 {
+			firstLine = strings.ToLower(lines[0])
+		}
+		hasHeader := strings.Contains(firstLine, "value") ||
+			strings.Contains(firstLine, "ioc") ||
+			strings.Contains(firstLine, "type")
+		startIdx := 0
+		if hasHeader {
+			startIdx = 1
+		}
+		for _, line := range lines[startIdx:] {
+			line = strings.TrimSpace(line)
+			if line == "" {
+				continue
+			}
+			cols := strings.Split(line, ",")
+			if len(cols) == 0 {
+				continue
+			}
+			value := strings.TrimSpace(strings.Trim(cols[0], "\""))
+			if value == "" {
+				continue
+			}
+			iocType := ""
+			if len(cols) > 1 {
+				iocType = strings.TrimSpace(strings.Trim(cols[1], "\""))
+			}
+			if iocType == "" {
+				iocType = detectIOCType(value)
+			}
+			entries = append(entries, iocEntry{
+				Value:  value,
+				Type:   iocType,
+				TLP:    defaultTLP,
+				Status: defaultStatus,
+				Source: defaultSource,
+			})
+		}
+	} else {
+		for _, line := range lines {
+			line = strings.TrimSpace(line)
+			if line == "" || strings.HasPrefix(line, "#") {
+				continue
+			}
+			entries = append(entries, iocEntry{
+				Value:  line,
+				Type:   detectIOCType(line),
+				TLP:    defaultTLP,
+				Status: defaultStatus,
+				Source: defaultSource,
+			})
+		}
+	}
+
+	if len(entries) > maxIOCs {
+		entries = entries[:maxIOCs]
+	}
+
+	seen := map[string]struct{}{}
+	batch := make([]models.IOC, 0, 100)
+	for _, e := range entries {
+		if e.Type == "" || e.Type == "unknown" {
+			skippedInvalid++
+			continue
+		}
+		if _, ok := seen[e.Value]; ok {
+			skippedDuplicates++
+			continue
+		}
+		seen[e.Value] = struct{}{}
+
+		var existing models.IOC
+		if store.DB.Where("value = ?", e.Value).First(&existing).Error == nil {
+			skippedDuplicates++
+			continue
+		}
+
+		batch = append(batch, models.IOC{
+			Type:   models.IOCType(e.Type),
+			Value:  e.Value,
+			TLP:    models.IOCTLP(e.TLP),
+			Status: models.IOCStatus(e.Status),
+			Source: e.Source,
+		})
+		if len(batch) >= 100 {
+			if err := store.DB.CreateInBatches(batch, 100).Error; err != nil {
+				errs = append(errs, err.Error())
+			} else {
+				imported += len(batch)
+			}
+			batch = batch[:0]
+		}
+	}
+	if len(batch) > 0 {
+		if err := store.DB.CreateInBatches(batch, 100).Error; err != nil {
+			errs = append(errs, err.Error())
+		} else {
+			imported += len(batch)
+		}
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"imported":           imported,
+		"skipped_duplicates": skippedDuplicates,
+		"skipped_invalid":    skippedInvalid,
+		"errors":             errs,
+	})
+}
+
+func detectIOCType(value string) string {
+	ipv4Re := regexp.MustCompile(`^\d{1,3}(\.\d{1,3}){3}$`)
+	cidrRe := regexp.MustCompile(`^\d{1,3}(\.\d{1,3}){3}/\d{1,2}$`)
+	md5Re := regexp.MustCompile(`^[a-fA-F0-9]{32}$`)
+	sha256Re := regexp.MustCompile(`^[a-fA-F0-9]{64}$`)
+	emailRe := regexp.MustCompile(`^[^@\s]+@[^@\s]+\.[^@\s]+$`)
+	urlRe := regexp.MustCompile(`^https?://`)
+	ipv6Re := regexp.MustCompile(`^[0-9a-fA-F:]+:[0-9a-fA-F:]+$`)
+
+	switch {
+	case cidrRe.MatchString(value):
+		return "cidr"
+	case ipv4Re.MatchString(value):
+		return "ip"
+	case ipv6Re.MatchString(value):
+		return "ip"
+	case md5Re.MatchString(value):
+		return "hash"
+	case sha256Re.MatchString(value):
+		return "hash"
+	case emailRe.MatchString(value):
+		return "email"
+	case urlRe.MatchString(value):
+		return "url"
+	default:
+		if strings.Contains(value, ".") && !strings.Contains(value, " ") {
+			return "domain"
+		}
+		return "unknown"
+	}
 }

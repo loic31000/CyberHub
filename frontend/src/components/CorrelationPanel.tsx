@@ -1,10 +1,10 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
-  Crosshair, EyeOff, Wrench, BookOpen, ShieldAlert,
+  Crosshair, EyeOff, Wrench, BookOpen, ShieldAlert, Terminal,
   ChevronDown, ChevronRight, AlertCircle,
 } from 'lucide-react'
-import type { CorrelationResult } from '@/types/correlation'
+import type { CorrelationResult, CorrelationLOLBin } from '@/types/correlation'
 
 interface Props {
   result: CorrelationResult | null
@@ -207,6 +207,36 @@ export default function CorrelationPanel({ result, loading, error }: Props) {
               ))}
             </tbody>
           </table>
+        )}
+      </Section>
+
+
+      {/* Section 6 — LOLBins / GTFOBins */}
+      <Section
+        title="LOLBins / GTFOBins"
+        icon={<Terminal size={16} />}
+        count={(result.lolbins ?? []).length}
+      >
+        {(result.lolbins ?? []).length === 0 ? (
+          <EmptyHint label="Aucun LOLBin correspondant (hash ou domaine uniquement)" />
+        ) : (
+          <div className="flex flex-wrap gap-2">
+            {(result.lolbins ?? []).map((lb: CorrelationLOLBin, i: number) => (
+              <button
+                key={i}
+                onClick={() => navigate('/lolbins')}
+                className="flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium bg-gray-700 text-text-secondary hover:bg-cyber-cyan/20 hover:text-cyber-cyan transition-colors"
+              >
+                <span className={lb.os === 'windows' ? 'text-blue-400' : 'text-orange-400'}>
+                  {lb.os === 'windows' ? '⊞' : '🐧'}
+                </span>
+                {lb.name}
+                {lb.category && (
+                  <span className="text-text-muted">· {lb.category}</span>
+                )}
+              </button>
+            ))}
+          </div>
         )}
       </Section>
 

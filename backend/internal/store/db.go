@@ -82,6 +82,10 @@ func InitDB(dbPath string) error {
 		&models.Note{},
 		&models.HashCache{},
 		&models.AppSetting{},
+		&models.CISAKEVEntry{},
+		&models.EPSSScore{},
+		&models.ThreatFeedSync{},
+		&models.LOLBin{},
 	); err != nil {
 		return err
 	}

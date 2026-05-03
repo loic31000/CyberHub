@@ -1,8 +1,9 @@
 import { useRef, useState, useEffect } from 'react'
-import { Download, Upload, Database, Shield, Info, CheckCircle, RefreshCw, EyeOff, Search, Trash2 } from 'lucide-react'
-import { settingsApi, settingsDbApi, osintWmnApi, hashApi } from '@/api/client'
+import { Download, Upload, Database, Shield, CheckCircle, RefreshCw, EyeOff, Search, Wifi, AlertTriangle, Link2 } from 'lucide-react'
+import { settingsApi, settingsDbApi, osintWmnApi, hashApi, cisaApi, threatFeedsApi } from '@/api/client'
 import { toast } from '@/store/toast'
 import type { DBVersions } from '@/types/osint'
+import type { ThreatFeedSync } from '@/types/threat_intel'
 
 function fmtDate(iso: string): string {
   if (!iso || iso.startsWith('0001-')) return 'Jamais'
@@ -30,6 +31,59 @@ export default function Settings() {
   useEffect(() => {
     settingsDbApi.getVersions().then(setDbVersions).catch(() => {})
   }, [])
+
+  // CISA KEV
+  const [cisaStats, setCisaStats] = useState<{ total_entries: number; last_updated: string } | null>(null)
+  const [updatingKev, setUpdatingKev] = useState(false)
+
+  // Threat Feeds
+  const [feedStatus, setFeedStatus] = useState<{ feodo?: ThreatFeedSync; urlhaus?: ThreatFeedSync } | null>(null)
+  const [syncingFeodo, setSyncingFeodo] = useState(false)
+  const [syncingUrlhaus, setSyncingUrlhaus] = useState(false)
+
+  useEffect(() => {
+    cisaApi.getStats().then(setCisaStats).catch(() => {})
+    threatFeedsApi.getStatus().then(setFeedStatus).catch(() => {})
+  }, [])
+
+  const handleUpdateKev = async () => {
+    setUpdatingKev(true)
+    try {
+      const r = await cisaApi.updateKEV()
+      toast.success('CISA KEV mis a jour : ' + r.count + ' entrees (' + r.new_items + ' nouvelles)')
+      cisaApi.getStats().then(setCisaStats).catch(() => {})
+    } catch {
+      toast.error('Erreur lors de la mise a jour CISA KEV')
+    } finally {
+      setUpdatingKev(false)
+    }
+  }
+
+  const handleSyncFeodo = async () => {
+    setSyncingFeodo(true)
+    try {
+      const r = await threatFeedsApi.syncFeodo()
+      toast.success('Feodo : ' + r.new_iocs + ' nouveaux IOCs C2 importes')
+      threatFeedsApi.getStatus().then(setFeedStatus).catch(() => {})
+    } catch {
+      toast.error('Erreur sync Feodo Tracker')
+    } finally {
+      setSyncingFeodo(false)
+    }
+  }
+
+  const handleSyncUrlhaus = async () => {
+    setSyncingUrlhaus(true)
+    try {
+      const r = await threatFeedsApi.syncURLhaus()
+      toast.success('URLhaus : ' + r.new_iocs + ' nouvelles URLs malveillantes importees')
+      threatFeedsApi.getStatus().then(setFeedStatus).catch(() => {})
+    } catch {
+      toast.error('Erreur sync URLhaus')
+    } finally {
+      setSyncingUrlhaus(false)
+    }
+  }
 
   // VT key management
   const [vtConfig, setVtConfig] = useState<{ configured: boolean; masked_key: string } | null>(null)
@@ -339,92 +393,142 @@ export default function Settings() {
             </button>
           </div>
 
+          {/* CISA KEV */}
+          <div className="bg-gray-800 border border-gray-700 rounded-xl p-5 flex flex-col gap-3">
+            <div className="flex items-center gap-2">
+              <AlertTriangle size={18} className="text-red-400" />
+              <span className="font-semibold text-text-primary text-sm">CISA KEV</span>
+            </div>
+            <div className="text-xs text-text-muted space-y-0.5">
+              <p>{cisaStats ? cisaStats.total_entries + ' vulnérabilités exploitées' : '...'}</p>
+              <p>{'MAJ : ' + (cisaStats ? fmtDate(cisaStats.last_updated) : '...')}</p>
+            </div>
+            <button
+              onClick={handleUpdateKev}
+              disabled={updatingKev}
+              className="flex items-center justify-center gap-2 px-3 py-2 rounded-lg text-xs font-medium bg-red-900/30 border border-red-700/40 text-red-300 hover:bg-red-900/50 disabled:opacity-50 transition-colors"
+            >
+              <RefreshCw size={13} className={updatingKev ? 'animate-spin' : ''} />
+              {updatingKev ? 'Telechargement...' : 'Mettre a jour'}
+            </button>
+          </div>
+
         </div>
       </section>
 
-      {/* Section Clés API */}
-      <section ref={vtRef} className="mb-6">
+      {/* Threat Feeds */}
+      <section className="mb-6">
         <h2 className="text-text-primary font-semibold mb-3 flex items-center gap-2">
-          <Shield size={16} className="text-blue-400" />
-          Clés API
+          <Wifi size={16} className="text-orange-400" />
+          Threat Feeds
         </h2>
-        <div className="bg-gray-800 border border-gray-700 rounded-xl p-5 space-y-4">
-          <div className="flex items-center gap-3">
-            <Shield size={20} className="text-blue-400 shrink-0" />
-            <div className="flex-1">
-              <div className="flex items-center gap-2">
-                <span className="font-semibold text-text-primary text-sm">VirusTotal</span>
-                <a
-                  href="https://www.virustotal.com/gui/join-us"
-                  target="_blank"
-                  rel="noreferrer"
-                  className="text-xs text-cyber-cyan hover:underline"
-                >
-                  Obtenir une clé gratuite →
-                </a>
-              </div>
-              <p className="text-text-muted text-xs mt-0.5">500 requêtes/jour gratuites · Analyse de hashes, IPs, URLs</p>
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+
+          {/* Feodo Tracker */}
+          <div className="bg-gray-800 border border-gray-700 rounded-xl p-5 flex flex-col gap-3">
+            <div className="flex items-center gap-2">
+              <Wifi size={18} className="text-orange-400" />
+              <span className="font-semibold text-text-primary text-sm">Feodo Tracker (IPs C2)</span>
             </div>
+            <p className="text-xs text-text-muted">IPs de serveurs C2 actifs (Cobalt Strike, Emotet, QakBot…)</p>
+            <div className="text-xs text-text-muted space-y-0.5">
+              {feedStatus?.feodo ? (
+                <>
+                                    <p>Dernière sync : {new Date(feedStatus.feodo.last_sync).toLocaleString('fr-FR')}</p>
+                  <p>IOCs : {feedStatus.feodo.item_count} · Nouveaux : {feedStatus.feodo.new_items}</p>
+                </>
+              ) : (
+                <p className="italic opacity-60">Jamais synchronisé</p>
+              )}
+            </div>
+            <button
+              onClick={handleSyncFeodo}
+              disabled={syncingFeodo}
+              className="flex items-center gap-2 px-3 py-2 text-xs rounded border border-orange-500/40 text-orange-400 hover:bg-orange-500/10 transition-colors disabled:opacity-50 w-fit"
+            >
+              <RefreshCw size={12} className={syncingFeodo ? 'animate-spin' : ''} />
+              {syncingFeodo ? 'Sync en cours…' : 'Synchroniser'}
+            </button>
           </div>
 
-          {vtConfig === null ? (
-            <p className="text-text-muted text-xs animate-pulse">Chargement…</p>
-          ) : vtConfig.configured ? (
-            <div className="flex items-center gap-3">
-              <code className="text-xs text-text-muted font-mono bg-bg-primary px-3 py-1.5 rounded border border-border flex-1">
-                {vtConfig.masked_key}
-              </code>
+          {/* URLhaus */}
+          <div className="bg-gray-800 border border-gray-700 rounded-xl p-5 flex flex-col gap-3">
+            <div className="flex items-center gap-2">
+              <Link2 size={18} className="text-purple-400" />
+              <span className="font-semibold text-text-primary text-sm">URLhaus (URLs malveillantes)</span>
+            </div>
+            <p className="text-xs text-text-muted">URLs de distribution de malwares actives (abuse.ch)</p>
+            <div className="text-xs text-text-muted space-y-0.5">
+              {feedStatus?.urlhaus ? (
+                <>
+                  <p>Dernière sync : {new Date(feedStatus.urlhaus.last_sync).toLocaleString('fr-FR')}</p>
+                  <p>IOCs : {feedStatus.urlhaus.item_count} · Nouveaux : {feedStatus.urlhaus.new_items}</p>
+                </>
+              ) : (
+                <p className="italic opacity-60">Jamais synchronisé</p>
+              )}
+            </div>
+            <button
+              onClick={handleSyncUrlhaus}
+              disabled={syncingUrlhaus}
+              className="flex items-center gap-2 px-3 py-2 text-xs rounded border border-purple-500/40 text-purple-400 hover:bg-purple-500/10 transition-colors disabled:opacity-50 w-fit"
+            >
+              <RefreshCw size={12} className={syncingUrlhaus ? 'animate-spin' : ''} />
+              {syncingUrlhaus ? 'Sync en cours…' : 'Synchroniser'}
+            </button>
+          </div>
+
+        </div>
+      </section>
+
+      {/* VirusTotal API Key */}
+      <section ref={vtRef} className="mb-6">
+        <h2 className="text-text-primary font-semibold mb-3 flex items-center gap-2">
+          <Shield size={16} className="text-cyber-cyan" />
+          VirusTotal
+        </h2>
+        <div className="bg-gray-800 border border-gray-700 rounded-xl p-5 space-y-3">
+          {vtConfig?.configured ? (
+            <div className="space-y-3">
+              <div className="flex items-center gap-2 text-sm">
+                <CheckCircle size={14} className="text-cyber-green" />
+                <span className="text-text-primary">Clé configurée :</span>
+                <code className="font-mono text-text-muted">{vtConfig.masked_key}</code>
+              </div>
               <button
                 onClick={handleDeleteVT}
                 disabled={deletingVt}
-                className="flex items-center gap-1.5 px-3 py-1.5 text-xs rounded border border-red-500/40 text-red-400 hover:bg-red-500/10 disabled:opacity-40 transition-colors"
+                className="flex items-center gap-2 px-3 py-2 text-xs rounded border border-cyber-red/40 text-cyber-red hover:bg-cyber-red/10 transition-colors disabled:opacity-50"
               >
-                <Trash2 size={12} />
-                {deletingVt ? 'Suppression…' : 'Supprimer'}
+                <EyeOff size={12} />
+                {deletingVt ? 'Suppression…' : 'Supprimer la clé'}
               </button>
             </div>
           ) : (
-            <div className="flex gap-2">
-              <input
-                type="password"
-                value={vtKey}
-                onChange={e => setVtKey(e.target.value)}
-                onKeyDown={e => e.key === 'Enter' && handleSaveVT()}
-                placeholder="Coller votre clé API VirusTotal ici"
-                className="flex-1 bg-bg-primary border border-border rounded-lg px-3 py-2 text-xs text-text-primary placeholder-text-muted focus:border-cyber-cyan focus:outline-none font-mono"
-              />
-              <button
-                onClick={handleSaveVT}
-                disabled={savingVt || !vtKey.trim()}
-                className="flex items-center gap-1.5 px-4 py-2 text-xs rounded-lg bg-blue-600/20 border border-blue-500/40 text-blue-300 hover:bg-blue-600/30 disabled:opacity-40 transition-colors"
-              >
-                {savingVt ? <RefreshCw size={12} className="animate-spin" /> : null}
-                {savingVt ? 'Sauvegarde…' : '💾 Sauvegarder'}
-              </button>
+            <div className="space-y-3">
+              <p className="text-xs text-text-muted">Entrez votre clé API VirusTotal pour enrichir l'analyse de hash.</p>
+              <div className="flex gap-2">
+                <input
+                  type="password"
+                  value={vtKey}
+                  onChange={(e) => setVtKey(e.target.value)}
+                  placeholder="Clé API VirusTotal…"
+                  className="flex-1 bg-bg-secondary border border-border rounded px-3 py-2 text-sm text-text-primary focus:outline-none focus:border-cyber-cyan"
+                />
+                <button
+                  onClick={handleSaveVT}
+                  disabled={savingVt || !vtKey.trim()}
+                  className="px-4 py-2 text-sm bg-cyber-cyan text-bg-primary font-semibold rounded hover:bg-cyber-cyan/80 disabled:opacity-50 transition-colors"
+                >
+                  {savingVt ? 'Sauvegarde…' : 'Sauvegarder'}
+                </button>
+              </div>
             </div>
           )}
         </div>
       </section>
 
-      {/* Section Info */}
-      <section className="card border-border/50">
-        <div className="flex items-start gap-3">
-          <Info size={20} className="text-text-muted shrink-0 mt-0.5" />
-          <div className="text-text-muted text-sm space-y-1">
-            <p>
-              <strong className="text-text-primary">Cyber-Hub v0.9</strong> · Donnees 100% locales
-              · <code className="text-xs">cyber-hub.db</code> (SQLite)
-            </p>
-            <p className="flex items-center gap-1">
-              <Shield size={12} className="text-cyber-green" />
-              Mot de passe : bcrypt (cout 12) · JWT HS256 · CORS localhost uniquement
-            </p>
-            <p>
-              Toutes les donnees restent sur votre machine. Aucune telemetrie, aucun serveur distant.
-            </p>
-          </div>
-        </div>
-      </section>
+
     </div>
   )
 }

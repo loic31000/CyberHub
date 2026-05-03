@@ -61,6 +61,7 @@ export default function Sidebar({ onSearchOpen }: Props) {
     { to: '/osint',       label: 'OSINT Runner',   icon: <Search size={18} /> },
     { to: '/notes',       label: 'Notes',           icon: <FileText size={18} /> },
     { to: '/cheatsheets', label: 'Cheatsheets',     icon: <Terminal size={18} /> },
+    { to: '/lolbins',     label: 'LOLBins',         icon: <Terminal size={18} /> },
     { to: '/bgp',         label: 'BGP Lookup',      icon: <Network size={18} />, end: true },
     { to: '/bgp/historian', label: 'BGP Historian', icon: <History size={18} />, badge: bgpAlertCount },
     { to: '/settings',    label: 'Paramètres',      icon: <Settings size={18} /> },
@@ -140,8 +141,7 @@ export default function Sidebar({ onSearchOpen }: Props) {
           onClick={handleLogout}
           className="nav-item text-sm w-full text-cyber-red hover:text-cyber-red hover:bg-cyber-red/10"
         >
-          <LogOut size={18} />
-          <span>Déconnexion</span>
+          <LogOut size={18} /> Déconnexion
         </button>
       </div>
     </aside>

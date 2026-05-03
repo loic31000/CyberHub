@@ -17,7 +17,9 @@ import (
 
 	"github.com/cyber-hub/cyber-hub/internal/api"
 	"github.com/cyber-hub/cyber-hub/internal/api/handlers"
+	"github.com/cyber-hub/cyber-hub/internal/cisa"
 	"github.com/cyber-hub/cyber-hub/internal/correlation"
+	"github.com/cyber-hub/cyber-hub/internal/lolbins"
 	"github.com/cyber-hub/cyber-hub/internal/mitre"
 	"github.com/cyber-hub/cyber-hub/internal/store"
 	"github.com/gin-gonic/gin"
@@ -76,6 +78,10 @@ func main() {
 	}
 	// Seed MITRE ATT&CK — téléchargement + parsing en arrière-plan (si pas déjà fait)
 	mitre.SeedIfNeeded()
+	// Seed CISA KEV (Known Exploited Vulnerabilities)
+	cisa.SeedKEV(store.DB)
+	// Seed LOLBins (LOLBAS Windows + GTFOBins Linux)
+	lolbins.SeedLOLBins(store.DB)
 
 	// Mode production (pas de logs Gin colorisés)
 	gin.SetMode(gin.ReleaseMode)

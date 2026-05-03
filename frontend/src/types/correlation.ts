@@ -25,6 +25,12 @@ export interface CorrelationCVE {
   cvss_score: number
 }
 
+export interface CorrelationLOLBin {
+  name: string
+  os: string
+  category: string
+}
+
 export interface CorrelationResult {
   ioc_type: string
   ioc_value: string
@@ -33,6 +39,7 @@ export interface CorrelationResult {
   tools: CorrelationTool[]
   playbooks: CorrelationPlaybook[]
   cves: CorrelationCVE[]
+  lolbins: CorrelationLOLBin[]
   generated_at: string
   from_cache: boolean
 }

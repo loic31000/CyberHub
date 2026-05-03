@@ -132,10 +132,37 @@ func NewRouter(correlationEngine *correlation.CorrelationEngine) *gin.Engine {
 				ioc.GET("", handlers.ListIOCs)
 				ioc.GET("/stats", handlers.GetIOCStats)
 				ioc.GET("/export", handlers.ExportIOCsCSV)
+				ioc.POST("/import", handlers.ImportIOCs)
 				ioc.GET("/:id", handlers.GetIOC)
 				ioc.POST("", handlers.CreateIOC)
 				ioc.PUT("/:id", handlers.UpdateIOC)
 				ioc.DELETE("/:id", handlers.DeleteIOC)
+			}
+
+			cisaH := handlers.NewCISAHandler(store.DB)
+			cisa := protected.Group("/cisa")
+			{
+				cisa.GET("/kev/check/:cve_id", cisaH.CheckKEV)
+				cisa.GET("/kev/stats", cisaH.GetStats)
+				cisa.POST("/kev/update", cisaH.UpdateKEV)
+			}
+			protected.GET("/epss/:cve_id", cisaH.GetEPSS)
+
+			lolbinsH := handlers.NewLOLBinsHandler(store.DB)
+			lolbinsGroup := protected.Group("/lolbins")
+			{
+				lolbinsGroup.GET("", lolbinsH.List)
+				lolbinsGroup.GET("/categories", lolbinsH.GetCategories)
+				lolbinsGroup.GET("/mitre/:technique_id", lolbinsH.GetByMitre)
+				lolbinsGroup.GET("/:name", lolbinsH.GetByName)
+			}
+
+			threatFeedsH := handlers.NewThreatFeedsHandler(store.DB)
+			threatFeeds := protected.Group("/threat-feeds")
+			{
+				threatFeeds.GET("/status", threatFeedsH.GetStatus)
+				threatFeeds.POST("/sync/feodo", threatFeedsH.SyncFeodo)
+				threatFeeds.POST("/sync/urlhaus", threatFeedsH.SyncURLhaus)
 			}
 
 			hashH := handlers.NewHashHandler(store.DB)

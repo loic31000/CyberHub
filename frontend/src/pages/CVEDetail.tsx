@@ -1,8 +1,9 @@
 import { useState, useEffect } from 'react'
 import { useParams, useNavigate, Link } from 'react-router-dom'
-import { cveApi } from '@/api/client'
+import { cveApi, cisaApi } from '@/api/client'
 import type { CVEEntry, CVEStatus } from '@/types'
-import { ArrowLeft, Edit, Trash2, ExternalLink } from 'lucide-react'
+import type { CISAKEVEntry, EPSSScore } from '@/types/threat_intel'
+import { ArrowLeft, Edit, Trash2, ExternalLink, Flame, TrendingUp } from 'lucide-react'
 import ConfirmModal from '@/components/ConfirmModal'
 import { toast } from '@/store/toast'
 
@@ -25,6 +26,8 @@ export default function CVEDetail() {
   const [loading, setLoading]       = useState(true)
   const [deleting, setDeleting]     = useState(false)
   const [confirmOpen, setConfirmOpen] = useState(false)
+  const [kevEntry, setKevEntry]     = useState<CISAKEVEntry | null>(null)
+  const [epss, setEpss]             = useState<EPSSScore | null>(null)
 
   const STATUS_LABELS: Record<CVEStatus, string> = {
     new: `Nouveau`,
@@ -36,7 +39,16 @@ export default function CVEDetail() {
   useEffect(() => {
     if (!id) return
     cveApi.get(Number(id))
-      .then(setCve)
+      .then((data) => {
+        setCve(data)
+        // Enrichissement KEV + EPSS en parallèle
+        cisaApi.checkKEV(data.cve_id)
+          .then((r) => { if (r.exploited && r.entry) setKevEntry(r.entry) })
+          .catch(() => {})
+        cisaApi.getEPSS(data.cve_id)
+          .then(setEpss)
+          .catch(() => {})
+      })
       .catch(() => navigate('/cve'))
       .finally(() => setLoading(false))
   }, [id, navigate])
@@ -176,6 +188,63 @@ export default function CVEDetail() {
           </div>
         </div>
       </div>
+
+      {/* Section CISA KEV */}
+      {kevEntry && (
+        <div className="card border-red-500/40 bg-red-900/5">          <h2 className="text-sm font-semibold text-red-400 mb-3 uppercase tracking-wider flex items-center gap-2">
+            <Flame size={15} className="animate-pulse" />
+            Exploitation active — CISA KEV
+          </h2>
+          <div className="grid grid-cols-2 gap-3 text-xs">
+            <div>
+              <span className="text-text-muted block mb-0.5">Produit</span>
+              <span className="text-text-primary">{kevEntry.vendor_project} · {kevEntry.product}</span>
+            </div>
+            <div>
+              <span className="text-text-muted block mb-0.5">Ajouté au KEV le</span>
+              <span className="text-red-400 font-semibold">{kevEntry.date_added}</span>
+            </div>
+            <div>
+              <span className="text-text-muted block mb-0.5">Action requise</span>
+              <span className="text-text-primary">{kevEntry.required_action}</span>
+            </div>
+            <div>
+              <span className="text-text-muted block mb-0.5">Date limite de remédiation</span>
+              <span className="text-orange-400 font-semibold">{kevEntry.due_date || '—'}</span>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Section EPSS */}
+      {epss && (
+        <div className="card">
+          <h2 className="text-sm font-semibold text-cyber-cyan mb-3 uppercase tracking-wider flex items-center gap-2">
+            <TrendingUp size={15} />
+            EPSS Score
+          </h2>
+          <p className="text-xs text-text-muted mb-3">
+            Probabilité d'exploitation dans les 30 prochains jours :{' '}
+            <span className={`font-bold ${
+              epss.score >= 0.7 ? 'text-red-400' :
+              epss.score >= 0.3 ? 'text-orange-400' : 'text-gray-400'
+            }`}>
+              {(epss.score * 100).toFixed(1)}%
+            </span>
+            {' '}· Percentile {(epss.percentile * 100).toFixed(0)}e
+          </p>
+          <div className="h-2 bg-bg-hover rounded-full overflow-hidden">
+            <div
+              className={`h-full rounded-full transition-all ${
+                epss.score >= 0.7 ? 'bg-red-500' :
+                epss.score >= 0.3 ? 'bg-orange-400' : 'bg-gray-500'
+              }`}
+              style={{ width: `${epss.score * 100}%` }}
+            />
+          </div>
+          <p className="text-xs text-text-muted mt-2 opacity-60">Source : FIRST.org · {epss.date}</p>
+        </div>
+      )}
 
       {/* Notes */}
       {cve.notes && (

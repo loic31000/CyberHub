@@ -1,15 +1,16 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { useIocStore } from '@/store/useIocStore'
 import type { IOC, IOCCreatePayload, IOCType, IOCTLP, IOCStatus } from '@/types/ioc'
 import { toast } from '@/store/toast'
 import CorrelationPanel from '@/components/CorrelationPanel'
+import ImportIOCModal from '@/components/ImportIOCModal'
 import { correlationApi, hashApi, iocApi } from '@/api/client'
 import type { CorrelationResult } from '@/types/correlation'
 import type { HashAnalysisResponse, VirusTotalData, MalwareBazaarData, ThreatFoxData, URLhausData } from '@/types/hash'
 import {
   ShieldBan, Plus, Search, Download, X, Trash2, Edit2,
-  Globe, Hash, Link, Mail, Network, GitBranch, Loader2, RefreshCw, Shield,
+  Globe, Hash, Link, Mail, Network, GitBranch, Loader2, RefreshCw, Shield, FolderOpen,
 } from 'lucide-react'
 
 // TLP labels sont standards — pas traduits
@@ -454,10 +455,11 @@ export default function IOCPage() {
     const {
     iocs, total, loading, stats, filter,
     fetchIocs, fetchStats, setFilter,
-    createIoc, updateIoc, deleteIoc, exportCSV,
+    deleteIoc, exportCSV,
   } = useIocStore()
 
   const [showForm, setShowForm]     = useState(false)
+  const [showImport, setShowImport] = useState(false)
   const [editTarget, setEditTarget] = useState<IOC | null>(null)
   const [search, setSearch]         = useState('')
   const [searchTimeout, setSearchTimeout] = useState<ReturnType<typeof setTimeout> | null>(null)
@@ -534,16 +536,6 @@ export default function IOCPage() {
     setSearchTimeout(setTimeout(() => setFilter({ q: v || undefined }), 350))
   }
 
-  const handleCreate = async (data: IOCCreatePayload) => {
-    try { await createIoc(data); toast.success(`IOC ajouté`); setShowForm(false) }
-    catch { toast.error(`Erreur lors de l'ajout`) }
-  }
-
-  const handleUpdate = useCallback(async (data: IOCCreatePayload) => {
-    if (!editTarget) return
-    try { await updateIoc(editTarget.id, data); toast.success(`IOC mis à jour`); setEditTarget(null) }
-    catch { toast.error(`Erreur lors de la mise à jour`) }
-  }, [editTarget, updateIoc])
 
   const handleDelete = async (ioc: IOC) => {
     if (!confirm(`Supprimer ${ioc.type.toUpperCase()} : ${ioc.value} ?`)) return
@@ -600,6 +592,9 @@ export default function IOCPage() {
         <div className="flex gap-2">
           <button onClick={handleExport} className="flex items-center gap-2 px-3 py-2 text-sm border border-border rounded text-text-muted hover:text-cyber-cyan hover:border-cyber-cyan transition-colors">
             <Download size={15} /> {`Export CSV`}
+          </button>
+          <button onClick={() => setShowImport(true)} className="flex items-center gap-2 px-3 py-2 text-sm border border-border rounded text-text-muted hover:text-cyber-cyan hover:border-cyber-cyan transition-colors">
+            <FolderOpen size={15} /> {`Import CSV/TXT`}
           </button>
           <button onClick={() => { setShowForm(true); setEditTarget(null) }} className="flex items-center gap-2 px-3 py-2 text-sm bg-cyber-cyan text-bg-primary font-semibold rounded hover:bg-cyber-cyan/80 transition-colors">
             <Plus size={15} /> {`Ajouter IOC`}
@@ -910,13 +905,20 @@ export default function IOCPage() {
         )}
       </div>
 
+      {/* Modal Import IOC */}
+      <ImportIOCModal
+        open={showImport}
+        onClose={() => setShowImport(false)}
+        onImported={() => { fetchIocs(); fetchStats() }}
+      />
+
       {/* Modale Creation/Edition */}
       {showForm && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
           <div className="bg-bg-secondary border border-border rounded-xl p-6 w-full max-w-lg shadow-2xl">
             <div className="flex items-center justify-between mb-5">
               <h2 className="text-lg font-bold text-text-primary">
-                {editTarget ? `Modifier IOC` : `Ajouter un IOC`}
+                {editTarget ? `Modifier l'IOC` : `Nouvel IOC`}
               </h2>
               <button onClick={() => { setShowForm(false); setEditTarget(null) }}
                 className="p-1 rounded hover:bg-bg-primary text-text-muted hover:text-text-primary transition-colors">
@@ -925,7 +927,19 @@ export default function IOCPage() {
             </div>
             <IOCForm
               initial={editTarget ?? undefined}
-              onSubmit={editTarget ? handleUpdate : handleCreate}
+              onSubmit={async (data) => {
+                if (editTarget?.id) {
+                  await iocApi.update(editTarget.id, data)
+                  toast.success(`IOC mis à jour`)
+                } else {
+                  await iocApi.create(data)
+                  toast.success(`IOC ajouté`)
+                }
+                setShowForm(false)
+                setEditTarget(null)
+                fetchIocs()
+                fetchStats()
+              }}
               onCancel={() => { setShowForm(false); setEditTarget(null) }}
             />
           </div>

@@ -4,8 +4,10 @@ import { cveApi } from '@/api/client'
 import type { CVEEntry, CVEFilter, CVESeverity, CVEStatus } from '@/types'
 import { RowListSkeleton } from '@/components/Skeleton'
 import Pagination from '@/components/Pagination'
-import { Plus, Search, Upload, ShieldAlert, AlertTriangle } from 'lucide-react'
+import { Plus, Search, Upload, ShieldAlert, AlertTriangle, Flame } from 'lucide-react'
 import { toast } from '@/store/toast'
+import { cisaApi } from '@/api/client'
+import type { CISAKEVEntry } from '@/types/threat_intel'
 
 const SEVERITIES: CVESeverity[] = ['critical', 'high', 'medium', 'low', 'none']
 const STATUSES: CVEStatus[] = ['new', 'analyzed', 'patched', 'na']
@@ -36,6 +38,8 @@ export default function CVEList() {
   const [filters, setFilters]       = useState<CVEFilter>({ severity: '', status: '', search: '' })
   const [searchParams] = useSearchParams()
   const fileRef = useRef<HTMLInputElement>(null)
+  // KEV lookup map: cveId -> CISAKEVEntry
+  const [kevMap, setKevMap] = useState<Map<string, CISAKEVEntry>>(new Map())
 
   const STATUS_LABELS: Record<CVEStatus, string> = {
     new: `Nouveau`,
@@ -48,9 +52,21 @@ export default function CVEList() {
     setLoading(true)
     try {
       const res = await cveApi.list({ ...filters, page, limit: LIMIT } as CVEFilter & { page: number; limit: number })
-      setCves(res.cves ?? [])
+      const fetchedCves = res.cves ?? []
+      setCves(fetchedCves)
       setCount(Number(res.count))
       setTotalPages((res as { total_pages?: number }).total_pages ?? 1)
+      // Enrichissement KEV en batch (parallel, sans bloquer l'affichage)
+      const newMap = new Map<string, CISAKEVEntry>()
+      await Promise.allSettled(
+        fetchedCves.map(async (cve) => {
+          try {
+            const r = await cisaApi.checkKEV(cve.cve_id)
+            if (r.exploited && r.entry) newMap.set(cve.cve_id, r.entry)
+          } catch { /* silencieux */ }
+        })
+      )
+      setKevMap(newMap)
     } catch {
       toast.error(`Aucune CVE trouvée`)
       setCves([])
@@ -187,13 +203,23 @@ export default function CVEList() {
                     onClick={() => window.location.href = `/cve/${cve.id}`}
                   >
                     <td className="px-4 py-3">
-                      <Link
-                        to={`/cve/${cve.id}`}
-                        className="font-mono text-cyber-cyan hover:underline font-medium"
-                        onClick={(e) => e.stopPropagation()}
-                      >
-                        {cve.cve_id}
-                      </Link>
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <Link
+                          to={`/cve/${cve.id}`}
+                          className="font-mono text-cyber-cyan hover:underline font-medium"
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          {cve.cve_id}
+                        </Link>
+                        {kevMap.has(cve.cve_id) && (
+                          <span
+                            className="inline-flex items-center gap-1 text-xs px-1.5 py-0.5 rounded border border-red-500/50 bg-red-900/30 text-red-400 animate-pulse font-semibold"
+                            title={`Exploitée activement — CISA KEV · ${kevMap.get(cve.cve_id)?.vulnerability_name ?? ''}`}
+                          >
+                            <Flame size={10} /> KEV
+                          </span>
+                        )}
+                      </div>
                       <p className="text-xs text-text-muted mt-0.5 max-w-xs truncate">{cve.description}</p>
                     </td>
                     <td className="px-4 py-3">

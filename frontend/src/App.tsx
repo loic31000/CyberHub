@@ -25,6 +25,7 @@ import CorrelationPage from '@/pages/CorrelationPage'
 import OSINTRunner from '@/pages/OSINTRunner'
 import NotesPage from '@/pages/NotesPage'
 import CheatsheetsPage from '@/pages/CheatsheetsPage'
+import LOLBinsPage from '@/pages/LOLBinsPage'
 
 // Guard : redirige vers /login si non authentifié
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
@@ -100,6 +101,10 @@ export default function App() {
           {/* Cheatsheets */}
           <Route path="cheatsheets" element={<CheatsheetsPage />} />
 
+          {/* LOLBins & GTFOBins */}
+          <Route path="lolbins" element={<LOLBinsPage />} />
+
+        
           {/* Paramètres */}
           <Route path="settings" element={<SettingsPage />} />
         </Route>

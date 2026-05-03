@@ -170,6 +170,11 @@ export interface CVEEntry {
   published_at: string
   created_at: string
   updated_at: string
+  // Enrichissements KEV/EPSS (optionnels — ajoutés dynamiquement côté client)
+  kev_exploited?: boolean
+  kev_entry?: import('./threat_intel').CISAKEVEntry
+  epss_score?: number
+  epss_percentile?: number
 }
 
 export interface CVECreateRequest {

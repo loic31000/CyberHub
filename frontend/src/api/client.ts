@@ -238,6 +238,18 @@ export const iocApi = {
         a.click()
         window.URL.revokeObjectURL(url)
       }),
+
+  importCSV: (file: File, defaultTlp: string, defaultStatus: string) => {
+    const formData = new FormData()
+    formData.append('file', file)
+    formData.append('default_tlp', defaultTlp)
+    formData.append('default_status', defaultStatus)
+    return http
+      .post<import('@/types/threat_intel').ImportResult>('/ioc/import', formData, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+      })
+      .then((r) => r.data)
+  },
 }
 
 // ---- BGP / AS Lookup + Historian ----
@@ -477,6 +489,48 @@ export const osintWmnApi = {
     const token = localStorage.getItem('cyber_hub_token') ?? ''
     return `/api/osint/jobs/${id}/stream?token=${encodeURIComponent(token)}`
   },
+}
+
+// ---- CISA KEV + EPSS ----
+export const cisaApi = {
+  checkKEV: (cveId: string) =>
+    http.get<{ exploited: boolean; entry: import('@/types/threat_intel').CISAKEVEntry | null }>(`/cisa/kev/check/${cveId}`).then((r) => r.data),
+
+  getStats: () =>
+    http.get<{ total_entries: number; last_updated: string }>(`/cisa/kev/stats`).then((r) => r.data),
+
+  updateKEV: () =>
+    http.post<{ success: boolean; count: number; new_items: number; updated_at: string }>(`/cisa/kev/update`).then((r) => r.data),
+
+  getEPSS: (cveId: string) =>
+    http.get<import('@/types/threat_intel').EPSSScore>(`/epss/${cveId}`).then((r) => r.data),
+}
+
+// ---- LOLBins (LOLBAS + GTFOBins) ----
+export const lolbinsApi = {
+  list: (params?: { os?: string; category?: string; search?: string; mitre?: string }) =>
+    http.get<import('@/types/lolbins').LOLBinsResponse>(`/lolbins`, { params }).then((r) => r.data),
+
+  getByName: (name: string) =>
+    http.get<import('@/types/lolbins').LOLBin>(`/lolbins/${encodeURIComponent(name)}`).then((r) => r.data),
+
+  getCategories: () =>
+    http.get<import('@/types/lolbins').LOLBinCategory[]>(`/lolbins/categories`).then((r) => r.data),
+
+  getByMitre: (techId: string) =>
+    http.get<import('@/types/lolbins').LOLBin[]>(`/lolbins/mitre/${techId}`).then((r) => r.data),
+}
+
+// ---- Threat Feeds (Feodo + URLhaus) ----
+export const threatFeedsApi = {
+  getStatus: () =>
+    http.get<import('@/types/threat_intel').ThreatFeedsStatus>(`/threat-feeds/status`).then((r) => r.data),
+
+  syncFeodo: () =>
+    http.post<import('@/types/threat_intel').ThreatFeedSyncResult>(`/threat-feeds/sync/feodo`).then((r) => r.data),
+
+  syncURLhaus: () =>
+    http.post<import('@/types/threat_intel').ThreatFeedSyncResult>(`/threat-feeds/sync/urlhaus`).then((r) => r.data),
 }
 
 // ---- Settings DB Versions ----

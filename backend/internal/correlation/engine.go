@@ -43,6 +43,12 @@ type CorrelationCVE struct {
 	CVSSScore   float64 `json:"cvss_score"`
 }
 
+type CorrelationLOLBin struct {
+	Name     string `json:"name"`
+	OS       string `json:"os"`
+	Category string `json:"category"`
+}
+
 type CorrelationResult struct {
 	IOCType      string                   `json:"ioc_type"`
 	IOCValue     string                   `json:"ioc_value"`
@@ -51,6 +57,7 @@ type CorrelationResult struct {
 	Tools        []CorrelationTool        `json:"tools"`
 	Playbooks    []CorrelationPlaybook    `json:"playbooks"`
 	CVEs         []CorrelationCVE         `json:"cves"`
+	LOLBins      []CorrelationLOLBin      `json:"lolbins"`
 	GeneratedAt  time.Time                `json:"generated_at"`
 	FromCache    bool                     `json:"from_cache"`
 }
@@ -284,6 +291,7 @@ func (ce *CorrelationEngine) Analyze(iocType, iocValue string) CorrelationResult
 		Tools:        []CorrelationTool{},
 		Playbooks:    []CorrelationPlaybook{},
 		CVEs:         []CorrelationCVE{},
+		LOLBins:      []CorrelationLOLBin{},
 		GeneratedAt:  time.Now(),
 		FromCache:    false,
 	}
@@ -306,13 +314,14 @@ func (ce *CorrelationEngine) Analyze(iocType, iocValue string) CorrelationResult
 		return result
 	}
 
-	// 3. Lancer 5 goroutines en parallèle
+	// 3. Lancer 6 goroutines en parallèle
 	var wg sync.WaitGroup
 	techsChan     := make(chan []CorrelationTechnique, 1)
 	cloakChan     := make(chan []CorrelationCloakTactic, 1)
 	toolsChan     := make(chan []CorrelationTool, 1)
 	playbooksChan := make(chan []CorrelationPlaybook, 1)
 	cvesChan      := make(chan []CorrelationCVE, 1)
+	lolbinsChan   := make(chan []CorrelationLOLBin, 1)
 
 	// Goroutine 1 : MITRE Techniques
 	wg.Add(1)
@@ -400,18 +409,42 @@ func (ce *CorrelationEngine) Analyze(iocType, iocValue string) CorrelationResult
 		cvesChan <- r
 	}()
 
+	// Goroutine 6 : LOLBins — si l'IOC est un hash ou domaine, cherche correspondance par nom
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		r := make([]CorrelationLOLBin, 0)
+		if iocType == "hash" || iocType == "domain" {
+			// Cherche un LOLBin dont le nom correspond (ex: "certutil.exe" dans la valeur)
+			nameLike := "%" + strings.ToLower(iocValue) + "%"
+			var bins []models.LOLBin
+			ce.db.Where("LOWER(name) LIKE ? OR LOWER(full_path) LIKE ?", nameLike, nameLike).
+				Limit(5).Find(&bins)
+			for _, b := range bins {
+				r = append(r, CorrelationLOLBin{
+					Name:     b.Name,
+					OS:       b.OS,
+					Category: b.Category,
+				})
+			}
+		}
+		lolbinsChan <- r
+	}()
+
 	wg.Wait()
 	close(techsChan)
 	close(cloakChan)
 	close(toolsChan)
 	close(playbooksChan)
 	close(cvesChan)
+	close(lolbinsChan)
 
 	result.Techniques   = <-techsChan
 	result.CloakTactics = <-cloakChan
 	result.Tools        = <-toolsChan
 	result.Playbooks    = <-playbooksChan
 	result.CVEs         = <-cvesChan
+	result.LOLBins      = <-lolbinsChan
 
 	// 4. Sérialiser et upsert dans le cache
 	resultJSON, _ := json.Marshal(result)

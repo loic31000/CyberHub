@@ -1,4 +1,4 @@
-# CYBER-HUB v0.9
+# CYBER-HUB v1.0
 
 > Hub de ressources cybersécurité — 100% local, 100% offline
 
@@ -14,8 +14,12 @@
 ![Hash Analysis](https://img.shields.io/badge/Hash-4_Sources-E11D48?logo=shield&logoColor=white)
 ![VirusTotal](https://img.shields.io/badge/VirusTotal-Intégré-394EFF?logo=virustotal&logoColor=white)
 ![Cheatsheets](https://img.shields.io/badge/Cheatsheets-Interactives-6366F1?logo=terminal&logoColor=white)
+![CISA KEV](https://img.shields.io/badge/CISA-KEV_Exploited-DC2626?logo=shield&logoColor=white)
+![EPSS](https://img.shields.io/badge/EPSS-FIRST.org-7C3AED?logo=chart-bar&logoColor=white)
+![LOLBins](https://img.shields.io/badge/LOLBins-LOLBAS%2FGTFOBins-F97316?logo=terminal&logoColor=white)
+![Threat Feeds](https://img.shields.io/badge/Threat_Feeds-Feodo%2FURLhaus-0EA5E9?logo=rss&logoColor=white)
 
-Application de bureau pour centraliser vos outils, writeups CTF, veille CVE, playbooks de réponse à incident, gestion d'IOC, base de connaissances OpSec, analyse BGP/AS, OSINT et investigation.
+Application de bureau pour centraliser vos outils, writeups CTF, veille CVE, playbooks de réponse à incident, gestion d'IOC, base de connaissances OpSec, analyse BGP/AS, OSINT et investigation. En v1.0 : enrichissement CISA KEV + EPSS, LOLBins/GTFOBins, import IOC en masse CSV/TXT, synchronisation Feodo Tracker + URLhaus.
 
 ---
 
@@ -71,6 +75,10 @@ Application de bureau pour centraliser vos outils, writeups CTF, veille CVE, pla
 - **IOC Manager amélioré** — cases à cocher par ligne · sélection tout/partielle (état indéterminé) · suppression groupée avec confirmation · barre d'actions contextuelle
 - **Cheatsheets interactives** — plus de 16 outils avec commandes paramétrables, preview en temps réel et copie en un clic
 - **Dashboard v2** — widgets supplémentaires BGP Alerts, IOCs récents, corrélations récentes et notes récentes
+- **CISA KEV + EPSS** — badge rouge animé 🔥 sur les CVE exploitées activement, score de probabilité EPSS (FIRST.org) avec jauge, section dédiée dans le détail CVE, mise à jour depuis les Paramètres
+- **LOLBins & GTFOBins** — 232 binaires Windows (LOLBAS) + 15 binaires Linux (GTFOBins) · recherche, filtres par catégorie et technique MITRE, drawer latéral avec commandes d'abus colorées et copie en un clic
+- **Import IOC en masse** — CSV ou TXT, détection automatique du type (IP, hash, domaine, URL, email, CIDR), aperçu 5 lignes, déduplication, modal drag & drop
+- **Threat Feeds** — synchronisation Feodo Tracker (IPs C2 Cobalt Strike/Emotet) et URLhaus (URLs malveillantes actives) depuis les Paramètres · TLP auto · déduplication avant insertion
 
 ---
 
@@ -87,6 +95,10 @@ Application de bureau pour centraliser vos outils, writeups CTF, veille CVE, pla
 | BGP              | BGPView API (bgpview.io) · cache SQLite · fallback RIPE Stat · DNS-over-HTTPS · aucune clé API |
 | Hash Analysis    | VirusTotal · MalwareBazaar · ThreatFox · URLhaus · goroutines parallèles · cache SQLite 6h/1h |
 | Clés API         | Stockage chiffré en DB (`app_settings`) · masquage `VT-XXXX****YYYY` · CRUD depuis les Paramètres |
+| CISA KEV         | CISA Known Exploited Vulnerabilities · CSV officiel · cache SQLite · badge animé dans la liste CVE  |
+| EPSS             | FIRST.org API v3 · score + percentile · jauge colorée dans le détail CVE                            |
+| LOLBins          | LOLBAS (Windows, 232 binaires) · GTFOBins (Linux, 15+) · seed SQLite · filtres MITRE + catégorie    |
+| Threat Feeds     | Feodo Tracker (IPs C2) · URLhaus (URLs malveillantes) · TLP auto · déduplication avant insertion    |
 
 ---
 
@@ -273,6 +285,60 @@ Suivi des changements de routage BGP dans le temps :
 - **Alertes** — détection automatique des changements lors d'un nouveau snapshot (`prefix_change`, `upstream_change`, `peer_change`, `downstream_change`) · badge rouge dans la sidebar · acquittement manuel
 - **Export IOC** — conversion d'un préfixe BGP en IOC de type CIDR
 
+### CISA KEV & EPSS
+
+Enrichissement automatique des CVE depuis deux sources de threat intelligence :
+
+| Source | Données | Mise à jour |
+|--------|---------|-------------|
+| **CISA KEV** | Known Exploited Vulnerabilities — liste officielle des CVE exploitées activement | Depuis les Paramètres → bouton "Synchroniser KEV" |
+| **EPSS** | Exploit Prediction Scoring System (FIRST.org) — probabilité d'exploitation dans les 30 jours | À la demande, requête API par CVE ID |
+
+- Badge rouge animé 🔥 sur toute CVE présente dans le catalogue KEV (liste et détail)
+- Section KEV dans le détail CVE : vendeur, produit, date d'ajout au catalogue, action requise, date limite de remédiation
+- Section EPSS : score en % avec jauge colorée (rouge ≥70 %, orange ≥30 %, gris <30 %) + percentile + date de calcul
+
+### LOLBins & GTFOBins
+
+Base de données locale de binaires légitimes utilisables à des fins offensives :
+
+| OS | Source | Entrées |
+|----|--------|---------|
+| Windows | [LOLBAS Project](https://lolbas-project.github.io/) | 232 binaires |
+| Linux | [GTFOBins](https://gtfobins.github.io/) | 15+ binaires |
+
+Fonctionnalités :
+- Recherche textuelle (nom, description), filtre par OS, catégorie et technique MITRE ATT&CK
+- Drawer latéral avec commandes d'abus, badges colorés par type (Shell, Download, Exec…), copie en un clic
+- Compteur de commandes par binaire, couleur OS distincte (bleu Windows / vert Linux)
+- Lien MITRE automatique vers la technique correspondante
+
+### Import IOC en masse (CSV / TXT)
+
+Modal drag & drop pour importer des centaines d'IOC en une seule opération :
+
+- **Formats** : CSV (première colonne = valeur, deuxième = type optionnel) ou TXT (une valeur par ligne)
+- **Détection automatique** du type : IP, domaine, hash MD5/SHA256, URL, email, CIDR
+- **Aperçu** des 5 premières lignes parsées avant import
+- **Déduplication** : les IOC déjà présents en base sont ignorés silencieusement
+- **TLP** et statut configurables avant l'import
+- Résultat : toast avec le nombre d'IOC effectivement insérés
+
+### Threat Feeds (Feodo Tracker & URLhaus)
+
+Synchronisation de deux feeds de menaces ouverts depuis les Paramètres :
+
+| Feed | Contenu | Format |
+|------|---------|--------|
+| **Feodo Tracker** (abuse.ch) | IPs C2 de Cobalt Strike, Emotet, QakBot, Pikabot… | CSV |
+| **URLhaus** (abuse.ch) | URLs malveillantes actives | CSV |
+
+- Bouton de synchronisation par feed — appel backend → téléchargement → parse → upsert SQLite
+- TLP automatique : `Red` pour Feodo, `Amber` pour URLhaus
+- Déduplication avant insertion (skip si IOC déjà présent)
+- Affichage du résultat : nombre d'entrées ajoutées + date de dernière synchronisation
+
+
 ---
 
 ## Sécurité
@@ -296,7 +362,7 @@ cyber-hub/
 ├── backend/
 │   ├── internal/
 │   │   ├── api/
-│   │   │   ├── handlers/      # Auth, Tools, CTF, CVE, Playbooks, MITRE, IOC, CLOAK, BGP, Hash, OSINT, Notes
+│   │   │   ├── handlers/      # Auth, Tools, CTF, CVE, Playbooks, MITRE, IOC, CLOAK, BGP, Hash, OSINT, Notes, LOLBins, ThreatFeeds
 │   │   │   ├── middleware/    # Auth (JWT header + ?token= SSE fallback), Rate limiter
 │   │   │   └── router.go
 │   │   ├── mitre/             # Seed MITRE STIX 2.0
@@ -309,12 +375,12 @@ cyber-hub/
 │   └── main.go
 ├── frontend/
 │   └── src/
-│       ├── pages/             # Dashboard, Tools, CTF, CVE, Playbooks, MITRE, IOC, CLOAK,
+│       ├── pages/             # Dashboard, Tools, CTF, CVE, Playbooks, MITRE, IOC, CLOAK, LOLBinsPage,
 │       │                      #   BGPLookup, BGPHistorian, OSINTRunner, Notes, Settings, IOCPage
 │       ├── components/        # Layout, Sidebar, SearchModal, Pagination, Toast, CorrelationPanel
 │       ├── api/client.ts      # Axios + tous les endpoints (bgpApi, hashApi, osintWmnApi, correlationApi…)
 │       ├── store/             # Zustand (auth, toast, ioc)
-│       ├── types/             # bgp.ts · ioc.ts · hash.ts · correlation.ts · osint.ts
+│       ├── types/             # bgp.ts · ioc.ts · hash.ts · correlation.ts · osint.ts · lolbins.ts · threat_intel.ts
 │       ├── App.tsx
 │       └── main.tsx
 ├── .github/
@@ -351,6 +417,18 @@ gofmt -w ./internal/...
 ---
 
 ## Changelog
+
+### v1.0 — CISA KEV · EPSS · LOLBins/GTFOBins · Import IOC · Threat Feeds
+
+- **CISA KEV** — synchronisation du catalogue officiel des vulnérabilités exploitées activement : badge 🔥 animé dans la liste CVE, section dédiée dans `CVEDetail` (vendor, produit, date d'ajout, action requise, date limite) · mise à jour depuis les Paramètres
+- **EPSS** (FIRST.org) — score de probabilité d'exploitation à 30 jours avec jauge colorée et percentile dans `CVEDetail` · requête API v3 par CVE ID
+- **LOLBins & GTFOBins** — base locale de 232 binaires Windows (LOLBAS) + 15+ Linux (GTFOBins) · seed SQLite avec `lolbas.json` et `gtfobins.json` · idempotence par OS · handler `LOLBinsHandler` (List, GetByName, GetCategories, GetByMitre) · DTO explicite `LOLBinDTO` avec `json:"id"` (fix bug gorm.Model serialisation)
+- **Drawer LOLBins** — bug de clic corrigé (`item.id` était `undefined` car `gorm.Model.ID` sérialisé `"ID"`) · `parseCommandCount` utilisé dans l'API response
+- **Import IOC en masse** — modal drag & drop CSV/TXT · détection automatique du type · aperçu 5 lignes · déduplication · TLP/statut configurables
+- **Threat Feeds** — synchronisation Feodo Tracker (IPs C2) et URLhaus (URLs malveillantes) depuis les Paramètres · TLP automatique · déduplication avant insertion
+- **Corrélation — LOLBins** — 6e goroutine dans le moteur de corrélation : matching IOC hash/domaine contre la table `lol_bins` · section LOLBins dans `CorrelationPanel`
+- **Backend** — nouveaux modèles : `LOLBin`, mise à jour `CorrelationResult` avec `LOLBins []CorrelationLOLBin` · routes `/api/lolbins/...`
+- **Frontend** — `LOLBinsPage.tsx` · `types/lolbins.ts` · `types/threat_intel.ts` · `CorrelationPanel` section LOLBins
 
 ### v0.9 — Hash Analysis 4 sources · IOC Manager bulk · VirusTotal
 - **Analyse Hash multi-sources** — 4 goroutines parallèles : VirusTotal, MalwareBazaar (form-encoded), ThreatFox, URLhaus · priorité de résultat configurable · cache 6h/1h
@@ -394,4 +472,4 @@ CLOAK est distribué sous licence GPL v2 — crédit : Mick Deben, Leiden Univer
 
 ---
 
-*README mis à jour le 03/05/2026 — Cyber-Hub v0.9*
+*README mis à jour le 03/05/2026 — Cyber-Hub v1.0*
