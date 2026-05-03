@@ -1,18 +1,20 @@
 package api
 
 import (
+	"os"
+	"path/filepath"
 	"time"
 
 	"github.com/cyber-hub/cyber-hub/internal/api/handlers"
 	"github.com/cyber-hub/cyber-hub/internal/api/middleware"
 	"github.com/cyber-hub/cyber-hub/internal/cheatsheets"
 	"github.com/cyber-hub/cyber-hub/internal/correlation"
+	"github.com/cyber-hub/cyber-hub/internal/osint"
 	"github.com/cyber-hub/cyber-hub/internal/store"
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
 )
 
-// NewRouter configure et retourne le router Gin
 func NewRouter(correlationEngine *correlation.CorrelationEngine) *gin.Engine {
 	r := gin.New()
 	r.Use(gin.Logger())
@@ -45,6 +47,10 @@ func NewRouter(correlationEngine *correlation.CorrelationEngine) *gin.Engine {
 	}
 
 	loginLimiter := middleware.NewRateLimiter(8, time.Minute)
+
+	dataDir := filepath.Dir(getDBPath())
+	wmnPath := filepath.Join(dataDir, "wmn-data.json")
+	osintEngine := osint.NewOSINTEngine(store.DB, wmnPath)
 
 	api := r.Group("/api")
 	{
@@ -132,14 +138,21 @@ func NewRouter(correlationEngine *correlation.CorrelationEngine) *gin.Engine {
 				ioc.DELETE("/:id", handlers.DeleteIOC)
 			}
 
+			hashH := handlers.NewHashHandler(store.DB)
+
 			settings := protected.Group("/settings")
 			{
 				settings.GET("/export", handlers.ExportData)
 				settings.POST("/import", handlers.ImportData)
 				settings.POST("/backup", handlers.TriggerBackup)
+				settings.GET("/db-versions", handlers.GetDBVersions)
+				settings.POST("/update-mitre", handlers.UpdateMITRE)
+				settings.POST("/update-cloak", handlers.UpdateCLOAK)
+				settings.GET("/virustotal", hashH.GetVTConfig)
+				settings.POST("/virustotal", hashH.SaveVTKey)
+				settings.DELETE("/virustotal", hashH.DeleteVTKey)
 			}
 
-			// BGP / AS Lookup + Historian
 			bgp := protected.Group("/bgp")
 			{
 				bgp.GET("/asn/:asn", handlers.GetBGPASN)
@@ -158,29 +171,29 @@ func NewRouter(correlationEngine *correlation.CorrelationEngine) *gin.Engine {
 				bgp.POST("/export-ioc", handlers.PostBGPExportIOC)
 			}
 
-			// Corrélation globale
 			corrHandlers := handlers.MakeCorrelationHandlers(correlationEngine)
-			correlation := protected.Group("/correlation")
+			corrGroup := protected.Group("/correlation")
 			{
-				correlation.GET("/ioc/:id", corrHandlers.GetCorrelationByIOC)
-				correlation.POST("/analyze", corrHandlers.PostCorrelationAnalyze)
-				correlation.GET("/history", corrHandlers.GetCorrelationHistory)
-				correlation.DELETE("/cache/:ioc_value", corrHandlers.DeleteCorrelationCache)
+				corrGroup.GET("/ioc/:id", corrHandlers.GetCorrelationByIOC)
+				corrGroup.POST("/analyze", corrHandlers.PostCorrelationAnalyze)
+				corrGroup.GET("/history", corrHandlers.GetCorrelationHistory)
+				corrGroup.DELETE("/cache/:ioc_value", corrHandlers.DeleteCorrelationCache)
 			}
 
-			// OSINT Runner
-			osintH := handlers.NewOSINTHandler(store.DB)
-			osint := protected.Group("/osint")
+			osintH := handlers.NewOSINTHandler(store.DB, osintEngine)
+			osintGroup := protected.Group("/osint")
 			{
-				osint.GET("/tools", osintH.ListTools)
-				osint.POST("/run", osintH.RunJob)
-				osint.GET("/jobs", osintH.ListJobs)
-				osint.GET("/jobs/:id", osintH.GetJob)
-				osint.DELETE("/jobs/:id", osintH.DeleteJob)
-				osint.GET("/jobs/:id/stream", osintH.StreamJob)
+				osintGroup.GET("/meta", osintH.GetMeta)
+				osintGroup.POST("/update-db", osintH.UpdateDB)
+				osintGroup.POST("/run", osintH.RunJob)
+				osintGroup.GET("/jobs", osintH.ListJobs)
+				osintGroup.GET("/jobs/:id", osintH.GetJob)
+				osintGroup.GET("/jobs/:id/stream", osintH.StreamJob)
+				osintGroup.DELETE("/jobs/:id", osintH.DeleteJob)
+				osintGroup.GET("/jobs/:id/export-ioc", osintH.ExportIOC)
+				osintGroup.POST("/jobs/:id/import-ioc", osintH.ImportIOC)
 			}
 
-			// Notes opérationnelles
 			notesH := handlers.NewNotesHandler(store.DB)
 			notes := protected.Group("/notes")
 			{
@@ -192,15 +205,13 @@ func NewRouter(correlationEngine *correlation.CorrelationEngine) *gin.Engine {
 				notes.DELETE("/:id", notesH.Delete)
 			}
 
-			// Hash Analyzer (MalwareBazaar)
-			hashH := handlers.NewHashHandler(store.DB)
 			hash := protected.Group("/hash")
 			{
 				hash.GET("/analyze/:hash", hashH.Analyze)
 				hash.POST("/bulk", hashH.BulkAnalyze)
+				hash.DELETE("/cache/:hash", hashH.DeleteCache)
 			}
 
-			// Cheatsheets (données embarquées)
 			cheatH := cheatsheets.NewCheatsheetsHandler()
 			cheat := protected.Group("/cheatsheets")
 			{
@@ -211,4 +222,12 @@ func NewRouter(correlationEngine *correlation.CorrelationEngine) *gin.Engine {
 	}
 
 	return r
+}
+
+
+func getDBPath() string {
+	if p := os.Getenv("CYBER_HUB_DB"); p != "" {
+		return p
+	}
+	return filepath.Join(".", "cyber_hub.db")
 }

@@ -105,6 +105,11 @@ func SeedIfNeeded() {
 	}()
 }
 
+// RunSeed est la version publique de runSeed — utilisée pour les mises à jour manuelles.
+func RunSeed() error {
+	return runSeed()
+}
+
 // runSeed télécharge le JSON MITRE, le parse et remplit la BDD.
 func runSeed() error {
 	seeding.Store(true)
@@ -262,7 +267,7 @@ func parseTechnique(obj stixObject) *models.MITRETechnique {
 	}
 }
 
-// truncate coupe une chaîne à max caractères sans couper en milieu de mot (approx).
+// truncate coupe une chaine a max caracteres.
 func truncate(s string, max int) string {
 	if len(s) <= max {
 		return s

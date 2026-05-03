@@ -373,35 +373,6 @@ export const correlationApi = {
     http.delete(`/correlation/cache/${encodeURIComponent(iocValue)}`).then((r) => r.data),
 }
 
-// ---- OSINT Runner ----
-// ⚠️ Usage légal uniquement — OSINT sur systèmes autorisés seulement
-export const osintApi = {
-  listTools: () =>
-    http
-      .get<import('@/types/osint').OSINTToolsResponse>('/osint/tools')
-      .then((r) => r.data),
-
-  runJob: (req: import('@/types/osint').OSINTRunRequest) =>
-    http
-      .post<{ id: number; status: string }>('/osint/run', req)
-      .then((r) => r.data),
-
-  listJobs: () =>
-    http
-      .get<import('@/types/osint').OSINTJobsResponse>('/osint/jobs')
-      .then((r) => r.data),
-
-  getJob: (id: number) =>
-    http
-      .get<import('@/types/osint').OSINTJob>(`/osint/jobs/${id}`)
-      .then((r) => r.data),
-
-  deleteJob: (id: number) =>
-    http.delete(`/osint/jobs/${id}`).then((r) => r.data),
-
-  streamJobUrl: (id: number) => `/api/osint/jobs/${id}/stream`,
-}
-
 // ---- Notes opérationnelles ----
 export const notesApi = {
   list: () =>
@@ -429,17 +400,29 @@ export const notesApi = {
       .then((r) => r.data),
 }
 
-// ---- Hash Analyzer (MalwareBazaar) ----
+// ---- Hash Analyzer (multi-sources) ----
 export const hashApi = {
   hashAnalyze: (hash: string) =>
     http
-      .get<import('@/types/hash').HashAnalysisResult>(`/hash/analyze/${hash}`)
+      .get<import('@/types/hash').HashAnalysisResponse>(`/hash/analyze/${hash}`)
       .then((r) => r.data),
 
   bulkAnalyze: (hashes: string[]) =>
     http
       .post<import('@/types/hash').BulkHashResponse>('/hash/bulk', { hashes })
       .then((r) => r.data),
+
+  deleteCache: (hash: string) =>
+    http.delete(`/hash/cache/${hash}`).then((r) => r.data),
+
+  vtGetConfig: () =>
+    http.get<import('@/types/hash').VTConfig>('/settings/virustotal').then((r) => r.data),
+
+  vtSaveKey: (apiKey: string) =>
+    http.post('/settings/virustotal', { api_key: apiKey }).then((r) => r.data),
+
+  vtDeleteKey: () =>
+    http.delete('/settings/virustotal').then((r) => r.data),
 }
 
 // ---- Cheatsheets ----
@@ -452,5 +435,64 @@ export const cheatsheetsApi = {
   getByTool: (toolName: string) =>
     http
       .get<import('@/types/cheatsheet').Cheatsheet>(`/cheatsheets/${toolName}`)
+      .then((r) => r.data),
+}
+
+// ---- OSINT WMN (WhatsMyName natif Go) ----
+export const osintWmnApi = {
+  getMeta: () =>
+    http
+      .get<import('@/types/osint').WMNMeta>('/osint/meta')
+      .then((r) => r.data),
+
+  run: (username: string, category: string) =>
+    http
+      .post<{ job_id: number }>('/osint/run', { username, category })
+      .then((r) => r.data),
+
+  listJobs: () =>
+    http
+      .get<{ jobs: import('@/types/osint').OSINTJobSummary[]; total: number }>('/osint/jobs')
+      .then((r) => r.data),
+
+  getJob: (id: number) =>
+    http
+      .get<import('@/types/osint').OSINTJobDetail>(`/osint/jobs/${id}`)
+      .then((r) => r.data),
+
+  deleteJob: (id: number) =>
+    http.delete(`/osint/jobs/${id}`).then((r) => r.data),
+
+  importIoc: (id: number) =>
+    http
+      .post<{ created: number; skipped: number }>(`/osint/jobs/${id}/import-ioc`)
+      .then((r) => r.data),
+
+  updateDb: () =>
+    http
+      .post<{ success: boolean; site_count: number; updated_at: string }>('/osint/update-db')
+      .then((r) => r.data),
+
+  streamUrl: (id: number) => {
+    const token = localStorage.getItem('cyber_hub_token') ?? ''
+    return `/api/osint/jobs/${id}/stream?token=${encodeURIComponent(token)}`
+  },
+}
+
+// ---- Settings DB Versions ----
+export const settingsDbApi = {
+  getVersions: () =>
+    http
+      .get<import('@/types/osint').DBVersions>('/settings/db-versions')
+      .then((r) => r.data),
+
+  updateMitre: () =>
+    http
+      .post<{ success: boolean; technique_count: number; updated_at: string }>('/settings/update-mitre')
+      .then((r) => r.data),
+
+  updateCloak: () =>
+    http
+      .post<{ success: boolean; technique_count: number; updated_at: string }>('/settings/update-cloak')
       .then((r) => r.data),
 }

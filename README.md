@@ -11,7 +11,8 @@
 ![BGP](https://img.shields.io/badge/BGP-AS_Lookup-0EA5E9)
 ![OSINT](https://img.shields.io/badge/OSINT-Runner-10B981?logo=search&logoColor=white)
 ![Notes](https://img.shields.io/badge/Notes-Op%C3%A9rationnelles-F59E0B?logo=notion&logoColor=white)
-![MalwareBazaar](https://img.shields.io/badge/MalwareBazaar-Hash_Analysis-E11D48?logo=shield&logoColor=white)
+![Hash Analysis](https://img.shields.io/badge/Hash-4_Sources-E11D48?logo=shield&logoColor=white)
+![VirusTotal](https://img.shields.io/badge/VirusTotal-Intégré-394EFF?logo=virustotal&logoColor=white)
 ![Cheatsheets](https://img.shields.io/badge/Cheatsheets-Interactives-6366F1?logo=terminal&logoColor=white)
 
 Application de bureau pour centraliser vos outils, writeups CTF, veille CVE, playbooks de réponse à incident, gestion d'IOC, base de connaissances OpSec, analyse BGP/AS, OSINT et investigation.
@@ -65,7 +66,9 @@ Application de bureau pour centraliser vos outils, writeups CTF, veille CVE, pla
 - **BGP Historian** — Snapshots périodiques d'AS, diff entre snapshots, alertes sur changements de routage
 - **OSINT Runner** — Execution locale d'outils OSINT (theHarvester, Sherlock, Maigret) avec stream de sortie, extraction d'IOCs et import direct dans l'IOC Manager
 - **Notes d'investigation** — éditeur opérationnel avec liens vers IOCs, MITRE, CVE et recherche fulltext
-- **Hash Analyzer MalwareBazaar** — analyse de hashes MD5/SHA256 avec cache SQLite 6h pour enrichir les IOC et les investigations
+- **Hash Analyzer multi-sources** — analyse parallèle MD5/SHA256 sur 4 sources (VirusTotal, MalwareBazaar, ThreatFox, URLhaus) · score de détection · moteurs antivirus · cache SQLite 6h
+- **VirusTotal intégré** — clé API stockée en base, masquée, configurable depuis les Paramètres · fallback gracieux si non configuré
+- **IOC Manager amélioré** — cases à cocher par ligne · sélection tout/partielle (état indéterminé) · suppression groupée avec confirmation · barre d'actions contextuelle
 - **Cheatsheets interactives** — plus de 16 outils avec commandes paramétrables, preview en temps réel et copie en un clic
 - **Dashboard v2** — widgets supplémentaires BGP Alerts, IOCs récents, corrélations récentes et notes récentes
 
@@ -82,6 +85,8 @@ Application de bureau pour centraliser vos outils, writeups CTF, veille CVE, pla
 | MITRE ATT&CK     | JSON STIX 2.0 officiel · seed offline                         |
 | CLOAK            | concealment-data.json · embarqué via go:embed                 |
 | BGP              | BGPView API (bgpview.io) · cache SQLite · fallback RIPE Stat · DNS-over-HTTPS · aucune clé API |
+| Hash Analysis    | VirusTotal · MalwareBazaar · ThreatFox · URLhaus · goroutines parallèles · cache SQLite 6h/1h |
+| Clés API         | Stockage chiffré en DB (`app_settings`) · masquage `VT-XXXX****YYYY` · CRUD depuis les Paramètres |
 
 ---
 
@@ -231,6 +236,18 @@ Gestionnaire centralisé des Indicateurs de Compromission :
 | Lien MITRE | Technique ATT&CK associable |
 | Export | CSV |
 
+**Sélection et suppression groupée**
+- Cases à cocher sur chaque ligne avec case "tout sélectionner" dans le header (état indéterminé ⊟ si sélection partielle)
+- Barre d'actions contextuelle (rouge) affichant le nombre de sélectionnés avec bouton de suppression groupée
+- La sélection se remet à zéro lors d'un changement de filtre
+
+**Analyse Hash intégrée** — onglet dédié sur les IOC de type `hash` :
+- Interrogation parallèle de **4 sources** : VirusTotal · MalwareBazaar · ThreatFox · URLhaus
+- Score de détection VirusTotal avec barre de progression et tableau des moteurs (paginé 20 par 20)
+- Cartes compactes pour MB / TF / URLhaus
+- Bouton "Forcer MAJ" qui vide le cache et relance l'analyse
+- Lien direct vers la page Paramètres pour configurer la clé VirusTotal
+
 > Le type **CIDR** a été ajouté pour permettre l'export direct des préfixes réseau depuis le module BGP Lookup.
 
 ### BGP / AS Lookup
@@ -279,22 +296,25 @@ cyber-hub/
 ├── backend/
 │   ├── internal/
 │   │   ├── api/
-│   │   │   ├── handlers/      # Auth, Tools, CTF, CVE, Playbooks, MITRE, IOC, CLOAK, BGP
-│   │   │   ├── middleware/    # Auth, Rate limiter
+│   │   │   ├── handlers/      # Auth, Tools, CTF, CVE, Playbooks, MITRE, IOC, CLOAK, BGP, Hash, OSINT, Notes
+│   │   │   ├── middleware/    # Auth (JWT header + ?token= SSE fallback), Rate limiter
 │   │   │   └── router.go
 │   │   ├── mitre/             # Seed MITRE STIX 2.0
 │   │   ├── cloak/             # Seed CLOAK (concealment-data.json)
-│   │   ├── models/            # Structs GORM (+ BGPCache, BGPSnapshot, BGPAlert)
+│   │   ├── osint/             # Moteur OSINT (wmn-data.json, goroutines, context.Background)
+│   │   ├── cheatsheets/       # Handler cheatsheets statiques
+│   │   ├── models/            # Structs GORM : BGPCache, BGPSnapshot, BGPAlert, HashCache, AppSetting
 │   │   └── store/             # Couche données
 │   ├── web/                   # Build React embarqué (go:embed)
 │   └── main.go
 ├── frontend/
 │   └── src/
-│       ├── pages/             # Dashboard, Tools, CTF, CVE, Playbooks, MITRE, IOC, CLOAK, BGPLookup, BGPHistorian
-│       ├── components/        # Layout, Sidebar, SearchModal, Pagination, Toast
-│       ├── api/client.ts      # Axios + tous les endpoints (bgpApi, cloakAnnotationsApi, threatApi…)
+│       ├── pages/             # Dashboard, Tools, CTF, CVE, Playbooks, MITRE, IOC, CLOAK,
+│       │                      #   BGPLookup, BGPHistorian, OSINTRunner, Notes, Settings, IOCPage
+│       ├── components/        # Layout, Sidebar, SearchModal, Pagination, Toast, CorrelationPanel
+│       ├── api/client.ts      # Axios + tous les endpoints (bgpApi, hashApi, osintWmnApi, correlationApi…)
 │       ├── store/             # Zustand (auth, toast, ioc)
-│       ├── types/             # Types TypeScript (bgp.ts, ioc.ts, threat.ts…)
+│       ├── types/             # bgp.ts · ioc.ts · hash.ts · correlation.ts · osint.ts
 │       ├── App.tsx
 │       └── main.tsx
 ├── .github/
@@ -332,6 +352,22 @@ gofmt -w ./internal/...
 
 ## Changelog
 
+### v0.9 — Hash Analysis 4 sources · IOC Manager bulk · VirusTotal
+- **Analyse Hash multi-sources** — 4 goroutines parallèles : VirusTotal, MalwareBazaar (form-encoded), ThreatFox, URLhaus · priorité de résultat configurable · cache 6h/1h
+- **VirusTotal** — clé API stockée dans `app_settings` (SQLite) · masquage `VT-XXXX****YYYY` · section dédiée dans Paramètres (`/settings?section=virustotal`) · routes `GET/POST/DELETE /api/settings/virustotal`
+- **HashAnalysisPanel** — composant React intégré dans l'onglet "Analyse Hash" de l'IOC Manager : score de détection, barre de progression, tableau des moteurs paginé (20/page), tags, cartes MB/TF/URLhaus, bouton "Forcer MAJ" (DELETE cache + refresh)
+- **IOC Manager — sélection groupée** — cases à cocher par ligne · select-all avec état indéterminé · barre d'actions rouge · suppression groupée asynchrone avec toast de résultat
+- **OSINT Runner** — correction du bug de timeout : `context.Background()` passé aux goroutines au lieu de `c.Request.Context()` (annulé à la fin de la requête HTTP) · remplacement d'EventSource par polling axios toutes les secondes (fix auth SSE/JWT)
+- **Backend** — nouveau modèle `AppSetting` (clé/valeur, index unique) · route `DELETE /api/hash/cache/:hash` · invalidation automatique du cache stale (format ancien sans champ `Sources`)
+- **Frontend** — `types/hash.ts` entièrement réécrit (`HashAnalysisResponse`, `HashSourceResult`, `VTStats`, `VTEngineResult`, `VirusTotalData`, `MalwareBazaarData`, `ThreatFoxData`, `URLhausData`, `VTConfig`) · `hashApi` étendu (`deleteCache`, `vtGetConfig`, `vtSaveKey`, `vtDeleteKey`)
+
+### v0.8 — OSINT Runner · Notes · Cheatsheets · Corrélation
+- **Nouveau module OSINT Runner** — exécution locale avec wmn-data.json, stream de progression, extraction d'IOCs, import direct IOC Manager
+- **Notes d'investigation** — éditeur opérationnel avec liens vers IOCs, MITRE, CVE, recherche fulltext
+- **Cheatsheets interactives** — 16+ outils, commandes paramétrables, variables dynamiques, copie en un clic
+- **Corrélation IOC** — moteur de corrélation inter-IOCs, historique, cache
+- **Dashboard v2** — widgets BGP Alerts, IOCs récents, corrélations récentes, notes récentes
+
 ### v0.7 — BGP / AS Lookup + Historian
 - **Nouveau module BGP Lookup** — proxy BGPView, 3 modes (ASN / IP / recherche), onglets lazy-loaded, pagination, export IOC
 - **Nouveau module BGP Historian** — snapshots parallèles, diff visuel, alertes automatiques sur changements de routage, badge sidebar
@@ -358,4 +394,4 @@ CLOAK est distribué sous licence GPL v2 — crédit : Mick Deben, Leiden Univer
 
 ---
 
-*README mis à jour le 02/05/2026 — Cyber-Hub v0.7*
+*README mis à jour le 03/05/2026 — Cyber-Hub v0.9*

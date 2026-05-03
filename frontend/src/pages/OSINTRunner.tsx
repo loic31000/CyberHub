@@ -1,22 +1,18 @@
-import { useState, useEffect, useCallback, useRef } from 'react'
-import { Search, Play, Trash2, Clock, CheckCircle, AlertCircle, Loader2, Terminal, Shield, Download, DownloadCloud } from 'lucide-react'
-import { osintApi, iocApi } from '@/api/client'
-import type { OSINTJob, OSINTTool, ExtractedIOC } from '@/types/osint'
-import type { IOCCreatePayload, IOCType } from '@/types/ioc'
+import { useState, useEffect, useRef, useCallback } from 'react'
+import {
+  Search, ExternalLink, Trash2, Clock, CheckCircle,
+  AlertCircle, Loader2, Download, Copy, Eye,
+} from 'lucide-react'
+import { osintWmnApi } from '@/api/client'
+import type { WMNMeta, OSINTJobSummary, OSINTJobDetail, SSEProgress } from '@/types/osint'
 import { toast } from '@/store/toast'
 
-// ⚠️ Usage légal uniquement — OSINT sur systèmes autorisés seulement
+// Usage legal uniquement - OSINT sur systemes autorises seulement
 
-function parseIOCs(raw: string): ExtractedIOC[] {
-  if (!raw) return []
-  try {
-    const parsed: unknown = JSON.parse(raw)
-    if (Array.isArray(parsed)) return parsed as ExtractedIOC[]
-    return []
-  } catch { return [] }
-}
+const USERNAME_RE = /^[a-zA-Z0-9_\-]{1,50}$/
 
 function formatDuration(ms: number): string {
+  if (ms <= 0) return 'x'
   if (ms < 1000) return `${ms}ms`
   const s = Math.floor(ms / 1000)
   if (s < 60) return `${s}s`
@@ -32,25 +28,25 @@ function relativeTime(iso: string): string {
   return `il y a ${Math.floor(m / 60)}h`
 }
 
-const IOC_COLORS: Record<ExtractedIOC['type'], string> = {
-  ip:     'bg-blue-900/60 text-blue-300 border-blue-700/40',
-  domain: 'bg-purple-900/60 text-purple-300 border-purple-700/40',
-  email:  'bg-yellow-900/60 text-yellow-300 border-yellow-700/40',
-  url:    'bg-green-900/60 text-green-300 border-green-700/40',
+const CAT_COLORS: Record<string, string> = {
+  coding:  'bg-blue-900/60 text-blue-300',
+  social:  'bg-purple-900/60 text-purple-300',
+  gaming:  'bg-green-900/60 text-green-300',
+  dating:  'bg-red-900/60 text-red-300',
+  music:   'bg-yellow-900/60 text-yellow-300',
+  video:   'bg-orange-900/60 text-orange-300',
+  images:  'bg-pink-900/60 text-pink-300',
+}
+function catColor(cat: string) {
+  return CAT_COLORS[cat] ?? 'bg-gray-700 text-gray-300'
 }
 
-const TOOL_PLACEHOLDERS: Record<string, string> = {
-  theHarvester: 'Domaine cible (ex: example.com)',
-  sherlock:     'Nom d\'utilisateur à rechercher',
-  maigret:      'Nom d\'utilisateur à rechercher',
-}
-
-function StatusBadge({ status }: { status: OSINTJob['status'] }) {
-  const map: Record<OSINTJob['status'], { icon: React.ReactNode; label: string; cls: string }> = {
-    pending: { icon: <Clock size={12} />,                           label: 'en attente', cls: 'text-yellow-400 border-yellow-400/40 bg-yellow-400/10' },
-    running: { icon: <Loader2 size={12} className="animate-spin" />, label: 'en cours',   cls: 'text-blue-400 border-blue-400/40 bg-blue-400/10' },
-    done:    { icon: <CheckCircle size={12} />,                     label: 'terminé',    cls: 'text-green-400 border-green-400/40 bg-green-400/10' },
-    error:   { icon: <AlertCircle size={12} />,                     label: 'erreur',     cls: 'text-red-400 border-red-400/40 bg-red-400/10' },
+function StatusBadge({ status }: { status: OSINTJobSummary['status'] }) {
+  const map = {
+    pending: { icon: <Clock size={12} />,                            label: 'en attente', cls: 'text-yellow-400 border-yellow-400/40 bg-yellow-400/10' },
+    running: { icon: <Loader2 size={12} className="animate-spin" />, label: 'en cours',   cls: 'text-blue-400 border-blue-400/40 bg-blue-400/10'     },
+    done:    { icon: <CheckCircle size={12} />,                      label: 'termine',    cls: 'text-green-400 border-green-400/40 bg-green-400/10'   },
+    error:   { icon: <AlertCircle size={12} />,                      label: 'erreur',     cls: 'text-red-400 border-red-400/40 bg-red-400/10'         },
   }
   const s = map[status]
   return (
@@ -65,461 +61,387 @@ function LiveTimer({ startedAt }: { startedAt: string }) {
   useEffect(() => {
     const base = new Date(startedAt).getTime()
     const iv = window.setInterval(() => setElapsed(Date.now() - base), 500)
-    return () => window.clearInterval(iv)
+    return () => clearInterval(iv)
   }, [startedAt])
-  return <span className="text-xs text-blue-300 font-mono ml-auto animate-pulse">{formatDuration(elapsed)}</span>
+  return <span className="text-xs text-blue-300 font-mono animate-pulse">{formatDuration(elapsed)}</span>
 }
 
 export default function OSINTRunner() {
-  const [tools, setTools]               = useState<OSINTTool[]>([])
-  const [loadingTools, setLoadingTools]   = useState(true)
-  const [selectedTool, setSelectedTool] = useState<string>('theHarvester')
-  const [target, setTarget]             = useState('')
-  const [running, setRunning]           = useState(false)
-  const [jobs, setJobs]                 = useState<OSINTJob[]>([])
-  const [selectedJob, setSelectedJob]   = useState<OSINTJob | null>(null)
-  const [loadingJobs, setLoadingJobs]   = useState(false)
-  const [importingAll, setImportingAll] = useState(false)
+  const [meta, setMeta]               = useState<WMNMeta | null>(null)
+  const [username, setUsername]       = useState('')
+  const [category, setCategory]       = useState('')
+  const [running, setRunning]         = useState(false)
+  const [activeJobId, setActiveJobId] = useState<number | null>(null)
+  const [progress, setProgress]       = useState<SSEProgress | null>(null)
+  const [detail, setDetail]           = useState<OSINTJobDetail | null>(null)
+  const [jobs, setJobs]               = useState<OSINTJobSummary[]>([])
+  const [filter, setFilter]           = useState<'all' | 'found' | 'error'>('all')
+  const [importing, setImporting]     = useState(false)
+  const pollRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
-  const terminalRef  = useRef<HTMLPreElement>(null)
-  const eventSourceRef = useRef<EventSource | null>(null)
-
-  // ── Chargement initial ─────────────────────────────────────────────
-  const loadTools = useCallback(async () => {
-    setLoadingTools(true)
-    try {
-      const res = await osintApi.listTools()
-      setTools(res.tools ?? [])
-    } catch { toast.error('Impossible de charger les outils OSINT') }
-    finally { setLoadingTools(false) }
+  useEffect(() => {
+    osintWmnApi.getMeta().then(setMeta).catch(() => {})
+    osintWmnApi.listJobs().then(r => setJobs(r.jobs)).catch(() => {})
   }, [])
 
-  const loadJobs = useCallback(async () => {
-    setLoadingJobs(true)
-    try {
-      const res = await osintApi.listJobs()
-      setJobs(res.jobs ?? [])
-    } catch { toast.error('Impossible de charger les jobs') }
-    finally { setLoadingJobs(false) }
+  const stopPolling = useCallback(() => {
+    if (pollRef.current !== null) {
+      clearInterval(pollRef.current)
+      pollRef.current = null
+    }
   }, [])
 
-  useEffect(() => { loadTools(); loadJobs() }, [loadTools, loadJobs])
-
-  // ── Auto-scroll terminal ────────────────────────────────────────────
-  useEffect(() => {
-    if (terminalRef.current) {
-      terminalRef.current.scrollTop = terminalRef.current.scrollHeight
-    }
-  }, [selectedJob?.output])
-
-  // ── Polling du job actif (toutes les 2s tant que pending/running) ──
-  // Dépend uniquement de l'ID pour éviter la boucle infinie sur les updates de status
-  useEffect(() => {
-    if (!selectedJob) return
-    if (selectedJob.status === 'done' || selectedJob.status === 'error') return
-
-    const jobId = selectedJob.id
-    const source = new EventSource(osintApi.streamJobUrl(jobId))
-    eventSourceRef.current = source
-
-    const handleStatus = (event: MessageEvent) => {
+  const startPolling = useCallback((jobId: number) => {
+    stopPolling()
+    const iv = setInterval(async () => {
       try {
-        const payload = JSON.parse(event.data)
-        const status = String(payload.status) as OSINTJob['status']
-        const output = typeof payload.output === 'string' ? payload.output : selectedJob.output
-        setSelectedJob((prev) => prev && prev.id === jobId ? { ...prev, output, status } : prev)
-        setJobs((prev) => prev.map((job) => job.id === jobId ? { ...job, output, status } : job))
-      } catch {
-        // ignore malformed event payload
-      }
-    }
-
-    const handleDone = () => {
-      source.close()
-    }
-
-    const handleError = () => {
-      toast.error('Flux OSINT interrompu')
-      source.close()
-    }
-
-    source.addEventListener('status', handleStatus)
-    source.addEventListener('done', handleDone)
-    source.addEventListener('error', handleError)
-
-    const iv = window.setInterval(async () => {
-      try {
-        const updated = await osintApi.getJob(jobId)
-        setSelectedJob(updated)
-        setJobs((prev) => prev.map((j) => j.id === jobId ? updated : j))
-        if (updated.status === 'done' || updated.status === 'error') {
-          window.clearInterval(iv)
+        const job = await osintWmnApi.getJob(jobId)
+        const latestFound = (job.results ?? [])
+          .filter((r: { status: string }) => r.status === 'found')
+          .slice(-5)
+        setProgress({
+          checked_sites:  job.checked_sites,
+          total_sites:    job.total_sites,
+          found_count:    job.found_count,
+          status:         job.status as SSEProgress['status'],
+          latest_results: latestFound,
+        })
+        if (job.status === 'done' || job.status === 'error') {
+          stopPolling()
+          setRunning(false)
+          setDetail(job)
+          setJobs(prev => prev.map(j => j.id === jobId
+            ? { ...j, status: job.status as OSINTJobSummary['status'], found_count: job.found_count, checked_sites: job.checked_sites, duration: job.duration }
+            : j
+          ))
+          toast.success(`Scan termine - ${job.found_count} profil(s) trouve(s)`)
         }
       } catch {
-        window.clearInterval(iv)
+        // erreur reseau temporaire
       }
-    }, 2000)
+    }, 1000)
+    pollRef.current = iv
+  }, [stopPolling])
 
-    return () => {
-      window.clearInterval(iv)
-      source.close()
-      if (eventSourceRef.current === source) {
-        eventSourceRef.current = null
-      }
-    }
-  }, [selectedJob?.id, selectedJob?.status])  // ← ID et status pour reconnection
+  useEffect(() => () => stopPolling(), [stopPolling])
 
-  // ── Lancer un job ──────────────────────────────────────────────────
   const handleRun = async () => {
-    const val = target.trim()
-    if (!val) { toast.error('Cible requise'); return }
-    const tool = tools.find((t) => t.name === selectedTool)
-    if (tool && !tool.installed) { toast.error('Outil non installé'); return }
-    setRunning(true)
-    try {
-      const res = await osintApi.runJob({ tool: selectedTool, target: val })
-      toast.success(`Job #${res.id} lancé`)
-      await loadJobs()
-      const job = await osintApi.getJob(res.id)
-      setSelectedJob(job)
-    } catch { toast.error('Impossible de lancer le job') }
-    finally { setRunning(false) }
-  }
-
-  // ── Supprimer un job ───────────────────────────────────────────────
-  const handleDelete = async (id: number) => {
-    try {
-      await osintApi.deleteJob(id)
-      toast.success('Job supprimé')
-      setJobs((prev) => prev.filter((j) => j.id !== id))
-      if (selectedJob?.id === id) setSelectedJob(null)
-    } catch { toast.error('Impossible de supprimer') }
-  }
-
-  // ── Importer un IOC ───────────────────────────────────────────────
-  const importOneIOC = async (ioc: ExtractedIOC, jobId: number) => {
-    try {
-      const payload: IOCCreatePayload = {
-        type:   ioc.type as IOCType,
-        value:  ioc.value,
-        source: `OSINT #${jobId}`,
-        tlp:    'amber',
-        status: 'active',
-      }
-      await iocApi.create(payload)
-      toast.success(`${ioc.value} importé`)
-    } catch { toast.error(`Erreur import ${ioc.value}`) }
-  }
-
-  // ── Importer tous les IOCs ─────────────────────────────────────────
-  const importAllIOCs = async (iocs: ExtractedIOC[], jobId: number) => {
-    if (iocs.length === 0) return
-    setImportingAll(true)
-    let created = 0
-    for (const ioc of iocs) {
-      try {
-        const payload: IOCCreatePayload = {
-          type:   ioc.type as IOCType,
-          value:  ioc.value,
-          source: `OSINT #${jobId}`,
-          tlp:    'amber',
-          status: 'active',
-        }
-        await iocApi.create(payload)
-        created++
-      } catch { /* skip duplicates */ }
+    if (!USERNAME_RE.test(username)) {
+      toast.error('Username invalide (alphanumerique + tirets + underscores, 1-50 chars)')
+      return
     }
-    setImportingAll(false)
-    toast.success(`${created}/${iocs.length} IOCs importés dans l'IOC Manager`)
+    setRunning(true)
+    setProgress(null)
+    setDetail(null)
+    try {
+      const { job_id } = await osintWmnApi.run(username, category)
+      setActiveJobId(job_id)
+      const now = new Date().toISOString()
+      setJobs(prev => [{
+        id: job_id, username, status: 'running',
+        total_sites: meta?.site_count ?? 0, checked_sites: 0, found_count: 0,
+        filter_category: category, duration: 0, launched_by: '', created_at: now,
+      }, ...prev])
+      startPolling(job_id)
+    } catch {
+      toast.error('Erreur lors du lancement du scan')
+      setRunning(false)
+    }
   }
 
-  const selectedToolData = tools.find((t) => t.name === selectedTool)
-  const isToolInstalled  = selectedToolData?.installed ?? true
-  const iocs             = selectedJob ? parseIOCs(selectedJob.iocs_extracted) : []
-  const placeholder      = TOOL_PLACEHOLDERS[selectedTool] ?? 'Cible…'
+  const handleReview = async (jobId: number) => {
+    try {
+      const d = await osintWmnApi.getJob(jobId)
+      setDetail(d)
+      setActiveJobId(jobId)
+      setProgress(null)
+      window.scrollTo({ top: 0, behavior: 'smooth' })
+    } catch {
+      toast.error('Impossible de charger le job')
+    }
+  }
+
+  const handleDelete = async (jobId: number) => {
+    if (!confirm('Supprimer ce job ?')) return
+    try {
+      await osintWmnApi.deleteJob(jobId)
+      setJobs(prev => prev.filter(j => j.id !== jobId))
+      if (activeJobId === jobId) { setDetail(null); setProgress(null) }
+      toast.success('Job supprime')
+    } catch {
+      toast.error('Erreur suppression')
+    }
+  }
+
+  const handleImport = async () => {
+    if (!detail) return
+    setImporting(true)
+    try {
+      const r = await osintWmnApi.importIoc(detail.id)
+      toast.success(`${r.created} IOC(s) importes (${r.skipped} doublons ignores)`)
+    } catch {
+      toast.error('Erreur import IOC')
+    } finally {
+      setImporting(false)
+    }
+  }
+
+  const handleCopy = () => {
+    if (!detail) return
+    const urls = detail.results.filter(r => r.status === 'found').map(r => r.url).join('\n')
+    navigator.clipboard.writeText(urls)
+    toast.success('URLs copiees')
+  }
+
+  const pct = progress && progress.total_sites > 0
+    ? Math.round((progress.checked_sites / progress.total_sites) * 100)
+    : 0
+
+  const filteredResults = detail?.results.filter(r => {
+    if (filter === 'found') return r.status === 'found'
+    if (filter === 'error') return r.status === 'error' || r.status === 'timeout'
+    return true
+  }) ?? []
+
+  const foundResults = detail?.results.filter(r => r.status === 'found') ?? []
+  const errorCount   = detail?.results.filter(r => r.status === 'error' || r.status === 'timeout').length ?? 0
 
   return (
-    <div className="p-6 space-y-6 max-w-6xl">
-      {/* Header */}
-      <div>
-        <h1 className="text-2xl font-bold text-text-primary flex items-center gap-2">
-          <Search size={24} className="text-cyber-cyan" />
-          OSINT Runner
-        </h1>
-        <div className="flex items-center gap-2 mt-1">
-          <Shield size={14} className="text-yellow-400" />
-          <p className="text-yellow-400 text-xs font-mono">Usage légal uniquement — OSINT sur systèmes autorisés seulement</p>
+    <div className="p-6 max-w-5xl space-y-6">
+
+      <div className="flex items-start justify-between">
+        <div>
+          <h1 className="text-2xl font-bold text-text-primary flex items-center gap-2">
+            <Search size={22} className="text-cyber-cyan" />
+            OSINT Runner
+          </h1>
+          <p className="text-text-muted text-sm mt-1">Username lookup sur {meta?.site_count ?? '...'} sites via WhatsMyName</p>
+          {meta && (
+            <p className="text-xs text-gray-500 mt-0.5">
+              {meta.site_count} sites - {meta.categories.length} categories
+            </p>
+          )}
         </div>
       </div>
 
-      {/* ── Section 1 : Sélecteur outil + lancement ── */}
       <div className="card space-y-4">
-        <h2 className="text-sm font-semibold text-text-primary">Lancer un scan</h2>
-
-        {/* Cards outils — utilise div+role pour éviter les boutons imbriqués */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-          {loadingTools && (
-            <div className="col-span-3 flex items-center gap-2 text-text-muted text-xs">
-              <Loader2 size={14} className="animate-spin" /> Détection des outils…
-            </div>
-          )}
-          {!loadingTools && tools.map((tool) => {
-            const isSelected = selectedTool === tool.name
-            return (
-              <div
-                key={tool.name}
-                role={tool.installed ? 'button' : undefined}
-                tabIndex={tool.installed ? 0 : undefined}
-                onClick={() => tool.installed && setSelectedTool(tool.name)}
-                onKeyDown={(e) => e.key === 'Enter' && tool.installed && setSelectedTool(tool.name)}
-                title={!tool.installed ? `Outil non trouvé dans le PATH` : undefined}
-                className={`p-3 rounded border text-left select-none transition-colors ${
-                  !tool.installed
-                    ? 'cursor-not-allowed border-dashed border-border opacity-70'
-                    : isSelected
-                      ? 'border-cyber-cyan bg-cyber-cyan/10 cursor-pointer'
-                      : 'border-border text-text-muted hover:border-cyber-cyan/40 cursor-pointer'
-                }`}
-              >
-                <div className="flex items-center justify-between mb-1">
-                  <span className={`font-mono text-sm font-semibold ${isSelected && tool.installed ? 'text-cyber-cyan' : 'text-text-primary'}`}>
-                    {tool.name}
-                  </span>
-                  <span className={`text-xs px-1.5 py-0.5 rounded border font-mono ${
-                    tool.installed
-                      ? 'text-green-400 border-green-400/40 bg-green-400/10'
-                      : 'text-red-400 border-red-400/40 bg-red-400/10'
-                  }`}>
-                    {tool.installed ? '✅ Installé' : '❌ Absent'}
-                  </span>
-                </div>
-                <p className="text-xs text-text-muted">{tool.description}</p>
-                {tool.installed ? (
-                  <p className="text-xs text-text-muted/60 mt-1 font-mono">ex: {tool.example}</p>
-                ) : (
-                  <div className="mt-2 flex items-center gap-1.5" onClick={(e) => e.stopPropagation()}>
-                    <code className="text-xs bg-bg-primary border border-border rounded px-2 py-0.5 text-yellow-400 font-mono flex-1 truncate">
-                      {tool.install}
-                    </code>
-                    <span
-                      role="button"
-                      tabIndex={0}
-                      onClick={() => navigator.clipboard.writeText(tool.install ?? '')}
-                      onKeyDown={(e) => e.key === 'Enter' && navigator.clipboard.writeText(tool.install ?? '')}
-                      className="text-text-muted hover:text-cyber-cyan transition-colors shrink-0 cursor-pointer"
-                      title="Copier la commande"
-                    >
-                      <Download size={12} />
-                    </span>
-                  </div>
-                )}
-              </div>
-            )
-          })}
-        </div>
-
-        {/* Input + bouton */}
         <div className="flex gap-3">
           <input
             type="text"
-            value={target}
-            onChange={(e) => setTarget(e.target.value)}
-            onKeyDown={(e) => e.key === 'Enter' && handleRun()}
-            placeholder={placeholder}
-            className="input flex-1 font-mono"
-            autoComplete="off"
-            spellCheck={false}
+            value={username}
+            onChange={e => setUsername(e.target.value)}
+            onKeyDown={e => e.key === 'Enter' && !running && username && handleRun()}
+            placeholder="Nom d'utilisateur a rechercher"
+            className="flex-1 bg-bg-primary border border-border rounded-lg px-4 py-2.5 text-text-primary placeholder-text-muted focus:border-cyber-cyan focus:outline-none font-mono"
+            disabled={running}
           />
           <button
             onClick={handleRun}
-            disabled={running || !target.trim() || !isToolInstalled}
-            title={!isToolInstalled ? 'Outil non installé' : undefined}
-            className="btn-cyber flex items-center gap-2 px-4 disabled:opacity-50"
+            disabled={running || !username || !USERNAME_RE.test(username)}
+            className="flex items-center gap-2 px-5 py-2.5 bg-cyan-600 hover:bg-cyan-500 disabled:opacity-40 disabled:cursor-not-allowed text-white rounded-lg font-semibold transition-colors"
           >
-            {running ? <Loader2 size={16} className="animate-spin" /> : <Play size={16} />}
-            {running ? 'Lancement…' : '🚀 Lancer'}
+            {running ? <Loader2 size={16} className="animate-spin" /> : <Search size={16} />}
+            {running ? 'Scan en cours...' : 'Lancer le scan'}
           </button>
         </div>
+
+        {meta && (
+          <div className="flex flex-wrap gap-2">
+            <button
+              onClick={() => setCategory('')}
+              className={`px-3 py-1 rounded-full text-xs font-medium transition-colors ${category === '' ? 'bg-cyan-600 text-white' : 'bg-gray-700 text-gray-300 hover:bg-gray-600'}`}
+            >
+              Tous ({meta.site_count})
+            </button>
+            {meta.categories.map(cat => (
+              <button
+                key={cat}
+                onClick={() => setCategory(cat === category ? '' : cat)}
+                className={`px-3 py-1 rounded-full text-xs font-medium transition-colors ${category === cat ? 'bg-cyan-600 text-white' : 'bg-gray-700 text-gray-300 hover:bg-gray-600'}`}
+              >
+                {cat}
+              </button>
+            ))}
+          </div>
+        )}
       </div>
 
-      {/* ── Layout résultat + historique ── */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-
-        {/* ── Section 4 : Historique ── */}
-        <div className="card space-y-3 lg:col-span-1">
+      {running && (
+        <div className="card space-y-3">
           <div className="flex items-center justify-between">
-            <h2 className="text-sm font-semibold text-text-primary flex items-center gap-2">
-              <Clock size={14} className="text-cyber-cyan" /> Historique
-            </h2>
-            <button onClick={loadJobs} className="text-xs text-text-muted hover:text-cyber-cyan transition-colors">
-              {loadingJobs ? <Loader2 size={12} className="animate-spin" /> : 'Actualiser'}
-            </button>
-          </div>
-
-          {jobs.length === 0 && !loadingJobs && (
-            <p className="text-xs text-text-muted">Aucun job pour l'instant.</p>
-          )}
-
-          <div className="space-y-2 max-h-[480px] overflow-y-auto pr-1">
-            {jobs.map((job) => {
-              const jobIOCs = parseIOCs(job.iocs_extracted)
-              return (
-                <div
-                  key={job.id}
-                  onClick={() => setSelectedJob(job)}
-                  className={`p-2 rounded border cursor-pointer transition-colors ${
-                    selectedJob?.id === job.id
-                      ? 'border-cyber-cyan bg-cyber-cyan/5'
-                      : 'border-border hover:border-cyber-cyan/40'
-                  }`}
-                >
-                  <div className="flex items-center justify-between gap-2 mb-1">
-                    <span className="text-xs font-mono text-text-muted">#{job.id}</span>
-                    <StatusBadge status={job.status} />
-                  </div>
-                  <p className="text-xs text-text-primary font-mono truncate">{job.tool}</p>
-                  <p className="text-xs text-text-muted truncate">{job.target}</p>
-                  {job.created_at && (
-                    <p className="text-xs text-text-muted/60 mt-0.5">{relativeTime(job.created_at)}</p>
-                  )}
-                  {jobIOCs.length > 0 && (
-                    <p className="text-xs text-cyber-cyan mt-0.5">{jobIOCs.length} IOC{jobIOCs.length > 1 ? 's' : ''} extraits</p>
-                  )}
-                  <div className="flex gap-1.5 mt-1.5">
-                    <button
-                      onClick={(e) => { e.stopPropagation(); setSelectedJob(job) }}
-                      className="text-xs text-text-muted hover:text-cyber-cyan transition-colors px-1.5 py-0.5 rounded border border-border hover:border-cyber-cyan/40"
-                    >
-                      Revoir
-                    </button>
-                    <button
-                      onClick={(e) => { e.stopPropagation(); handleDelete(job.id) }}
-                      className="text-xs text-text-muted hover:text-red-400 transition-colors px-1.5 py-0.5 rounded border border-border hover:border-red-400/40"
-                    >
-                      <Trash2 size={11} />
-                    </button>
-                  </div>
-                </div>
-              )
-            })}
-          </div>
-        </div>
-
-        {/* ── Sections 2 & 3 : Terminal + IOCs ── */}
-        <div className="space-y-3 lg:col-span-2">
-          {!selectedJob ? (
-            <div className="card flex flex-col items-center justify-center py-16 text-text-muted">
-              <Terminal size={36} className="mb-3 opacity-30" />
-              <p className="text-sm">Sélectionnez un job ou lancez un scan</p>
+            <div className="flex items-center gap-2">
+              <Loader2 size={16} className="animate-spin text-blue-400" />
+              <span className="text-sm text-text-primary font-medium">
+                Scan de <span className="text-cyber-cyan font-mono">{username}</span>
+              </span>
+              <StatusBadge status="running" />
             </div>
-          ) : (
-            <>
-              {/* ── Section 2 : Terminal output ── */}
-              <div className="rounded-lg border border-gray-700 overflow-hidden">
-                {/* Barre de titre terminal */}
-                <div className="bg-gray-800 px-4 py-2 flex items-center gap-3">
-                  <div className="flex gap-1.5">
-                    <span className="w-3 h-3 rounded-full bg-red-500/70" />
-                    <span className="w-3 h-3 rounded-full bg-yellow-500/70" />
-                    <span className="w-3 h-3 rounded-full bg-green-500/70" />
-                  </div>
-                  <span className="text-xs font-mono text-gray-400 flex-1 truncate">
-                    {selectedJob.tool} — {selectedJob.target}
-                  </span>
-                  <StatusBadge status={selectedJob.status} />
-                  {selectedJob.status === 'running' && (
-                    <LiveTimer startedAt={selectedJob.created_at} />
-                  )}
-                  {selectedJob.status !== 'running' && selectedJob.duration > 0 && (
-                    <span className="text-xs text-text-muted font-mono ml-auto">
-                      {formatDuration(selectedJob.duration)}
-                    </span>
-                  )}
-                </div>
+            {activeJobId && (
+              <LiveTimer startedAt={jobs.find(j => j.id === activeJobId)?.created_at ?? new Date().toISOString()} />
+            )}
+          </div>
 
-                {/* Corps du terminal — fond noir obligatoire */}
-                <pre
-                  ref={terminalRef}
-                  className="bg-black text-green-400 font-mono text-xs p-4 h-72 overflow-y-auto whitespace-pre-wrap break-all leading-relaxed"
-                >
-                  {selectedJob.output
-                    ? selectedJob.output
-                    : selectedJob.status === 'running'
-                      ? '$ Analyse en cours…\n\n[En attente de la première sortie]'
-                      : selectedJob.status === 'pending'
-                        ? '$ Job en file d\'attente…'
-                        : '$ Aucune sortie disponible'
-                  }
-                  {selectedJob.status === 'running' && (
-                    '\n\n█' // curseur clignotant
-                  )}
-                </pre>
+          {progress ? (
+            <>
+              <div>
+                <div className="flex justify-between text-xs text-text-muted mb-1">
+                  <span>{progress.checked_sites} / {progress.total_sites} sites</span>
+                  <span className="text-green-400 font-semibold">{progress.found_count} trouves</span>
+                </div>
+                <div className="w-full bg-gray-700 rounded-full h-2">
+                  <div
+                    className="bg-cyan-500 h-2 rounded-full transition-all duration-500"
+                    style={{ width: `${pct}%` }}
+                  />
+                </div>
+                <p className="text-xs text-text-muted mt-1">{pct}%</p>
               </div>
 
-              {/* ── Section 3 : IOCs extraits ── */}
-              {selectedJob.status === 'done' && (
-                <div className="card space-y-3">
-                  <div className="flex items-center justify-between">
-                    <h3 className="text-sm font-semibold text-text-primary flex items-center gap-2">
-                      <Shield size={14} className="text-cyber-cyan" />
-                      IOCs extraits
-                      {iocs.length > 0 && (
-                        <span className="text-xs bg-cyber-cyan/20 text-cyber-cyan px-1.5 py-0.5 rounded font-mono">
-                          {iocs.length}
-                        </span>
-                      )}
-                    </h3>
-                    {iocs.length > 0 && (
-                      <button
-                        onClick={() => importAllIOCs(iocs, selectedJob.id)}
-                        disabled={importingAll}
-                        className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded border border-cyber-cyan/40 text-cyber-cyan hover:bg-cyber-cyan/10 transition-colors disabled:opacity-50"
-                      >
-                        {importingAll
-                          ? <Loader2 size={12} className="animate-spin" />
-                          : <DownloadCloud size={12} />
-                        }
-                        {importingAll ? 'Import…' : '📥 Tout importer dans IOC Manager'}
-                      </button>
-                    )}
-                  </div>
-
-                  {iocs.length === 0 ? (
-                    <p className="text-xs text-text-muted">Aucun IOC extrait automatiquement.</p>
-                  ) : (
-                    <div className="flex flex-wrap gap-1.5 max-h-44 overflow-y-auto">
-                      {iocs.map((ioc, i) => (
-                        <span
-                          key={i}
-                          className={`flex items-center gap-1 text-xs font-mono px-2 py-0.5 rounded border ${IOC_COLORS[ioc.type] ?? 'bg-gray-800 text-gray-300 border-gray-600'}`}
-                        >
-                          <span className="opacity-60">[{ioc.type}]</span>
-                          <span>{ioc.value}</span>
-                          <button
-                            onClick={() => importOneIOC(ioc, selectedJob.id)}
-                            className="ml-1 opacity-60 hover:opacity-100 transition-opacity"
-                            title={`Importer ${ioc.value}`}
-                          >
-                            <Download size={10} />
-                          </button>
-                        </span>
-                      ))}
+              {progress.latest_results.length > 0 && (
+                <div className="space-y-1">
+                  <p className="text-xs text-text-muted font-medium">Derniers profils trouves :</p>
+                  {progress.latest_results.map((r, i) => (
+                    <div key={i} className="flex items-center gap-2 text-sm">
+                      <ExternalLink size={12} className="text-cyan-400 flex-shrink-0" />
+                      <span className="text-text-primary">{r.site_name}</span>
+                      <span className={`text-xs px-1.5 py-0.5 rounded ${catColor(r.category)}`}>{r.category}</span>
+                      <a href={r.url} target="_blank" rel="noreferrer" className="text-cyan-400 hover:underline text-xs truncate">{r.url}</a>
                     </div>
-                  )}
-                </div>
-              )}
-
-              {/* Erreur */}
-              {selectedJob.status === 'error' && (
-                <div className="flex items-center gap-2 p-3 rounded border border-red-500/30 bg-red-900/10 text-red-400 text-xs">
-                  <AlertCircle size={14} />
-                  <span>{selectedJob.output || 'Erreur inconnue'}</span>
+                  ))}
                 </div>
               )}
             </>
+          ) : (
+            <p className="text-xs text-text-muted animate-pulse">Demarrage du scan...</p>
           )}
         </div>
-      </div>
+      )}
+
+      {detail && detail.status === 'done' && (
+        <div className="card space-y-4">
+          <div className="flex items-center justify-between">
+            <h2 className="text-lg font-semibold text-text-primary">
+              Resultats - <span className="text-cyber-cyan font-mono">{detail.username}</span>
+            </h2>
+            <StatusBadge status={detail.status} />
+          </div>
+
+          <div className="grid grid-cols-4 gap-3">
+            {[
+              { label: 'Trouves',   value: detail.found_count,             cls: 'text-green-400' },
+              { label: 'Verifies',  value: detail.checked_sites,           cls: 'text-blue-400'  },
+              { label: 'Erreurs',   value: errorCount,                     cls: 'text-red-400'   },
+              { label: 'Duree',     value: formatDuration(detail.duration), cls: 'text-yellow-400' },
+            ].map(s => (
+              <div key={s.label} className="bg-bg-primary rounded-lg p-3 text-center border border-border">
+                <p className={`text-xl font-bold font-mono ${s.cls}`}>{s.value}</p>
+                <p className="text-xs text-text-muted mt-1">{s.label}</p>
+              </div>
+            ))}
+          </div>
+
+          <div className="flex gap-2">
+            {(['all', 'found', 'error'] as const).map(f => (
+              <button
+                key={f}
+                onClick={() => setFilter(f)}
+                className={`px-3 py-1 rounded-full text-xs font-medium transition-colors ${filter === f ? 'bg-cyan-600 text-white' : 'bg-gray-700 text-gray-300 hover:bg-gray-600'}`}
+              >
+                {f === 'all' ? 'Tous' : f === 'found' ? `Trouves (${foundResults.length})` : `Erreurs (${errorCount})`}
+              </button>
+            ))}
+          </div>
+
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="text-left text-text-muted border-b border-border">
+                  <th className="pb-2 pr-4">Site</th>
+                  <th className="pb-2 pr-4">Categorie</th>
+                  <th className="pb-2 pr-4">URL</th>
+                  <th className="pb-2 text-right">Temps</th>
+                </tr>
+              </thead>
+              <tbody>
+                {filteredResults.map((r, i) => (
+                  <tr key={i} className="border-b border-border/40 hover:bg-bg-hover">
+                    <td className="py-2 pr-4 font-medium text-text-primary">{r.site_name}</td>
+                    <td className="py-2 pr-4">
+                      <span className={`text-xs px-2 py-0.5 rounded ${catColor(r.category)}`}>{r.category}</span>
+                    </td>
+                    <td className="py-2 pr-4 max-w-xs truncate">
+                      {r.status === 'found' ? (
+                        <a href={r.url} target="_blank" rel="noreferrer" className="text-cyan-400 hover:underline flex items-center gap-1">
+                          <ExternalLink size={11} />{r.url}
+                        </a>
+                      ) : (
+                        <span className="text-text-muted text-xs">{r.status}</span>
+                      )}
+                    </td>
+                    <td className="py-2 text-right text-xs text-text-muted font-mono">{r.response_time}ms</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+            {filteredResults.length === 0 && (
+              <p className="text-center text-text-muted text-sm py-6">Aucun resultat pour ce filtre</p>
+            )}
+          </div>
+
+          <div className="flex gap-3">
+            <button
+              onClick={handleImport}
+              disabled={importing || foundResults.length === 0}
+              className="flex items-center gap-2 px-4 py-2 bg-cyan-600/20 hover:bg-cyan-600/30 border border-cyan-600/40 text-cyan-300 rounded-lg text-sm disabled:opacity-40 transition-colors"
+            >
+              {importing ? <Loader2 size={14} className="animate-spin" /> : <Download size={14} />}
+              Importer en IOC ({foundResults.length})
+            </button>
+            <button
+              onClick={handleCopy}
+              disabled={foundResults.length === 0}
+              className="flex items-center gap-2 px-4 py-2 bg-gray-700 hover:bg-gray-600 text-gray-300 rounded-lg text-sm disabled:opacity-40 transition-colors"
+            >
+              <Copy size={14} /> Copier les URLs
+            </button>
+          </div>
+        </div>
+      )}
+
+      {jobs.length > 0 && (
+        <div className="card">
+          <h2 className="text-base font-semibold text-text-primary mb-3">Historique des scans</h2>
+          <div className="space-y-2">
+            {jobs.map(job => (
+              <div key={job.id} className="flex items-center gap-3 px-3 py-2 rounded-lg bg-bg-primary border border-border hover:border-gray-600 transition-colors">
+                <span className="font-mono text-sm text-cyber-cyan w-32 truncate">{job.username}</span>
+                <StatusBadge status={job.status} />
+                {job.filter_category && (
+                  <span className="text-xs px-2 py-0.5 rounded bg-gray-700 text-gray-400">{job.filter_category}</span>
+                )}
+                <span className="text-xs text-green-400 font-mono">{job.found_count > 0 ? `${job.found_count} trouves` : '-'}</span>
+                <span className="text-xs text-text-muted font-mono">{job.total_sites > 0 ? `${job.checked_sites}/${job.total_sites}` : ''}</span>
+                <span className="text-xs text-text-muted font-mono">{formatDuration(job.duration)}</span>
+                <span className="text-xs text-text-muted ml-auto">{relativeTime(job.created_at)}</span>
+                <button
+                  onClick={() => handleReview(job.id)}
+                  className="p-1 text-gray-400 hover:text-cyan-400 transition-colors"
+                  title="Revoir"
+                >
+                  <Eye size={14} />
+                </button>
+                <button
+                  onClick={() => handleDelete(job.id)}
+                  className="p-1 text-gray-400 hover:text-red-400 transition-colors"
+                  title="Supprimer"
+                >
+                  <Trash2 size={14} />
+                </button>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   )
 }

@@ -1,38 +1,44 @@
-export interface OSINTJob {
+export interface WMNMeta {
+  last_updated: string
+  site_count: number
+  categories: string[]
+}
+
+export interface OSINTJobSummary {
   id: number
-  created_at: string
-  tool: string
-  target: string
+  username: string
   status: 'pending' | 'running' | 'done' | 'error'
-  output: string
-  iocs_extracted: string // JSON array of {type, value}
-  duration: number // ms
+  total_sites: number
+  checked_sites: number
+  found_count: number
+  filter_category: string
+  duration: number
   launched_by: string
+  created_at: string
 }
 
-export interface OSINTTool {
-  name: string
-  installed: boolean
-  description: string
-  example: string
-  install: string  // commande pip pour installer
+export interface OSINTResult {
+  site_name: string
+  category: string
+  url: string
+  status: 'found' | 'not_found' | 'error' | 'timeout'
+  response_time: number
 }
 
-export interface ExtractedIOC {
-  type: string
-  value: string
+export interface OSINTJobDetail extends OSINTJobSummary {
+  results: OSINTResult[]
 }
 
-export interface OSINTJobsResponse {
-  jobs: OSINTJob[]
-  total: number
+export interface SSEProgress {
+  checked_sites: number
+  total_sites: number
+  found_count: number
+  status: string
+  latest_results: OSINTResult[]
 }
 
-export interface OSINTToolsResponse {
-  tools: OSINTTool[]
-}
-
-export interface OSINTRunRequest {
-  tool: string
-  target: string
+export interface DBVersions {
+  mitre: { technique_count: number; last_updated: string; seeded: boolean }
+  cloak: { technique_count: number; last_updated: string }
+  wmn: { site_count: number; last_updated: string }
 }

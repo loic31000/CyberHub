@@ -6,9 +6,10 @@ import { toast } from '@/store/toast'
 import CorrelationPanel from '@/components/CorrelationPanel'
 import { correlationApi, hashApi, iocApi } from '@/api/client'
 import type { CorrelationResult } from '@/types/correlation'
+import type { HashAnalysisResponse, VirusTotalData, MalwareBazaarData, ThreatFoxData, URLhausData } from '@/types/hash'
 import {
   ShieldBan, Plus, Search, Download, X, Trash2, Edit2,
-  Globe, Hash, Link, Mail, Network, GitBranch,
+  Globe, Hash, Link, Mail, Network, GitBranch, Loader2, RefreshCw, Shield,
 } from 'lucide-react'
 
 // TLP labels sont standards — pas traduits
@@ -153,6 +154,302 @@ function IOCForm({ initial, onSubmit, onCancel }: IOCFormProps) {
 
 // ── Page principale ───────────────────────────────────────────────────────────
 
+// ── HashAnalysisPanel ────────────────────────────────────────────────────────
+
+function HashAnalysisPanel({
+  hashResult,
+  hashLoading,
+  onForceRefresh,
+}: {
+  hashResult: HashAnalysisResponse | null
+  hashLoading: boolean
+  onForceRefresh: () => void
+}) {
+  const navigate = useNavigate()
+  const [showAllEngines, setShowAllEngines] = useState(false)
+
+  if (hashLoading) {
+    return (
+      <div className="flex items-center gap-2 text-text-muted text-sm py-4">
+        <Loader2 size={16} className="animate-spin" />
+        Interrogation des sources en cours…
+      </div>
+    )
+  }
+
+  if (!hashResult) {
+    return <p className="text-text-muted text-sm py-4">Impossible de contacter les sources d'analyse.</p>
+  }
+
+  const sources = hashResult.sources ?? []
+  const mbSource = sources.find(s => s.source === 'malwarebazaar')
+  const tfSource = sources.find(s => s.source === 'threatfox')
+  const uhSource = sources.find(s => s.source === 'urlhaus')
+  const vtSource = sources.find(s => s.source === 'virustotal')
+  const vtData = vtSource?.found ? (vtSource.data as VirusTotalData) : null
+  const mbData = mbSource?.found ? (mbSource.data as MalwareBazaarData) : null
+  const tfData = tfSource?.found ? (tfSource.data as ThreatFoxData) : null
+  const uhData = uhSource?.found ? (uhSource.data as URLhausData) : null
+
+  const threatName = vtData?.threat_label || mbData?.signature || tfData?.malware || null
+
+  const maliciousEngines = vtData
+    ? Object.entries(vtData.malicious_engines || {}).slice(0, showAllEngines ? undefined : 20)
+    : []
+
+  const statusIcon = (status: string) => {
+    if (status === 'found') return <span className="text-green-400 text-xs">✅ Trouvé</span>
+    if (status === 'not_found') return <span className="text-text-muted text-xs">⬜ Inconnu</span>
+    if (status === 'skipped') return <span className="text-yellow-400 text-xs">⏭️ Ignoré</span>
+    if (status === 'not_configured') return <span className="text-orange-400 text-xs">⚙️ Non configuré</span>
+    return <span className="text-red-400 text-xs">❌ Erreur</span>
+  }
+
+  return (
+    <div className="space-y-4">
+      {/* Résumé */}
+      <div className={`rounded-lg p-4 border flex items-start justify-between gap-4 ${
+        hashResult.found
+          ? 'bg-red-900/20 border-red-500/40'
+          : 'bg-green-900/10 border-green-500/30'
+      }`}>
+        <div className="flex-1">
+          {hashResult.found ? (
+            <div className="flex items-center gap-2 mb-1">
+              <span className="text-red-400 font-bold text-sm animate-pulse">⚠️ MALWARE DÉTECTÉ</span>
+              {hashResult.best_result && (
+                <span className="text-xs px-2 py-0.5 rounded border border-red-400/40 text-red-300 bg-red-400/10">
+                  Via {hashResult.best_result.source}
+                </span>
+              )}
+            </div>
+          ) : (
+            <p className="text-green-400 font-semibold text-sm">✅ Hash propre sur toutes les sources vérifiées</p>
+          )}
+          {threatName && (
+            <p className="text-text-primary font-mono text-xs mt-1">{threatName}</p>
+          )}
+          <p className="text-text-muted text-xs mt-1 font-mono">{hashResult.hash_type.toUpperCase()} · {hashResult.hash}</p>
+        </div>
+        <div className="flex items-center gap-2 shrink-0">
+          {hashResult.from_cache && (
+            <span className="text-xs text-text-muted px-2 py-0.5 rounded border border-border">🗄️ Cache</span>
+          )}
+          <button
+            onClick={onForceRefresh}
+            className="text-xs px-2 py-1 rounded border border-border text-text-muted hover:text-cyber-cyan hover:border-cyber-cyan transition-colors flex items-center gap-1"
+          >
+            <RefreshCw size={11} /> Forcer MAJ
+          </button>
+        </div>
+      </div>
+
+      {/* VirusTotal */}
+      <div className="bg-gray-800 border border-gray-700 rounded-xl p-4 space-y-3">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <Shield size={16} className="text-blue-400" />
+            <span className="font-semibold text-text-primary text-sm">VirusTotal</span>
+            {statusIcon(vtSource?.status ?? 'error')}
+          </div>
+          {vtData && (
+            <div className="flex items-center gap-2">
+              <div className={`text-sm font-bold font-mono ${
+                vtData.detection_score > 50 ? 'text-red-400' :
+                vtData.detection_score > 10 ? 'text-orange-400' : 'text-green-400'
+              }`}>
+                {vtData.stats.malicious}/{vtData.stats.malicious + vtData.stats.suspicious + vtData.stats.undetected + vtData.stats.harmless} moteurs
+              </div>
+            </div>
+          )}
+        </div>
+
+        {vtSource?.status === 'not_configured' && (
+          <div className="text-center py-3">
+            <p className="text-text-muted text-sm mb-2">⚙️ Clé API VirusTotal non configurée</p>
+            <button
+              onClick={() => navigate('/settings?section=virustotal')}
+              className="text-xs text-cyber-cyan hover:underline"
+            >
+              Configurer dans Paramètres →
+            </button>
+          </div>
+        )}
+
+        {vtData && (
+          <>
+            <div>
+              <div className="flex justify-between text-xs text-text-muted mb-1">
+                <span>Score de détection</span>
+                <span className={vtData.detection_score > 50 ? 'text-red-400' : vtData.detection_score > 10 ? 'text-orange-400' : 'text-green-400'}>
+                  {vtData.detection_score}%
+                </span>
+              </div>
+              <div className="w-full bg-gray-700 rounded-full h-1.5">
+                <div
+                  className={`h-1.5 rounded-full transition-all ${
+                    vtData.detection_score > 50 ? 'bg-red-500' :
+                    vtData.detection_score > 10 ? 'bg-orange-500' : 'bg-green-500'
+                  }`}
+                  style={{ width: `${vtData.detection_score}%` }}
+                />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-4 gap-2 text-center">
+              {[
+                { label: 'Malveillant', val: vtData.stats.malicious, cls: 'text-red-400' },
+                { label: 'Suspect', val: vtData.stats.suspicious, cls: 'text-orange-400' },
+                { label: 'Non détecté', val: vtData.stats.undetected, cls: 'text-text-muted' },
+                { label: 'Sûr', val: vtData.stats.harmless, cls: 'text-green-400' },
+              ].map(s => (
+                <div key={s.label} className="bg-bg-primary rounded p-2 border border-border">
+                  <p className={`text-lg font-bold font-mono ${s.cls}`}>{s.val}</p>
+                  <p className="text-xs text-text-muted">{s.label}</p>
+                </div>
+              ))}
+            </div>
+
+            {(vtData.threat_label || vtData.meaningful_name || vtData.type_description) && (
+              <div className="text-xs space-y-0.5 text-text-muted">
+                {vtData.threat_label && <p><span className="text-text-primary">Menace :</span> <span className="text-red-300 font-mono">{vtData.threat_label}</span></p>}
+                {vtData.meaningful_name && <p><span className="text-text-primary">Fichier :</span> {vtData.meaningful_name}</p>}
+                {vtData.type_description && <p><span className="text-text-primary">Type :</span> {vtData.type_description}</p>}
+                {vtData.first_seen && <p><span className="text-text-primary">1ère vue :</span> {new Date(vtData.first_seen).toLocaleDateString('fr-FR')}</p>}
+              </div>
+            )}
+
+            {maliciousEngines.length > 0 && (
+              <div>
+                <p className="text-xs text-text-muted font-medium mb-1">Moteurs ayant détecté une menace :</p>
+                <div className="overflow-x-auto max-h-48 overflow-y-auto">
+                  <table className="w-full text-xs">
+                    <thead>
+                      <tr className="text-text-muted border-b border-border">
+                        <th className="text-left pb-1 pr-3">Moteur</th>
+                        <th className="text-left pb-1 pr-3">Catégorie</th>
+                        <th className="text-left pb-1">Résultat</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {maliciousEngines.map(([engine, r]) => (
+                        <tr key={engine} className="border-b border-border/30">
+                          <td className="py-1 pr-3 text-text-primary">{engine}</td>
+                          <td className="py-1 pr-3">
+                            <span className={r.category === 'malicious' ? 'text-red-400' : 'text-orange-400'}>
+                              {r.category}
+                            </span>
+                          </td>
+                          <td className="py-1 text-text-muted font-mono truncate max-w-[200px]">{r.result}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+                {Object.keys(vtData.malicious_engines || {}).length > 20 && (
+                  <button
+                    onClick={() => setShowAllEngines(v => !v)}
+                    className="text-xs text-cyber-cyan hover:underline mt-1"
+                  >
+                    {showAllEngines ? 'Réduire' : `Voir tous les ${Object.keys(vtData.malicious_engines).length} moteurs →`}
+                  </button>
+                )}
+              </div>
+            )}
+
+            {vtData.tags.length > 0 && (
+              <div className="flex flex-wrap gap-1">
+                {vtData.tags.map(t => (
+                  <span key={t} className="text-xs px-2 py-0.5 rounded border border-cyber-cyan/30 text-cyber-cyan">{t}</span>
+                ))}
+              </div>
+            )}
+          </>
+        )}
+
+        {vtSource?.status === 'error' && vtSource.error && (
+          <p className="text-red-400 text-xs">{vtSource.error}</p>
+        )}
+
+        {vtSource?.status === 'not_found' && (
+          <p className="text-text-muted text-xs">Hash inconnu de VirusTotal.</p>
+        )}
+      </div>
+
+      {/* MalwareBazaar / ThreatFox / URLhaus compact cards */}
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+        {/* MalwareBazaar */}
+        <div className="bg-gray-800 border border-gray-700 rounded-xl p-3 space-y-2">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-semibold text-text-primary">MalwareBazaar</span>
+            {statusIcon(mbSource?.status ?? 'error')}
+          </div>
+          {mbData && (
+            <div className="text-xs text-text-muted space-y-0.5">
+              {mbData.file_type && <p><span className="text-text-primary">Type :</span> {mbData.file_type}</p>}
+              {mbData.signature && <p><span className="text-text-primary">Signature :</span> <span className="text-red-300">{mbData.signature}</span></p>}
+              {mbData.first_seen && <p><span className="text-text-primary">1ère vue :</span> {mbData.first_seen}</p>}
+              {mbData.reporter && <p><span className="text-text-primary">Reporter :</span> {mbData.reporter}</p>}
+              {mbData.tags && mbData.tags.length > 0 && (
+                <div className="flex flex-wrap gap-1 mt-1">
+                  {mbData.tags.map(t => (
+                    <span key={t} className="px-1.5 py-0.5 rounded border border-red-400/30 text-red-300">{t}</span>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+          {mbSource?.status === 'not_found' && <p className="text-xs text-text-muted">Hash inconnu.</p>}
+          {mbSource?.status === 'error' && <p className="text-xs text-red-400">{mbSource.error}</p>}
+        </div>
+
+        {/* ThreatFox */}
+        <div className="bg-gray-800 border border-gray-700 rounded-xl p-3 space-y-2">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-semibold text-text-primary">ThreatFox</span>
+            {statusIcon(tfSource?.status ?? 'error')}
+          </div>
+          {tfData && (
+            <div className="text-xs text-text-muted space-y-0.5">
+              {tfData.malware && <p><span className="text-text-primary">Malware :</span> <span className="text-red-300">{tfData.malware}</span></p>}
+              {tfData.threat_type && <p><span className="text-text-primary">Type :</span> {tfData.threat_type}</p>}
+              <p><span className="text-text-primary">Confiance :</span> {tfData.confidence_level}%</p>
+              {tfData.first_seen && <p><span className="text-text-primary">1ère vue :</span> {tfData.first_seen}</p>}
+            </div>
+          )}
+          {tfSource?.status === 'not_found' && <p className="text-xs text-text-muted">Hash inconnu.</p>}
+          {tfSource?.status === 'error' && <p className="text-xs text-red-400">{tfSource.error}</p>}
+        </div>
+
+        {/* URLhaus */}
+        <div className="bg-gray-800 border border-gray-700 rounded-xl p-3 space-y-2">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-semibold text-text-primary">URLhaus</span>
+            {statusIcon(uhSource?.status ?? 'error')}
+          </div>
+          {uhData && (
+            <div className="text-xs text-text-muted space-y-0.5">
+              {uhData.file_type && <p><span className="text-text-primary">Type :</span> {uhData.file_type}</p>}
+              {uhData.signature && <p><span className="text-text-primary">Signature :</span> {uhData.signature}</p>}
+              <p><span className="text-text-primary">URLs associées :</span> {uhData.urls_count}</p>
+              {uhData.urlhaus_reference && (
+                <a href={uhData.urlhaus_reference} target="_blank" rel="noreferrer" className="text-cyber-cyan hover:underline">
+                  Voir sur URLhaus →
+                </a>
+              )}
+            </div>
+          )}
+          {uhSource?.status === 'skipped' && (
+            <p className="text-xs text-text-muted">Non applicable pour les hash MD5 (SHA256 requis).</p>
+          )}
+          {uhSource?.status === 'not_found' && <p className="text-xs text-text-muted">Hash inconnu.</p>}
+          {uhSource?.status === 'error' && <p className="text-xs text-red-400">{uhSource.error}</p>}
+        </div>
+      </div>
+    </div>
+  )
+}
+
 export default function IOCPage() {
     const {
     iocs, total, loading, stats, filter,
@@ -165,16 +462,59 @@ export default function IOCPage() {
   const [search, setSearch]         = useState('')
   const [searchTimeout, setSearchTimeout] = useState<ReturnType<typeof setTimeout> | null>(null)
 
+  // Sélection multiple
+  const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set())
+  const [bulkDeleting, setBulkDeleting] = useState(false)
+
+  const allSelected = iocs.length > 0 && iocs.every((ioc) => selectedIds.has(ioc.id))
+  const someSelected = !allSelected && iocs.some((ioc) => selectedIds.has(ioc.id))
+
+  const handleToggleSelect = (id: number) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev)
+      next.has(id) ? next.delete(id) : next.add(id)
+      return next
+    })
+  }
+
+  const handleToggleAll = () => {
+    if (allSelected) {
+      setSelectedIds(new Set())
+    } else {
+      setSelectedIds(new Set(iocs.map((ioc) => ioc.id)))
+    }
+  }
+
+  const handleBulkDelete = async () => {
+    const count = selectedIds.size
+    if (!confirm(`Supprimer ${count} IOC${count > 1 ? 's' : ''} sélectionné${count > 1 ? 's' : ''} ?`)) return
+    setBulkDeleting(true)
+    let errors = 0
+    for (const id of Array.from(selectedIds)) {
+      try { await deleteIoc(id) } catch { errors++ }
+    }
+    setBulkDeleting(false)
+    setSelectedIds(new Set())
+    if (errors === 0) toast.success(`${count} IOC${count > 1 ? 's' : ''} supprimé${count > 1 ? 's' : ''}`)
+    else toast.error(`${errors} erreur(s) lors de la suppression`)
+  }
+
   // Vue détail
   const [selectedIOC, setSelectedIOC] = useState<IOC | null>(null)
   const [correlationResult, setCorrelationResult] = useState<CorrelationResult | null>(null)
   const [correlationLoading, setCorrelationLoading] = useState(false)
   const [correlationError, setCorrelationError] = useState<string | null>(null)
-  const [activeTab, setActiveTab] = useState<'details' | 'correlation' | 'malwarebazaar'>('details')
-  const [hashResult, setHashResult] = useState<import('@/types/hash').HashAnalysisResult | null>(null)
+  const [activeTab, setActiveTab] = useState<'details' | 'correlation' | 'hash_analysis'>('details')
+  const [hashResult, setHashResult] = useState<HashAnalysisResponse | null>(null)
   const [hashLoading, setHashLoading] = useState(false)
-  const navigate = useNavigate()
   const [searchParams] = useSearchParams()
+
+  // Détecter automatiquement quand l'onglet Analyse Hash est actif pour un IOC hash
+  useEffect(() => {
+    if (selectedIOC && selectedIOC.type === 'hash' && activeTab === 'hash_analysis') {
+      loadHashAnalysis(selectedIOC)
+    }
+  }, [selectedIOC, activeTab])
 
   useEffect(() => {
     const selectedId = searchParams.get('selected')
@@ -189,6 +529,7 @@ export default function IOCPage() {
 
   const handleSearch = (v: string) => {
     setSearch(v)
+    setSelectedIds(new Set())
     if (searchTimeout) clearTimeout(searchTimeout)
     setSearchTimeout(setTimeout(() => setFilter({ q: v || undefined }), 350))
   }
@@ -332,9 +673,40 @@ export default function IOCPage() {
             </div>
           ) : (
             <div className="bg-bg-secondary border border-border rounded-lg overflow-hidden">
+              {/* Barre d'actions groupées */}
+              {selectedIds.size > 0 && (
+                <div className="flex items-center gap-3 px-4 py-2.5 bg-cyber-red/10 border-b border-cyber-red/30">
+                  <span className="text-sm text-cyber-red font-medium">
+                    {selectedIds.size} IOC{selectedIds.size > 1 ? 's' : ''} sélectionné{selectedIds.size > 1 ? 's' : ''}
+                  </span>
+                  <button
+                    onClick={handleBulkDelete}
+                    disabled={bulkDeleting}
+                    className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold bg-cyber-red text-white rounded hover:bg-cyber-red/80 disabled:opacity-50 transition-colors"
+                  >
+                    <Trash2 size={13} />
+                    {bulkDeleting ? `Suppression…` : `Supprimer la sélection`}
+                  </button>
+                  <button
+                    onClick={() => setSelectedIds(new Set())}
+                    className="text-xs text-text-muted hover:text-text-primary transition-colors"
+                  >
+                    Tout désélectionner
+                  </button>
+                </div>
+              )}
               <table className="w-full text-sm">
                 <thead>
                   <tr className="border-b border-border text-text-muted text-xs">
+                    <th className="px-4 py-3 w-8">
+                      <input
+                        type="checkbox"
+                        checked={allSelected}
+                        ref={(el) => { if (el) el.indeterminate = someSelected }}
+                        onChange={handleToggleAll}
+                        className="w-4 h-4 rounded border-border accent-cyber-cyan cursor-pointer"
+                      />
+                    </th>
                     <th className="text-left px-4 py-3 font-medium">{`Type`}</th>
                     <th className="text-left px-4 py-3 font-medium">{`Valeur`}</th>
                     <th className="text-left px-4 py-3 font-medium">{`Source`}</th>
@@ -347,7 +719,15 @@ export default function IOCPage() {
                 </thead>
                 <tbody className="divide-y divide-border">
                   {iocs.map((ioc) => (
-                    <tr key={ioc.id} className="hover:bg-bg-primary/50 transition-colors group">
+                    <tr key={ioc.id} className={`hover:bg-bg-primary/50 transition-colors group ${selectedIds.has(ioc.id) ? 'bg-cyber-cyan/5' : ''}`}>
+                      <td className="px-4 py-3">
+                        <input
+                          type="checkbox"
+                          checked={selectedIds.has(ioc.id)}
+                          onChange={() => handleToggleSelect(ioc.id)}
+                          className="w-4 h-4 rounded border-border accent-cyber-cyan cursor-pointer"
+                        />
+                      </td>
                       <td className="px-4 py-3">
                         <span className="flex items-center gap-1.5 font-mono text-xs uppercase text-cyber-cyan">
                           {typeIcon(ioc.type)} {ioc.type}
@@ -442,14 +822,14 @@ export default function IOCPage() {
               </button>
               {selectedIOC.type === 'hash' && (
                 <button
-                  onClick={() => { setActiveTab('malwarebazaar'); loadHashAnalysis(selectedIOC) }}
+                  onClick={() => { setActiveTab('hash_analysis'); loadHashAnalysis(selectedIOC) }}
                   className={`flex-1 px-4 py-3 text-sm font-medium transition-colors ${
-                    activeTab === 'malwarebazaar'
+                    activeTab === 'hash_analysis'
                       ? 'text-cyber-cyan border-b-2 border-cyber-cyan'
                       : 'text-text-muted hover:text-text-primary'
                   }`}
                 >
-                  MalwareBazaar
+                  Analyse Hash
                 </button>
               )}
             </div>
@@ -516,80 +896,31 @@ export default function IOCPage() {
                   error={correlationError}
                 />
               ) : (
-                <div className="space-y-4">
-                  <div className="flex items-center gap-2 mb-3">
-                    <span className="text-sm font-semibold text-text-primary">Analyse MalwareBazaar</span>
-                    {hashLoading && <span className="text-xs text-text-muted animate-pulse">Chargement…</span>}
-                  </div>
-                  {!hashLoading && !hashResult && (
-                    <p className="text-xs text-text-muted">Impossible de contacter MalwareBazaar.</p>
-                  )}
-                  {hashResult && (
-                    <div className="space-y-3">
-                      <div className="flex items-center gap-2">
-                        <span className={`text-xs px-2 py-0.5 rounded border font-mono ${
-                          hashResult.query_status === 'ok'
-                            ? 'text-red-400 border-red-400/40 bg-red-400/10'
-                            : 'text-green-400 border-green-400/40 bg-green-400/10'
-                        }`}>
-                          {hashResult.query_status === 'ok' ? 'Malveillant détecté' : hashResult.query_status}
-                        </span>
-                        {hashResult.from_cache && (
-                          <span className="text-xs text-text-muted">(cache)</span>
-                        )}
-                      </div>
-                      {hashResult.data && !Array.isArray(hashResult.data) && (
-                        <div className="space-y-2 text-sm">
-                          {hashResult.data.file_name && (
-                            <div><span className="text-text-muted text-xs">Nom fichier:</span> <span className="font-mono text-text-primary">{hashResult.data.file_name}</span></div>
-                          )}
-                          {hashResult.data.file_type && (
-                            <div><span className="text-text-muted text-xs">Type:</span> <span className="text-text-primary">{hashResult.data.file_type}</span></div>
-                          )}
-                          {hashResult.data.file_size !== undefined && (
-                            <div><span className="text-text-muted text-xs">Taille:</span> <span className="text-text-primary">{hashResult.data.file_size} bytes</span></div>
-                          )}
-                          {hashResult.data.first_seen && (
-                            <div><span className="text-text-muted text-xs">1ère vue:</span> <span className="text-text-primary">{hashResult.data.first_seen}</span></div>
-                          )}
-                          {hashResult.data.tags && hashResult.data.tags.length > 0 && (
-                            <div>
-                              <span className="text-text-muted text-xs block mb-1">Tags:</span>
-                              <div className="flex flex-wrap gap-1">
-                                {hashResult.data.tags.map((tag) => (
-                                  <span key={tag} className="text-xs px-1.5 py-0.5 rounded border border-red-400/40 text-red-400">{tag}</span>
-                                ))}
-                              </div>
-                            </div>
-                          )}
-                        </div>
-                      )}
-                    </div>
-                  )}
-                  {(selectedIOC.type === 'ip' || selectedIOC.type === 'domain' || selectedIOC.type === 'cidr') && (
-                    <button
-                      onClick={() => navigate(`/bgp?prefill=${encodeURIComponent(selectedIOC.value)}`)}
-                      className="btn-secondary flex items-center gap-2 text-sm border-blue-500/40 text-blue-400 hover:bg-blue-500/10 mt-2"
-                    >
-                      <Globe size={14} /> Voir l'AS dans BGP Lookup
-                    </button>
-                  )}
-                </div>
+                <HashAnalysisPanel
+                  hashResult={hashResult}
+                  hashLoading={hashLoading}
+                  onForceRefresh={() => {
+                    if (!selectedIOC) return
+                    hashApi.deleteCache(selectedIOC.value).finally(() => loadHashAnalysis(selectedIOC))
+                  }}
+                />
               )}
             </div>
           </div>
         )}
+      </div>
 
-        {/* Panel création/modification */}
-        {showForm && (
-          <div className="w-[380px] shrink-0 bg-bg-secondary border border-cyber-cyan/30 rounded-lg p-5">
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="text-sm font-semibold text-text-primary">
-                {editTarget ? `Modifier IOC #${editTarget.id}` : `Nouvel indicateur`}
+      {/* Modale Creation/Edition */}
+      {showForm && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+          <div className="bg-bg-secondary border border-border rounded-xl p-6 w-full max-w-lg shadow-2xl">
+            <div className="flex items-center justify-between mb-5">
+              <h2 className="text-lg font-bold text-text-primary">
+                {editTarget ? `Modifier IOC` : `Ajouter un IOC`}
               </h2>
               <button onClick={() => { setShowForm(false); setEditTarget(null) }}
                 className="p-1 rounded hover:bg-bg-primary text-text-muted hover:text-text-primary transition-colors">
-                <X size={16} />
+                <X size={18} />
               </button>
             </div>
             <IOCForm
@@ -598,17 +929,8 @@ export default function IOCPage() {
               onCancel={() => { setShowForm(false); setEditTarget(null) }}
             />
           </div>
-        )}
-      </div>
-
-      {/* Légende TLP */}
-      <div className="flex items-center gap-4 pt-2 border-t border-border">
-        <span className="text-xs text-text-muted">{`Traffic Light Protocol :`}</span>
-        {TLP_OPTIONS.map((tp) => (
-          <span key={tp.value} className={`text-xs px-1.5 py-0.5 rounded border font-mono ${tp.color}`}>{tp.label}</span>
-        ))}
-        <span className="text-xs text-text-muted ml-2">{`— Respectez le niveau de confidentialité lors du partage.`}</span>
-      </div>
+        </div>
+      )}
     </div>
   )
 }
