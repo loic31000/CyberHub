@@ -28,6 +28,9 @@ Application de bureau pour centraliser vos outils, writeups CTF, veille CVE, pla
 ### Dashboard
 ![Dashboard](./.github/screenshots/dashboard.png)
 
+### IOC Manager
+![IOC Manager](./.github/screenshots/iocmanager.png)
+
 ---
 
 ## Fonctionnalités
