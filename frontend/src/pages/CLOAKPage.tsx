@@ -110,19 +110,27 @@ function AnnotationPanel({
   const [tags, setTags]           = useState(existingAnnotation?.tags ?? '')
   const [saving, setSaving]       = useState(false)
 
+  // Validation minimale : au moins un champ rempli
+  const hasContent = status !== '' || userNotes.trim() !== '' || counter.trim() !== '' || tags.trim() !== ''
+
   const handleSave = async () => {
+    if (!hasContent) {
+      toast.error(`Remplis au moins un champ avant de sauvegarder`)
+      return
+    }
     setSaving(true)
     try {
       const req: CloakAnnotationRequest = {
         technique_ref: techniqueRef,
-        user_notes: userNotes,
+        user_notes: userNotes.trim(),
         status,
-        counter_notes: counter,
-        tags,
+        counter_notes: counter.trim(),
+        tags: tags.trim(),
       }
       const ann = await cloakAnnotationsApi.upsert(req)
       onSaved(ann)
       toast.success(`Annotation sauvegardée`)
+      onClose() // fermer le panneau après sauvegarde
     } catch {
       toast.error(`Erreur lors de la sauvegarde`)
     } finally {
@@ -229,8 +237,9 @@ function AnnotationPanel({
           <button onClick={onClose} className="px-3 py-1.5 text-xs border border-border rounded text-text-muted hover:text-text-primary transition-colors">
             {`Annuler`}
           </button>
-          <button onClick={handleSave} disabled={saving}
-            className="px-3 py-1.5 text-xs bg-accent text-bg-primary font-semibold rounded hover:bg-accent/80 disabled:opacity-50 transition-colors">
+          <button onClick={handleSave} disabled={saving || !hasContent}
+            className="px-3 py-1.5 text-xs bg-accent text-bg-primary font-semibold rounded hover:bg-accent/80 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+            title={!hasContent ? `Remplis au moins un champ` : undefined}>
             {saving ? `Sauvegarde…` : `Sauvegarder`}
           </button>
         </div>
@@ -404,7 +413,7 @@ function TechniqueCard({
     (tech.subtechniques?.reduce((a, s) => a + (s.procedures?.length ?? 0), 0) ?? 0)
 
   return (
-    <div className={`rounded border border-l-2 transition-all duration-150 ${
+    <div className={`group rounded border border-l-2 transition-all duration-150 ${
       selected ? 'border-accent/60 ring-1 ring-accent/30 ' + tacticAccent(tactic.name)
                : 'border-border hover:border-accent/30 ' + tacticAccent(tactic.name)}`}>
       <button onClick={() => onSelect(tactic, tech)} className="w-full text-left p-3">
@@ -435,7 +444,11 @@ function TechniqueCard({
         ) : <div />}
         <button
           onClick={(e) => { e.stopPropagation(); onAnnotate(tactic, tech) }}
-          className={`p-1 rounded transition-colors ${annotation ? 'text-accent opacity-80 hover:opacity-100' : 'text-text-muted opacity-0 group-hover:opacity-60 hover:opacity-100 hover:text-accent'}`}
+          className={`p-1 rounded transition-all ${
+            annotation
+              ? 'text-accent opacity-100 hover:bg-accent/10'
+              : 'text-text-muted opacity-0 group-hover:opacity-60 hover:!opacity-100 hover:text-accent hover:bg-accent/10'
+          }`}
           title={`Annoter la fiche`}
         >
           <Pencil size={10} />
@@ -790,6 +803,7 @@ export default function CLOAKPage() {
         )}
       </div>
 
+      {/* Avertissement légal */}
       {/* Avertissement légal */}
       <div className="px-4 py-1.5 border-t border-border bg-yellow-900/10 flex items-center gap-2 flex-shrink-0">
         <AlertTriangle size={11} className="text-yellow-400 flex-shrink-0" />

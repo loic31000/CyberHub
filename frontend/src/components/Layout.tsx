@@ -5,7 +5,7 @@ import ToastContainer from './Toast'
 import SearchModal from './SearchModal'
 import { bgpApi } from '@/api/client'
 import { useAuthStore } from '@/store/auth'
-import { ChevronLeft } from 'lucide-react' // <-- Ajout de l'icône pour rétracter
+import { ChevronLeft } from 'lucide-react'
 
 const ROUTE_META: Record<string, { section: string; label: string }> = {
   '/dashboard':     { section: 'CORE',  label: 'DASHBOARD' },
@@ -17,13 +17,13 @@ const ROUTE_META: Record<string, { section: string; label: string }> = {
   '/lolbins':       { section: 'INTEL', label: 'LOLBINS & GTFO' },
   '/cloak':         { section: 'OPS',   label: 'CLOAK OPSEC' },
   '/ioc':           { section: 'OPS',   label: 'IOC MANAGER' },
-  '/correlation':   { section: 'OPS',   label: 'CORRÉLATION' },
+  '/correlation':   { section: 'OPS',   label: 'CORR\u00c9LATION' },
   '/osint':         { section: 'OPS',   label: 'OSINT RUNNER' },
-  '/notes':         { section: 'MISC',  label: 'NOTES OPÉRATIONNELLES' },
+  '/notes':         { section: 'MISC',  label: 'NOTES OP\u00c9RATIONNELLES' },
   '/cheatsheets':   { section: 'MISC',  label: 'CHEATSHEETS' },
   '/bgp':           { section: 'MISC',  label: 'BGP LOOKUP' },
   '/bgp/historian': { section: 'MISC',  label: 'BGP HISTORIAN' },
-  '/settings':      { section: 'MISC',  label: 'PARAMÈTRES' },
+  '/settings':      { section: 'MISC',  label: 'PARAM\u00c8TRES' },
 }
 
 function useClock() {
@@ -55,39 +55,35 @@ export default function Layout() {
 
   return (
     <div className="flex flex-col h-screen overflow-hidden bg-[#06080f] text-[#f1f5f9] font-sans selection:bg-[#00d4ff]/30">
-      
+
       {/* TOPBAR */}
       <header className="flex items-stretch h-12 border-b bg-[#0a0e17] flex-shrink-0 z-20" style={{ borderColor: '#1e2d40' }}>
-        
+
         {/* LOGO AREA & TOGGLE SIDEBAR */}
         <div className={`flex items-center px-4 border-r transition-[width] duration-300 overflow-hidden ${collapsed ? 'w-[60px] justify-center' : 'w-[240px] justify-between'}`} style={{ borderColor: '#1e2d40' }}>
           <div className="flex items-center gap-2">
-            
-            {/* ENCADRÉ CARRÉ NÉON AJOUTÉ ICI */}
-            <div 
+            <div
               className="flex items-center justify-center w-8 h-8 border border-[#00d4ff] shadow-[0_0_10px_#00d4ff] rounded-md flex-shrink-0 cursor-pointer hover:drop-shadow-[0_0_5px_rgba(0,212,255,0.8)] transition-all"
               onClick={() => setCollapsed(!collapsed)}
             >
-              <svg 
-                viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="#00d4ff" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" 
+              <svg
+                viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="#00d4ff" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"
               >
                 <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
               </svg>
             </div>
-
             {!collapsed && (
               <span className="font-semibold text-sm tracking-widest font-mono text-[#f1f5f9]">
                 CYBER<span className="text-[#00d4ff]">HUB</span>
               </span>
             )}
           </div>
-          
-          {/* BOUTON DE RÉTRACTATION ICI */}
+
           {!collapsed && (
-            <button 
-              onClick={() => setCollapsed(true)} 
+            <button
+              onClick={() => setCollapsed(true)}
               className="text-[#64748b] hover:text-[#00d4ff] transition-colors flex-shrink-0 flex items-center justify-center"
-              title="Réduire le menu"
+              title="R\u00e9duire le menu"
             >
               <ChevronLeft size={16} />
             </button>

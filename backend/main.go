@@ -2,6 +2,7 @@ package main
 
 import (
 	"embed"
+	"encoding/json"
 	"fmt"
 	"io/fs"
 	"log"
@@ -21,6 +22,7 @@ import (
 	"github.com/cyber-hub/cyber-hub/internal/correlation"
 	"github.com/cyber-hub/cyber-hub/internal/lolbins"
 	"github.com/cyber-hub/cyber-hub/internal/mitre"
+	"github.com/cyber-hub/cyber-hub/internal/models"
 	"github.com/cyber-hub/cyber-hub/internal/store"
 	"github.com/gin-gonic/gin"
 )
@@ -92,6 +94,10 @@ func main() {
 	// Initialiser le moteur global pour les handlers
 	handlers.InitCorrelationEngine(correlationEngine)
 
+	// Initialiser le compte CLOAK dans app_settings si absent
+	// (les données officielles viennent de web/data/cloak.json embarqué)
+	initCloakCount(cloakData)
+
 	// Initialisation du router API
 	r := api.NewRouter(correlationEngine)
 
@@ -153,6 +159,30 @@ func main() {
 	if err := r.Run(addr); err != nil {
 		log.Fatalf("[FATAL] Erreur serveur : %v", err)
 	}
+}
+
+// initCloakCount initialise le compteur CLOAK dans app_settings depuis le JSON embarqué,
+// seulement si l'entrée n'existe pas encore (premier démarrage ou base vidée).
+func initCloakCount(data []byte) {
+	var existing models.AppSetting
+	if store.DB.Where("key = ?", "cloak_technique_count").First(&existing).Error == nil {
+		return // déjà initialisé
+	}
+	var cloakJSON struct {
+		Tactics []struct {
+			Techniques []json.RawMessage `json:"techniques"`
+		} `json:"tactics"`
+	}
+	count := 0
+	if err := json.Unmarshal(data, &cloakJSON); err == nil {
+		for _, t := range cloakJSON.Tactics {
+			count += len(t.Techniques)
+		}
+	}
+	now := time.Now().Format(time.RFC3339)
+	store.DB.Create(&models.AppSetting{Key: "cloak_technique_count", Value: strconv.Itoa(count)})
+	store.DB.Create(&models.AppSetting{Key: "cloak_last_updated", Value: now})
+	log.Printf("[CLOAK] Compteur initialisé : %d sous-techniques", count)
 }
 
 // ensureSingleInstance garantit qu'une seule instance de Cyber-Hub tourne à la fois.

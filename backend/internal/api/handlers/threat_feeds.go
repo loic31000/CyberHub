@@ -5,10 +5,10 @@ import (
 	"encoding/json"
 	"io"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/cyber-hub/cyber-hub/internal/models"
-	"github.com/cyber-hub/cyber-hub/internal/store"
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
 )
@@ -44,32 +44,36 @@ func (h *ThreatFeedsHandler) SyncFeodo(c *gin.Context) {
 	defer resp.Body.Close()
 	body, _ := io.ReadAll(resp.Body)
 
-	var feed struct {
-		Blocklist []struct {
-			IPAddress string `json:"ip_address"`
-			Port      int    `json:"port"`
-			Status    string `json:"status"`
-			Hostname  string `json:"hostname"`
-			ASNumber  int    `json:"as_number"`
-			ASName    string `json:"as_name"`
-			Country   string `json:"country"`
-			Malware   string `json:"malware"`
-			FirstSeen string `json:"first_seen"`
-		} `json:"blocklist"`
+	// Feodo Tracker retourne un tableau JSON direct : [{…}, {…}]
+	// (pas un objet {"blocklist": […]})
+	type feodoEntry struct {
+		IPAddress string `json:"ip_address"`
+		Port      int    `json:"port"`
+		Status    string `json:"status"`
+		Hostname  string `json:"hostname"`
+		ASNumber  int    `json:"as_number"`
+		ASName    string `json:"as_name"`
+		Country   string `json:"country"`
+		Malware   string `json:"malware"`
+		FirstSeen string `json:"first_seen"`
 	}
+	var feed []feodoEntry
 	if err2 := json.Unmarshal(body, &feed); err2 != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err2.Error()})
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"error":        "parse error: " + err2.Error(),
+			"body_preview": string(body[:min(300, len(body))]),
+		})
 		return
 	}
 
 	newIOCs := 0
 	skipped := 0
-	for _, item := range feed.Blocklist {
+	for _, item := range feed {
 		if item.IPAddress == "" {
 			continue
 		}
 		var existing models.IOC
-		if store.DB.Where("value = ?", item.IPAddress).First(&existing).Error == nil {
+		if h.db.Where("value = ?", item.IPAddress).First(&existing).Error == nil {
 			skipped++
 			continue
 		}
@@ -81,39 +85,44 @@ func (h *ThreatFeedsHandler) SyncFeodo(c *gin.Context) {
 		ioc := models.IOC{
 			Type:   models.IOCTypeIP,
 			Value:  item.IPAddress,
-			TLP:    models.TLPAmber,
+			TLP:    models.TLPRed, // C2 actifs → TLP:Red
 			Status: models.IOCStatusActive,
 			Source: "Feodo Tracker",
 			Notes:  notes,
 			Tags:   string(tagsJSON),
 		}
-		if store.DB.Create(&ioc).Error == nil {
+		if h.db.Create(&ioc).Error == nil {
 			newIOCs++
 		}
 	}
 
 	now := time.Now()
+	h.db.Unscoped().Where("feed_name = ?", "feodo").Delete(&models.ThreatFeedSync{})
 	syncRecord := models.ThreatFeedSync{
 		FeedName:  "feodo",
 		LastSync:  now,
-		ItemCount: len(feed.Blocklist),
+		ItemCount: len(feed),
 		NewItems:  newIOCs,
 	}
-	h.db.Where("feed_name = ?", "feodo").Delete(&models.ThreatFeedSync{})
 	h.db.Create(&syncRecord)
 
 	c.JSON(http.StatusOK, gin.H{
 		"new_iocs":           newIOCs,
 		"skipped_duplicates": skipped,
-		"total_in_feed":      len(feed.Blocklist),
+		"total_in_feed":      len(feed),
 	})
 }
 
 func (h *ThreatFeedsHandler) SyncURLhaus(c *gin.Context) {
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
-	req, _ := http.NewRequestWithContext(ctx, http.MethodGet,
-		"https://urlhaus-api.abuse.ch/v1/urls/recent/", nil)
+
+	// L'API URLhaus v1 requiert un POST (même avec un body vide)
+	req, _ := http.NewRequestWithContext(ctx, http.MethodPost,
+		"https://urlhaus-api.abuse.ch/v1/urls/recent/",
+		strings.NewReader(""))
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
 		c.JSON(http.StatusBadGateway, gin.H{"error": err.Error()})
@@ -123,7 +132,8 @@ func (h *ThreatFeedsHandler) SyncURLhaus(c *gin.Context) {
 	body, _ := io.ReadAll(resp.Body)
 
 	var feed struct {
-		URLs []struct {
+		QueryStatus string `json:"query_status"`
+		URLs        []struct {
 			URL        string   `json:"url"`
 			URLStatus  string   `json:"url_status"`
 			DateAdded  string   `json:"date_added"`
@@ -133,7 +143,7 @@ func (h *ThreatFeedsHandler) SyncURLhaus(c *gin.Context) {
 		} `json:"urls"`
 	}
 	if err2 := json.Unmarshal(body, &feed); err2 != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err2.Error()})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "parse error: " + err2.Error(), "body_preview": string(body[:min(200, len(body))])})
 		return
 	}
 
@@ -146,7 +156,7 @@ func (h *ThreatFeedsHandler) SyncURLhaus(c *gin.Context) {
 		}
 		totalOnline++
 		var existing models.IOC
-		if store.DB.Where("value = ?", item.URL).First(&existing).Error == nil {
+		if h.db.Where("value = ?", item.URL).First(&existing).Error == nil {
 			skipped++
 			continue
 		}
@@ -155,25 +165,26 @@ func (h *ThreatFeedsHandler) SyncURLhaus(c *gin.Context) {
 		ioc := models.IOC{
 			Type:   models.IOCTypeURL,
 			Value:  item.URL,
-			TLP:    models.TLPRed,
+			TLP:    models.TLPAmber, // URLs récentes → TLP:Amber
 			Status: models.IOCStatusActive,
 			Source: "URLhaus",
 			Notes:  item.Threat + " — URLhaus",
 			Tags:   string(tagsJSON),
 		}
-		if store.DB.Create(&ioc).Error == nil {
+		if h.db.Create(&ioc).Error == nil {
 			newIOCs++
 		}
 	}
 
 	now := time.Now()
+	// Unscoped = hard delete pour éviter le conflit d'index unique sur feed_name
+	h.db.Unscoped().Where("feed_name = ?", "urlhaus").Delete(&models.ThreatFeedSync{})
 	syncRecord := models.ThreatFeedSync{
 		FeedName:  "urlhaus",
 		LastSync:  now,
 		ItemCount: totalOnline,
 		NewItems:  newIOCs,
 	}
-	h.db.Where("feed_name = ?", "urlhaus").Delete(&models.ThreatFeedSync{})
 	h.db.Create(&syncRecord)
 
 	c.JSON(http.StatusOK, gin.H{
@@ -181,6 +192,13 @@ func (h *ThreatFeedsHandler) SyncURLhaus(c *gin.Context) {
 		"skipped_duplicates": skipped,
 		"total_online":       totalOnline,
 	})
+}
+
+func min(a, b int) int {
+	if a < b {
+		return a
+	}
+	return b
 }
 
 func itoa(n int) string {

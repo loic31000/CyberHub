@@ -1,9 +1,11 @@
 package handlers
 
 import (
+	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
+	"strconv"
 	"time"
 
 	"github.com/cyber-hub/cyber-hub/internal/mitre"
@@ -52,10 +54,13 @@ func GetDBVersions(c *gin.Context) {
 	store.DB.Model(&models.MITRETechnique{}).Count(&mitreCount)
 	store.DB.Order("created_at DESC").First(&lastTactic)
 
-	var cloakCount int64
-	var lastCloak models.CloakOverride
-	store.DB.Model(&models.CloakOverride{}).Count(&cloakCount)
-	store.DB.Order("updated_at DESC").First(&lastCloak)
+	// CLOAK : le compte vient de app_settings (initialisé au démarrage depuis cloak.json embarqué,
+	// mis à jour par UpdateCLOAK). On n'utilise PAS CloakOverride qui est la table d'annotations user.
+	var cloakCountSetting, cloakUpdatedSetting models.AppSetting
+	store.DB.Where("key = ?", "cloak_technique_count").First(&cloakCountSetting)
+	store.DB.Where("key = ?", "cloak_last_updated").First(&cloakUpdatedSetting)
+	cloakCount, _ := strconv.ParseInt(cloakCountSetting.Value, 10, 64)
+	cloakUpdated := cloakUpdatedSetting.Value
 
 	var wmnMeta models.WMNMeta
 	store.DB.First(&wmnMeta)
@@ -68,7 +73,7 @@ func GetDBVersions(c *gin.Context) {
 		},
 		"cloak": gin.H{
 			"technique_count": cloakCount,
-			"last_updated":    lastCloak.UpdatedAt,
+			"last_updated":    cloakUpdated,
 		},
 		"wmn": gin.H{
 			"site_count":   wmnMeta.SiteCount,
@@ -122,14 +127,31 @@ func UpdateCLOAK(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Lecture echouee"})
 		return
 	}
+
+	// Compter les vraies sous-techniques depuis le JSON parsé
+	var cloakData struct {
+		Tactics []struct {
+			Techniques []json.RawMessage `json:"techniques"`
+		} `json:"tactics"`
+	}
 	count := 0
-	for _, b := range body {
-		if b == '{' {
-			count++
+	if err2 := json.Unmarshal(body, &cloakData); err2 == nil {
+		for _, t := range cloakData.Tactics {
+			count += len(t.Techniques)
 		}
 	}
-	if count > 2 {
-		count = count / 2
-	}
-	c.JSON(http.StatusOK, gin.H{"success": true, "technique_count": count, "updated_at": time.Now()})
+
+	// Sauvegarder le compte et la date dans app_settings
+	now := time.Now().Format(time.RFC3339)
+	upsertSetting("cloak_technique_count", strconv.Itoa(count))
+	upsertSetting("cloak_last_updated", now)
+
+	c.JSON(http.StatusOK, gin.H{"success": true, "technique_count": count, "updated_at": now})
+}
+
+// upsertSetting écrase ou crée une entrée app_settings.
+// Hard delete (Unscoped) pour éviter le conflit uniqueIndex avec le soft-delete de gorm.Model.
+func upsertSetting(key, value string) {
+	store.DB.Unscoped().Where("key = ?", key).Delete(&models.AppSetting{})
+	store.DB.Create(&models.AppSetting{Key: key, Value: value})
 }
