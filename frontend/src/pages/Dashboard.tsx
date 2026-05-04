@@ -43,7 +43,7 @@ const CompactModule = ({ item, onClick }: { item: any, onClick: () => void }) =>
         {item.icon}
       </div>
       <div>
-        <div className="text-xs font-semibold text-[#f1f5f9] group-hover:text-[#00d4ff] transition-colors">{item.label}</div>
+        <div className="text-sm font-medium text-[#f1f5f9] group-hover:text-[#00d4ff] transition-colors">{item.label}</div>
         <div className="text-[10px] font-mono text-[#64748b]">{item.sub}</div>
       </div>
     </div>
@@ -63,13 +63,14 @@ export default function Dashboard() {
   useEffect(() => {
     statsApi.get().then(setStats).catch(() => {})
     toolsApi.list().then(r => setRecentTools(r.tools)).catch(() => {})
+    bgpAlerts // trigger the api call just below
     bgpApi.getAlerts(5, 0).then(r => setBgpAlerts(r.items ?? [])).catch(() => {})
     iocApi.list({ limit: 1 } as any).then(r => setIocCount(r.total ?? 0)).catch(() => {})
   }, [])
 
   // Seulement les 4 métriques principales en haut
   const mainKpis = [
-    { label: 'Tools', value: stats?.tools_total, sub: 'Tools All', icon: <Database size={20}/>, path: '/tools' },
+    { label: 'Payloads', value: stats?.tools_total, sub: 'Scripts & exploits', icon: <Database size={20}/>, path: '/tools' },
     { label: 'Writeups', value: stats?.ctf_total, sub: 'CTF Database', icon: <Trophy size={20}/>, path: '/ctf' },
     { label: 'Veille Live', value: stats?.cve_total, sub: 'CVE & KEV Live', icon: <ShieldAlert size={20}/>, path: '/cve' },
     { label: 'Playbooks', value: stats?.playbooks_total, sub: 'IR Procedures', icon: <BookOpen size={20}/>, path: '/playbooks' },
@@ -77,22 +78,22 @@ export default function Dashboard() {
 
   // Le reste passe en format liste compacte sur le côté
   const tacticalModules = [
-    { label: 'Intelligence', value: iocCount > 0 ? `+${iocCount}` : '0', sub: 'IOCs matched', icon: <Activity size={14}/>, path: '/ioc' },
-    { label: 'MITRE ATT&CK', value: '823', sub: 'TTPs indexés', icon: <Crosshair size={14}/>, path: '/mitre' },
-    { label: 'LOLBins', value: '142', sub: 'Living off the land', icon: <Terminal size={14}/>, path: '/lolbins' },
-    { label: 'OSINT Runner', value: 'Ready', sub: 'External Intel', icon: <Search size={14}/>, path: '/osint' },
-    { label: 'CLOAK OpSec', value: 'Active', sub: 'Evasion & stealth', icon: <EyeOff size={14}/>, path: '/cloak' },
-    { label: 'Corrélations', value: 'Auto', sub: 'Cross-module sync', icon: <GitBranch size={14}/>, path: '/correlation' },
+    { label: 'Intelligence', value: iocCount > 0 ? `+${iocCount}` : '0', sub: 'IOCs matched', icon: <Activity size={16}/>, path: '/ioc' },
+    { label: 'MITRE ATT&CK', value: '823', sub: 'TTPs indexés', icon: <Crosshair size={16}/>, path: '/mitre' },
+    { label: 'LOLBins', value: '142', sub: 'Living off the land', icon: <Terminal size={16}/>, path: '/lolbins' },
+    { label: 'OSINT Runner', value: 'Ready', sub: 'External Intel', icon: <Search size={16}/>, path: '/osint' },
+    { label: 'CLOAK OpSec', value: 'Active', sub: 'Evasion & stealth', icon: <EyeOff size={16}/>, path: '/cloak' },
+    { label: 'Corrélations', value: 'Auto', sub: 'Cross-module sync', icon: <GitBranch size={16}/>, path: '/correlation' },
   ]
 
   return (
     <div className="p-8 max-w-[1400px] mx-auto space-y-8">
       
-      {/* HEADER */}
+      {/* HEADER AVEC GROS TITRE IMPACTANT */}
       <div className="flex justify-between items-end border-b border-[#1e2d40] pb-6">
         <div>
-          <h2 className="text-2xl text-[#f1f5f9] font-bold tracking-tighter m-0 flex items-center gap-3">
-            <span className="w-2 h-6 bg-[#00d4ff] shadow-[0_0_12px_#00d4ff]" />
+          <h2 className="text-3xl text-[#f1f5f9] font-black tracking-tighter m-0 flex items-center gap-3">
+            <span className="w-2 h-7 bg-[#00d4ff] shadow-[0_0_12px_#00d4ff]" />
             TERMINAL_OVERVIEW
           </h2>
           <div className="text-xs text-[#00d4ff]/70 font-mono mt-2 animate-pulse">
@@ -188,7 +189,7 @@ export default function Dashboard() {
             </div>
           </div>
 
-          {/* TACTICAL MODULES (Liste compacte au lieu de grosses cartes) */}
+          {/* TACTICAL MODULES */}
           <div>
             <h3 className="text-[11px] font-mono text-[#64748b] uppercase tracking-[0.2em] flex items-center gap-2 mb-4">
               <div className="w-1 h-1 bg-[#10b981] rounded-full shadow-[0_0_5px_#10b981]" />
