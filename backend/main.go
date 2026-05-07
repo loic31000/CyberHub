@@ -79,7 +79,9 @@ func main() {
 		log.Printf("[WARN] Erreur seed CVE : %v", err)
 	}
 	// Seed MITRE ATT&CK — téléchargement + parsing en arrière-plan (si pas déjà fait)
-	mitre.SeedIfNeeded()
+	if err := mitre.RunSeed(); err != nil {
+		log.Printf("[WARN] Erreur seed MITRE : %v", err)
+	}
 	// Seed CISA KEV (Known Exploited Vulnerabilities)
 	cisa.SeedKEV(store.DB)
 	// Seed LOLBins (LOLBAS Windows + GTFOBins Linux)

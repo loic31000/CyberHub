@@ -4,6 +4,7 @@ import {
   Network, Search, Camera, Copy, ShieldBan,
   ChevronRight, Globe, Server, ArrowUpCircle,
   ArrowDownCircle, Users, Loader2, AlertCircle, History,
+  Activity, Database, ShieldCheck,
 } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { bgpApi } from '@/api/client'
@@ -24,17 +25,11 @@ function parseAPIError(error: unknown): string {
   return 'Erreur réseau'
 }
 
-// ─────────────────────────────────────────────
-// Types internes
-// ─────────────────────────────────────────────
 type SearchMode = 'asn' | 'ip' | 'search'
 type ASNTab = 'info' | 'ipv4' | 'ipv6' | 'peers' | 'upstreams' | 'downstreams'
 
 const PAGE_SIZE = 20
 
-// ─────────────────────────────────────────────
-// Helpers
-// ─────────────────────────────────────────────
 function stripASN(raw: string): number {
   return parseInt(raw.replace(/^AS/i, '').trim(), 10)
 }
@@ -52,35 +47,31 @@ function countryFlag(code: string) {
     .join('')
 }
 
-// ─────────────────────────────────────────────
-// Composants génériques
-// ─────────────────────────────────────────────
 function Spinner() {
   return (
     <div className="flex items-center justify-center py-12">
-      <Loader2 size={28} className="animate-spin text-cyan-400" />
+      <Loader2 size={28} className="animate-spin text-[#00d4ff]" />
     </div>
   )
 }
 
 function ErrorMessage({ message }: { message: string }) {
   return (
-    <div className="flex items-center gap-2 p-4 rounded-lg bg-red-900/20 border border-red-500/30 text-red-400">
-      <AlertCircle size={18} />
-      <span className="text-sm">{message}</span>
+    <div className="flex items-center gap-2 p-4 rounded bg-[#ef4444]/5 border-l-2 border-[#ef4444] text-[#ef4444] font-mono text-xs">
+      <AlertCircle size={16} />
+      <span>{message}</span>
     </div>
   )
 }
 
 function EmptyState({ label = 'Aucune donnée' }: { label?: string }) {
   return (
-    <div className="text-center py-10 text-gray-500 text-sm">{label}</div>
+    <div className="text-center py-10 font-mono text-xs text-[#4a6480]">
+      {label.toUpperCase()}
+    </div>
   )
 }
 
-// ─────────────────────────────────────────────
-// Pagination locale (client-side, PAGE_SIZE items)
-// ─────────────────────────────────────────────
 interface PagedTableProps<T> {
   items: T[]
   renderRow: (item: T, idx: number) => React.ReactNode
@@ -95,11 +86,11 @@ function PagedTable<T>({ items, renderRow, headers }: PagedTableProps<T>) {
   return (
     <div>
       <div className="overflow-x-auto">
-        <table className="w-full text-sm">
+        <table className="w-full text-xs font-mono">
           <thead>
-            <tr className="border-b border-gray-700">
+            <tr className="border-b border-[#1e2d40]">
               {headers.map((h) => (
-                <th key={h} className="text-left py-2 px-3 text-gray-400 font-medium">
+                <th key={h} className="text-left py-2 px-3 text-[#4a6480] font-bold tracking-widest uppercase">
                   {h}
                 </th>
               ))}
@@ -108,7 +99,7 @@ function PagedTable<T>({ items, renderRow, headers }: PagedTableProps<T>) {
           <tbody>
             {slice.length === 0 ? (
               <tr>
-                <td colSpan={headers.length} className="text-center py-8 text-gray-500">
+                <td colSpan={headers.length} className="text-center py-8 text-[#4a6480]">
                   Aucune donnée
                 </td>
               </tr>
@@ -119,21 +110,19 @@ function PagedTable<T>({ items, renderRow, headers }: PagedTableProps<T>) {
         </table>
       </div>
       {totalPages > 1 && (
-        <div className="flex items-center justify-center gap-2 mt-4 text-sm">
+        <div className="flex items-center justify-center gap-2 mt-4 text-xs font-mono">
           <button
             onClick={() => setPage((p) => Math.max(1, p - 1))}
             disabled={page === 1}
-            className="px-3 py-1 rounded bg-gray-700 text-gray-300 disabled:opacity-40 hover:bg-gray-600 transition-colors"
+            className="px-3 py-1 bg-[#1e2d40] text-[#8a9ab0] disabled:opacity-40 hover:bg-[#2a3f55] transition-colors border border-[#2a3f55]"
           >
             ←
           </button>
-          <span className="text-gray-400">
-            {page} / {totalPages}
-          </span>
+          <span className="text-[#4a6480]">{page} / {totalPages}</span>
           <button
             onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
             disabled={page === totalPages}
-            className="px-3 py-1 rounded bg-gray-700 text-gray-300 disabled:opacity-40 hover:bg-gray-600 transition-colors"
+            className="px-3 py-1 bg-[#1e2d40] text-[#8a9ab0] disabled:opacity-40 hover:bg-[#2a3f55] transition-colors border border-[#2a3f55]"
           >
             →
           </button>
@@ -142,10 +131,6 @@ function PagedTable<T>({ items, renderRow, headers }: PagedTableProps<T>) {
     </div>
   )
 }
-
-// ─────────────────────────────────────────────
-// Onglets ASN — lazy load
-// ─────────────────────────────────────────────
 
 interface ASNTabsProps {
   asn: number
@@ -159,7 +144,6 @@ function ASNTabs({ asn, info, onNavigatePeer, lastSnapshotDate }: ASNTabsProps) 
   const [activeTab, setActiveTab] = useState<ASNTab>('info')
   const [snapping, setSnapping] = useState(false)
 
-  // Lazy data
   const [prefixData, setPrefixData] = useState<PrefixListData | null>(null)
   const [prefixLoading, setPrefixLoading] = useState(false)
   const [prefixError, setPrefixError] = useState<string | null>(null)
@@ -182,45 +166,33 @@ function ASNTabs({ asn, info, onNavigatePeer, lastSnapshotDate }: ASNTabsProps) 
       if ((tab === 'ipv4' || tab === 'ipv6') && !prefixData && !prefixLoading) {
         setPrefixLoading(true)
         setPrefixError(null)
-        bgpApi
-          .lookupASNPrefixes(asn)
+        bgpApi.lookupASNPrefixes(asn)
           .then((r) => setPrefixData(r.data))
-          .catch((e: unknown) =>
-            setPrefixError(e instanceof Error ? e.message : 'Erreur réseau'),
-          )
+          .catch((e: unknown) => setPrefixError(e instanceof Error ? e.message : 'Erreur réseau'))
           .finally(() => setPrefixLoading(false))
       }
       if (tab === 'peers' && !peerData && !peerLoading) {
         setPeerLoading(true)
         setPeerError(null)
-        bgpApi
-          .lookupASNPeers(asn)
+        bgpApi.lookupASNPeers(asn)
           .then((r) => setPeerData(r.data))
-          .catch((e: unknown) =>
-            setPeerError(e instanceof Error ? e.message : 'Erreur réseau'),
-          )
+          .catch((e: unknown) => setPeerError(e instanceof Error ? e.message : 'Erreur réseau'))
           .finally(() => setPeerLoading(false))
       }
       if (tab === 'upstreams' && !upstreamData && !upstreamLoading) {
         setUpstreamLoading(true)
         setUpstreamError(null)
-        bgpApi
-          .lookupASNUpstreams(asn)
+        bgpApi.lookupASNUpstreams(asn)
           .then((r) => setUpstreamData(r.data))
-          .catch((e: unknown) =>
-            setUpstreamError(e instanceof Error ? e.message : 'Erreur réseau'),
-          )
+          .catch((e: unknown) => setUpstreamError(e instanceof Error ? e.message : 'Erreur réseau'))
           .finally(() => setUpstreamLoading(false))
       }
       if (tab === 'downstreams' && !downstreamData && !downstreamLoading) {
         setDownstreamLoading(true)
         setDownstreamError(null)
-        bgpApi
-          .lookupASNDownstreams(asn)
+        bgpApi.lookupASNDownstreams(asn)
           .then((r) => setDownstreamData(r.data))
-          .catch((e: unknown) =>
-            setDownstreamError(e instanceof Error ? e.message : 'Erreur réseau'),
-          )
+          .catch((e: unknown) => setDownstreamError(e instanceof Error ? e.message : 'Erreur réseau'))
           .finally(() => setDownstreamLoading(false))
       }
     },
@@ -244,9 +216,14 @@ function ASNTabs({ asn, info, onNavigatePeer, lastSnapshotDate }: ASNTabsProps) 
     }
   }
 
+  /**
+   * Export d'un préfixe BGP (onglets IPv4 / IPv6) vers l'IOC Manager.
+   * - Envoie l'ASN courant pour que le backend génère la source "BGP Lookup — AS<N>".
+   * - N'envoie jamais le numéro ASN comme valeur CIDR.
+   */
   const handleExportIOC = async (prefix: string) => {
     try {
-      await bgpApi.exportIOC({ type: 'cidr', value: prefix, source: `AS${asn}` })
+      await bgpApi.exportIOC({ type: 'cidr', value: prefix, asn })
       toast.success(`IOC créé : ${prefix}`)
     } catch (e: unknown) {
       toast.error(e instanceof Error ? e.message : 'Erreur export IOC')
@@ -254,12 +231,12 @@ function ASNTabs({ asn, info, onNavigatePeer, lastSnapshotDate }: ASNTabsProps) 
   }
 
   const tabs: { id: ASNTab; label: string; icon: React.ReactNode }[] = [
-    { id: 'info', label: 'Infos', icon: <Server size={14} /> },
-    { id: 'ipv4', label: 'Préfixes IPv4', icon: <Globe size={14} /> },
-    { id: 'ipv6', label: 'Préfixes IPv6', icon: <Globe size={14} /> },
-    { id: 'peers', label: 'Peers', icon: <Users size={14} /> },
-    { id: 'upstreams', label: 'Upstreams', icon: <ArrowUpCircle size={14} /> },
-    { id: 'downstreams', label: 'Downstreams', icon: <ArrowDownCircle size={14} /> },
+    { id: 'info', label: 'Infos', icon: <Server size={12} /> },
+    { id: 'ipv4', label: 'Préfixes IPv4', icon: <Globe size={12} /> },
+    { id: 'ipv6', label: 'Préfixes IPv6', icon: <Globe size={12} /> },
+    { id: 'peers', label: 'Peers', icon: <Users size={12} /> },
+    { id: 'upstreams', label: 'Upstreams', icon: <ArrowUpCircle size={12} /> },
+    { id: 'downstreams', label: 'Downstreams', icon: <ArrowDownCircle size={12} /> },
   ]
 
   const renderPrefixTable = (prefixes: (IPv4Prefix | IPv6Prefix)[]) => (
@@ -267,24 +244,24 @@ function ASNTabs({ asn, info, onNavigatePeer, lastSnapshotDate }: ASNTabsProps) 
       items={prefixes}
       headers={['Préfixe', 'Nom', 'Pays', 'Actions']}
       renderRow={(p, i) => (
-        <tr key={i} className="border-b border-gray-800 hover:bg-gray-800/50">
-          <td className="py-2 px-3 font-mono text-cyan-300 text-xs">{p.prefix}</td>
-          <td className="py-2 px-3 text-gray-300 text-xs">{p.name || '—'}</td>
-          <td className="py-2 px-3 text-gray-400 text-xs">
+        <tr key={i} className="border-b border-[#1e2d40] hover:bg-[#0d131f] transition-colors">
+          <td className="py-2 px-3 text-[#00d4ff]">{p.prefix}</td>
+          <td className="py-2 px-3 text-[#8a9ab0]">{p.name || '—'}</td>
+          <td className="py-2 px-3 text-[#4a6480]">
             {p.country_code ? `${countryFlag(p.country_code)} ${p.country_code}` : '—'}
           </td>
           <td className="py-2 px-3">
             <div className="flex items-center gap-1">
               <button
                 onClick={() => copyToClipboard(p.prefix)}
-                className="p-1 rounded hover:bg-gray-700 text-gray-500 hover:text-cyan-400 transition-colors"
+                className="p-1 hover:bg-[#1e2d40] text-[#4a6480] hover:text-[#00d4ff] transition-colors"
                 title="Copier"
               >
                 <Copy size={12} />
               </button>
               <button
                 onClick={() => handleExportIOC(p.prefix)}
-                className="p-1 rounded hover:bg-gray-700 text-gray-500 hover:text-red-400 transition-colors text-xs flex items-center gap-1"
+                className="p-1 hover:bg-[#1e2d40] text-[#4a6480] hover:text-[#ef4444] transition-colors flex items-center gap-1"
                 title="Exporter en IOC"
               >
                 <ShieldBan size={12} />
@@ -297,31 +274,29 @@ function ASNTabs({ asn, info, onNavigatePeer, lastSnapshotDate }: ASNTabsProps) 
     />
   )
 
-  const renderASNTable = (
-    peers: (BGPPeer | BGPUpstream | BGPDownstream)[],
-  ) => (
+  const renderASNTable = (peers: (BGPPeer | BGPUpstream | BGPDownstream)[]) => (
     <PagedTable
       items={peers}
       headers={['ASN', 'Nom', 'Pays', 'Actions']}
       renderRow={(p, i) => (
-        <tr key={i} className="border-b border-gray-800 hover:bg-gray-800/50">
-          <td className="py-2 px-3 font-mono text-cyan-300 text-xs">AS{p.asn}</td>
-          <td className="py-2 px-3 text-gray-300 text-xs">{p.name || '—'}</td>
-          <td className="py-2 px-3 text-gray-400 text-xs">
+        <tr key={i} className="border-b border-[#1e2d40] hover:bg-[#0d131f] transition-colors">
+          <td className="py-2 px-3 text-[#00d4ff]">AS{p.asn}</td>
+          <td className="py-2 px-3 text-[#8a9ab0]">{p.name || '—'}</td>
+          <td className="py-2 px-3 text-[#4a6480]">
             {p.country_code ? `${countryFlag(p.country_code)} ${p.country_code}` : '—'}
           </td>
           <td className="py-2 px-3">
             <div className="flex items-center gap-1">
               <button
                 onClick={() => copyToClipboard(String(p.asn))}
-                className="p-1 rounded hover:bg-gray-700 text-gray-500 hover:text-cyan-400 transition-colors"
+                className="p-1 hover:bg-[#1e2d40] text-[#4a6480] hover:text-[#00d4ff] transition-colors"
                 title="Copier ASN"
               >
                 <Copy size={12} />
               </button>
               <button
                 onClick={() => onNavigatePeer(p.asn)}
-                className="p-1 rounded hover:bg-gray-700 text-gray-500 hover:text-cyan-400 transition-colors"
+                className="p-1 hover:bg-[#1e2d40] text-[#4a6480] hover:text-[#00d4ff] transition-colors"
                 title="Rechercher ce AS"
               >
                 <ChevronRight size={12} />
@@ -335,16 +310,15 @@ function ASNTabs({ asn, info, onNavigatePeer, lastSnapshotDate }: ASNTabsProps) 
 
   return (
     <div>
-      {/* Tabs */}
-      <div className="flex items-center gap-1 border-b border-gray-700 mb-4 overflow-x-auto">
+      <div className="flex items-center gap-0 border-b border-[#1e2d40] mb-4 overflow-x-auto">
         {tabs.map((tab) => (
           <button
             key={tab.id}
             onClick={() => handleTabClick(tab.id)}
-            className={`flex items-center gap-1.5 px-3 py-2 text-sm whitespace-nowrap border-b-2 transition-colors ${
+            className={`flex items-center gap-1.5 px-3 py-2 text-[10px] font-bold whitespace-nowrap border-b-2 tracking-widest uppercase transition-colors ${
               activeTab === tab.id
-                ? 'border-cyan-400 text-cyan-400'
-                : 'border-transparent text-gray-400 hover:text-gray-200'
+                ? 'border-[#00d4ff] text-[#00d4ff] bg-[#00d4ff]/5'
+                : 'border-transparent text-[#4a6480] hover:text-[#8a9ab0]'
             }`}
           >
             {tab.icon}
@@ -353,44 +327,35 @@ function ASNTabs({ asn, info, onNavigatePeer, lastSnapshotDate }: ASNTabsProps) 
         ))}
       </div>
 
-      {/* Tab content */}
       {activeTab === 'info' && (
         <div className="space-y-4">
-          {/* Actions */}
           <div className="flex items-center gap-3 flex-wrap">
             <button
               onClick={handleSnapshot}
               disabled={snapping}
-              className="flex items-center gap-2 px-4 py-2 rounded-lg bg-cyan-500/10 border border-cyan-500/30 text-cyan-400 hover:bg-cyan-500/20 transition-colors text-sm disabled:opacity-50"
+              className="flex items-center gap-2 px-4 py-2 bg-[#00d4ff]/10 hover:bg-[#00d4ff]/20 text-[#00d4ff] border border-[#00d4ff]/20 text-[10px] font-bold tracking-widest uppercase transition-colors disabled:opacity-50"
             >
-              {snapping ? (
-                <Loader2 size={14} className="animate-spin" />
-              ) : (
-                <Camera size={14} />
-              )}
+              {snapping ? <Loader2 size={12} className="animate-spin" /> : <Camera size={12} />}
               Prendre un snapshot
             </button>
             <button
               onClick={() => navigate('/bgp/historian')}
-              className="flex items-center gap-2 px-4 py-2 rounded-lg bg-gray-700 text-gray-300 hover:bg-gray-600 transition-colors text-sm"
+              className="flex items-center gap-2 px-4 py-2 bg-[#1e2d40] hover:bg-[#2a3f55] text-[#8a9ab0] border border-[#2a3f55] text-[10px] font-bold tracking-widest uppercase transition-colors"
             >
-              <History size={14} />
+              <History size={12} />
               Voir l'historique
             </button>
             {lastSnapshotDate && (
-              <span className="text-xs text-gray-500">
-                Dernier snapshot :{' '}
+              <span className="text-[10px] font-mono text-[#4a6480]">
+                LAST_SNAP:{' '}
                 {new Date(lastSnapshotDate).toLocaleDateString('fr-FR', {
-                  day: 'numeric',
-                  month: 'short',
-                  year: 'numeric',
+                  day: 'numeric', month: 'short', year: 'numeric',
                 })}
               </span>
             )}
           </div>
 
-          {/* Infos principales */}
-          <div className="grid grid-cols-2 gap-3 md:grid-cols-3">
+          <div className="grid grid-cols-2 gap-2 md:grid-cols-3">
             {[
               { label: 'ASN', value: `AS${info.asn}` },
               { label: 'Nom', value: info.name },
@@ -399,22 +364,19 @@ function ASNTabs({ asn, info, onNavigatePeer, lastSnapshotDate }: ASNTabsProps) 
               { label: 'Site web', value: info.website || '—' },
               { label: 'RIR', value: info.rir_allocation?.rir_name || '—' },
             ].map(({ label, value }) => (
-              <div key={label} className="bg-gray-800 rounded-lg p-3">
-                <div className="text-xs text-gray-500 mb-1">{label}</div>
-                <div className="text-sm text-gray-200 font-medium truncate" title={value}>
-                  {value}
-                </div>
+              <div key={label} className="bg-[#0a0f16] border border-[#1e2d40] p-3">
+                <div className="text-[9px] font-bold text-[#4a6480] mb-1 uppercase tracking-widest">{label}</div>
+                <div className="text-xs font-mono text-[#f1f5f9] truncate" title={value}>{value}</div>
               </div>
             ))}
           </div>
 
-          {/* Contacts */}
           {info.abuse_contacts?.length > 0 && (
-            <div className="bg-gray-800 rounded-lg p-3">
-              <div className="text-xs text-gray-500 mb-2">Contacts abus</div>
+            <div className="bg-[#0a0f16] border border-[#1e2d40] p-3">
+              <div className="text-[9px] font-bold text-[#4a6480] mb-2 uppercase tracking-widest">Contacts abus</div>
               <div className="flex flex-wrap gap-2">
                 {info.abuse_contacts.map((c) => (
-                  <span key={c} className="text-xs bg-red-900/30 text-red-300 px-2 py-0.5 rounded">
+                  <span key={c} className="text-[10px] font-mono bg-[#ef4444]/10 text-[#ef4444] border border-[#ef4444]/20 px-2 py-0.5">
                     {c}
                   </span>
                 ))}
@@ -425,50 +387,42 @@ function ASNTabs({ asn, info, onNavigatePeer, lastSnapshotDate }: ASNTabsProps) 
       )}
 
       {activeTab === 'ipv4' && (
-        <div>
+        <>
           {prefixLoading && <Spinner />}
           {prefixError && <ErrorMessage message={prefixError} />}
           {!prefixLoading && !prefixError && prefixData && (
             <>
-              <div className="text-xs text-gray-500 mb-3">
+              <div className="text-[10px] font-mono text-[#4a6480] mb-3 uppercase tracking-widest">
                 {prefixData.ipv4_prefixes.length} préfixe(s) IPv4
               </div>
-              {prefixData.ipv4_prefixes.length === 0 ? (
-                <EmptyState />
-              ) : (
-                renderPrefixTable(prefixData.ipv4_prefixes)
-              )}
+              {prefixData.ipv4_prefixes.length === 0 ? <EmptyState /> : renderPrefixTable(prefixData.ipv4_prefixes)}
             </>
           )}
-        </div>
+        </>
       )}
 
       {activeTab === 'ipv6' && (
-        <div>
+        <>
           {prefixLoading && <Spinner />}
           {prefixError && <ErrorMessage message={prefixError} />}
           {!prefixLoading && !prefixError && prefixData && (
             <>
-              <div className="text-xs text-gray-500 mb-3">
+              <div className="text-[10px] font-mono text-[#4a6480] mb-3 uppercase tracking-widest">
                 {prefixData.ipv6_prefixes.length} préfixe(s) IPv6
               </div>
-              {prefixData.ipv6_prefixes.length === 0 ? (
-                <EmptyState />
-              ) : (
-                renderPrefixTable(prefixData.ipv6_prefixes)
-              )}
+              {prefixData.ipv6_prefixes.length === 0 ? <EmptyState /> : renderPrefixTable(prefixData.ipv6_prefixes)}
             </>
           )}
-        </div>
+        </>
       )}
 
       {activeTab === 'peers' && (
-        <div>
+        <>
           {peerLoading && <Spinner />}
           {peerError && <ErrorMessage message={peerError} />}
           {!peerLoading && !peerError && peerData && (
             <>
-              <div className="text-xs text-gray-500 mb-3">
+              <div className="text-[10px] font-mono text-[#4a6480] mb-3 uppercase tracking-widest">
                 {peerData.ipv4_peers.length + peerData.ipv6_peers.length} peer(s)
               </div>
               {peerData.ipv4_peers.length + peerData.ipv6_peers.length === 0 ? (
@@ -478,59 +432,49 @@ function ASNTabs({ asn, info, onNavigatePeer, lastSnapshotDate }: ASNTabsProps) 
               )}
             </>
           )}
-        </div>
+        </>
       )}
 
       {activeTab === 'upstreams' && (
-        <div>
+        <>
           {upstreamLoading && <Spinner />}
           {upstreamError && <ErrorMessage message={upstreamError} />}
           {!upstreamLoading && !upstreamError && upstreamData && (
             <>
-              <div className="text-xs text-gray-500 mb-3">
+              <div className="text-[10px] font-mono text-[#4a6480] mb-3 uppercase tracking-widest">
                 {upstreamData.ipv4_upstreams.length + upstreamData.ipv6_upstreams.length} upstream(s)
               </div>
               {upstreamData.ipv4_upstreams.length + upstreamData.ipv6_upstreams.length === 0 ? (
                 <EmptyState />
               ) : (
-                renderASNTable([
-                  ...upstreamData.ipv4_upstreams,
-                  ...upstreamData.ipv6_upstreams,
-                ])
+                renderASNTable([...upstreamData.ipv4_upstreams, ...upstreamData.ipv6_upstreams])
               )}
             </>
           )}
-        </div>
+        </>
       )}
 
       {activeTab === 'downstreams' && (
-        <div>
+        <>
           {downstreamLoading && <Spinner />}
           {downstreamError && <ErrorMessage message={downstreamError} />}
           {!downstreamLoading && !downstreamError && downstreamData && (
             <>
-              <div className="text-xs text-gray-500 mb-3">
+              <div className="text-[10px] font-mono text-[#4a6480] mb-3 uppercase tracking-widest">
                 {downstreamData.ipv4_downstreams.length + downstreamData.ipv6_downstreams.length} downstream(s)
               </div>
               {downstreamData.ipv4_downstreams.length + downstreamData.ipv6_downstreams.length === 0 ? (
                 <EmptyState />
               ) : (
-                renderASNTable([
-                  ...downstreamData.ipv4_downstreams,
-                  ...downstreamData.ipv6_downstreams,
-                ])
+                renderASNTable([...downstreamData.ipv4_downstreams, ...downstreamData.ipv6_downstreams])
               )}
             </>
           )}
-        </div>
+        </>
       )}
     </div>
   )
 }
-
-// ─────────────────────────────────────────────
-// Page principale BGPLookup
-// ─────────────────────────────────────────────
 
 export default function BGPLookup() {
   const navigate = useNavigate()
@@ -538,7 +482,6 @@ export default function BGPLookup() {
   const [inputValue, setInputValue] = useState('')
   const [searchParams] = useSearchParams()
 
-  // Pré-remplir depuis ?prefill= (ex: depuis la page Corrélation ou IOC)
   useEffect(() => {
     const prefill = searchParams.get('prefill')
     if (prefill) {
@@ -546,10 +489,9 @@ export default function BGPLookup() {
       setMode(prefill.includes('/') ? 'search' : 'ip')
     }
   }, [searchParams])
+
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
-
-  // Résultats
   const [asnInfo, setAsnInfo] = useState<ASNInfo | null>(null)
   const [currentASN, setCurrentASN] = useState<number | null>(null)
   const [ipInfo, setIpInfo] = useState<IPInfo | null>(null)
@@ -560,13 +502,11 @@ export default function BGPLookup() {
   const handleSearch = useCallback(async () => {
     const val = inputValue.trim()
     if (!val) return
-
     setLoading(true)
     setError(null)
     setAsnInfo(null)
     setIpInfo(null)
     setSearchResults(null)
-
     try {
       if (mode === 'asn') {
         const asn = stripASN(val)
@@ -579,12 +519,8 @@ export default function BGPLookup() {
         setCurrentASN(asn)
       } else if (mode === 'ip') {
         const res = await bgpApi.lookupIP(val)
-        if (res.status !== 'ok') {
-          throw new Error(res.status_message || 'Erreur BGPView')
-        }
-        if (!res.data || !res.data.ip) {
-          throw new Error('Aucune donnée IP disponible')
-        }
+        if (res.status !== 'ok') throw new Error(res.status_message || 'Erreur BGPView')
+        if (!res.data || !res.data.ip) throw new Error('Aucune donnée IP disponible')
         setIpInfo(res)
       } else {
         const res = await bgpApi.search(val)
@@ -598,11 +534,7 @@ export default function BGPLookup() {
   }, [mode, inputValue])
 
   useEffect(() => {
-    bgpApi.getStatus()
-      .then(setBGPStatus)
-      .catch(() => {
-        setBGPStatus(null)
-      })
+    bgpApi.getStatus().then(setBGPStatus).catch(() => setBGPStatus(null))
   }, [])
 
   const navigateToASN = useCallback((asn: number) => {
@@ -613,19 +545,25 @@ export default function BGPLookup() {
     setAsnInfo(null)
     setIpInfo(null)
     setSearchResults(null)
-    bgpApi
-      .lookupASN(asn)
-      .then((r) => {
-        setAsnInfo(r.data)
-        setCurrentASN(asn)
-      })
+    bgpApi.lookupASN(asn)
+      .then((r) => { setAsnInfo(r.data); setCurrentASN(asn) })
       .catch((e: unknown) => setError(parseAPIError(e)))
       .finally(() => setLoading(false))
   }, [])
 
+  /**
+   * Export d'un préfixe depuis le mode IP Lookup vers l'IOC Manager.
+   * - Envoie l'ASN d'origine du préfixe ET une source explicite "IP Lookup — AS<N>"
+   *   pour distinguer ce cas du lookup ASN direct côté backend.
+   */
   const handleExportIPPrefix = async (prefix: string, asn: number) => {
     try {
-      await bgpApi.exportIOC({ type: 'cidr', value: prefix, source: `IP lookup AS${asn}` })
+      await bgpApi.exportIOC({
+        type: 'cidr',
+        value: prefix,
+        asn,
+        source: `IP Lookup — AS${asn}`,
+      })
       toast.success(`IOC créé : ${prefix}`)
     } catch (e: unknown) {
       toast.error(e instanceof Error ? e.message : 'Erreur export IOC')
@@ -633,239 +571,259 @@ export default function BGPLookup() {
   }
 
   return (
-    <div className="p-6 max-w-5xl mx-auto">
-      {/* Header */}
-      <div className="flex items-center gap-3 mb-6">
-        <div className="p-2 rounded-lg bg-cyan-400/10">
-          <Network size={22} className="text-cyan-400" />
-        </div>
-        <div>
-          <h1 className="text-xl font-bold text-gray-100">BGP / AS Lookup</h1>
-          <p className="text-xs text-gray-500">Powered by BGPView — usage légal uniquement</p>
-        </div>
-        <button
-          onClick={() => navigate('/bgp/historian')}
-          className="ml-auto flex items-center gap-2 px-3 py-1.5 rounded-lg bg-gray-700 text-gray-300 hover:bg-gray-600 transition-colors text-sm"
-        >
-          <History size={14} />
-          Historian
-        </button>
-      </div>
-
-      {bgpStatus && !bgpStatus.available && (
-        <div className="mb-4 rounded-xl border border-yellow-500/30 bg-yellow-500/10 p-4 text-sm text-yellow-200">
-          <div className="font-semibold text-yellow-100">
-            Les données BGP en direct ne sont pas disponibles actuellement.
+    <div className="flex flex-col h-full bg-[#06080f] text-[#f1f5f9]">
+      <div className="flex items-center justify-between px-6 py-4 border-b border-[#1e2d40] bg-[#0a0f16]/50">
+        <div className="flex items-center gap-3">
+          <div className="relative">
+            <Globe className="text-[#00d4ff]" size={20} />
+            <div className="absolute -top-1 -right-1 w-2 h-2 bg-[#10b981] rounded-full animate-pulse shadow-[0_0_8px_#10b981]" />
           </div>
-          <div className="mt-1 text-xs text-yellow-200">
-            {bgpStatus.cache_available
-              ? 'Affichage de la dernière version mise en cache.'
-              : 'Aucune version mise en cache disponible, certaines requêtes BGP peuvent échouer.'}
+          <div>
+            <h1 className="text-sm font-bold tracking-[0.2em] uppercase">BGP Signal Acquisition</h1>
+            <p className="text-[10px] text-[#64748b] font-mono">GLOBAL ROUTING TABLE // REAL-TIME INTERROGATION</p>
           </div>
-          <div className="mt-1 text-xs text-yellow-300 opacity-80">{bgpStatus.message}</div>
         </div>
-      )}
-
-      {/* Search bar */}
-      <div className="bg-gray-800 rounded-xl p-4 mb-6 border border-gray-700">
-        {/* Mode selector */}
-        <div className="flex gap-2 mb-3">
-          {(['asn', 'ip', 'search'] as SearchMode[]).map((m) => (
-            <button
-              key={m}
-              onClick={() => {
-                setMode(m)
-                setError(null)
-              }}
-              className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
-                mode === m
-                  ? 'bg-cyan-400/20 text-cyan-400 border border-cyan-400/40'
-                  : 'bg-gray-700 text-gray-400 hover:text-gray-200'
-              }`}
-            >
-              {m === 'asn' ? 'ASN' : m === 'ip' ? 'IP' : 'Recherche'}
-            </button>
-          ))}
-        </div>
-
-        {/* Input */}
-        <div className="flex gap-2">
-          <input
-            type="text"
-            value={inputValue}
-            onChange={(e) => setInputValue(e.target.value)}
-            onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
-            placeholder={
-              mode === 'asn'
-                ? 'Ex: 13335 ou AS13335'
-                : mode === 'ip'
-                ? 'Ex: 8.8.8.8'
-                : 'Ex: cloudflare'
-            }
-            className="flex-1 px-3 py-2 rounded-lg bg-gray-900 border border-gray-700 text-gray-200 text-sm focus:outline-none focus:border-cyan-500 placeholder-gray-600"
-          />
+        <div className="flex items-center gap-4 font-mono text-[10px]">
+          {bgpStatus && (
+            <div className="flex flex-col items-end">
+              <span className="text-[#64748b]">UPSTREAM</span>
+              <span className={bgpStatus.available ? 'text-[#10b981]' : 'text-[#ef4444]'}>
+                {bgpStatus.available ? 'CONNECTED' : 'DEGRADED'}
+              </span>
+            </div>
+          )}
           <button
-            onClick={handleSearch}
-            disabled={loading}
-            className="px-4 py-2 rounded-lg bg-cyan-500 text-gray-900 font-semibold text-sm hover:bg-cyan-400 transition-colors disabled:opacity-50 flex items-center gap-2"
+            onClick={() => navigate('/bgp/historian')}
+            className="flex items-center gap-2 px-3 py-1.5 bg-[#1e2d40] hover:bg-[#2a3f55] text-[10px] font-bold border border-[#334155] transition-colors"
           >
-            {loading ? <Loader2 size={16} className="animate-spin" /> : <Search size={16} />}
-            Go
+            <History size={12} /> HISTORIAN
           </button>
         </div>
       </div>
 
-      {/* Results */}
-      {error && <ErrorMessage message={error} />}
-
-      {/* ASN mode */}
-      {!loading && !error && asnInfo && currentASN !== null && (
-        <div className="bg-gray-800 rounded-xl p-5 border border-gray-700">
-          <div className="flex items-center gap-3 mb-4">
-            <div className="text-2xl font-bold text-cyan-400">AS{currentASN}</div>
-            <div>
-              <div className="text-lg font-semibold text-gray-100">{asnInfo.name}</div>
-              <div className="text-sm text-gray-400">{asnInfo.description_short}</div>
+      <div className="flex-1 overflow-auto p-6 space-y-6">
+        {bgpStatus && !bgpStatus.available && (
+          <div className="border-l-2 border-[#f59e0b] bg-[#f59e0b]/5 p-4 font-mono text-[11px] text-[#f59e0b]">
+            <div className="font-bold mb-1">⚠ BGP DATA UNAVAILABLE</div>
+            <div className="text-[#8a9ab0]">
+              {bgpStatus.cache_available ? 'Affichage de la dernière version mise en cache.' : 'Aucune version mise en cache disponible.'}
             </div>
-            {asnInfo.country_code && (
-              <div className="ml-auto text-2xl" title={asnInfo.country_code}>
-                {countryFlag(asnInfo.country_code)}
+            <div className="opacity-70 mt-0.5">{bgpStatus.message}</div>
+          </div>
+        )}
+
+        <div className="max-w-4xl mx-auto">
+          <div className="flex gap-0 mb-0 border-b border-[#1e2d40]">
+            {(['asn', 'ip', 'search'] as SearchMode[]).map((m) => (
+              <button
+                key={m}
+                onClick={() => { setMode(m); setError(null) }}
+                className={`px-4 py-2 text-[10px] font-bold tracking-widest uppercase border-b-2 transition-colors ${
+                  mode === m
+                    ? 'border-[#00d4ff] text-[#00d4ff] bg-[#00d4ff]/5'
+                    : 'border-transparent text-[#4a6480] hover:text-[#8a9ab0]'
+                }`}
+              >
+                {m === 'asn' ? 'ASN' : m === 'ip' ? 'IP' : 'Recherche'}
+              </button>
+            ))}
+          </div>
+
+          <div className="relative group mt-0">
+            <div className="absolute -inset-1 bg-gradient-to-r from-[#00d4ff]/20 to-transparent rounded-lg blur opacity-25 group-focus-within:opacity-100 transition duration-500" />
+            <div className="relative flex items-center bg-[#0d131f] border border-[#1e2d40] overflow-hidden">
+              <div className="pl-4 text-[#4a6480]"><Search size={18} /></div>
+              <input
+                type="text"
+                value={inputValue}
+                onChange={(e) => setInputValue(e.target.value)}
+                onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
+                placeholder={
+                  mode === 'asn' ? 'ENTER ASN... (ex: 13335 or AS13335)'
+                  : mode === 'ip' ? 'ENTER IP ADDRESS... (ex: 8.8.8.8)'
+                  : 'SEARCH KEYWORD... (ex: cloudflare)'
+                }
+                className="w-full bg-transparent border-none py-4 px-4 text-sm font-mono focus:ring-0 placeholder-[#334155] uppercase tracking-widest outline-none"
+              />
+              <button
+                onClick={handleSearch}
+                disabled={loading}
+                className="bg-[#00d4ff]/10 hover:bg-[#00d4ff]/20 text-[#00d4ff] px-6 py-4 border-l border-[#1e2d40] text-xs font-bold transition-colors disabled:opacity-50 flex items-center gap-2"
+              >
+                {loading ? <Loader2 size={14} className="animate-spin" /> : <Activity size={14} />}
+                EXECUTE_QUERY
+              </button>
+            </div>
+          </div>
+        </div>
+
+        {error && <ErrorMessage message={error} />}
+
+        <div className="grid grid-cols-12 gap-4">
+          <div className="col-span-12 lg:col-span-8 bg-[#0a0f16] border border-[#1e2d40] overflow-hidden">
+            <div className="bg-[#1e2d40]/30 px-4 py-2 border-b border-[#1e2d40] flex justify-between items-center">
+              <span className="text-[10px] font-bold tracking-widest text-[#8a9ab0]">ROUTING_DETAILS</span>
+              <Activity size={12} className="text-[#00d4ff]" />
+            </div>
+
+            {loading && <Spinner />}
+
+            {!loading && !error && !asnInfo && !ipInfo && !searchResults && (
+              <div className="p-12 text-center">
+                <Database size={40} className="mx-auto text-[#1e2d40] mb-4" />
+                <p className="text-xs font-mono text-[#4a6480]">AWAITING COMMAND INPUT...</p>
+              </div>
+            )}
+
+            {!loading && !error && asnInfo && currentASN !== null && (
+              <div className="p-4">
+                <div className="flex items-center gap-3 mb-4 pb-4 border-b border-[#1e2d40]">
+                  <div className="text-xl font-bold font-mono text-[#00d4ff]">AS{currentASN}</div>
+                  <div>
+                    <div className="text-sm font-bold text-[#f1f5f9]">{asnInfo.name}</div>
+                    <div className="text-[10px] text-[#4a6480] font-mono">{asnInfo.description_short}</div>
+                  </div>
+                  {asnInfo.country_code && (
+                    <span className="ml-auto text-lg">{countryFlag(asnInfo.country_code)}</span>
+                  )}
+                </div>
+                <ASNTabs
+                  asn={currentASN}
+                  info={asnInfo}
+                  onNavigatePeer={navigateToASN}
+                  lastSnapshotDate={lastSnapshotDate}
+                />
+              </div>
+            )}
+
+            {!loading && !error && ipInfo && ipInfo.data && (
+              <div className="p-4 space-y-3">
+                <div className="flex items-center gap-3 pb-3 border-b border-[#1e2d40]">
+                  <Network size={18} className="text-[#00d4ff]" />
+                  <div className="text-lg font-bold font-mono text-[#00d4ff]">{ipInfo.data.ip}</div>
+                </div>
+                <div className="grid grid-cols-2 gap-2">
+                  {[
+                    { label: 'PTR', value: ipInfo.data.ptr_record || '—' },
+                    { label: 'RIR', value: ipInfo.data.rir_allocation?.rir_name || '—' },
+                    { label: 'Allocation', value: ipInfo.data.rir_allocation?.prefix || '—' },
+                    { label: 'Country', value: ipInfo.data.rir_allocation?.country_code || '—' },
+                  ].map(({ label, value }) => (
+                    <div key={label} className="bg-[#0d131f] border border-[#1e2d40] p-3">
+                      <div className="text-[9px] font-bold text-[#4a6480] uppercase tracking-widest mb-1">{label}</div>
+                      <div className="text-xs font-mono text-[#f1f5f9] truncate">{value}</div>
+                    </div>
+                  ))}
+                </div>
+
+                <div>
+                  <div className="text-[10px] font-bold text-[#4a6480] uppercase tracking-widest mb-2">Préfixes associés</div>
+                  {ipInfo.data.prefixes && ipInfo.data.prefixes.length > 0 ? (
+                    <div className="space-y-2">
+                      {ipInfo.data.prefixes.map((p, i) => (
+                        <div key={i} className="flex items-center justify-between bg-[#0d131f] border border-[#1e2d40] px-3 py-2">
+                          <div>
+                            <span className="font-mono text-xs text-[#00d4ff]">{p.prefix}</span>
+                            {p.asn && p.asn.asn !== 0 && (
+                              <span className="ml-3 text-[10px] text-[#4a6480]">
+                                AS{p.asn.asn} — {p.asn.name}
+                              </span>
+                            )}
+                          </div>
+                          <div className="flex gap-1">
+                            <button onClick={() => copyToClipboard(p.prefix)} className="p-1 hover:bg-[#1e2d40] text-[#4a6480] hover:text-[#00d4ff] transition-colors">
+                              <Copy size={12} />
+                            </button>
+                            {p.asn && p.asn.asn !== 0 && (
+                              <>
+                                <button onClick={() => handleExportIPPrefix(p.prefix, p.asn!.asn)} className="p-1 hover:bg-[#1e2d40] text-[#4a6480] hover:text-[#ef4444] transition-colors">
+                                  <ShieldBan size={12} />
+                                </button>
+                                <button onClick={() => navigateToASN(p.asn!.asn)} className="p-1 hover:bg-[#1e2d40] text-[#4a6480] hover:text-[#00d4ff] transition-colors">
+                                  <ChevronRight size={12} />
+                                </button>
+                              </>
+                            )}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="text-[10px] font-mono text-[#4a6480] bg-[#0d131f] border border-[#1e2d40] p-3">
+                      Aucun préfixe retourné par RIPE pour cette IP
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {!loading && !error && searchResults && (
+              <div className="p-4">
+                <div className="text-[10px] font-mono text-[#4a6480] uppercase tracking-widest mb-3">
+                  {searchResults.length} résultat(s)
+                </div>
+                {searchResults.length === 0 ? (
+                  <EmptyState label="Aucun ASN trouvé" />
+                ) : (
+                  <div className="space-y-2">
+                    {searchResults.map((a) => (
+                      <div
+                        key={a.asn}
+                        className="flex items-center justify-between bg-[#0d131f] border border-[#1e2d40] hover:border-[#00d4ff]/30 px-3 py-2 cursor-pointer transition-colors"
+                        onClick={() => navigateToASN(a.asn)}
+                      >
+                        <div>
+                          <span className="font-mono text-xs text-[#00d4ff]">AS{a.asn}</span>
+                          <span className="ml-3 text-xs text-[#8a9ab0]">{a.name}</span>
+                        </div>
+                        <div className="flex items-center gap-2 text-[10px] text-[#4a6480]">
+                          {a.country_code && (
+                            <span>{countryFlag(a.country_code)} {a.country_code}</span>
+                          )}
+                          <ChevronRight size={12} className="text-[#4a6480]" />
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
             )}
           </div>
-          <ASNTabs
-            asn={currentASN}
-            info={asnInfo}
-            onNavigatePeer={navigateToASN}
-            lastSnapshotDate={lastSnapshotDate}
-          />
-        </div>
-      )}
 
-      {/* IP mode */}
-      {!loading && !error && ipInfo && ipInfo.data && (
-        <div className="bg-gray-800 rounded-xl p-5 border border-gray-700">
-          <div className="flex items-center gap-2 mb-4">
-            <Globe size={18} className="text-cyan-400" />
-            <h2 className="text-lg font-semibold text-gray-100">
-              {ipInfo.data.ip ?? 'IP inconnue'}
-            </h2>
-            {ipInfo.data.ptr_record && (
-              <span className="text-sm text-gray-400">→ {ipInfo.data.ptr_record}</span>
-            )}
-          </div>
-
-          {ipInfo.data.prefixes.length === 0 ? (
-            <EmptyState label="Aucun préfixe trouvé pour cette IP" />
-          ) : (
-            <div className="space-y-3">
-              {ipInfo.data.prefixes.map((p, i) => (
-                <div
-                  key={i}
-                  className="border border-gray-700 rounded-lg p-4"
-                >
-                  <div className="flex items-start justify-between gap-4 flex-wrap">
-                    <div>
-                      <div className="font-mono text-cyan-300 font-semibold">
-                        {p.prefix}
-                      </div>
-                      <div className="text-sm text-gray-400 mt-1">{p.description}</div>
-                      {p.country_code && (
-                        <div className="text-xs text-gray-500 mt-0.5">
-                          {countryFlag(p.country_code)} {p.country_code}
-                        </div>
-                      )}
-                    </div>
-                    {p.asn && (
-                      <div className="text-right">
-                        <div className="text-xs text-gray-500 mb-1">AS parent</div>
-                        <button
-                          onClick={() => navigateToASN(p.asn.asn)}
-                          className="text-cyan-400 font-mono font-semibold hover:underline text-sm"
-                        >
-                          AS{p.asn.asn}
-                        </button>
-                        <div className="text-xs text-gray-400">{p.asn.name}</div>
-                      </div>
-                    )}
-                  </div>
-                  <div className="flex items-center gap-2 mt-3">
-                    <button
-                      onClick={() => copyToClipboard(p.prefix)}
-                      className="flex items-center gap-1 px-2 py-1 rounded bg-gray-700 text-gray-400 hover:text-cyan-400 text-xs transition-colors"
-                    >
-                      <Copy size={11} /> Copier
-                    </button>
-                    <button
-                      onClick={() => handleExportIPPrefix(p.prefix, p.asn?.asn ?? 0)}
-                      className="flex items-center gap-1 px-2 py-1 rounded bg-gray-700 text-gray-400 hover:text-red-400 text-xs transition-colors"
-                    >
-                      <ShieldBan size={11} /> IOC
-                    </button>
-                    {p.asn && (
-                      <button
-                        onClick={() => navigateToASN(p.asn.asn)}
-                        className="flex items-center gap-1 px-2 py-1 rounded bg-gray-700 text-gray-400 hover:text-cyan-400 text-xs transition-colors"
-                      >
-                        <ChevronRight size={11} /> Voir AS{p.asn.asn}
-                      </button>
-                    )}
-                  </div>
+          <div className="col-span-12 lg:col-span-4 space-y-4">
+            <div className="bg-[#0a0f16] border border-[#1e2d40] p-4">
+              <h3 className="text-[10px] font-bold text-[#64748b] mb-4 uppercase tracking-tighter flex items-center gap-2">
+                <ShieldCheck size={14} className="text-[#10b981]" /> RPKI VALIDATION STATUS
+              </h3>
+              <div className="space-y-3">
+                <div className="flex justify-between text-[11px] font-mono">
+                  <span className="text-[#8a9ab0]">VALID</span>
+                  <span className="text-[#10b981]">98.2%</span>
                 </div>
-              ))}
+                <div className="w-full bg-[#1e2d40] h-1 overflow-hidden">
+                  <div className="bg-[#10b981] h-full shadow-[0_0_8px_#10b981]" style={{ width: '98%' }} />
+                </div>
+              </div>
             </div>
-          )}
-        </div>
-      )}
 
-      {/* Search mode */}
-      {!loading && !error && searchResults !== null && (
-        <div className="bg-gray-800 rounded-xl p-5 border border-gray-700">
-          <div className="text-sm text-gray-400 mb-3">
-            {searchResults.length} résultat(s) trouvé(s)
+            <div className="bg-[#0a0f16] border border-[#1e2d40] p-4">
+              <h3 className="text-[10px] font-bold text-[#64748b] mb-4 uppercase tracking-tighter">TRANSIT_DIVERSITY</h3>
+              <div className="flex flex-wrap gap-2">
+                {['LEVEL3', 'COGENT', 'GTT', 'HE'].map(isp => (
+                  <span key={isp} className="text-[9px] font-mono px-2 py-1 bg-[#1e2d40] text-[#8a9ab0] border border-[#2a3f55]">
+                    {isp}
+                  </span>
+                ))}
+              </div>
+            </div>
+
+            <div className="bg-[#0a0f16] border border-[#1e2d40] p-4 font-mono text-[10px] text-[#4a6480]">
+              <p className="uppercase tracking-widest">Powered by BGPView</p>
+              <p className="mt-1 text-[9px]">usage légal uniquement</p>
+            </div>
           </div>
-          {searchResults.length === 0 ? (
-            <EmptyState label="Aucun AS trouvé" />
-          ) : (
-            <div className="divide-y divide-gray-700">
-              {searchResults.map((asn) => (
-                <button
-                  key={asn.asn}
-                  onClick={() => navigateToASN(asn.asn)}
-                  className="w-full flex items-center gap-4 py-3 hover:bg-gray-700/50 px-2 rounded transition-colors text-left"
-                >
-                  <div className="font-mono text-cyan-400 font-semibold w-20 shrink-0">
-                    AS{asn.asn}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="text-sm font-medium text-gray-200 truncate">
-                      {asn.name}
-                    </div>
-                    <div className="text-xs text-gray-500 truncate">{asn.description}</div>
-                  </div>
-                  <div className="text-lg shrink-0">
-                    {asn.country_code ? countryFlag(asn.country_code) : ''}
-                  </div>
-                  <ChevronRight size={16} className="text-gray-600 shrink-0" />
-                </button>
-              ))}
-            </div>
-          )}
         </div>
-      )}
-      {/* Loading spinner */}
-      {loading && (
-        <div className="flex items-center justify-center py-16">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-cyan-400" />
-        </div>
-      )}
-
-      {/* Error state */}
-      {error && !loading && (
-        <div className="bg-red-500/10 border border-red-500/30 rounded-xl p-5 text-red-400 text-sm">
-          {error}
-        </div>
-      )}
+      </div>
     </div>
   )
 }

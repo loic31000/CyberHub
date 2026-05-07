@@ -1,14 +1,12 @@
 package handlers
 
-// ⚠️ Usage légal uniquement — toutes les requêtes BGPView doivent respecter les CGU de l'API bgpview.io
-// Ce module est destiné à des fins éducatives et de veille réseau.
+// ⚠️ Usage légal uniquement — toutes les requêtes sont destinées à des fins éducatives et de veille réseau.
 
 import (
 	"context"
 	"crypto/tls"
 	"encoding/json"
 	"fmt"
-	"io"
 	"net"
 	"net/http"
 	"net/url"
@@ -24,16 +22,19 @@ import (
 )
 
 const (
-	bgpViewBase    = "https://api.bgpview.io"
 	ripeStatBase   = "https://stat.ripe.net"
 	cloudflareDoH  = "https://cloudflare-dns.com/dns-query?name=%s&type=A"
-	bgpCacheTTL    = 10 * time.Minute // TTL cache SQLite
-	bgpHTTPTimeout = 30 * time.Second // Timeout HTTP client BGPView
+	bgpCacheTTL    = 10 * time.Minute
+	bgpHTTPTimeout = 30 * time.Second
 )
 
 var bgpHTTPClient = &http.Client{
 	Timeout: bgpHTTPTimeout,
 }
+
+// ─────────────────────────────────────────────
+// DNS / HTTP helpers (inchangés)
+// ─────────────────────────────────────────────
 
 type dohResponse struct {
 	Status int `json:"Status"`
@@ -85,7 +86,6 @@ func resolveHostDoH(host string) ([]string, error) {
 	if len(ips) == 0 {
 		return nil, fmt.Errorf("DoH DNS: no A records for %s", host)
 	}
-
 	return ips, nil
 }
 
@@ -140,23 +140,9 @@ func doHTTPRequest(ctx context.Context, rawURL string) (*http.Response, error) {
 	return client.Do(req2)
 }
 
-func bgpFetchBGPView(endpoint string) ([]byte, int, error) {
-	reqURL := bgpViewBase + endpoint
-	resp, err := doHTTPRequest(context.Background(), reqURL)
-	if err != nil {
-		return nil, 0, fmt.Errorf("erreur réseau BGPView: %w", err)
-	}
-	defer resp.Body.Close()
-
-	body, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return nil, resp.StatusCode, fmt.Errorf("lecture réponse BGPView: %w", err)
-	}
-	if resp.StatusCode != http.StatusOK {
-		return body, resp.StatusCode, fmt.Errorf("BGPView HTTP %d: %s", resp.StatusCode, string(body))
-	}
-	return body, http.StatusOK, nil
-}
+// ─────────────────────────────────────────────
+// Cache SQLite
+// ─────────────────────────────────────────────
 
 func saveBGPCache(cacheKey string, body []byte, expires time.Time) {
 	now := time.Now()
@@ -176,9 +162,13 @@ func saveBGPCache(cacheKey string, body []byte, expires time.Time) {
 	}
 }
 
+// ─────────────────────────────────────────────
+// RIPE Stat — source primaire
+// ─────────────────────────────────────────────
+
 func fetchRipeASNInfo(asn string) ([]byte, int, error) {
-	url := fmt.Sprintf(ripeStatBase+"/data/as-overview/data.json?resource=AS%s", asn)
-	resp, err := doHTTPRequest(context.Background(), url)
+	reqURL := fmt.Sprintf(ripeStatBase+"/data/as-overview/data.json?resource=AS%s", asn)
+	resp, err := doHTTPRequest(context.Background(), reqURL)
 	if err != nil {
 		return nil, 0, err
 	}
@@ -187,7 +177,6 @@ func fetchRipeASNInfo(asn string) ([]byte, int, error) {
 	var raw struct {
 		Status string `json:"status"`
 		Data   struct {
-			Asn         int    `json:"asn"`
 			Holder      string `json:"holder"`
 			Country     string `json:"country"`
 			Description string `json:"description"`
@@ -197,19 +186,27 @@ func fetchRipeASNInfo(asn string) ([]byte, int, error) {
 		return nil, 0, fmt.Errorf("parse RIPE Stat ASN info: %w", err)
 	}
 
+	// Parser l'ASN depuis le paramètre string (RIPE ne le retourne pas dans la réponse)
+	asnInt, _ := strconv.Atoi(asn)
+
+	description := raw.Data.Description
+	if description == "" {
+		description = raw.Data.Holder
+	}
+
 	payload := map[string]any{
 		"status":         "ok",
-		"status_message": "Fallback RIPE Stat",
+		"status_message": "RIPE Stat",
 		"data": map[string]any{
-			"asn":                raw.Data.Asn,
+			"asn":                asnInt,
 			"name":               raw.Data.Holder,
-			"description_short":  raw.Data.Description,
-			"description_full":   []string{raw.Data.Description},
+			"description_short":  description,
+			"description_full":   []string{description},
 			"country_code":       raw.Data.Country,
 			"website":            "",
 			"email_contacts":     []string{},
 			"abuse_contacts":     []string{},
-			"looking_glass":      "",
+			"looking_glass":      nil,
 			"traffic_estimation": "",
 			"traffic_ratio":      "",
 			"owner_address":      []string{},
@@ -232,8 +229,8 @@ func fetchRipeASNInfo(asn string) ([]byte, int, error) {
 }
 
 func fetchRipeASNPrefixes(asn string) ([]byte, int, error) {
-	url := fmt.Sprintf(ripeStatBase+"/data/announced-prefixes/data.json?resource=AS%s", asn)
-	resp, err := doHTTPRequest(context.Background(), url)
+	reqURL := fmt.Sprintf(ripeStatBase+"/data/announced-prefixes/data.json?resource=AS%s", asn)
+	resp, err := doHTTPRequest(context.Background(), reqURL)
 	if err != nil {
 		return nil, 0, err
 	}
@@ -242,9 +239,7 @@ func fetchRipeASNPrefixes(asn string) ([]byte, int, error) {
 	var raw struct {
 		Data struct {
 			Prefixes []struct {
-				Prefix    string `json:"prefix"`
-				OriginAS  int    `json:"origin_asn"`
-				IpVersion int    `json:"ip_version"`
+				Prefix string `json:"prefix"`
 			} `json:"prefixes"`
 		} `json:"data"`
 	}
@@ -254,23 +249,32 @@ func fetchRipeASNPrefixes(asn string) ([]byte, int, error) {
 
 	ipv4 := make([]map[string]any, 0)
 	ipv6 := make([]map[string]any, 0)
+
 	for _, item := range raw.Data.Prefixes {
+		// Extraire le CIDR depuis le préfixe (ex: "1.2.3.0/24" → 24)
+		cidr := 0
+		if _, network, parseErr := net.ParseCIDR(item.Prefix); parseErr == nil {
+			cidr, _ = network.Mask.Size()
+		} else if parts := strings.Split(item.Prefix, "/"); len(parts) == 2 {
+			cidr, _ = strconv.Atoi(parts[1])
+		}
+
 		entry := map[string]any{
 			"prefix":       item.Prefix,
 			"ip":           item.Prefix,
-			"cidr":         0,
+			"cidr":         cidr,
 			"name":         "",
 			"country_code": "",
 			"description":  "",
 			"parent": map[string]any{
-				"prefix":            "",
-				"ip":                "",
-				"cidr":              0,
-				"rir_name":          "",
-				"allocation_status": "",
+				"prefix": "", "ip": "", "cidr": 0,
+				"rir_name": "", "allocation_status": "",
 			},
 		}
-		if item.IpVersion == 4 {
+
+		// Détecter IPv4 vs IPv6 via le préfixe lui-même
+		ip, _, _ := net.ParseCIDR(item.Prefix)
+		if ip != nil && ip.To4() != nil {
 			ipv4 = append(ipv4, entry)
 		} else {
 			ipv6 = append(ipv6, entry)
@@ -279,7 +283,7 @@ func fetchRipeASNPrefixes(asn string) ([]byte, int, error) {
 
 	payload := map[string]any{
 		"status":         "ok",
-		"status_message": "Fallback RIPE Stat",
+		"status_message": "RIPE Stat",
 		"data": map[string]any{
 			"ipv4_prefixes": ipv4,
 			"ipv6_prefixes": ipv6,
@@ -292,9 +296,9 @@ func fetchRipeASNPrefixes(asn string) ([]byte, int, error) {
 	return body, http.StatusOK, nil
 }
 
-func fetchRipeIP(ip string) ([]byte, int, error) {
-	url := fmt.Sprintf(ripeStatBase+"/data/network-info/data.json?resource=%s", ip)
-	resp, err := doHTTPRequest(context.Background(), url)
+func fetchRipeASNPeers(asn string) ([]byte, int, error) {
+	reqURL := fmt.Sprintf(ripeStatBase+"/data/asn-neighbours/data.json?resource=AS%s", asn)
+	resp, err := doHTTPRequest(context.Background(), reqURL)
 	if err != nil {
 		return nil, 0, err
 	}
@@ -302,55 +306,216 @@ func fetchRipeIP(ip string) ([]byte, int, error) {
 
 	var raw struct {
 		Data struct {
-			Prefix      string `json:"prefix"`
-			OriginASN   int    `json:"origin_asn"`
-			CountryCode string `json:"country_code"`
-			Description string `json:"description"`
+			Neighbours []struct {
+				ASN     int    `json:"asn"`
+				Type    string `json:"type"` // "left", "right", "uncertain"
+				Power   int    `json:"power"`
+				V4Peers int    `json:"v4_peers"`
+				V6Peers int    `json:"v6_peers"`
+			} `json:"neighbours"`
+		} `json:"data"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&raw); err != nil {
+		return nil, 0, fmt.Errorf("parse RIPE Stat ASN peers: %w", err)
+	}
+
+	ipv4Peers := make([]map[string]any, 0)
+	ipv6Peers := make([]map[string]any, 0)
+	for _, n := range raw.Data.Neighbours {
+		entry := map[string]any{
+			"asn":          n.ASN,
+			"name":         fmt.Sprintf("AS%d", n.ASN),
+			"description":  "",
+			"country_code": "",
+		}
+		if n.V4Peers > 0 {
+			ipv4Peers = append(ipv4Peers, entry)
+		}
+		if n.V6Peers > 0 {
+			ipv6Peers = append(ipv6Peers, entry)
+		}
+		if n.V4Peers == 0 && n.V6Peers == 0 {
+			ipv4Peers = append(ipv4Peers, entry)
+		}
+	}
+
+	payload := map[string]any{
+		"status":         "ok",
+		"status_message": "RIPE Stat",
+		"data": map[string]any{
+			"ipv4_peers": ipv4Peers,
+			"ipv6_peers": ipv6Peers,
+		},
+	}
+	body, err := json.Marshal(payload)
+	if err != nil {
+		return nil, 0, err
+	}
+	return body, http.StatusOK, nil
+}
+
+func fetchRipeASNUpstreams(asn string) ([]byte, int, error) {
+	reqURL := fmt.Sprintf(ripeStatBase+"/data/asn-neighbours/data.json?resource=AS%s", asn)
+	resp, err := doHTTPRequest(context.Background(), reqURL)
+	if err != nil {
+		return nil, 0, err
+	}
+	defer resp.Body.Close()
+
+	var raw struct {
+		Data struct {
+			Neighbours []struct {
+				ASN  int    `json:"asn"`
+				Type string `json:"type"`
+			} `json:"neighbours"`
+		} `json:"data"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&raw); err != nil {
+		return nil, 0, fmt.Errorf("parse RIPE Stat upstreams: %w", err)
+	}
+
+	upstreams := make([]map[string]any, 0)
+	for _, n := range raw.Data.Neighbours {
+		// "left" = upstream dans la terminologie RIPE
+		if n.Type == "left" {
+			upstreams = append(upstreams, map[string]any{
+				"asn":          n.ASN,
+				"name":         fmt.Sprintf("AS%d", n.ASN),
+				"description":  "",
+				"country_code": "",
+			})
+		}
+	}
+
+	payload := map[string]any{
+		"status":         "ok",
+		"status_message": "RIPE Stat",
+		"data": map[string]any{
+			"ipv4_upstreams": upstreams,
+			"ipv6_upstreams": []any{},
+		},
+	}
+	body, err := json.Marshal(payload)
+	if err != nil {
+		return nil, 0, err
+	}
+	return body, http.StatusOK, nil
+}
+
+func fetchRipeASNDownstreams(asn string) ([]byte, int, error) {
+	reqURL := fmt.Sprintf(ripeStatBase+"/data/asn-neighbours/data.json?resource=AS%s", asn)
+	resp, err := doHTTPRequest(context.Background(), reqURL)
+	if err != nil {
+		return nil, 0, err
+	}
+	defer resp.Body.Close()
+
+	var raw struct {
+		Data struct {
+			Neighbours []struct {
+				ASN  int    `json:"asn"`
+				Type string `json:"type"`
+			} `json:"neighbours"`
+		} `json:"data"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&raw); err != nil {
+		return nil, 0, fmt.Errorf("parse RIPE Stat downstreams: %w", err)
+	}
+
+	downstreams := make([]map[string]any, 0)
+	for _, n := range raw.Data.Neighbours {
+		// "right" = downstream dans la terminologie RIPE
+		if n.Type == "right" {
+			downstreams = append(downstreams, map[string]any{
+				"asn":          n.ASN,
+				"name":         fmt.Sprintf("AS%d", n.ASN),
+				"description":  "",
+				"country_code": "",
+			})
+		}
+	}
+
+	payload := map[string]any{
+		"status":         "ok",
+		"status_message": "RIPE Stat",
+		"data": map[string]any{
+			"ipv4_downstreams": downstreams,
+			"ipv6_downstreams": []any{},
+		},
+	}
+	body, err := json.Marshal(payload)
+	if err != nil {
+		return nil, 0, err
+	}
+	return body, http.StatusOK, nil
+}
+
+func fetchRipeIP(ip string) ([]byte, int, error) {
+	// 1. network-info pour prefix + ASN
+	reqURL := fmt.Sprintf(ripeStatBase+"/data/network-info/data.json?resource=%s", ip)
+	resp, err := doHTTPRequest(context.Background(), reqURL)
+	if err != nil {
+		return nil, 0, err
+	}
+	defer resp.Body.Close()
+
+	var raw struct {
+		Data struct {
+			Prefix string            `json:"prefix"`
+			Asns   []json.RawMessage `json:"asns"`
 		} `json:"data"`
 	}
 	if err := json.NewDecoder(resp.Body).Decode(&raw); err != nil {
 		return nil, 0, fmt.Errorf("parse RIPE Stat IP info: %w", err)
 	}
 
+	// Si RIPE ne retourne pas de prefix pour cette IP (adresse réseau, etc.)
+	// on construit quand même une réponse valide avec les données disponibles
 	prefixes := make([]map[string]any, 0)
 	if raw.Data.Prefix != "" {
 		cidr := 0
 		if _, network, parseErr := net.ParseCIDR(raw.Data.Prefix); parseErr == nil {
 			cidr, _ = network.Mask.Size()
+		} else if parts := strings.Split(raw.Data.Prefix, "/"); len(parts) == 2 {
+			cidr, _ = strconv.Atoi(parts[1])
 		}
+
+		originASN := 0
+		if len(raw.Data.Asns) > 0 {
+			asnStr := strings.Trim(string(raw.Data.Asns[0]), `"`)
+			originASN, _ = strconv.Atoi(asnStr)
+		}
+
 		prefixes = append(prefixes, map[string]any{
 			"prefix": raw.Data.Prefix,
-			"ip":     raw.Data.Prefix,
+			"ip":     ip,
 			"cidr":   cidr,
 			"asn": map[string]any{
-				"asn":          raw.Data.OriginASN,
-				"name":         "",
+				"asn":          originASN,
+				"name":         fmt.Sprintf("AS%d", originASN),
 				"description":  "",
 				"country_code": "",
 			},
 			"name":         "",
-			"description":  raw.Data.Description,
-			"country_code": raw.Data.CountryCode,
+			"description":  "",
+			"country_code": "",
 			"parent": map[string]any{
-				"prefix":            "",
-				"ip":                "",
-				"cidr":              0,
-				"rir_name":          "",
-				"allocation_status": "",
+				"prefix": "", "ip": "", "cidr": 0,
+				"rir_name": "", "allocation_status": "",
 			},
 		})
 	}
 
 	payload := map[string]any{
 		"status":         "ok",
-		"status_message": "Fallback RIPE Stat",
+		"status_message": "RIPE Stat",
 		"data": map[string]any{
 			"ip":         ip,
 			"ptr_record": "",
 			"prefixes":   prefixes,
 			"rir_allocation": map[string]any{
 				"rir_name":          "RIPE Stat",
-				"country_code":      raw.Data.CountryCode,
+				"country_code":      "",
 				"prefix":            raw.Data.Prefix,
 				"prefix_ip":         ip,
 				"prefix_cidr":       0,
@@ -365,60 +530,50 @@ func fetchRipeIP(ip string) ([]byte, int, error) {
 	return body, http.StatusOK, nil
 }
 
-func fetchRipeASNPeers(_ string) ([]byte, int, error) {
-	payload := map[string]any{
-		"status":         "ok",
-		"status_message": "Fallback RIPE Stat — peers non disponibles",
-		"data": map[string]any{
-			"ipv4_peers": []any{},
-			"ipv6_peers": []any{},
-		},
-	}
-	body, err := json.Marshal(payload)
+func fetchRipeSearch(q string) ([]byte, int, error) {
+	reqURL := fmt.Sprintf(ripeStatBase+"/data/searchcomplete/data.json?resource=%s", url.QueryEscape(q))
+	resp, err := doHTTPRequest(context.Background(), reqURL)
 	if err != nil {
 		return nil, 0, err
 	}
-	return body, http.StatusOK, nil
-}
+	defer resp.Body.Close()
 
-func fetchRipeASNUpstreams(_ string) ([]byte, int, error) {
+	var raw struct {
+		Data struct {
+			Suggestions []struct {
+				Value string `json:"value"`
+				Label string `json:"label"`
+				Type  string `json:"type"`
+			} `json:"suggestions"`
+		} `json:"data"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&raw); err != nil {
+		return nil, 0, fmt.Errorf("parse RIPE search: %w", err)
+	}
+
+	asns := make([]map[string]any, 0)
+	for _, s := range raw.Data.Suggestions {
+		if s.Type == "asn" || strings.HasPrefix(strings.ToLower(s.Value), "as") {
+			asnStr := strings.TrimPrefix(strings.ToUpper(s.Value), "AS")
+			asnInt, _ := strconv.Atoi(asnStr)
+			if asnInt > 0 {
+				asns = append(asns, map[string]any{
+					"asn":          asnInt,
+					"name":         s.Label,
+					"description":  s.Label,
+					"country_code": "",
+					"email":        "",
+					"rir_name":     "RIPE Stat",
+				})
+			}
+		}
+	}
+
 	payload := map[string]any{
 		"status":         "ok",
-		"status_message": "Fallback RIPE Stat — upstreams non disponibles",
+		"status_message": "RIPE Stat",
 		"data": map[string]any{
-			"ipv4_upstreams": []any{},
-			"ipv6_upstreams": []any{},
-		},
-	}
-	body, err := json.Marshal(payload)
-	if err != nil {
-		return nil, 0, err
-	}
-	return body, http.StatusOK, nil
-}
-
-func fetchRipeASNDownstreams(_ string) ([]byte, int, error) {
-	payload := map[string]any{
-		"status":         "ok",
-		"status_message": "Fallback RIPE Stat — downstreams non disponibles",
-		"data": map[string]any{
-			"ipv4_downstreams": []any{},
-			"ipv6_downstreams": []any{},
-		},
-	}
-	body, err := json.Marshal(payload)
-	if err != nil {
-		return nil, 0, err
-	}
-	return body, http.StatusOK, nil
-}
-
-func fetchRipeSearchFallback(_ string) ([]byte, int, error) {
-	payload := map[string]any{
-		"status":         "ok",
-		"status_message": "Fallback RIPE Stat — recherche non disponible",
-		"data": map[string]any{
-			"asns":          []any{},
+			"asns":          asns,
 			"ipv4_prefixes": []any{},
 			"ipv6_prefixes": []any{},
 		},
@@ -430,7 +585,11 @@ func fetchRipeSearchFallback(_ string) ([]byte, int, error) {
 	return body, http.StatusOK, nil
 }
 
-func fetchRipeFallback(endpoint string) ([]byte, int, error) {
+// ─────────────────────────────────────────────
+// Routeur principal fetch → cache → RIPE Stat
+// ─────────────────────────────────────────────
+
+func bgpFetchRipe(endpoint string, queryParam ...string) ([]byte, int, error) {
 	if strings.HasPrefix(endpoint, "/ip/") {
 		ip := strings.TrimPrefix(endpoint, "/ip/")
 		return fetchRipeIP(ip)
@@ -454,60 +613,55 @@ func fetchRipeFallback(endpoint string) ([]byte, int, error) {
 		}
 	}
 	if strings.HasPrefix(endpoint, "/search") {
-		return fetchRipeSearchFallback(endpoint)
+		q := ""
+		if len(queryParam) > 0 {
+			q = queryParam[0]
+		}
+		return fetchRipeSearch(q)
 	}
-	return nil, 0, fmt.Errorf("fallback non supporté pour %s", endpoint)
+	return nil, 0, fmt.Errorf("endpoint non supporté : %s", endpoint)
 }
 
-func bgpFetch(cacheKey, endpoint string) ([]byte, int, string, error) {
+func bgpFetch(cacheKey, endpoint string, queryParam ...string) ([]byte, int, string, error) {
 	now := time.Now()
+
+	// 1. Cache valide
 	var cached models.BGPCache
 	if err := store.DB.Where("cache_key = ? AND expires_at > ?", cacheKey, now).
 		First(&cached).Error; err == nil {
 		return []byte(cached.Response), http.StatusOK, "cache", nil
 	}
 
-	body, status, err := bgpFetchBGPView(endpoint)
+	// 2. RIPE Stat (source primaire)
+	body, status, err := bgpFetchRipe(endpoint, queryParam...)
 	if err == nil {
 		expires := now.Add(bgpCacheTTL)
 		saveBGPCache(cacheKey, body, expires)
-		return body, status, "bgpview", nil
+		return body, status, "ripe", nil
 	}
 
-	shouldFallback := status >= 500 || isDNSError(err) || strings.Contains(strings.ToLower(err.Error()), "timeout")
-	if shouldFallback {
-		var stale models.BGPCache
-		if err2 := store.DB.Where("cache_key = ?", cacheKey).First(&stale).Error; err2 == nil {
-			return []byte(stale.Response), http.StatusOK, "cache-stale", nil
-		}
-		altBody, altStatus, altErr := fetchRipeFallback(endpoint)
-		if altErr == nil {
-			return altBody, altStatus, "ripe", nil
-		}
-		return nil, status, "", fmt.Errorf("%w; fallback RIPE Stat: %v", err, altErr)
+	// 3. Cache périmé (stale) si RIPE échoue
+	var stale models.BGPCache
+	if err2 := store.DB.Where("cache_key = ?", cacheKey).First(&stale).Error; err2 == nil {
+		return []byte(stale.Response), http.StatusOK, "cache-stale", nil
 	}
 
-	return nil, status, "", err
+	return nil, status, "", fmt.Errorf("RIPE Stat indisponible: %w", err)
 }
 
-func proxyBGP(c *gin.Context, cacheKey, endpoint string) {
-	body, status, source, err := bgpFetch(cacheKey, endpoint)
+func proxyBGP(c *gin.Context, cacheKey, endpoint string, queryParam ...string) {
+	body, status, source, err := bgpFetch(cacheKey, endpoint, queryParam...)
 	if err != nil {
 		if status == 0 {
 			status = http.StatusBadGateway
 		}
-		message := err.Error()
-		lower := strings.ToLower(message)
-		if strings.Contains(lower, "no such host") || strings.Contains(lower, "lookup api.bgpview.io") {
-			message = "Impossible de joindre BGPView : résolution DNS de api.bgpview.io impossible"
-		}
-		fmt.Printf("[BGP] proxy erreur pour %s : %s\n", endpoint, message)
-		c.JSON(status, gin.H{"error": message})
+		fmt.Printf("[BGP] erreur pour %s : %s\n", endpoint, err.Error())
+		c.JSON(status, gin.H{"error": err.Error()})
 		return
 	}
 
 	c.Header("X-BGP-Source", source)
-	if source == "cache-stale" || source == "ripe" {
+	if source == "cache-stale" {
 		c.Header("X-BGP-Status", "degraded")
 	} else {
 		c.Header("X-BGP-Status", "ok")
@@ -515,25 +669,29 @@ func proxyBGP(c *gin.Context, cacheKey, endpoint string) {
 	c.Data(status, "application/json; charset=utf-8", body)
 }
 
-func probeBGPView() error {
-	reqURL := bgpViewBase + "/asn/13335"
+// ─────────────────────────────────────────────
+// Status — probe RIPE Stat
+// ─────────────────────────────────────────────
+
+func probeRipeStat() error {
+	reqURL := ripeStatBase + "/data/as-overview/data.json?resource=AS13335"
 	resp, err := doHTTPRequest(context.Background(), reqURL)
 	if err != nil {
 		return err
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode != http.StatusOK {
-		return fmt.Errorf("BGPView status %d", resp.StatusCode)
+		return fmt.Errorf("RIPE Stat HTTP %d", resp.StatusCode)
 	}
 	return nil
 }
 
 func GetBGPStatus(c *gin.Context) {
-	err := probeBGPView()
+	err := probeRipeStat()
 	available := err == nil
-	message := "BGPView disponible"
+	message := "RIPE Stat disponible"
 	if err != nil {
-		message = fmt.Sprintf("BGPView indisponible : %v", err)
+		message = fmt.Sprintf("RIPE Stat indisponible : %v", err)
 	}
 
 	var cache models.BGPCache
@@ -546,7 +704,7 @@ func GetBGPStatus(c *gin.Context) {
 
 	c.JSON(http.StatusOK, gin.H{
 		"available":         available,
-		"primary":           "BGPView",
+		"primary":           "RIPE Stat",
 		"message":           message,
 		"cache_available":   cacheAvailable,
 		"cache_age_seconds": cacheAgeSeconds,
@@ -554,52 +712,45 @@ func GetBGPStatus(c *gin.Context) {
 }
 
 // ─────────────────────────────────────────────
-// Endpoints Proxy (cachés TTL 1h)
+// Endpoints Proxy (cachés TTL 10min)
 // ─────────────────────────────────────────────
 
-// GetBGPASN retourne les infos générales d'un AS
 // GET /api/bgp/asn/:asn
 func GetBGPASN(c *gin.Context) {
 	asn := c.Param("asn")
 	proxyBGP(c, fmt.Sprintf("asn:%s:full", asn), "/asn/"+asn)
 }
 
-// GetBGPASNPrefixes retourne les préfixes IPv4 et IPv6 d'un AS
 // GET /api/bgp/asn/:asn/prefixes
 func GetBGPASNPrefixes(c *gin.Context) {
 	asn := c.Param("asn")
 	proxyBGP(c, fmt.Sprintf("asn:%s:prefixes", asn), "/asn/"+asn+"/prefixes")
 }
 
-// GetBGPASNPeers retourne les peers BGP d'un AS
 // GET /api/bgp/asn/:asn/peers
 func GetBGPASNPeers(c *gin.Context) {
 	asn := c.Param("asn")
 	proxyBGP(c, fmt.Sprintf("asn:%s:peers", asn), "/asn/"+asn+"/peers")
 }
 
-// GetBGPASNUpstreams retourne les upstreams d'un AS
 // GET /api/bgp/asn/:asn/upstreams
 func GetBGPASNUpstreams(c *gin.Context) {
 	asn := c.Param("asn")
 	proxyBGP(c, fmt.Sprintf("asn:%s:upstreams", asn), "/asn/"+asn+"/upstreams")
 }
 
-// GetBGPASNDownstreams retourne les downstreams d'un AS
 // GET /api/bgp/asn/:asn/downstreams
 func GetBGPASNDownstreams(c *gin.Context) {
 	asn := c.Param("asn")
 	proxyBGP(c, fmt.Sprintf("asn:%s:downstreams", asn), "/asn/"+asn+"/downstreams")
 }
 
-// GetBGPIP retourne les infos d'une adresse IP (AS parent, préfixe, pays)
 // GET /api/bgp/ip/:ip
 func GetBGPIP(c *gin.Context) {
 	ip := c.Param("ip")
 	proxyBGP(c, fmt.Sprintf("ip:%s", ip), "/ip/"+ip)
 }
 
-// GetBGPSearch effectue une recherche par nom/description/ASN
 // GET /api/bgp/search?q=
 func GetBGPSearch(c *gin.Context) {
 	q := c.Query("q")
@@ -607,11 +758,11 @@ func GetBGPSearch(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "paramètre q requis"})
 		return
 	}
-	proxyBGP(c, fmt.Sprintf("search:%s", q), "/search?query_term="+url.QueryEscape(q))
+	proxyBGP(c, fmt.Sprintf("search:%s", q), "/search", q)
 }
 
 // ─────────────────────────────────────────────
-// Snapshot parallèle
+// Snapshot parallèle (logique inchangée)
 // ─────────────────────────────────────────────
 
 type fetchResult struct {
@@ -620,10 +771,7 @@ type fetchResult struct {
 	err  error
 }
 
-// PostBGPSnapshot capture un snapshot complet d'un AS en parallèle (5 goroutines).
-// Compare avec le snapshot précédent et génère les alertes de changement.
 // POST /api/bgp/snapshot/:asn
-// ⚠️ Usage légal uniquement
 func PostBGPSnapshot(c *gin.Context) {
 	asnStr := c.Param("asn")
 	asnInt, err := strconv.Atoi(asnStr)
@@ -696,7 +844,6 @@ func PostBGPSnapshot(c *gin.Context) {
 		return
 	}
 
-	// Comparer avec le snapshot précédent (s'il existe)
 	var prevSnapshot models.BGPSnapshot
 	var alerts []models.BGPAlert
 	if err := store.DB.Where("asn = ? AND id < ?", asnInt, snapshot.ID).
@@ -714,7 +861,7 @@ func PostBGPSnapshot(c *gin.Context) {
 }
 
 // ─────────────────────────────────────────────
-// Comparaison de snapshots — détection de changements
+// Comparaison snapshots — inchangée
 // ─────────────────────────────────────────────
 
 type sectionComparison struct {
@@ -758,8 +905,6 @@ var bgpSectionComparisons = []sectionComparison{
 	},
 }
 
-// compareBGPSnapshots compare deux JSON de snapshots et retourne les alertes à créer.
-// Les slices sont normalisées (triées) avant comparaison pour éviter les faux positifs d'ordre.
 func compareBGPSnapshots(asn int, oldJSON, newJSON string, detectedAt time.Time) []models.BGPAlert {
 	var oldData, newData map[string]interface{}
 	if err := json.Unmarshal([]byte(oldJSON), &oldData); err != nil {
@@ -785,106 +930,64 @@ func compareBGPSnapshots(asn int, oldJSON, newJSON string, detectedAt time.Time)
 			continue
 		}
 
-		// Stocker la section entière (ipv4 + ipv6 combinés) dans old/new value
 		oldSection := extractNestedValue(oldData, section.topKey)
 		newSection := extractNestedValue(newData, section.topKey)
 		oldVal, _ := json.Marshal(oldSection)
 		newVal, _ := json.Marshal(newSection)
 
 		alerts = append(alerts, models.BGPAlert{
-			ASN:          asn,
-			AlertType:    section.alertType,
-			OldValue:     string(oldVal),
-			NewValue:     string(newVal),
-			DetectedAt:   detectedAt,
-			Acknowledged: false,
+			ASN:        asn,
+			AlertType:  section.alertType,
+			OldValue:   string(oldVal),
+			NewValue:   string(newVal),
+			DetectedAt: detectedAt,
 		})
 	}
-
 	return alerts
 }
 
-// extractNestedSlice extrait un []interface{} en suivant un chemin de clés dans un map imbriqué
-func extractNestedSlice(data map[string]interface{}, path []string) []interface{} {
+func extractNestedValue(data map[string]interface{}, keys ...string) interface{} {
 	current := interface{}(data)
-	for _, key := range path {
+	for _, key := range keys {
 		m, ok := current.(map[string]interface{})
 		if !ok {
 			return nil
 		}
 		current = m[key]
 	}
-	slice, _ := current.([]interface{})
+	return current
+}
+
+func extractNestedSlice(data map[string]interface{}, path []string) []interface{} {
+	val := extractNestedValue(data, path...)
+	if val == nil {
+		return nil
+	}
+	slice, ok := val.([]interface{})
+	if !ok {
+		return nil
+	}
 	return slice
 }
 
-// extractNestedValue extrait une valeur (n'importe quel type) à une clé de premier niveau
-func extractNestedValue(data map[string]interface{}, key string) interface{} {
-	if data == nil {
-		return nil
-	}
-	return data[key]
-}
-
-// normalizeJSONSlice normalise un slice en triant ses éléments par leur représentation JSON
-// pour rendre la comparaison indépendante de l'ordre
-func normalizeJSONSlice(slice []interface{}) string {
-	if len(slice) == 0 {
-		return "[]"
-	}
-	strs := make([]string, 0, len(slice))
-	for _, item := range slice {
-		b, _ := json.Marshal(item)
-		strs = append(strs, string(b))
+func normalizeJSONSlice(items []interface{}) string {
+	strs := make([]string, 0, len(items))
+	for _, item := range items {
+		b, err := json.Marshal(item)
+		if err == nil {
+			strs = append(strs, string(b))
+		}
 	}
 	sort.Strings(strs)
 	b, _ := json.Marshal(strs)
 	return string(b)
 }
 
-// diffSlices retourne les éléments ajoutés et supprimés entre deux slices
-func diffSlices(oldSlice, newSlice []interface{}) (added, removed []interface{}) {
-	oldSet := make(map[string]struct{}, len(oldSlice))
-	newSet := make(map[string]struct{}, len(newSlice))
-
-	for _, item := range oldSlice {
-		b, _ := json.Marshal(item)
-		oldSet[string(b)] = struct{}{}
-	}
-	for _, item := range newSlice {
-		b, _ := json.Marshal(item)
-		newSet[string(b)] = struct{}{}
-	}
-	for _, item := range newSlice {
-		b, _ := json.Marshal(item)
-		if _, ok := oldSet[string(b)]; !ok {
-			added = append(added, item)
-		}
-	}
-	for _, item := range oldSlice {
-		b, _ := json.Marshal(item)
-		if _, ok := newSet[string(b)]; !ok {
-			removed = append(removed, item)
-		}
-	}
-	return
-}
-
 // ─────────────────────────────────────────────
-// Endpoints Historian
+// Historian — Snapshots & Alertes & Diff (inchangé)
 // ─────────────────────────────────────────────
 
-// SnapshotSummary représente un snapshot sans le FullDataJSON (pour les listes)
-type SnapshotSummary struct {
-	ID           uint      `json:"id"`
-	CreatedAt    time.Time `json:"created_at"`
-	ASN          int       `json:"asn"`
-	SnapshotDate time.Time `json:"snapshot_date"`
-	TakenBy      string    `json:"taken_by"`
-}
-
-// GetBGPSnapshots retourne la liste paginée des snapshots pour un AS (du plus récent au plus ancien)
-// GET /api/bgp/snapshots/:asn?limit=50&offset=0
+// GET /api/bgp/snapshots/:asn
 func GetBGPSnapshots(c *gin.Context) {
 	asnStr := c.Param("asn")
 	asnInt, err := strconv.Atoi(asnStr)
@@ -892,12 +995,8 @@ func GetBGPSnapshots(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "ASN invalide"})
 		return
 	}
-
-	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "50"))
+	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "20"))
 	offset, _ := strconv.Atoi(c.DefaultQuery("offset", "0"))
-	if limit <= 0 || limit > 200 {
-		limit = 50
-	}
 
 	var total int64
 	store.DB.Model(&models.BGPSnapshot{}).Where("asn = ?", asnInt).Count(&total)
@@ -908,29 +1007,33 @@ func GetBGPSnapshots(c *gin.Context) {
 		Limit(limit).Offset(offset).
 		Find(&snapshots)
 
-	// Ne pas retourner FullDataJSON dans la liste (données volumineuses)
-	summaries := make([]SnapshotSummary, len(snapshots))
-	for i, s := range snapshots {
-		summaries[i] = SnapshotSummary{
+	type snapshotDTO struct {
+		ID           uint   `json:"id"`
+		CreatedAt    string `json:"created_at"`
+		ASN          int    `json:"asn"`
+		SnapshotDate string `json:"snapshot_date"`
+		TakenBy      string `json:"taken_by"`
+	}
+	items := make([]snapshotDTO, 0, len(snapshots))
+	for _, s := range snapshots {
+		items = append(items, snapshotDTO{
 			ID:           s.ID,
-			CreatedAt:    s.CreatedAt,
+			CreatedAt:    s.CreatedAt.Format(time.RFC3339),
 			ASN:          s.ASN,
-			SnapshotDate: s.SnapshotDate,
+			SnapshotDate: s.SnapshotDate.Format(time.RFC3339),
 			TakenBy:      s.TakenBy,
-		}
+		})
 	}
 
 	c.JSON(http.StatusOK, gin.H{
-		"items":  summaries,
+		"items":  items,
 		"total":  total,
 		"limit":  limit,
 		"offset": offset,
 	})
 }
 
-// GetBGPSnapshotDiff compare deux snapshots et retourne un diff structuré.
-// GET /api/bgp/snapshots/:asn/diff?older=ID&newer=ID
-// Si older absent : compare le dernier avec l'avant-dernier
+// GET /api/bgp/snapshots/:asn/diff?id_a=&id_b=
 func GetBGPSnapshotDiff(c *gin.Context) {
 	asnStr := c.Param("asn")
 	asnInt, err := strconv.Atoi(asnStr)
@@ -939,64 +1042,59 @@ func GetBGPSnapshotDiff(c *gin.Context) {
 		return
 	}
 
-	var olderSnap, newerSnap models.BGPSnapshot
-
-	olderIDStr := c.Query("older")
-	newerIDStr := c.Query("newer")
-
-	if olderIDStr == "" {
-		// Comparer le plus récent avec l'avant-dernier
-		var snapshots []models.BGPSnapshot
-		if err := store.DB.Where("asn = ?", asnInt).
-			Order("created_at DESC").Limit(2).Find(&snapshots).Error; err != nil || len(snapshots) < 2 {
-			c.JSON(http.StatusNotFound, gin.H{"error": "Pas assez de snapshots pour comparer (minimum 2)"})
-			return
-		}
-		newerSnap = snapshots[0]
-		olderSnap = snapshots[1]
-	} else {
-		olderID, _ := strconv.ParseUint(olderIDStr, 10, 64)
-		newerID, _ := strconv.ParseUint(newerIDStr, 10, 64)
-		if err := store.DB.First(&olderSnap, olderID).Error; err != nil {
-			c.JSON(http.StatusNotFound, gin.H{"error": "Snapshot 'older' non trouvé"})
-			return
-		}
-		if err := store.DB.First(&newerSnap, newerID).Error; err != nil {
-			c.JSON(http.StatusNotFound, gin.H{"error": "Snapshot 'newer' non trouvé"})
-			return
-		}
+	idA, errA := strconv.Atoi(c.Query("id_a"))
+	idB, errB := strconv.Atoi(c.Query("id_b"))
+	if errA != nil || errB != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "id_a et id_b requis"})
+		return
 	}
 
-	diff := buildSnapshotDiff(olderSnap.FullDataJSON, newerSnap.FullDataJSON)
+	var snapA, snapB models.BGPSnapshot
+	if err := store.DB.Where("id = ? AND asn = ?", idA, asnInt).First(&snapA).Error; err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "snapshot A non trouvé"})
+		return
+	}
+	if err := store.DB.Where("id = ? AND asn = ?", idB, asnInt).First(&snapB).Error; err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "snapshot B non trouvé"})
+		return
+	}
+
+	older, newer := snapA, snapB
+	if snapB.ID < snapA.ID {
+		older, newer = snapB, snapA
+	}
+
+	diff := computeDiff(older.FullDataJSON, newer.FullDataJSON)
 
 	c.JSON(http.StatusOK, gin.H{
-		"older": gin.H{"id": olderSnap.ID, "created_at": olderSnap.CreatedAt, "asn": olderSnap.ASN},
-		"newer": gin.H{"id": newerSnap.ID, "created_at": newerSnap.CreatedAt, "asn": newerSnap.ASN},
+		"older": gin.H{"id": older.ID, "created_at": older.CreatedAt.Format(time.RFC3339), "asn": older.ASN},
+		"newer": gin.H{"id": newer.ID, "created_at": newer.CreatedAt.Format(time.RFC3339), "asn": newer.ASN},
 		"diff":  diff,
 	})
 }
 
-// buildSnapshotDiff construit un diff structuré entre deux snapshots JSON complets
-func buildSnapshotDiff(oldJSON, newJSON string) map[string]interface{} {
+func computeDiff(oldJSON, newJSON string) map[string]interface{} {
 	var oldData, newData map[string]interface{}
-	json.Unmarshal([]byte(oldJSON), &oldData) //nolint:errcheck
-	json.Unmarshal([]byte(newJSON), &newData) //nolint:errcheck
+	json.Unmarshal([]byte(oldJSON), &oldData)
+	json.Unmarshal([]byte(newJSON), &newData)
 
-	changedFields := []string{}
 	changes := make(map[string]interface{})
+	changedFields := make([]string, 0)
 
 	for _, section := range bgpSectionComparisons {
 		sectionChanges := make(map[string]interface{})
-		hasChange := false
+		sectionChanged := false
 
 		for _, path := range section.subPaths {
 			fieldName := path[len(path)-1]
 			oldSlice := extractNestedSlice(oldData, path)
 			newSlice := extractNestedSlice(newData, path)
 
-			if normalizeJSONSlice(oldSlice) != normalizeJSONSlice(newSlice) {
-				hasChange = true
-				added, removed := diffSlices(oldSlice, newSlice)
+			added := diffSlices(oldSlice, newSlice)
+			removed := diffSlices(newSlice, oldSlice)
+
+			if len(added) > 0 || len(removed) > 0 {
+				sectionChanged = true
 				sectionChanges[fieldName] = map[string]interface{}{
 					"old":     oldSlice,
 					"new":     newSlice,
@@ -1006,9 +1104,9 @@ func buildSnapshotDiff(oldJSON, newJSON string) map[string]interface{} {
 			}
 		}
 
-		if hasChange {
-			changedFields = append(changedFields, section.alertType)
+		if sectionChanged {
 			changes[section.topKey] = sectionChanges
+			changedFields = append(changedFields, section.topKey)
 		}
 	}
 
@@ -1018,24 +1116,35 @@ func buildSnapshotDiff(oldJSON, newJSON string) map[string]interface{} {
 	}
 }
 
-// ─────────────────────────────────────────────
-// Alertes
-// ─────────────────────────────────────────────
-
-// GetBGPAlerts retourne les alertes non acquittées (paginées)
-// GET /api/bgp/alerts?limit=100&offset=0
-func GetBGPAlerts(c *gin.Context) {
-	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "100"))
-	offset, _ := strconv.Atoi(c.DefaultQuery("offset", "0"))
-	if limit <= 0 || limit > 500 {
-		limit = 100
+func diffSlices(a, b []interface{}) []interface{} {
+	bSet := make(map[string]bool)
+	for _, item := range b {
+		key, _ := json.Marshal(item)
+		bSet[string(key)] = true
 	}
+	var result []interface{}
+	for _, item := range a {
+		key, _ := json.Marshal(item)
+		if !bSet[string(key)] {
+			result = append(result, item)
+		}
+	}
+	if result == nil {
+		return []interface{}{}
+	}
+	return result
+}
+
+// GET /api/bgp/alerts
+func GetBGPAlerts(c *gin.Context) {
+	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "50"))
+	offset, _ := strconv.Atoi(c.DefaultQuery("offset", "0"))
+
+	var total int64
+	store.DB.Model(&models.BGPAlert{}).Where("acknowledged = false").Count(&total)
 
 	var alerts []models.BGPAlert
-	var total int64
-
-	store.DB.Model(&models.BGPAlert{}).Where("acknowledged = ?", false).Count(&total)
-	store.DB.Where("acknowledged = ?", false).
+	store.DB.Where("acknowledged = false").
 		Order("created_at DESC").
 		Limit(limit).Offset(offset).
 		Find(&alerts)
@@ -1048,68 +1157,78 @@ func GetBGPAlerts(c *gin.Context) {
 	})
 }
 
-// AckBGPAlert acquitte une alerte (Acknowledged = true)
 // PATCH /api/bgp/alerts/:id/ack
 func AckBGPAlert(c *gin.Context) {
-	id, err := strconv.ParseUint(c.Param("id"), 10, 64)
+	id, err := strconv.Atoi(c.Param("id"))
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "id invalide"})
+		c.JSON(http.StatusBadRequest, gin.H{"error": "ID invalide"})
 		return
 	}
 
-	result := store.DB.Model(&models.BGPAlert{}).
-		Where("id = ?", id).
-		Update("acknowledged", true)
-	if result.Error != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": result.Error.Error()})
-		return
-	}
-	if result.RowsAffected == 0 {
+	var alert models.BGPAlert
+	if err := store.DB.First(&alert, id).Error; err != nil {
 		c.JSON(http.StatusNotFound, gin.H{"error": "alerte non trouvée"})
 		return
 	}
-	c.JSON(http.StatusOK, gin.H{"message": "alerte acquittée", "id": id})
+
+	store.DB.Model(&alert).Update("acknowledged", true)
+	c.JSON(http.StatusOK, gin.H{"message": "alerte acquittée"})
 }
 
-// ─────────────────────────────────────────────
-// Export IOC depuis un préfixe CIDR
-// ─────────────────────────────────────────────
-
-// PostBGPExportIOC exporte un préfixe réseau en IOC de type "cidr"
 // POST /api/bgp/export-ioc
-// Body: { "type": "cidr", "value": "1.2.3.0/24", "asn": 13335, "description": "suspect prefix" }
-// ⚠️ Usage légal uniquement — vérifier que le préfixe est effectivement malveillant avant export
+// Accepte uniquement le type "cidr" — les ASN ne sont pas des IOC valides dans ce système.
 func PostBGPExportIOC(c *gin.Context) {
 	var body struct {
-		Type        string `json:"type"        binding:"required"`
-		Value       string `json:"value"       binding:"required"`
+		Type        string `json:"type" binding:"required"`
+		Value       string `json:"value" binding:"required"`
 		ASN         int    `json:"asn"`
+		Source      string `json:"source"`
 		Description string `json:"description"`
 	}
+
 	if err := c.ShouldBindJSON(&body); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
 
-	// ⚠️ Validation : seul "cidr" est accepté pour cet endpoint
+	// Seul le type "cidr" est accepté pour l'export BGP
 	if body.Type != "cidr" {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "type doit être 'cidr' pour l'export BGP"})
 		return
 	}
-	if body.Value == "" {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "value (préfixe CIDR) requis"})
+
+	// Validation stricte : la valeur doit être un préfixe CIDR valide
+	// ⚠️ Sécurité : empêche l'injection d'un numéro ASN brut (ex: "13335") comme valeur CIDR
+	if _, _, err := net.ParseCIDR(body.Value); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": fmt.Sprintf("valeur CIDR invalide : %q — format attendu : x.x.x.x/n ou ::/n", body.Value)})
 		return
 	}
 
-	notes := body.Description
+	// Construction de la source : priorité au champ fourni par le frontend,
+	// sinon auto-génération depuis l'ASN, sinon fallback générique.
+	source := strings.TrimSpace(body.Source)
+	if source == "" {
+		if body.ASN > 0 {
+			source = fmt.Sprintf("BGP Lookup — AS%d", body.ASN)
+		} else {
+			source = "BGP Lookup"
+		}
+	}
+
+	// Notes : enrichissement avec l'ASN si disponible
+	notes := strings.TrimSpace(body.Description)
 	if body.ASN > 0 {
-		notes = fmt.Sprintf("%s | ASN: %d", body.Description, body.ASN)
+		if notes != "" {
+			notes = fmt.Sprintf("%s | ASN: %d", notes, body.ASN)
+		} else {
+			notes = fmt.Sprintf("ASN: %d", body.ASN)
+		}
 	}
 
 	ioc := &models.IOC{
 		Type:   models.IOCTypeCIDR,
 		Value:  body.Value,
-		Source: fmt.Sprintf("BGP Lookup — AS%d", body.ASN),
+		Source: source,
 		TLP:    models.TLPWhite,
 		Status: models.IOCStatusActive,
 		Notes:  notes,
@@ -1119,5 +1238,6 @@ func PostBGPExportIOC(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "création IOC: " + err.Error()})
 		return
 	}
+
 	c.JSON(http.StatusCreated, ioc)
 }

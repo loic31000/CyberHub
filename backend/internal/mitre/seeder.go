@@ -1,5 +1,3 @@
-// Package mitre gère le téléchargement et le parsing des données MITRE ATT&CK Enterprise.
-// ⚠️ Usage légal uniquement — données publiques MITRE CC BY 4.0
 package mitre
 
 import (
@@ -17,30 +15,18 @@ import (
 )
 
 const (
-	// URL officielle du JSON MITRE ATT&CK Enterprise (format STIX 2.0)
-	mitreURL = "https://raw.githubusercontent.com/mitre/cti/master/enterprise-attack/enterprise-attack.json"
-
-	// Timeout pour le téléchargement du JSON (~68 MB)
+	mitreURL        = "https://raw.githubusercontent.com/mitre/cti/master/enterprise-attack/enterprise-attack.json"
 	downloadTimeout = 5 * time.Minute
-
-	// Taille du batch d'insertion SQLite
-	batchSize = 100
 )
 
-// seeding indique qu'un seed est en cours (atomic pour thread-safety)
 var seeding atomic.Bool
 
-// IsSeeding retourne true si le seed MITRE est en cours
 func IsSeeding() bool { return seeding.Load() }
-
-// ─── Types STIX 2.0 (subset minimal pour ATT&CK) ────────────────────────────
 
 type stixBundle struct {
 	Objects []json.RawMessage `json:"objects"`
 }
 
-// stixObject contient tous les champs que l'on peut rencontrer —
-// les champs inconnus sont simplement ignorés par encoding/json.
 type stixObject struct {
 	Type        string `json:"type"`
 	ID          string `json:"id"`
@@ -55,7 +41,7 @@ type stixObject struct {
 
 	KillChainPhases []struct {
 		KillChainName string `json:"kill_chain_name"`
-		PhaseName     string `json:"phase_name"` // shortname tactic
+		PhaseName     string `json:"phase_name"`
 	} `json:"kill_chain_phases"`
 
 	XMitrePlatforms      []string `json:"x_mitre_platforms"`
@@ -63,13 +49,10 @@ type stixObject struct {
 	XMitreDetection      string   `json:"x_mitre_detection"`
 	XMitreDeprecated     bool     `json:"x_mitre_deprecated"`
 	XMitreRevoked        bool     `json:"x_mitre_revoked"`
-	XMitreShortname      string   `json:"x_mitre_shortname"`    // pour x-mitre-tactic
-	XMitreDataSources    []string `json:"x_mitre_data_sources"` // sources de détection
+	XMitreShortname      string   `json:"x_mitre_shortname"`
+	XMitreDataSources    []string `json:"x_mitre_data_sources"`
 }
 
-// ─── Ordre display de la kill chain ─────────────────────────────────────────
-
-// tacticOrder définit l'ordre canonique des tactiques dans la kill chain.
 var tacticOrder = map[string]int{
 	"reconnaissance":       1,
 	"resource-development": 2,
@@ -87,38 +70,38 @@ var tacticOrder = map[string]int{
 	"impact":               14,
 }
 
-// ─── Seeder principal ────────────────────────────────────────────────────────
-
-// SeedIfNeeded lance le seed MITRE en arrière-plan si les tables sont vides.
-// N'est pas bloquant — le seed s'exécute dans une goroutine.
 func SeedIfNeeded() {
 	if store.IsMITRESeeded() {
 		log.Printf("[MITRE] Données déjà en base — skip seed")
 		return
 	}
+
+	if !seeding.CompareAndSwap(false, true) {
+		log.Printf("[MITRE] Seed déjà en cours — skip")
+		return
+	}
+
 	log.Printf("[MITRE] Démarrage du seed MITRE ATT&CK en arrière-plan…")
 	go func() {
+		defer seeding.Store(false)
 		if err := runSeed(); err != nil {
 			log.Printf("[MITRE] Erreur seed : %v", err)
-			seeding.Store(false)
 		}
 	}()
 }
 
-// RunSeed est la version publique de runSeed — utilisée pour les mises à jour manuelles.
 func RunSeed() error {
+	if !seeding.CompareAndSwap(false, true) {
+		return fmt.Errorf("seed MITRE déjà en cours")
+	}
+	defer seeding.Store(false)
 	return runSeed()
 }
 
-// runSeed télécharge le JSON MITRE, le parse et remplit la BDD.
 func runSeed() error {
-	seeding.Store(true)
-	defer seeding.Store(false)
-
 	start := time.Now()
 	log.Printf("[MITRE] Téléchargement de %s …", mitreURL)
 
-	// ── 1. Téléchargement ──────────────────────────────────────────────────
 	client := &http.Client{Timeout: downloadTimeout}
 	resp, err := client.Get(mitreURL)
 	if err != nil {
@@ -132,8 +115,6 @@ func runSeed() error {
 
 	log.Printf("[MITRE] Téléchargement terminé — parsing STIX…")
 
-	// ── 2. Parsing JSON ────────────────────────────────────────────────────
-	// On lit tout en mémoire puis on parse — le JSON fait ~68 MB, acceptable.
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return fmt.Errorf("lecture body : %w", err)
@@ -143,15 +124,12 @@ func runSeed() error {
 	if err := json.Unmarshal(body, &bundle); err != nil {
 		return fmt.Errorf("unmarshal STIX bundle : %w", err)
 	}
-	body = nil // libérer la mémoire
 
+	body = nil
 	log.Printf("[MITRE] %d objets STIX trouvés — filtrage…", len(bundle.Objects))
 
-	// ── 3. Tri des objets ──────────────────────────────────────────────────
-	var (
-		tactics    []models.MITRETactic
-		techniques []models.MITRETechnique
-	)
+	tactics := make([]models.MITRETactic, 0, 32)
+	techniques := make([]models.MITRETechnique, 0, 900)
 
 	for _, raw := range bundle.Objects {
 		var obj stixObject
@@ -161,26 +139,23 @@ func runSeed() error {
 
 		switch obj.Type {
 		case "x-mitre-tactic":
-			t := parseTactic(obj)
-			if t != nil {
+			if t := parseTactic(obj); t != nil {
 				tactics = append(tactics, *t)
 			}
-
 		case "attack-pattern":
 			if obj.XMitreDeprecated || obj.XMitreRevoked {
 				continue
 			}
-			t := parseTechnique(obj)
-			if t != nil {
+			if t := parseTechnique(obj); t != nil {
 				techniques = append(techniques, *t)
 			}
 		}
 	}
-	bundle.Objects = nil // libérer la mémoire
+
+	bundle.Objects = nil
 
 	log.Printf("[MITRE] %d tactiques, %d techniques/sous-techniques extraites", len(tactics), len(techniques))
 
-	// ── 4. Persistance en BDD ──────────────────────────────────────────────
 	if err := store.SeedMITRE(tactics, techniques); err != nil {
 		return fmt.Errorf("persistance BDD : %w", err)
 	}
@@ -189,12 +164,11 @@ func runSeed() error {
 	return nil
 }
 
-// ─── Helpers de parsing ──────────────────────────────────────────────────────
-
 func parseTactic(obj stixObject) *models.MITRETactic {
 	if obj.XMitreShortname == "" {
 		return nil
 	}
+
 	tacticID := ""
 	url := ""
 	for _, ref := range obj.ExternalReferences {
@@ -207,14 +181,14 @@ func parseTactic(obj stixObject) *models.MITRETactic {
 	if tacticID == "" {
 		return nil
 	}
-	order := tacticOrder[obj.XMitreShortname]
+
 	return &models.MITRETactic{
 		TacticID:     tacticID,
 		Name:         obj.Name,
 		ShortName:    obj.XMitreShortname,
 		Description:  truncate(obj.Description, 2000),
 		URL:          url,
-		DisplayOrder: order,
+		DisplayOrder: tacticOrder[obj.XMitreShortname],
 	}
 }
 
@@ -232,7 +206,6 @@ func parseTechnique(obj stixObject) *models.MITRETechnique {
 		return nil
 	}
 
-	// Tactiques associées (kill chain phases ATT&CK uniquement)
 	var tacticNames []string
 	for _, kc := range obj.KillChainPhases {
 		if kc.KillChainName == "mitre-attack" {
@@ -240,11 +213,9 @@ func parseTechnique(obj stixObject) *models.MITRETechnique {
 		}
 	}
 
-	// Parent ID pour les sous-techniques (T1046.001 → T1046)
 	parentID := ""
 	if obj.XMitreIsSubtechnique {
-		parts := strings.SplitN(techniqueID, ".", 2)
-		if len(parts) == 2 {
+		if parts := strings.SplitN(techniqueID, ".", 2); len(parts) == 2 {
 			parentID = parts[0]
 		}
 	}
@@ -267,7 +238,6 @@ func parseTechnique(obj stixObject) *models.MITRETechnique {
 	}
 }
 
-// truncate coupe une chaine a max caracteres.
 func truncate(s string, max int) string {
 	if len(s) <= max {
 		return s

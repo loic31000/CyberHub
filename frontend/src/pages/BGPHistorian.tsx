@@ -1,7 +1,8 @@
 import { useState, useEffect, useCallback } from 'react'
 import {
-  History, Bell, CheckCheck, Loader2, AlertCircle,
+  History, CheckCheck, Loader2, AlertCircle,
   Network, ChevronRight, X, GitCompare, RefreshCw,
+  ShieldAlert, Download, Clock, AlertTriangle,
 } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { bgpApi } from '@/api/client'
@@ -10,10 +11,6 @@ import type {
   BGPAlert, BGPAlertType, BGPSnapshot,
   BGPDiffResponse, BGPDiffField,
 } from '@/types/bgp'
-
-// ─────────────────────────────────────────────
-// Helpers
-// ─────────────────────────────────────────────
 
 function alertLabel(type: BGPAlertType): string {
   const labels: Record<BGPAlertType, string> = {
@@ -25,23 +22,20 @@ function alertLabel(type: BGPAlertType): string {
   return labels[type] ?? type
 }
 
-function alertColor(type: BGPAlertType): string {
-  const colors: Record<BGPAlertType, string> = {
-    prefix_change: 'bg-red-900/30 text-red-400 border-red-500/30',
-    peer_change: 'bg-yellow-900/30 text-yellow-400 border-yellow-500/30',
-    upstream_change: 'bg-orange-900/30 text-orange-400 border-orange-500/30',
-    downstream_change: 'bg-blue-900/30 text-blue-400 border-blue-500/30',
+function alertSeverityStyle(type: BGPAlertType): { border: string; text: string; bg: string } {
+  const styles: Record<BGPAlertType, { border: string; text: string; bg: string }> = {
+    prefix_change:    { border: 'border-[#ef4444]', text: 'text-[#ef4444]', bg: 'bg-[#ef4444]/5' },
+    peer_change:      { border: 'border-[#f59e0b]', text: 'text-[#f59e0b]', bg: 'bg-[#f59e0b]/5' },
+    upstream_change:  { border: 'border-[#f97316]', text: 'text-[#f97316]', bg: 'bg-[#f97316]/5' },
+    downstream_change:{ border: 'border-[#3b82f6]', text: 'text-[#3b82f6]', bg: 'bg-[#3b82f6]/5' },
   }
-  return colors[type] ?? 'bg-gray-800 text-gray-400 border-gray-700'
+  return styles[type] ?? { border: 'border-[#4a6480]', text: 'text-[#8a9ab0]', bg: 'bg-[#1e2d40]' }
 }
 
 function formatDate(iso: string): string {
   return new Date(iso).toLocaleString('fr-FR', {
-    day: 'numeric',
-    month: 'short',
-    year: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
+    day: 'numeric', month: 'short', year: 'numeric',
+    hour: '2-digit', minute: '2-digit',
   })
 }
 
@@ -49,15 +43,11 @@ function parseAlertPreview(alert: BGPAlert): string {
   try {
     const oldParsed = JSON.parse(alert.old_value) as Record<string, unknown>
     const newParsed = JSON.parse(alert.new_value) as Record<string, unknown>
-
     const oldData = (oldParsed?.data ?? oldParsed) as Record<string, unknown[]>
     const newData = (newParsed?.data ?? newParsed) as Record<string, unknown[]>
-
     const keys = Object.keys(newData).filter((k) => Array.isArray(newData[k]))
     if (keys.length === 0) return 'Changement détecté'
-
-    let totalAdded = 0
-    let totalRemoved = 0
+    let totalAdded = 0; let totalRemoved = 0
     for (const k of keys) {
       const oldArr = (oldData[k] as unknown[]) ?? []
       const newArr = newData[k] as unknown[]
@@ -74,30 +64,22 @@ function parseAlertPreview(alert: BGPAlert): string {
   }
 }
 
-// ─────────────────────────────────────────────
-// Composants génériques
-// ─────────────────────────────────────────────
-
 function Spinner() {
   return (
     <div className="flex items-center justify-center py-10">
-      <Loader2 size={24} className="animate-spin text-cyan-400" />
+      <Loader2 size={24} className="animate-spin text-[#00d4ff]" />
     </div>
   )
 }
 
 function ErrorMessage({ message }: { message: string }) {
   return (
-    <div className="flex items-center gap-2 p-3 rounded-lg bg-red-900/20 border border-red-500/30 text-red-400 text-sm">
-      <AlertCircle size={16} />
+    <div className="flex items-center gap-2 p-3 border-l-2 border-[#ef4444] bg-[#ef4444]/5 text-[#ef4444] font-mono text-xs">
+      <AlertCircle size={14} />
       <span>{message}</span>
     </div>
   )
 }
-
-// ─────────────────────────────────────────────
-// Modal Diff
-// ─────────────────────────────────────────────
 
 const DIFF_TRUNCATE_THRESHOLD = 50
 
@@ -116,31 +98,23 @@ function DiffModal({ diffResponse, onClose }: DiffModalProps) {
 
     return (
       <div key={fieldName} className="mb-4">
-        <div className="text-xs text-gray-400 font-mono mb-2 uppercase tracking-wide">
+        <div className="text-[9px] text-[#4a6480] font-mono mb-2 uppercase tracking-widest">
           {fieldName}
         </div>
         {totalChanges > DIFF_TRUNCATE_THRESHOLD ? (
-          <div className="text-sm text-yellow-400 bg-yellow-900/20 px-3 py-2 rounded border border-yellow-500/30">
-            Trop de changements ({totalChanges}) — affichage tronqué.
-            <span className="text-gray-400 ml-2">
-              +{addedCount} / -{removedCount}
-            </span>
+          <div className="text-xs font-mono text-[#f59e0b] bg-[#f59e0b]/10 px-3 py-2 border-l-2 border-[#f59e0b]">
+            Trop de changements ({totalChanges}) — affichage tronqué.{' '}
+            <span className="text-[#4a6480]">+{addedCount} / -{removedCount}</span>
           </div>
         ) : (
           <div className="space-y-1">
             {(field.added ?? []).map((item, i) => (
-              <div
-                key={`add-${i}`}
-                className="text-xs font-mono bg-green-900/20 text-green-300 px-2 py-1 rounded border border-green-500/20"
-              >
+              <div key={`add-${i}`} className="text-xs font-mono bg-[#10b981]/10 text-[#10b981] px-2 py-1 border-l-2 border-[#10b981]">
                 + {JSON.stringify(item)}
               </div>
             ))}
             {(field.removed ?? []).map((item, i) => (
-              <div
-                key={`rem-${i}`}
-                className="text-xs font-mono bg-red-900/20 text-red-300 px-2 py-1 rounded border border-red-500/20"
-              >
+              <div key={`rem-${i}`} className="text-xs font-mono bg-[#ef4444]/10 text-[#ef4444] px-2 py-1 border-l-2 border-[#ef4444]">
                 - {JSON.stringify(item)}
               </div>
             ))}
@@ -151,55 +125,43 @@ function DiffModal({ diffResponse, onClose }: DiffModalProps) {
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4">
-      <div className="bg-gray-900 border border-gray-700 rounded-xl w-full max-w-3xl max-h-[80vh] flex flex-col">
-        {/* Header */}
-        <div className="flex items-center justify-between p-4 border-b border-gray-700">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4">
+      <div className="bg-[#06080f] border border-[#1e2d40] w-full max-w-3xl max-h-[80vh] flex flex-col">
+        <div className="flex items-center justify-between p-4 border-b border-[#1e2d40] bg-[#0a0f16]">
           <div className="flex items-center gap-2">
-            <GitCompare size={18} className="text-cyan-400" />
-            <span className="font-semibold text-gray-200">Diff Snapshots</span>
+            <GitCompare size={16} className="text-[#00d4ff]" />
+            <span className="font-bold text-xs tracking-widest uppercase text-[#f1f5f9]">Differential Engine</span>
           </div>
-          <div className="text-xs text-gray-500 flex items-center gap-2">
-            <span className="text-red-400">#{older.id}</span>
+          <div className="text-[10px] text-[#4a6480] font-mono flex items-center gap-2">
+            <span className="text-[#ef4444]">#{older.id}</span>
             <ChevronRight size={12} />
-            <span className="text-green-400">#{newer.id}</span>
+            <span className="text-[#10b981]">#{newer.id}</span>
           </div>
-          <button
-            onClick={onClose}
-            className="p-1 rounded hover:bg-gray-700 text-gray-500 hover:text-gray-200 transition-colors"
-          >
+          <button onClick={onClose} className="p-1 hover:bg-[#1e2d40] text-[#4a6480] hover:text-[#f1f5f9] transition-colors">
             <X size={16} />
           </button>
         </div>
-
-        {/* Dates */}
-        <div className="flex gap-4 px-4 py-2 bg-gray-800/50 text-xs text-gray-500">
-          <span>Ancien : {formatDate(older.created_at)}</span>
-          <span>Récent : {formatDate(newer.created_at)}</span>
+        <div className="flex gap-4 px-4 py-2 bg-[#0a0f16]/50 border-b border-[#1e2d40] text-[10px] font-mono text-[#4a6480]">
+          <span>OLDER: {formatDate(older.created_at)}</span>
+          <span>NEWER: {formatDate(newer.created_at)}</span>
         </div>
-
-        {/* Content */}
         <div className="flex-1 overflow-y-auto p-4">
           {diff.changed_fields.length === 0 ? (
-            <div className="text-center text-gray-500 py-8">
-              Aucun changement détecté entre ces deux snapshots.
+            <div className="text-center text-[#4a6480] font-mono text-xs py-8 uppercase tracking-widest">
+              No changes detected between these snapshots.
             </div>
           ) : (
             <div>
               <div className="flex flex-wrap gap-2 mb-4">
                 {diff.changed_fields.map((f) => (
-                  <span
-                    key={f}
-                    className="text-xs px-2 py-0.5 rounded-full bg-cyan-400/10 text-cyan-400 border border-cyan-400/20"
-                  >
+                  <span key={f} className="text-[9px] font-mono px-2 py-0.5 bg-[#00d4ff]/10 text-[#00d4ff] border border-[#00d4ff]/20 uppercase tracking-widest">
                     {f}
                   </span>
                 ))}
               </div>
-
               {Object.entries(diff.changes).map(([section, fields]) => (
                 <div key={section} className="mb-6">
-                  <h3 className="text-sm font-semibold text-gray-300 mb-3 capitalize">
+                  <h3 className="text-[10px] font-bold text-[#8a9ab0] mb-3 uppercase tracking-widest border-b border-[#1e2d40] pb-2">
                     {section}
                   </h3>
                   {Object.entries(fields as Record<string, BGPDiffField>).map(
@@ -215,10 +177,6 @@ function DiffModal({ diffResponse, onClose }: DiffModalProps) {
   )
 }
 
-// ─────────────────────────────────────────────
-// Section Alertes
-// ─────────────────────────────────────────────
-
 function AlertsSection() {
   const navigate = useNavigate()
   const [alerts, setAlerts] = useState<BGPAlert[]>([])
@@ -229,8 +187,7 @@ function AlertsSection() {
   const loadAlerts = useCallback(() => {
     setLoading(true)
     setError(null)
-    bgpApi
-      .getAlerts(100, 0)
+    bgpApi.getAlerts(100, 0)
       .then((r) => setAlerts(r.items))
       .catch((e: unknown) => setError(e instanceof Error ? e.message : 'Erreur réseau'))
       .finally(() => setLoading(false))
@@ -238,7 +195,6 @@ function AlertsSection() {
 
   useEffect(() => {
     loadAlerts()
-    // Rafraîchissement automatique toutes les 30 secondes
     const interval = setInterval(loadAlerts, 30_000)
     return () => clearInterval(interval)
   }, [loadAlerts])
@@ -257,88 +213,60 @@ function AlertsSection() {
   }
 
   return (
-    <div className="bg-gray-800 rounded-xl border border-gray-700 mb-6">
-      <div className="flex items-center justify-between p-4 border-b border-gray-700">
-        <div className="flex items-center gap-2">
-          <Bell size={16} className="text-yellow-400" />
-          <h2 className="font-semibold text-gray-200">Alertes non acquittées</h2>
+    <div>
+      <div className="flex items-center justify-between mb-3">
+        <h3 className="text-xs font-bold text-[#ef4444] flex items-center gap-2 uppercase tracking-widest">
+          <AlertTriangle size={14} /> Critical_Events_Stream
           {alerts.length > 0 && (
-            <span className="px-2 py-0.5 rounded-full bg-red-500 text-white text-xs font-bold">
-              {alerts.length}
+            <span className="px-2 py-0.5 bg-[#ef4444] text-white text-[9px] font-bold animate-pulse">
+              {alerts.length} ACTIVE
             </span>
           )}
-        </div>
-        <button
-          onClick={loadAlerts}
-          disabled={loading}
-          className="p-1.5 rounded hover:bg-gray-700 text-gray-400 hover:text-gray-200 transition-colors"
-          title="Rafraîchir"
-        >
-          <RefreshCw size={14} className={loading ? 'animate-spin' : ''} />
+        </h3>
+        <button onClick={loadAlerts} disabled={loading} className="p-1.5 hover:bg-[#1e2d40] text-[#4a6480] hover:text-[#8a9ab0] transition-colors" title="Rafraîchir">
+          <RefreshCw size={12} className={loading ? 'animate-spin' : ''} />
         </button>
       </div>
 
-      <div className="p-4">
-        {loading && <Spinner />}
-        {error && <ErrorMessage message={error} />}
-        {!loading && !error && alerts.length === 0 && (
-          <div className="text-center text-gray-500 text-sm py-6">
-            <CheckCheck size={24} className="mx-auto mb-2 text-green-500 opacity-60" />
-            Aucune alerte — tout est à jour !
-          </div>
-        )}
-        {!loading && !error && alerts.length > 0 && (
-          <div className="space-y-3">
-            {alerts.map((alert) => (
-              <div
-                key={alert.id}
-                className={`rounded-lg border p-4 ${alertColor(alert.alert_type)}`}
-              >
-                <div className="flex items-start justify-between gap-3">
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <span className="font-semibold text-sm">
-                        {alertLabel(alert.alert_type)}
-                      </span>
-                      <button
-                        onClick={() => navigate(`/bgp?asn=${alert.asn}`)}
-                        className="text-xs font-mono bg-gray-900/50 px-2 py-0.5 rounded hover:underline"
-                      >
-                        AS{alert.asn}
-                      </button>
-                    </div>
-                    <div className="text-xs text-gray-400 mt-1">
-                      {formatDate(alert.detected_at)}
-                    </div>
-                    <div className="text-xs mt-1.5 opacity-80">
-                      Aperçu : {parseAlertPreview(alert)}
-                    </div>
-                  </div>
-                  <button
-                    onClick={() => handleAck(alert.id)}
-                    disabled={ackingId === alert.id}
-                    className="flex items-center gap-1 px-3 py-1.5 rounded-lg bg-gray-700 text-gray-300 hover:bg-gray-600 text-xs transition-colors disabled:opacity-50 shrink-0"
-                  >
-                    {ackingId === alert.id ? (
-                      <Loader2 size={12} className="animate-spin" />
-                    ) : (
-                      <CheckCheck size={12} />
-                    )}
-                    Acquitter
+      {loading && <Spinner />}
+      {error && <ErrorMessage message={error} />}
+
+      {!loading && !error && alerts.length === 0 && (
+        <div className="text-center font-mono text-[10px] text-[#4a6480] py-6 flex flex-col items-center gap-2 uppercase tracking-widest">
+          <CheckCheck size={20} className="text-[#10b981]" />
+          No active threats detected
+        </div>
+      )}
+
+      {!loading && !error && alerts.length > 0 && (
+        <div className="space-y-2">
+          {alerts.map((alert) => {
+            const style = alertSeverityStyle(alert.alert_type)
+            return (
+              <div key={alert.id} className={`flex items-center justify-between p-3 border-l-2 font-mono text-[11px] ${style.border} ${style.text} ${style.bg}`}>
+                <div className="flex items-center gap-3 min-w-0">
+                  <span className="opacity-60 shrink-0">[{formatDate(alert.detected_at)}]</span>
+                  <span className="font-bold uppercase shrink-0">{alertLabel(alert.alert_type)}</span>
+                  <span className="opacity-60">➔</span>
+                  <span className="font-bold">AS{alert.asn}</span>
+                  <span className="opacity-50 text-[9px] truncate">{parseAlertPreview(alert)}</span>
+                </div>
+                <div className="flex items-center gap-2 shrink-0 ml-2">
+                  <button onClick={() => navigate(`/bgp?asn=${alert.asn}`)} className="text-[9px] font-bold uppercase hover:underline opacity-70 hover:opacity-100 flex items-center gap-1">
+                    <Network size={10} /> Investigate
+                  </button>
+                  <button onClick={() => handleAck(alert.id)} disabled={ackingId === alert.id} className="p-1 hover:bg-white/10 transition-colors opacity-70 hover:opacity-100" title="Acquitter">
+                    {ackingId === alert.id ? <Loader2 size={12} className="animate-spin" /> : <CheckCheck size={12} />}
                   </button>
                 </div>
               </div>
-            ))}
-          </div>
-        )}
-      </div>
+            )
+          })}
+        </div>
+      )}
     </div>
   )
 }
-
-// ─────────────────────────────────────────────
-// Section Snapshots
-// ─────────────────────────────────────────────
 
 function SnapshotsSection() {
   const [asnInput, setAsnInput] = useState('')
@@ -347,11 +275,7 @@ function SnapshotsSection() {
   const [total, setTotal] = useState(0)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
-
-  // Sélection pour comparaison
   const [selected, setSelected] = useState<number[]>([])
-
-  // Diff modal
   const [diffResponse, setDiffResponse] = useState<BGPDiffResponse | null>(null)
   const [diffLoading, setDiffLoading] = useState(false)
 
@@ -373,10 +297,7 @@ function SnapshotsSection() {
 
   const handleLoad = () => {
     const asn = parseInt(asnInput.replace(/^AS/i, '').trim(), 10)
-    if (isNaN(asn) || asn <= 0) {
-      toast.error('ASN invalide')
-      return
-    }
+    if (isNaN(asn) || asn <= 0) { toast.error('ASN invalide'); return }
     setCurrentASN(asn)
     loadSnapshots(asn)
   }
@@ -384,14 +305,14 @@ function SnapshotsSection() {
   const toggleSelect = (id: number) => {
     setSelected((prev) => {
       if (prev.includes(id)) return prev.filter((x) => x !== id)
-      if (prev.length >= 2) return [prev[1], id] // Remplace le premier
+      if (prev.length >= 2) return [prev[1], id]
       return [...prev, id]
     })
   }
 
   const handleCompare = async () => {
     if (selected.length < 2 || currentASN === null) return
-    const [a, b] = selected.sort((x, y) => x - y) // older = plus petit ID
+    const [a, b] = selected.sort((x, y) => x - y)
     setDiffLoading(true)
     try {
       const res = await bgpApi.getDiff(currentASN, a, b)
@@ -404,166 +325,126 @@ function SnapshotsSection() {
   }
 
   return (
-    <div className="bg-gray-800 rounded-xl border border-gray-700">
-      <div className="flex items-center gap-2 p-4 border-b border-gray-700">
-        <History size={16} className="text-cyan-400" />
-        <h2 className="font-semibold text-gray-200">Snapshots</h2>
+    <div>
+      {diffResponse && <DiffModal diffResponse={diffResponse} onClose={() => setDiffResponse(null)} />}
+
+      <div className="flex gap-0 mb-6">
+        <input
+          type="text"
+          value={asnInput}
+          onChange={(e) => setAsnInput(e.target.value)}
+          onKeyDown={(e) => e.key === 'Enter' && handleLoad()}
+          placeholder="ENTER ASN... (ex: 13335)"
+          className="flex-1 px-4 py-3 bg-[#0d131f] border border-[#1e2d40] text-sm font-mono text-[#f1f5f9] placeholder-[#334155] uppercase tracking-widest focus:outline-none focus:border-[#00d4ff]/50"
+        />
+        <button onClick={handleLoad} disabled={loading} className="bg-[#00d4ff]/10 hover:bg-[#00d4ff]/20 text-[#00d4ff] px-6 border border-l-0 border-[#1e2d40] text-xs font-bold tracking-widest uppercase transition-colors disabled:opacity-50 flex items-center gap-2">
+          {loading ? <Loader2 size={14} className="animate-spin" /> : <Network size={14} />}
+          LOAD
+        </button>
       </div>
 
-      <div className="p-4">
-        {/* Input ASN */}
-        <div className="flex gap-2 mb-4">
-          <input
-            type="text"
-            value={asnInput}
-            onChange={(e) => setAsnInput(e.target.value)}
-            onKeyDown={(e) => e.key === 'Enter' && handleLoad()}
-            placeholder="Ex: 13335 ou AS13335"
-            className="flex-1 px-3 py-2 rounded-lg bg-gray-900 border border-gray-700 text-gray-200 text-sm focus:outline-none focus:border-cyan-500 placeholder-gray-600"
-          />
-          <button
-            onClick={handleLoad}
-            disabled={loading}
-            className="px-4 py-2 rounded-lg bg-cyan-500 text-gray-900 font-semibold text-sm hover:bg-cyan-400 transition-colors disabled:opacity-50 flex items-center gap-2"
-          >
-            {loading ? <Loader2 size={14} className="animate-spin" /> : <Network size={14} />}
-            Charger
-          </button>
+      {loading && <Spinner />}
+      {error && <ErrorMessage message={error} />}
+
+      {!loading && !error && currentASN !== null && snapshots.length === 0 && (
+        <div className="text-center font-mono text-[10px] text-[#4a6480] py-10 uppercase tracking-widest">
+          No snapshots for AS{currentASN} — take one from BGP Lookup.
         </div>
+      )}
 
-        {loading && <Spinner />}
-        {error && <ErrorMessage message={error} />}
-
-        {!loading && !error && currentASN !== null && snapshots.length === 0 && (
-          <div className="text-center text-gray-500 text-sm py-8">
-            Aucun snapshot pour AS{currentASN}.
-            <br />
-            <span className="text-xs">
-              Allez sur BGP Lookup et cliquez sur "Prendre un snapshot".
+      {!loading && !error && snapshots.length > 0 && (
+        <>
+          <div className="flex items-center justify-between mb-3">
+            <span className="text-[10px] font-mono text-[#4a6480] uppercase tracking-widest">
+              {total} SNAPSHOT(S) — AS{currentASN}
             </span>
-          </div>
-        )}
-
-        {!loading && !error && snapshots.length > 0 && (
-          <>
-            <div className="flex items-center justify-between mb-3">
-              <div className="text-xs text-gray-500">
-                {total} snapshot(s) — AS{currentASN}
-              </div>
-              {selected.length === 2 && (
-                <button
-                  onClick={handleCompare}
-                  disabled={diffLoading}
-                  className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-cyan-500/10 border border-cyan-500/30 text-cyan-400 hover:bg-cyan-500/20 transition-colors text-sm disabled:opacity-50"
-                >
-                  {diffLoading ? (
-                    <Loader2 size={13} className="animate-spin" />
-                  ) : (
-                    <GitCompare size={13} />
-                  )}
-                  Comparer les sélectionnés
-                </button>
-              )}
-            </div>
-
-            {selected.length > 0 && selected.length < 2 && (
-              <div className="text-xs text-cyan-400/70 mb-2">
-                Sélectionnez un 2ème snapshot pour comparer.
-              </div>
+            {selected.length === 2 && (
+              <button onClick={handleCompare} disabled={diffLoading} className="flex items-center gap-2 px-3 py-1.5 bg-[#00d4ff]/10 hover:bg-[#00d4ff]/20 text-[#00d4ff] border border-[#00d4ff]/20 text-[10px] font-bold tracking-widest uppercase transition-colors disabled:opacity-50">
+                {diffLoading ? <Loader2 size={10} className="animate-spin" /> : <GitCompare size={10} />}
+                INITIALIZE_DIFF
+              </button>
             )}
+            {selected.length === 1 && (
+              <span className="text-[10px] font-mono text-[#00d4ff]/60 uppercase tracking-widest">
+                Select a 2nd snapshot to diff
+              </span>
+            )}
+          </div>
 
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="border-b border-gray-700">
-                    <th className="text-left py-2 px-3 text-gray-400 font-medium w-10">
-                      <span className="sr-only">Sélection</span>
-                    </th>
-                    <th className="text-left py-2 px-3 text-gray-400 font-medium">ID</th>
-                    <th className="text-left py-2 px-3 text-gray-400 font-medium">Date</th>
-                    <th className="text-left py-2 px-3 text-gray-400 font-medium">Par</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {snapshots.map((snap, idx) => {
-                    const isSelected = selected.includes(snap.id)
-                    const hasChange = idx < snapshots.length - 1 // placeholder indicateur
-                    return (
-                      <tr
-                        key={snap.id}
-                        className={`border-b border-gray-700/50 hover:bg-gray-700/30 transition-colors cursor-pointer ${
-                          isSelected ? 'bg-cyan-400/5' : ''
-                        }`}
-                        onClick={() => toggleSelect(snap.id)}
-                      >
-                        <td className="py-2 px-3">
-                          <input
-                            type="checkbox"
-                            checked={isSelected}
-                            onChange={() => toggleSelect(snap.id)}
-                            onClick={(e) => e.stopPropagation()}
-                            className="rounded border-gray-600 text-cyan-400 focus:ring-cyan-400 bg-gray-900"
-                          />
-                        </td>
-                        <td className="py-2 px-3 font-mono text-gray-400 text-xs">
-                          #{snap.id}
-                        </td>
-                        <td className="py-2 px-3 text-gray-300 text-xs">
-                          <div>{formatDate(snap.created_at)}</div>
-                          {hasChange && idx === 0 && (
-                            <span className="text-green-400 text-xs">● Dernier</span>
-                          )}
-                        </td>
-                        <td className="py-2 px-3 text-gray-500 text-xs">{snap.taken_by}</td>
-                      </tr>
-                    )
-                  })}
-                </tbody>
-              </table>
-            </div>
-          </>
-        )}
-      </div>
-
-      {diffResponse && (
-        <DiffModal diffResponse={diffResponse} onClose={() => setDiffResponse(null)} />
+          <div className="space-y-2">
+            {snapshots.map((snap, idx) => {
+              const isSelected = selected.includes(snap.id)
+              const isLatest = idx === 0
+              return (
+                <div key={snap.id} onClick={() => toggleSelect(snap.id)} className={`group flex items-center gap-3 p-3 border cursor-pointer transition-all font-mono text-xs ${
+                  isSelected
+                    ? 'border-[#00d4ff]/50 bg-[#00d4ff]/5 text-[#00d4ff]'
+                    : 'border-[#1e2d40] bg-[#0d131f] hover:border-[#00d4ff]/30 text-[#8a9ab0]'
+                }`}>
+                  <input type="checkbox" checked={isSelected} onChange={() => toggleSelect(snap.id)} onClick={(e) => e.stopPropagation()} className="rounded border-[#4a6480] text-[#00d4ff] focus:ring-[#00d4ff] bg-[#06080f]" />
+                  <span className="text-[#4a6480] text-[9px]">#{snap.id}</span>
+                  <Clock size={10} className="text-[#4a6480]" />
+                  <span>{formatDate(snap.created_at)}</span>
+                  {isLatest && <span className="text-[9px] text-[#10b981]">● LATEST</span>}
+                  <span className="ml-auto text-[9px] text-[#4a6480]">{snap.taken_by}</span>
+                </div>
+              )
+            })}
+          </div>
+        </>
       )}
     </div>
   )
 }
 
-// ─────────────────────────────────────────────
-// Page principale BGPHistorian
-// ─────────────────────────────────────────────
-
 export default function BGPHistorian() {
   const navigate = useNavigate()
+  const [activeTab, setActiveTab] = useState<'snapshots' | 'alerts'>('alerts')
 
   return (
-    <div className="p-6 max-w-4xl mx-auto">
-      {/* Header */}
-      <div className="flex items-center gap-3 mb-6">
-        <div className="p-2 rounded-lg bg-cyan-400/10">
-          <History size={22} className="text-cyan-400" />
+    <div className="flex flex-col h-full bg-[#06080f] text-[#f1f5f9]">
+      <div className="flex items-center justify-between px-6 py-3 bg-[#0a0f16] border-b border-[#1e2d40]">
+        <div className="flex items-center gap-4">
+          <div className="flex items-center gap-2 text-xs font-bold text-[#00d4ff]">
+            <History size={16} />
+            <span className="tracking-[0.1em] uppercase">Routing_History_Log</span>
+          </div>
+          <div className="h-4 w-px bg-[#1e2d40]" />
+          <div className="flex items-center gap-2 text-[10px] text-[#ef4444] font-mono animate-pulse">
+            <ShieldAlert size={14} />
+            <span>THREAT MONITORING ACTIVE</span>
+          </div>
         </div>
-        <div>
-          <h1 className="text-xl font-bold text-gray-100">BGP Historian</h1>
-          <p className="text-xs text-gray-500">Historique des snapshots et détection de changements</p>
+        <div className="flex items-center gap-2">
+          <button onClick={() => navigate('/bgp')} className="flex items-center gap-2 px-3 py-1.5 bg-[#1e2d40] hover:bg-[#2a3f55] text-[10px] font-bold border border-[#334155] transition-colors">
+            <Network size={12} /> BGP_LOOKUP
+          </button>
+          <button className="flex items-center gap-2 px-3 py-1.5 bg-[#1e2d40] hover:bg-[#2a3f55] text-[10px] font-bold border border-[#334155] transition-colors">
+            <Download size={12} /> EXPORT_SNAPSHOTS
+          </button>
         </div>
-        <button
-          onClick={() => navigate('/bgp')}
-          className="ml-auto flex items-center gap-2 px-3 py-1.5 rounded-lg bg-gray-700 text-gray-300 hover:bg-gray-600 transition-colors text-sm"
-        >
-          <Network size={14} />
-          BGP Lookup
-        </button>
       </div>
 
-      {/* Alertes (en haut) */}
-      <AlertsSection />
+      <div className="flex border-b border-[#1e2d40] bg-[#0a0f16]/50">
+        {[
+          { id: 'alerts' as const,    label: 'Critical_Events_Stream', icon: <AlertTriangle size={12} /> },
+          { id: 'snapshots' as const, label: 'Temporal_Snapshots',     icon: <Clock size={12} /> },
+        ].map((tab) => (
+          <button key={tab.id} onClick={() => setActiveTab(tab.id)} className={`flex items-center gap-2 px-5 py-3 text-[10px] font-bold tracking-widest uppercase border-b-2 transition-colors ${
+              activeTab === tab.id
+                ? 'border-[#00d4ff] text-[#00d4ff] bg-[#00d4ff]/5'
+                : 'border-transparent text-[#4a6480] hover:text-[#8a9ab0]'
+            }`}>
+            {tab.icon}
+            {tab.label}
+          </button>
+        ))}
+      </div>
 
-      {/* Snapshots (en bas) */}
-      <SnapshotsSection />
+      <div className="flex-1 overflow-auto p-6">
+        {activeTab === 'alerts' && <AlertsSection />}
+        {activeTab === 'snapshots' && <SnapshotsSection />}
+      </div>
     </div>
   )
 }

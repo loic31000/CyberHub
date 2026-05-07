@@ -113,22 +113,22 @@ type cloakJSONData struct {
 }
 
 type cloakJSONTactic struct {
-	ID          int                `json:"id"`
-	Name        string             `json:"name"`
-	Description string             `json:"description"`
+	ID          json.RawMessage      `json:"id"`
+	Name        string               `json:"name"`
+	Description string               `json:"description"`
 	Techniques  []cloakJSONTechnique `json:"techniques"`
 }
 
 type cloakJSONTechnique struct {
-	ID          int    `json:"id"`
-	Name        string `json:"name"`
-	Description string `json:"description"`
+	ID          json.RawMessage `json:"id"`
+	Name        string          `json:"name"`
+	Description string          `json:"description"`
 }
 
 type CorrelationEngine struct {
-	db         *gorm.DB
-	rules      CorrelationRules
-	cloakData  cloakJSONData
+	db        *gorm.DB
+	rules     CorrelationRules
+	cloakData cloakJSONData
 }
 
 // NewCorrelationEngine crée le moteur de corrélation.
@@ -316,12 +316,12 @@ func (ce *CorrelationEngine) Analyze(iocType, iocValue string) CorrelationResult
 
 	// 3. Lancer 6 goroutines en parallèle
 	var wg sync.WaitGroup
-	techsChan     := make(chan []CorrelationTechnique, 1)
-	cloakChan     := make(chan []CorrelationCloakTactic, 1)
-	toolsChan     := make(chan []CorrelationTool, 1)
+	techsChan := make(chan []CorrelationTechnique, 1)
+	cloakChan := make(chan []CorrelationCloakTactic, 1)
+	toolsChan := make(chan []CorrelationTool, 1)
 	playbooksChan := make(chan []CorrelationPlaybook, 1)
-	cvesChan      := make(chan []CorrelationCVE, 1)
-	lolbinsChan   := make(chan []CorrelationLOLBin, 1)
+	cvesChan := make(chan []CorrelationCVE, 1)
+	lolbinsChan := make(chan []CorrelationLOLBin, 1)
 
 	// Goroutine 1 : MITRE Techniques
 	wg.Add(1)
@@ -439,12 +439,12 @@ func (ce *CorrelationEngine) Analyze(iocType, iocValue string) CorrelationResult
 	close(cvesChan)
 	close(lolbinsChan)
 
-	result.Techniques   = <-techsChan
+	result.Techniques = <-techsChan
 	result.CloakTactics = <-cloakChan
-	result.Tools        = <-toolsChan
-	result.Playbooks    = <-playbooksChan
-	result.CVEs         = <-cvesChan
-	result.LOLBins      = <-lolbinsChan
+	result.Tools = <-toolsChan
+	result.Playbooks = <-playbooksChan
+	result.CVEs = <-cvesChan
+	result.LOLBins = <-lolbinsChan
 
 	// 4. Sérialiser et upsert dans le cache
 	resultJSON, _ := json.Marshal(result)

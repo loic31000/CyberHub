@@ -253,6 +253,24 @@ export const iocApi = {
 }
 
 // ---- BGP / AS Lookup + Historian ----
+
+/**
+ * Payload pour l'export IOC depuis le module BGP.
+ *
+ * - `type` : toujours "cidr" — les numéros ASN ne sont pas des IOC valides dans ce système.
+ * - `value` : préfixe CIDR valide (ex: "1.2.3.0/24", "2001:db8::/32").
+ * - `asn` : numéro AS d'origine, utilisé par le backend pour construire la source si `source` est absent.
+ * - `source` : libellé de source libre (ex: "IP Lookup — AS13335"). Prioritaire sur `asn` côté backend.
+ * - `description` : note optionnelle ajoutée aux métadonnées de l'IOC.
+ */
+export type BGPExportIOCPayload = {
+  type: 'cidr'
+  value: string
+  asn?: number
+  source?: string
+  description?: string
+}
+
 export const bgpApi = {
   // Proxy BGPView avec cache TTL 1h
   lookupASN: (asn: number) =>
@@ -326,7 +344,11 @@ export const bgpApi = {
   ackAlert: (id: number) =>
     http.patch(`/bgp/alerts/${id}/ack`).then((r) => r.data),
 
-  exportIOC: (payload: { type: 'ip' | 'cidr'; value: string; source?: string }) =>
+  /**
+   * Exporte un préfixe BGP en IOC de type CIDR.
+   * Le backend valide le format CIDR et génère la source depuis `asn` si `source` n'est pas fourni.
+   */
+  exportIOC: (payload: BGPExportIOCPayload) =>
     http
       .post<import('@/types/ioc').IOC>('/bgp/export-ioc', payload)
       .then((r) => r.data),
