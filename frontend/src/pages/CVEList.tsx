@@ -1,52 +1,50 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
-import { cveApi } from '@/api/client'
+import { cveApi, cisaApi } from '@/api/client'
 import type { CVEEntry, CVEFilter, CVESeverity, CVEStatus } from '@/types'
+import type { CISAKEVEntry } from '@/types/threat_intel'
 import { RowListSkeleton } from '@/components/Skeleton'
 import Pagination from '@/components/Pagination'
-import { Plus, Search, Upload, ShieldAlert, AlertTriangle, Flame } from 'lucide-react'
+import { Plus, Search, Upload, ShieldAlert, Flame, AlertTriangle } from 'lucide-react'
 import { toast } from '@/store/toast'
-import { cisaApi } from '@/api/client'
-import type { CISAKEVEntry } from '@/types/threat_intel'
 
 const SEVERITIES: CVESeverity[] = ['critical', 'high', 'medium', 'low', 'none']
 const STATUSES: CVEStatus[] = ['new', 'analyzed', 'patched', 'na']
 const LIMIT = 20
 
 const SEV_COLORS: Record<CVESeverity, string> = {
-  critical: 'bg-cyber-red/20 text-cyber-red border-cyber-red/40',
-  high:     'bg-orange-500/20 text-orange-400 border-orange-400/40',
-  medium:   'bg-yellow-500/20 text-yellow-400 border-yellow-400/40',
-  low:      'bg-blue-500/20 text-blue-400 border-blue-400/40',
-  none:     'bg-gray-500/20 text-gray-400 border-gray-400/40',
+  critical: 'border-[#ef4444]/30 bg-[#ef4444]/10 text-[#ef4444]',
+  high:     'border-[#f97316]/30 bg-[#f97316]/10 text-[#f97316]',
+  medium:   'border-[#eab308]/30 bg-[#eab308]/10 text-[#eab308]',
+  low:      'border-[#3b82f6]/30 bg-[#3b82f6]/10 text-[#3b82f6]',
+  none:     'border-[#64748b]/30 bg-[#64748b]/10 text-[#64748b]',
+}
+
+const STATUS_LABELS: Record<CVEStatus, string> = {
+  new:      'NOUVEAU',
+  analyzed: 'ANALYSÉ',
+  patched:  'PATCHÉ',
+  na:       'N/A',
 }
 
 const STATUS_COLORS: Record<CVEStatus, string> = {
-  new:      'text-cyber-cyan',
-  analyzed: 'text-yellow-400',
-  patched:  'text-cyber-green',
-  na:       'text-text-muted',
+  new:      'text-[#00d4ff]',
+  analyzed: 'text-[#eab308]',
+  patched:  'text-[#10b981]',
+  na:       'text-[#64748b]',
 }
 
 export default function CVEList() {
-    const [cves, setCves]             = useState<CVEEntry[]>([])
-  const [count, setCount]           = useState(0)
+  const [cves, setCves] = useState<CVEEntry[]>([])
+  const [count, setCount] = useState(0)
   const [totalPages, setTotalPages] = useState(1)
-  const [page, setPage]             = useState(1)
-  const [loading, setLoading]       = useState(true)
-  const [importing, setImporting]   = useState(false)
-  const [filters, setFilters]       = useState<CVEFilter>({ severity: '', status: '', search: '' })
+  const [page, setPage] = useState(1)
+  const [loading, setLoading] = useState(true)
+  const [importing, setImporting] = useState(false)
+  const [filters, setFilters] = useState<CVEFilter>({ severity: '', status: '', search: '' })
   const [searchParams] = useSearchParams()
   const fileRef = useRef<HTMLInputElement>(null)
-  // KEV lookup map: cveId -> CISAKEVEntry
   const [kevMap, setKevMap] = useState<Map<string, CISAKEVEntry>>(new Map())
-
-  const STATUS_LABELS: Record<CVEStatus, string> = {
-    new: `Nouveau`,
-    analyzed: `Analysé`,
-    patched: `Patché`,
-    na: `N/A`,
-  }
 
   const fetchCVE = useCallback(async () => {
     setLoading(true)
@@ -56,7 +54,6 @@ export default function CVEList() {
       setCves(fetchedCves)
       setCount(Number(res.count))
       setTotalPages((res as { total_pages?: number }).total_pages ?? 1)
-      // Enrichissement KEV en batch (parallel, sans bloquer l'affichage)
       const newMap = new Map<string, CISAKEVEntry>()
       await Promise.allSettled(
         fetchedCves.map(async (cve) => {
@@ -68,7 +65,7 @@ export default function CVEList() {
       )
       setKevMap(newMap)
     } catch {
-      toast.error(`Aucune CVE trouvée`)
+      toast.error('Erreur de chargement des CVE')
       setCves([])
     } finally {
       setLoading(false)
@@ -79,9 +76,7 @@ export default function CVEList() {
 
   useEffect(() => {
     const find = searchParams.get('find')
-    if (find) {
-      setFilters((f) => ({ ...f, search: find }))
-    }
+    if (find) setFilters(f => ({ ...f, search: find }))
   }, [searchParams])
 
   const updateFilter = <K extends keyof CVEFilter>(k: K, v: CVEFilter[K]) => {
@@ -89,7 +84,6 @@ export default function CVEList() {
     setFilters(f => ({ ...f, [k]: v }))
   }
 
-  // Import NVD JSON 2.0
   const handleImport = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (!file) return
@@ -101,7 +95,7 @@ export default function CVEList() {
       toast.success(`Import terminé : ${res.created} ajoutés, ${res.skipped} ignorés`)
       fetchCVE()
     } catch {
-      toast.error(`Erreur lors de l'import — vérifiez le format NVD JSON 2.0`)
+      toast.error('Erreur lors de l’import — vérifiez le format NVD JSON 2.0')
     } finally {
       setImporting(false)
       if (fileRef.current) fileRef.current.value = ''
@@ -109,146 +103,157 @@ export default function CVEList() {
   }
 
   return (
-    <div className="p-6 space-y-6">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-text-primary flex items-center gap-2">
-            <ShieldAlert size={24} className="text-cyber-red" />
-            {`Veille CVE`}
-          </h1>
-          <p className="text-text-muted text-sm mt-1">
-            {count} vulnérabilité{count > 1 ? 's' : ''} indexée{count > 1 ? 's' : ''}
-          </p>
+    <div className="flex flex-col h-full bg-[#06080f] text-[#f1f5f9]">
+      {/* Bandeau d'en-tête style BGPLookup */}
+      <div className="flex items-center justify-between px-6 py-4 border-b border-[#1e2d40] bg-[#0a0f16]/50">
+        <div className="flex items-center gap-3">
+          <div className="relative">
+            <ShieldAlert className="text-[#00d4ff]" size={20} />
+            <div className="absolute -top-1 -right-1 w-2 h-2 bg-[#10b981] rounded-full animate-pulse shadow-[0_0_8px_#10b981]" />
+          </div>
+          <div>
+            <h1 className="text-sm font-bold tracking-[0.2em] uppercase">CVE WATCH // INDEX</h1>
+            <p className="text-[10px] text-[#64748b] font-mono">
+              {count} vulnérabilité{count > 1 ? 's' : ''} indexée{count > 1 ? 's' : ''}
+            </p>
+          </div>
         </div>
-        <div className="flex gap-2">
+        <div className="flex items-center gap-4 font-mono text-[10px]">
+          <span className="text-[#64748b]">SOURCE</span>
+          <span className="text-[#10b981]">NVD + CISA KEV</span>
           <button
             onClick={() => fileRef.current?.click()}
             disabled={importing}
-            className="flex items-center gap-2 px-3 py-2 text-sm rounded border border-border text-text-secondary hover:text-cyber-cyan hover:border-cyber-cyan/40 transition-colors disabled:opacity-50"
-            title={`Importer un fichier NVD JSON 2.0 (nvd.nist.gov)`}
+            className="flex items-center gap-2 px-3 py-1.5 bg-[#1e2d40] hover:bg-[#2a3f55] text-[10px] font-bold border border-[#334155] transition-colors disabled:opacity-50"
           >
-            <Upload size={15} />
-            {importing ? `Import...` : `Import NVD`}
+            <Upload size={12} />
+            {importing ? 'IMPORT...' : 'IMPORT NVD'}
           </button>
-          <input ref={fileRef} type="file" accept=".json" className="hidden" onChange={handleImport} />
           <Link
             to="/cve/new"
-            className="btn-cyber flex items-center gap-2 px-4 py-2 rounded text-sm font-medium"
+            className="flex items-center gap-2 px-3 py-1.5 bg-[#1e2d40] hover:bg-[#2a3f55] text-[10px] font-bold border border-[#334155] transition-colors"
           >
-            <Plus size={16} />
-            {`Nouvelle CVE`}
+            <Plus size={12} /> NEW ENTRY
           </Link>
         </div>
       </div>
 
-      {/* Filters */}
-      <div className="flex flex-wrap gap-3">
-        <div className="relative flex-1 min-w-48">
-          <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-text-muted" />
-          <input
-            type="text"
-            placeholder={`Rechercher CVE-ID, description, produit...`}
-            className="input w-full pl-9 pr-4 py-2 text-sm"
-            value={filters.search ?? ''}
-            onChange={(e) => updateFilter('search', e.target.value)}
-          />
+      {/* Zone de contenu scrollable */}
+      <div className="flex-1 overflow-auto p-6 space-y-6">
+        {/* Filtres */}
+        <div className="flex flex-wrap gap-3">
+          <div className="relative flex-1 min-w-[260px]">
+            <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#4a6480]" />
+            <input
+              type="text"
+              placeholder="Rechercher CVE-ID, description, produit..."
+              className="w-full bg-[#0d131f] border border-[#1e2d40] pl-9 pr-4 py-2.5 font-mono text-sm text-[#f1f5f9] placeholder-[#2a3f55] outline-none focus:border-[#00d4ff]/40"
+              value={filters.search ?? ''}
+              onChange={(e) => updateFilter('search', e.target.value)}
+            />
+          </div>
+          <select
+            className="bg-[#0d131f] border border-[#1e2d40] px-3 py-2.5 font-mono text-sm text-[#f1f5f9] focus:border-[#00d4ff]/40 outline-none"
+            value={filters.severity ?? ''}
+            onChange={(e) => updateFilter('severity', e.target.value as CVESeverity | '')}
+          >
+            <option value="">Toutes sévérités</option>
+            {SEVERITIES.map(s => <option key={s} value={s}>{s.toUpperCase()}</option>)}
+          </select>
+          <select
+            className="bg-[#0d131f] border border-[#1e2d40] px-3 py-2.5 font-mono text-sm text-[#f1f5f9] focus:border-[#00d4ff]/40 outline-none"
+            value={filters.status ?? ''}
+            onChange={(e) => updateFilter('status', e.target.value as CVEStatus | '')}
+          >
+            <option value="">Tous status</option>
+            {STATUSES.map(s => <option key={s} value={s}>{STATUS_LABELS[s]}</option>)}
+          </select>
         </div>
-        <select
-          className="input px-3 py-2 text-sm"
-          value={filters.severity ?? ''}
-          onChange={(e) => updateFilter('severity', e.target.value as CVESeverity | '')}
-        >
-          <option value="">{`Toutes les sévérités`}</option>
-          {SEVERITIES.map((s) => <option key={s} value={s} className="capitalize">{s}</option>)}
-        </select>
-        <select
-          className="input px-3 py-2 text-sm"
-          value={filters.status ?? ''}
-          onChange={(e) => updateFilter('status', e.target.value as CVEStatus | '')}
-        >
-          <option value="">{`Tous les statuts`}</option>
-          {STATUSES.map((s) => <option key={s} value={s}>{STATUS_LABELS[s]}</option>)}
-        </select>
+
+        {/* Tableau des CVE */}
+        {loading ? (
+          <RowListSkeleton count={8} />
+        ) : cves.length === 0 ? (
+          <div className="flex flex-col items-center justify-center border border-[#1e2d40] bg-[#0a0f16] py-24 text-center">
+            <AlertTriangle size={40} className="mb-4 text-[#1e2d40]" />
+            <p className="font-mono text-sm uppercase tracking-widest text-[#64748b]">Aucune CVE trouvée</p>
+            <p className="mt-2 font-mono text-xs text-[#334155]">
+              Importez un fichier NVD JSON ou créez une entrée manuellement
+            </p>
+          </div>
+        ) : (
+          <>
+            <div className="overflow-x-auto border border-[#1e2d40]">
+              <table className="w-full text-sm font-mono">
+                <thead className="bg-[#0a0f16] border-b border-[#1e2d40]">
+                  <tr className="text-[10px] font-bold uppercase tracking-widest text-[#4a6480]">
+                    <th className="px-4 py-3 text-left">CVE-ID</th>
+                    <th className="px-4 py-3 text-left">Sévérité</th>
+                    <th className="px-4 py-3 text-left">Score</th>
+                    <th className="px-4 py-3 text-left">Produits</th>
+                    <th className="px-4 py-3 text-left">Statut</th>
+                    <th className="px-4 py-3 text-left">Publié</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {cves.map((cve) => (
+                    <tr
+                      key={cve.id}
+                      className="border-b border-[#1e2d40] hover:bg-[#0a0f16]/70 transition-colors cursor-pointer"
+                      onClick={() => window.location.href = `/cve/${cve.id}`}
+                    >
+                      <td className="px-4 py-3">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <Link
+                            to={`/cve/${cve.id}`}
+                            className="text-[#00d4ff] hover:underline font-mono text-sm"
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            {cve.cve_id}
+                          </Link>
+                          {kevMap.has(cve.cve_id) && (
+                            <span
+                              className="inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 border border-[#ef4444]/50 bg-[#ef4444]/20 text-[#ef4444] animate-pulse font-mono uppercase tracking-wider"
+                              title={`Exploitée activement — ${kevMap.get(cve.cve_id)?.vulnerability_name ?? ''}`}
+                            >
+                              <Flame size={10} /> KEV
+                            </span>
+                          )}
+                        </div>
+                        <p className="text-[11px] text-[#8a9ab0] mt-1 max-w-xs truncate">{cve.description}</p>
+                       </td>
+                      <td className="px-4 py-3">
+                        <span className={`border px-2 py-0.5 font-mono text-[10px] uppercase tracking-widest ${SEV_COLORS[cve.severity]}`}>
+                          {cve.severity}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3 text-[#f1f5f9] font-mono text-sm">
+                        {cve.cvss_score > 0 ? cve.cvss_score.toFixed(1) : '—'}
+                      </td>
+                      <td className="px-4 py-3 text-xs text-[#8a9ab0] max-w-xs truncate">
+                        {cve.products || '—'}
+                      </td>
+                      <td className="px-4 py-3">
+                        <span className={`text-[11px] font-mono font-bold uppercase tracking-wider ${STATUS_COLORS[cve.status]}`}>
+                          {STATUS_LABELS[cve.status]}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3 text-[11px] text-[#64748b]">
+                        {cve.published_at ? new Date(cve.published_at).toLocaleDateString('fr-FR') : '—'}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            <div className="border-t border-[#1e2d40] bg-[#0a0f16] p-4">
+              <Pagination page={page} totalPages={totalPages} onPage={setPage} />
+            </div>
+          </>
+        )}
       </div>
 
-      {/* Table */}
-      {loading ? (
-        <RowListSkeleton count={8} />
-      ) : cves.length === 0 ? (
-        <div className="text-center py-20 text-text-muted">
-          <AlertTriangle size={40} className="mx-auto mb-3 opacity-20" />
-          <p>{`Aucune CVE trouvée`}</p>
-          <p className="text-xs mt-2">{`Importez un fichier NVD JSON ou créez une entrée manuellement`}</p>
-        </div>
-      ) : (
-        <>
-          <div className="overflow-x-auto rounded border border-border">
-            <table className="w-full text-sm">
-              <thead className="bg-bg-secondary border-b border-border">
-                <tr className="text-text-muted text-xs uppercase tracking-wider">
-                  <th className="px-4 py-3 text-left">{`CVE-ID`}</th>
-                  <th className="px-4 py-3 text-left">{`Sévérité`}</th>
-                  <th className="px-4 py-3 text-left">{`Score`}</th>
-                  <th className="px-4 py-3 text-left">{`Produits`}</th>
-                  <th className="px-4 py-3 text-left">{`Statut`}</th>
-                  <th className="px-4 py-3 text-left">{`Publié`}</th>
-                </tr>
-              </thead>
-              <tbody>
-                {cves.map((cve) => (
-                  <tr
-                    key={cve.id}
-                    className="border-b border-border/50 hover:bg-bg-hover transition-colors cursor-pointer"
-                    onClick={() => window.location.href = `/cve/${cve.id}`}
-                  >
-                    <td className="px-4 py-3">
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <Link
-                          to={`/cve/${cve.id}`}
-                          className="font-mono text-cyber-cyan hover:underline font-medium"
-                          onClick={(e) => e.stopPropagation()}
-                        >
-                          {cve.cve_id}
-                        </Link>
-                        {kevMap.has(cve.cve_id) && (
-                          <span
-                            className="inline-flex items-center gap-1 text-xs px-1.5 py-0.5 rounded border border-red-500/50 bg-red-900/30 text-red-400 animate-pulse font-semibold"
-                            title={`Exploitée activement — CISA KEV · ${kevMap.get(cve.cve_id)?.vulnerability_name ?? ''}`}
-                          >
-                            <Flame size={10} /> KEV
-                          </span>
-                        )}
-                      </div>
-                      <p className="text-xs text-text-muted mt-0.5 max-w-xs truncate">{cve.description}</p>
-                    </td>
-                    <td className="px-4 py-3">
-                      <span className={`text-xs px-2 py-0.5 rounded border capitalize font-medium ${SEV_COLORS[cve.severity]}`}>
-                        {cve.severity}
-                      </span>
-                    </td>
-                    <td className="px-4 py-3 font-mono text-xs text-text-secondary">
-                      {cve.cvss_score > 0 ? cve.cvss_score.toFixed(1) : '—'}
-                    </td>
-                    <td className="px-4 py-3 text-xs text-text-muted max-w-xs truncate">
-                      {cve.products || '—'}
-                    </td>
-                    <td className="px-4 py-3">
-                      <span className={`text-xs font-medium ${STATUS_COLORS[cve.status]}`}>
-                        {STATUS_LABELS[cve.status]}
-                      </span>
-                    </td>
-                    <td className="px-4 py-3 text-xs text-text-muted">
-                      {cve.published_at ? new Date(cve.published_at).toLocaleDateString('fr-FR') : '—'}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-          <Pagination page={page} totalPages={totalPages} onPage={setPage} />
-        </>
-      )}
+      <input ref={fileRef} type="file" accept=".json" className="hidden" onChange={handleImport} />
     </div>
   )
 }

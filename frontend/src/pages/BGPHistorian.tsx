@@ -1,8 +1,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import {
   History, CheckCheck, Loader2, AlertCircle,
-  Network, ChevronRight, X, GitCompare, RefreshCw,
-  ShieldAlert, Download, Clock, AlertTriangle,
+  Network, ChevronRight, X, GitCompare, RefreshCw, Clock, AlertTriangle, Trash2,
 } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { bgpApi } from '@/api/client'
@@ -33,20 +32,27 @@ function alertSeverityStyle(type: BGPAlertType): { border: string; text: string;
 }
 
 function formatDate(iso: string): string {
-  return new Date(iso).toLocaleString('fr-FR', {
-    day: 'numeric', month: 'short', year: 'numeric',
-    hour: '2-digit', minute: '2-digit',
-  })
+  try {
+    const date = new Date(iso)
+    if (isNaN(date.getTime())) throw new Error('Invalid date')
+    return date.toLocaleString('fr-FR', {
+      day: 'numeric', month: 'short', year: 'numeric',
+      hour: '2-digit', minute: '2-digit',
+    })
+  } catch {
+    return 'Date inconnue'
+  }
 }
 
 function parseAlertPreview(alert: BGPAlert): string {
   try {
+    if (!alert.old_value || !alert.new_value) return 'Données manquantes'
     const oldParsed = JSON.parse(alert.old_value) as Record<string, unknown>
     const newParsed = JSON.parse(alert.new_value) as Record<string, unknown>
     const oldData = (oldParsed?.data ?? oldParsed) as Record<string, unknown[]>
     const newData = (newParsed?.data ?? newParsed) as Record<string, unknown[]>
     const keys = Object.keys(newData).filter((k) => Array.isArray(newData[k]))
-    if (keys.length === 0) return 'Changement détecté'
+    if (keys.length === 0) return 'Changement générique'
     let totalAdded = 0; let totalRemoved = 0
     for (const k of keys) {
       const oldArr = (oldData[k] as unknown[]) ?? []
@@ -58,9 +64,9 @@ function parseAlertPreview(alert: BGPAlert): string {
     const parts: string[] = []
     if (totalAdded > 0) parts.push(`+${totalAdded}`)
     if (totalRemoved > 0) parts.push(`-${totalRemoved}`)
-    return parts.length > 0 ? parts.join(' / ') : 'Changement détecté'
+    return parts.length > 0 ? parts.join(' / ') : 'Changement indéterminé'
   } catch {
-    return 'Changement détecté'
+    return 'Erreur de parsing (données corrompues ?)'
   }
 }
 
@@ -98,7 +104,7 @@ function DiffModal({ diffResponse, onClose }: DiffModalProps) {
 
     return (
       <div key={fieldName} className="mb-4">
-        <div className="text-[9px] text-[#4a6480] font-mono mb-2 uppercase tracking-widest">
+        <div className="text-[9px] font-mono text-[#4a6480] uppercase tracking-widest mb-2">
           {fieldName}
         </div>
         {totalChanges > DIFF_TRUNCATE_THRESHOLD ? (
@@ -130,7 +136,7 @@ function DiffModal({ diffResponse, onClose }: DiffModalProps) {
         <div className="flex items-center justify-between p-4 border-b border-[#1e2d40] bg-[#0a0f16]">
           <div className="flex items-center gap-2">
             <GitCompare size={16} className="text-[#00d4ff]" />
-            <span className="font-bold text-xs tracking-widest uppercase text-[#f1f5f9]">Differential Engine</span>
+            <span className="font-mono font-bold text-xs uppercase tracking-widest text-[#f1f5f9]">Differential Engine</span>
           </div>
           <div className="text-[10px] text-[#4a6480] font-mono flex items-center gap-2">
             <span className="text-[#ef4444]">#{older.id}</span>
@@ -147,13 +153,13 @@ function DiffModal({ diffResponse, onClose }: DiffModalProps) {
         </div>
         <div className="flex-1 overflow-y-auto p-4">
           {diff.changed_fields.length === 0 ? (
-            <div className="text-center text-[#4a6480] font-mono text-xs py-8 uppercase tracking-widest">
+            <div className="text-center font-mono text-xs text-[#4a6480] py-8 uppercase tracking-widest">
               No changes detected between these snapshots.
             </div>
           ) : (
             <div>
               <div className="flex flex-wrap gap-2 mb-4">
-                {diff.changed_fields.map((f) => (
+                {diff.changed_fields.map(f => (
                   <span key={f} className="text-[9px] font-mono px-2 py-0.5 bg-[#00d4ff]/10 text-[#00d4ff] border border-[#00d4ff]/20 uppercase tracking-widest">
                     {f}
                   </span>
@@ -161,7 +167,7 @@ function DiffModal({ diffResponse, onClose }: DiffModalProps) {
               </div>
               {Object.entries(diff.changes).map(([section, fields]) => (
                 <div key={section} className="mb-6">
-                  <h3 className="text-[10px] font-bold text-[#8a9ab0] mb-3 uppercase tracking-widest border-b border-[#1e2d40] pb-2">
+                  <h3 className="text-[10px] font-mono font-bold text-[#8a9ab0] mb-3 uppercase tracking-widest border-b border-[#1e2d40] pb-2">
                     {section}
                   </h3>
                   {Object.entries(fields as Record<string, BGPDiffField>).map(
@@ -183,19 +189,34 @@ function AlertsSection() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [ackingId, setAckingId] = useState<number | null>(null)
+  const [purging, setPurging] = useState(false)
 
   const loadAlerts = useCallback(() => {
     setLoading(true)
     setError(null)
     bgpApi.getAlerts(100, 0)
-      .then((r) => setAlerts(r.items))
-      .catch((e: unknown) => setError(e instanceof Error ? e.message : 'Erreur réseau'))
+      .then(r => {
+        const validAlerts = r.items.filter(alert => {
+          try {
+            const d = new Date(alert.detected_at)
+            return !isNaN(d.getTime())
+          } catch {
+            return false
+          }
+        })
+        setAlerts(validAlerts)
+        if (validAlerts.length !== r.items.length) {
+          const skipped = r.items.length - validAlerts.length
+          console.warn(`${skipped} alerte(s) ignorée(s) à cause d'une date invalide`)
+        }
+      })
+      .catch(e => setError(e instanceof Error ? e.message : 'Erreur réseau'))
       .finally(() => setLoading(false))
   }, [])
 
   useEffect(() => {
     loadAlerts()
-    const interval = setInterval(loadAlerts, 30_000)
+    const interval = setInterval(loadAlerts, 30000)
     return () => clearInterval(interval)
   }, [loadAlerts])
 
@@ -203,29 +224,70 @@ function AlertsSection() {
     setAckingId(id)
     try {
       await bgpApi.ackAlert(id)
-      setAlerts((prev) => prev.filter((a) => a.id !== id))
+      setAlerts(prev => prev.filter(a => a.id !== id))
       toast.success('Alerte acquittée')
-    } catch (e: unknown) {
+    } catch (e) {
       toast.error(e instanceof Error ? e.message : 'Erreur acquittement')
     } finally {
       setAckingId(null)
     }
   }
 
+  const purgeCorruptedAlerts = async () => {
+    if (!confirm('⚠️ Purger toutes les alertes avec des dates corrompues ?\nCette action les acquittera définitivement.')) return
+    setPurging(true)
+    try {
+      const res = await bgpApi.getAlerts(1000, 0)
+      const corrupted = res.items.filter(alert => {
+        try {
+          const d = new Date(alert.detected_at)
+          return isNaN(d.getTime())
+        } catch {
+          return true
+        }
+      })
+      if (corrupted.length === 0) {
+        toast.info('Aucune alerte corrompue trouvée')
+        return
+      }
+      let count = 0
+      for (const alert of corrupted) {
+        await bgpApi.ackAlert(alert.id)
+        count++
+      }
+      toast.success(`${count} alerte(s) corrompue(s) purgée(s)`)
+      loadAlerts()
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : 'Erreur lors de la purge')
+    } finally {
+      setPurging(false)
+    }
+  }
+
   return (
     <div>
-      <div className="flex items-center justify-between mb-3">
-        <h3 className="text-xs font-bold text-[#ef4444] flex items-center gap-2 uppercase tracking-widest">
-          <AlertTriangle size={14} /> Critical_Events_Stream
+      <div className="flex items-center justify-between mb-4">
+        <h3 className="text-xs font-mono font-bold text-[#ef4444] flex items-center gap-2 uppercase tracking-widest">
+          <AlertTriangle size={14} /> CRITICAL_EVENTS_STREAM
           {alerts.length > 0 && (
             <span className="px-2 py-0.5 bg-[#ef4444] text-white text-[9px] font-bold animate-pulse">
               {alerts.length} ACTIVE
             </span>
           )}
         </h3>
-        <button onClick={loadAlerts} disabled={loading} className="p-1.5 hover:bg-[#1e2d40] text-[#4a6480] hover:text-[#8a9ab0] transition-colors" title="Rafraîchir">
-          <RefreshCw size={12} className={loading ? 'animate-spin' : ''} />
-        </button>
+        <div className="flex gap-2">
+          <button
+            onClick={purgeCorruptedAlerts}
+            disabled={purging}
+            className="p-1.5 hover:bg-[#ef4444]/10 text-[#ef4444] hover:text-[#ef4444] transition-colors rounded"
+            title="Purger les alertes corrompues (dates invalides)"
+          >
+            {purging ? <Loader2 size={12} className="animate-spin" /> : <Trash2 size={12} />}
+          </button>
+          <button onClick={loadAlerts} disabled={loading} className="p-1.5 hover:bg-[#1e2d40] text-[#4a6480] hover:text-[#8a9ab0] transition-colors" title="Rafraîchir">
+            <RefreshCw size={12} className={loading ? 'animate-spin' : ''} />
+          </button>
+        </div>
       </div>
 
       {loading && <Spinner />}
@@ -240,7 +302,7 @@ function AlertsSection() {
 
       {!loading && !error && alerts.length > 0 && (
         <div className="space-y-2">
-          {alerts.map((alert) => {
+          {alerts.map(alert => {
             const style = alertSeverityStyle(alert.alert_type)
             return (
               <div key={alert.id} className={`flex items-center justify-between p-3 border-l-2 font-mono text-[11px] ${style.border} ${style.text} ${style.bg}`}>
@@ -252,7 +314,7 @@ function AlertsSection() {
                   <span className="opacity-50 text-[9px] truncate">{parseAlertPreview(alert)}</span>
                 </div>
                 <div className="flex items-center gap-2 shrink-0 ml-2">
-                  <button onClick={() => navigate(`/bgp?asn=${alert.asn}`)} className="text-[9px] font-bold uppercase hover:underline opacity-70 hover:opacity-100 flex items-center gap-1">
+                  <button onClick={() => navigate(`/bgp?asn=${alert.asn}`)} className="text-[9px] font-mono font-bold uppercase hover:underline opacity-70 hover:opacity-100 flex items-center gap-1">
                     <Network size={10} /> Investigate
                   </button>
                   <button onClick={() => handleAck(alert.id)} disabled={ackingId === alert.id} className="p-1 hover:bg-white/10 transition-colors opacity-70 hover:opacity-100" title="Acquitter">
@@ -286,9 +348,17 @@ function SnapshotsSection() {
     setSelected([])
     try {
       const res = await bgpApi.getSnapshots(asn, 50, 0)
-      setSnapshots(res.items)
-      setTotal(res.total)
-    } catch (e: unknown) {
+      const validSnapshots = res.items.filter(s => {
+        try {
+          const d = new Date(s.created_at)
+          return !isNaN(d.getTime())
+        } catch {
+          return false
+        }
+      })
+      setSnapshots(validSnapshots)
+      setTotal(validSnapshots.length)
+    } catch (e) {
       setError(e instanceof Error ? e.message : 'Erreur réseau')
     } finally {
       setLoading(false)
@@ -303,8 +373,8 @@ function SnapshotsSection() {
   }
 
   const toggleSelect = (id: number) => {
-    setSelected((prev) => {
-      if (prev.includes(id)) return prev.filter((x) => x !== id)
+    setSelected(prev => {
+      if (prev.includes(id)) return prev.filter(x => x !== id)
       if (prev.length >= 2) return [prev[1], id]
       return [...prev, id]
     })
@@ -317,7 +387,7 @@ function SnapshotsSection() {
     try {
       const res = await bgpApi.getDiff(currentASN, a, b)
       setDiffResponse(res)
-    } catch (e: unknown) {
+    } catch (e) {
       toast.error(e instanceof Error ? e.message : 'Erreur diff')
     } finally {
       setDiffLoading(false)
@@ -332,12 +402,12 @@ function SnapshotsSection() {
         <input
           type="text"
           value={asnInput}
-          onChange={(e) => setAsnInput(e.target.value)}
-          onKeyDown={(e) => e.key === 'Enter' && handleLoad()}
+          onChange={e => setAsnInput(e.target.value)}
+          onKeyDown={e => e.key === 'Enter' && handleLoad()}
           placeholder="ENTER ASN... (ex: 13335)"
-          className="flex-1 px-4 py-3 bg-[#0d131f] border border-[#1e2d40] text-sm font-mono text-[#f1f5f9] placeholder-[#334155] uppercase tracking-widest focus:outline-none focus:border-[#00d4ff]/50"
+          className="flex-1 bg-[#0d131f] border border-[#1e2d40] px-4 py-3 font-mono text-sm text-[#f1f5f9] placeholder-[#334155] uppercase tracking-widest focus:outline-none focus:border-[#00d4ff]/50"
         />
-        <button onClick={handleLoad} disabled={loading} className="bg-[#00d4ff]/10 hover:bg-[#00d4ff]/20 text-[#00d4ff] px-6 border border-l-0 border-[#1e2d40] text-xs font-bold tracking-widest uppercase transition-colors disabled:opacity-50 flex items-center gap-2">
+        <button onClick={handleLoad} disabled={loading} className="bg-[#00d4ff]/10 hover:bg-[#00d4ff]/20 text-[#00d4ff] px-6 border border-l-0 border-[#1e2d40] text-xs font-mono font-bold uppercase tracking-widest transition-colors disabled:opacity-50 flex items-center gap-2">
           {loading ? <Loader2 size={14} className="animate-spin" /> : <Network size={14} />}
           LOAD
         </button>
@@ -348,7 +418,7 @@ function SnapshotsSection() {
 
       {!loading && !error && currentASN !== null && snapshots.length === 0 && (
         <div className="text-center font-mono text-[10px] text-[#4a6480] py-10 uppercase tracking-widest">
-          No snapshots for AS{currentASN} — take one from BGP Lookup.
+          No valid snapshots for AS{currentASN} — take one from BGP Lookup.
         </div>
       )}
 
@@ -359,7 +429,7 @@ function SnapshotsSection() {
               {total} SNAPSHOT(S) — AS{currentASN}
             </span>
             {selected.length === 2 && (
-              <button onClick={handleCompare} disabled={diffLoading} className="flex items-center gap-2 px-3 py-1.5 bg-[#00d4ff]/10 hover:bg-[#00d4ff]/20 text-[#00d4ff] border border-[#00d4ff]/20 text-[10px] font-bold tracking-widest uppercase transition-colors disabled:opacity-50">
+              <button onClick={handleCompare} disabled={diffLoading} className="flex items-center gap-2 px-3 py-1.5 bg-[#00d4ff]/10 hover:bg-[#00d4ff]/20 text-[#00d4ff] border border-[#00d4ff]/20 text-[10px] font-mono font-bold uppercase tracking-widest transition-colors disabled:opacity-50">
                 {diffLoading ? <Loader2 size={10} className="animate-spin" /> : <GitCompare size={10} />}
                 INITIALIZE_DIFF
               </button>
@@ -381,7 +451,7 @@ function SnapshotsSection() {
                     ? 'border-[#00d4ff]/50 bg-[#00d4ff]/5 text-[#00d4ff]'
                     : 'border-[#1e2d40] bg-[#0d131f] hover:border-[#00d4ff]/30 text-[#8a9ab0]'
                 }`}>
-                  <input type="checkbox" checked={isSelected} onChange={() => toggleSelect(snap.id)} onClick={(e) => e.stopPropagation()} className="rounded border-[#4a6480] text-[#00d4ff] focus:ring-[#00d4ff] bg-[#06080f]" />
+                  <input type="checkbox" checked={isSelected} onChange={() => toggleSelect(snap.id)} onClick={e => e.stopPropagation()} className="rounded border-[#4a6480] text-[#00d4ff] focus:ring-[#00d4ff] bg-[#06080f]" />
                   <span className="text-[#4a6480] text-[9px]">#{snap.id}</span>
                   <Clock size={10} className="text-[#4a6480]" />
                   <span>{formatDate(snap.created_at)}</span>
@@ -403,38 +473,40 @@ export default function BGPHistorian() {
 
   return (
     <div className="flex flex-col h-full bg-[#06080f] text-[#f1f5f9]">
-      <div className="flex items-center justify-between px-6 py-3 bg-[#0a0f16] border-b border-[#1e2d40]">
-        <div className="flex items-center gap-4">
-          <div className="flex items-center gap-2 text-xs font-bold text-[#00d4ff]">
-            <History size={16} />
-            <span className="tracking-[0.1em] uppercase">Routing_History_Log</span>
+      <div className="flex items-center justify-between px-6 py-4 border-b border-[#1e2d40] bg-[#0a0f16]/50">
+        <div className="flex items-center gap-3">
+          <div className="relative">
+            <History className="text-[#00d4ff]" size={20} />
+            <div className="absolute -top-1 -right-1 w-2 h-2 bg-[#10b981] rounded-full animate-pulse shadow-[0_0_8px_#10b981]" />
           </div>
-          <div className="h-4 w-px bg-[#1e2d40]" />
-          <div className="flex items-center gap-2 text-[10px] text-[#ef4444] font-mono animate-pulse">
-            <ShieldAlert size={14} />
-            <span>THREAT MONITORING ACTIVE</span>
+          <div>
+            <h1 className="text-sm font-bold tracking-[0.2em] uppercase">BGP HISTORIAN // LOG</h1>
+            <p className="text-[10px] text-[#64748b] font-mono">Routing History Log — Temporal Snapshots &amp; Critical Events</p>
           </div>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-4 font-mono text-[10px]">
+          <span className="text-[#64748b]">STATUS</span>
+          <span className="text-[#10b981]">ACTIVE</span>
           <button onClick={() => navigate('/bgp')} className="flex items-center gap-2 px-3 py-1.5 bg-[#1e2d40] hover:bg-[#2a3f55] text-[10px] font-bold border border-[#334155] transition-colors">
             <Network size={12} /> BGP_LOOKUP
-          </button>
-          <button className="flex items-center gap-2 px-3 py-1.5 bg-[#1e2d40] hover:bg-[#2a3f55] text-[10px] font-bold border border-[#334155] transition-colors">
-            <Download size={12} /> EXPORT_SNAPSHOTS
           </button>
         </div>
       </div>
 
       <div className="flex border-b border-[#1e2d40] bg-[#0a0f16]/50">
         {[
-          { id: 'alerts' as const,    label: 'Critical_Events_Stream', icon: <AlertTriangle size={12} /> },
-          { id: 'snapshots' as const, label: 'Temporal_Snapshots',     icon: <Clock size={12} /> },
-        ].map((tab) => (
-          <button key={tab.id} onClick={() => setActiveTab(tab.id)} className={`flex items-center gap-2 px-5 py-3 text-[10px] font-bold tracking-widest uppercase border-b-2 transition-colors ${
+          { id: 'alerts' as const,    label: 'CRITICAL_EVENTS_STREAM', icon: <AlertTriangle size={12} /> },
+          { id: 'snapshots' as const, label: 'TEMPORAL_SNAPSHOTS',     icon: <Clock size={12} /> },
+        ].map(tab => (
+          <button
+            key={tab.id}
+            onClick={() => setActiveTab(tab.id)}
+            className={`flex items-center gap-2 px-5 py-3 text-[10px] font-mono font-bold uppercase tracking-widest border-b-2 transition-colors ${
               activeTab === tab.id
                 ? 'border-[#00d4ff] text-[#00d4ff] bg-[#00d4ff]/5'
                 : 'border-transparent text-[#4a6480] hover:text-[#8a9ab0]'
-            }`}>
+            }`}
+          >
             {tab.icon}
             {tab.label}
           </button>

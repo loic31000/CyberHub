@@ -2,7 +2,7 @@ import { NavLink, useNavigate } from 'react-router-dom'
 import { useAuthStore } from '@/store/auth'
 import {
   LayoutDashboard, Wrench, FileText, ShieldAlert, BookOpen, LogOut, Settings,
-  ShieldBan, EyeOff, Network, History, GitBranch, Terminal, StickyNote, ChevronRight
+  ShieldBan, EyeOff, Network, History, GitBranch, Terminal, StickyNote, ChevronRight, Search
 } from 'lucide-react'
 import clsx from 'clsx'
 
@@ -34,6 +34,7 @@ export default function Sidebar({ collapsed, bgpAlertCount = 0 }: any) {
         { to: '/cloak', label: 'CLOAK OpSec', icon: <EyeOff size={18} /> },
         { to: '/ioc', label: 'IOC Manager', icon: <ShieldBan size={18} /> },
         { to: '/correlation', label: 'Corrélation', icon: <GitBranch size={18} /> },
+        { to: '/osint', label: 'OSINT Runner', icon: <Search size={18} /> },
       ],
     },
     {

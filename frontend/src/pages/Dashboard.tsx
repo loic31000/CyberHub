@@ -70,7 +70,7 @@ export default function Dashboard() {
 
   // Seulement les 4 métriques principales en haut
   const mainKpis = [
-    { label: 'Payloads', value: stats?.tools_total, sub: 'Scripts & exploits', icon: <Database size={20}/>, path: '/tools' },
+    { label: 'Tools', value: stats?.tools_total, sub: 'Tools', icon: <Database size={20}/>, path: '/tools' },
     { label: 'Writeups', value: stats?.ctf_total, sub: 'CTF Database', icon: <Trophy size={20}/>, path: '/ctf' },
     { label: 'Veille Live', value: stats?.cve_total, sub: 'CVE & KEV Live', icon: <ShieldAlert size={20}/>, path: '/cve' },
     { label: 'Playbooks', value: stats?.playbooks_total, sub: 'IR Procedures', icon: <BookOpen size={20}/>, path: '/playbooks' },
