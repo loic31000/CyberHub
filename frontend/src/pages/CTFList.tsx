@@ -12,27 +12,27 @@ const DIFFICULTIES: CTFDifficulty[] = ['easy', 'medium', 'hard', 'insane']
 const LIMIT = 15
 
 const DIFF_COLORS: Record<CTFDifficulty, string> = {
-  easy:   'text-cyber-green border-cyber-green/40',
-  medium: 'text-yellow-400 border-yellow-400/40',
-  hard:   'text-orange-400 border-orange-400/40',
-  insane: 'text-cyber-red  border-cyber-red/40',
+  easy:   'border-[#10b981]/30 bg-[#10b981]/10 text-[#10b981]',
+  medium: 'border-[#eab308]/30 bg-[#eab308]/10 text-[#eab308]',
+  hard:   'border-[#f97316]/30 bg-[#f97316]/10 text-[#f97316]',
+  insane: 'border-[#ef4444]/30 bg-[#ef4444]/10 text-[#ef4444]',
 }
 
 const PLATFORM_COLORS: Record<CTFPlatform, string> = {
-  TryHackMe:  'bg-red-500/20 text-red-400',
-  HackTheBox: 'bg-green-500/20 text-green-400',
-  'Root-Me':  'bg-blue-500/20 text-blue-400',
-  PicoCTF:    'bg-purple-500/20 text-purple-400',
-  Autre:      'bg-gray-500/20 text-gray-400',
+  TryHackMe:  'border-[#ef4444]/30 bg-[#ef4444]/10 text-[#ef4444]',
+  HackTheBox: 'border-[#10b981]/30 bg-[#10b981]/10 text-[#10b981]',
+  'Root-Me':  'border-[#3b82f6]/30 bg-[#3b82f6]/10 text-[#3b82f6]',
+  PicoCTF:    'border-[#a855f7]/30 bg-[#a855f7]/10 text-[#a855f7]',
+  Autre:      'border-[#64748b]/30 bg-[#64748b]/10 text-[#64748b]',
 }
 
 export default function CTFList() {
-    const [writeups, setWriteups]     = useState<CTFWriteup[]>([])
-  const [count, setCount]           = useState(0)
+  const [writeups, setWriteups] = useState<CTFWriteup[]>([])
+  const [count, setCount] = useState(0)
   const [totalPages, setTotalPages] = useState(1)
-  const [page, setPage]             = useState(1)
-  const [loading, setLoading]       = useState(true)
-  const [filters, setFilters]       = useState<CTFFilter>({ platform: '', difficulty: '', search: '' })
+  const [page, setPage] = useState(1)
+  const [loading, setLoading] = useState(true)
+  const [filters, setFilters] = useState<CTFFilter>({ platform: '', difficulty: '', search: '' })
 
   const fetchCTF = useCallback(async () => {
     setLoading(true)
@@ -56,96 +56,117 @@ export default function CTFList() {
     setFilters(f => ({ ...f, [k]: v }))
   }
 
-  const completed = writeups.filter((w) => w.completed).length
+  const completed = writeups.filter(w => w.completed).length
 
   return (
-    <div className="p-6 space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-text-primary flex items-center gap-2">
-            <Trophy size={24} className="text-yellow-400" />
-            {`Writeups CTF`}
-          </h1>
-          <p className="text-text-muted text-sm mt-1">
-            {count} writeup{count > 1 ? 's' : ''} —{' '}
-            <span className="text-cyber-green">{completed} {`Complété`} (page en cours)</span>
-          </p>
+    <div className="flex flex-col h-full bg-[#06080f] text-[#f1f5f9]">
+      {/* Bandeau d'en-tête style BGPLookup */}
+      <div className="flex items-center justify-between px-6 py-4 border-b border-[#1e2d40] bg-[#0a0f16]/50">
+        <div className="flex items-center gap-3">
+          <div className="relative">
+            <Trophy className="text-[#00d4ff]" size={20} />
+            <div className="absolute -top-1 -right-1 w-2 h-2 bg-[#10b981] rounded-full animate-pulse shadow-[0_0_8px_#10b981]" />
+          </div>
+          <div>
+            <h1 className="text-sm font-bold tracking-[0.2em] uppercase">CTF WRITEUPS // INDEX</h1>
+            <p className="text-[10px] text-[#64748b] font-mono">
+              {count} writeup{count > 1 ? 's' : ''} • {completed} terminé{completed > 1 ? 's' : ''}
+            </p>
+          </div>
         </div>
-        <Link to="/ctf/new" className="btn-primary flex items-center gap-2 px-4 py-2 rounded text-sm font-medium">
-          <Plus size={16} /> {`Nouveau writeup`}
-        </Link>
-      </div>
-
-      {/* Filtres */}
-      <div className="flex flex-wrap gap-3">
-        <div className="relative flex-1 min-w-48">
-          <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-text-muted" />
-          <input
-            type="text"
-            placeholder={`Rechercher...`}
-            className="input w-full pl-9 pr-4 py-2 text-sm"
-            value={filters.search ?? ''}
-            onChange={(e) => updateFilter('search', e.target.value)}
-          />
-        </div>
-        <select
-          className="input px-3 py-2 text-sm"
-          value={filters.platform ?? ''}
-          onChange={(e) => updateFilter('platform', e.target.value as CTFPlatform | '')}
-        >
-          <option value="">{`Toutes les plateformes`}</option>
-          {PLATFORMS.map((p) => <option key={p} value={p}>{p}</option>)}
-        </select>
-        <select
-          className="input px-3 py-2 text-sm"
-          value={filters.difficulty ?? ''}
-          onChange={(e) => updateFilter('difficulty', e.target.value as CTFDifficulty | '')}
-        >
-          <option value="">{`Toutes les difficultés`}</option>
-          {DIFFICULTIES.map((d) => <option key={d} value={d} className="capitalize">{d}</option>)}
-        </select>
-      </div>
-
-      {/* Contenu */}
-      {loading ? (
-        <CardGridSkeleton count={6} />
-      ) : writeups.length === 0 ? (
-        <div className="text-center py-20 text-text-muted">
-          <Trophy size={40} className="mx-auto mb-3 opacity-20" />
-          <p>{`Aucun writeup trouvé`}</p>
-          <Link to="/ctf/new" className="text-cyber-cyan text-sm hover:underline mt-2 block">
-            {`Créer le premier writeup`}
+        <div className="flex items-center gap-4">
+          <Link
+            to="/ctf/new"
+            className="flex items-center gap-2 px-3 py-1.5 bg-[#1e2d40] hover:bg-[#2a3f55] text-[10px] font-bold border border-[#334155] transition-colors"
+          >
+            <Plus size={12} /> NEW ENTRY
           </Link>
         </div>
-      ) : (
-        <>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {writeups.map((w) => (
-              <Link key={w.id} to={`/ctf/${w.id}`} className="card hover:border-cyber-cyan/40 transition-colors group">
-                <div className="flex items-start justify-between mb-3">
-                  <span className={`text-xs px-2 py-0.5 rounded font-medium ${PLATFORM_COLORS[w.platform]}`}>
-                    {w.platform}
-                  </span>
-                  {w.completed
-                    ? <CheckCircle2 size={16} className="text-cyber-green" />
-                    : <Circle size={16} className="text-text-muted" />}
-                </div>
-                <h3 className="font-semibold text-text-primary group-hover:text-cyber-cyan transition-colors mb-1">
-                  {w.title}
-                </h3>
-                {w.machine_name && <p className="text-xs text-text-muted mb-2">📦 {w.machine_name}</p>}
-                <div className="flex items-center justify-between mt-auto pt-2">
-                  <span className={`text-xs border px-2 py-0.5 rounded capitalize ${DIFF_COLORS[w.difficulty]}`}>
-                    {w.difficulty}
-                  </span>
-                  {w.category && <span className="text-xs text-text-muted">{w.category}</span>}
-                </div>
-              </Link>
-            ))}
+      </div>
+
+      {/* Zone de contenu scrollable */}
+      <div className="flex-1 overflow-auto p-6 space-y-6">
+        {/* Filtres */}
+        <div className="flex flex-wrap gap-3">
+          <div className="relative flex-1 min-w-[260px]">
+            <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#4a6480]" />
+            <input
+              type="text"
+              placeholder="Rechercher un writeup..."
+              className="w-full bg-[#0d131f] border border-[#1e2d40] pl-9 pr-4 py-2.5 font-mono text-sm text-[#f1f5f9] placeholder-[#2a3f55] outline-none focus:border-[#00d4ff]/40"
+              value={filters.search ?? ''}
+              onChange={(e) => updateFilter('search', e.target.value)}
+            />
           </div>
-          <Pagination page={page} totalPages={totalPages} onPage={setPage} />
-        </>
-      )}
+          <select
+            className="bg-[#0d131f] border border-[#1e2d40] px-3 py-2.5 font-mono text-sm text-[#f1f5f9] focus:border-[#00d4ff]/40 outline-none"
+            value={filters.platform ?? ''}
+            onChange={(e) => updateFilter('platform', e.target.value as CTFPlatform | '')}
+          >
+            <option value="">Toutes les plateformes</option>
+            {PLATFORMS.map(p => <option key={p} value={p}>{p}</option>)}
+          </select>
+          <select
+            className="bg-[#0d131f] border border-[#1e2d40] px-3 py-2.5 font-mono text-sm text-[#f1f5f9] focus:border-[#00d4ff]/40 outline-none"
+            value={filters.difficulty ?? ''}
+            onChange={(e) => updateFilter('difficulty', e.target.value as CTFDifficulty | '')}
+          >
+            <option value="">Toutes les difficultés</option>
+            {DIFFICULTIES.map(d => <option key={d} value={d} className="capitalize">{d}</option>)}
+          </select>
+        </div>
+
+        {/* Grille des writeups */}
+        {loading ? (
+          <CardGridSkeleton count={6} />
+        ) : writeups.length === 0 ? (
+          <div className="flex flex-col items-center justify-center border border-[#1e2d40] bg-[#0a0f16] py-24 text-center">
+            <Trophy size={40} className="mb-4 text-[#1e2d40]" />
+            <p className="font-mono text-sm uppercase tracking-widest text-[#64748b]">Aucun writeup trouvé</p>
+            <Link to="/ctf/new" className="mt-2 font-mono text-xs text-[#00d4ff] hover:underline">
+              Créer le premier writeup
+            </Link>
+          </div>
+        ) : (
+          <>
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
+              {writeups.map(w => (
+                <Link
+                  key={w.id}
+                  to={`/ctf/${w.id}`}
+                  className="group block border border-[#1e2d40] bg-[#0a0f16] p-5 hover:border-[#00d4ff]/40 transition-colors"
+                >
+                  <div className="flex items-start justify-between mb-3">
+                    <span className={`border px-2 py-0.5 font-mono text-[9px] uppercase tracking-widest ${PLATFORM_COLORS[w.platform]}`}>
+                      {w.platform}
+                    </span>
+                    {w.completed
+                      ? <CheckCircle2 size={16} className="text-[#10b981]" />
+                      : <Circle size={16} className="text-[#4a6480]" />}
+                  </div>
+                  <h3 className="font-mono text-base font-bold uppercase tracking-wide text-[#f1f5f9] group-hover:text-[#00d4ff] transition-colors mb-1">
+                    {w.title}
+                  </h3>
+                  {w.machine_name && (
+                    <p className="text-[11px] font-mono text-[#64748b] mb-2">📦 {w.machine_name}</p>
+                  )}
+                  <div className="flex items-center justify-between mt-3 pt-2 border-t border-[#1e2d40]">
+                    <span className={`border px-2 py-0.5 font-mono text-[9px] uppercase tracking-widest ${DIFF_COLORS[w.difficulty]}`}>
+                      {w.difficulty}
+                    </span>
+                    {w.category && (
+                      <span className="text-[10px] font-mono text-[#4a6480]">{w.category}</span>
+                    )}
+                  </div>
+                </Link>
+              ))}
+            </div>
+            <div className="border-t border-[#1e2d40] bg-[#0a0f16] p-4">
+              <Pagination page={page} totalPages={totalPages} onPage={setPage} />
+            </div>
+          </>
+        )}
+      </div>
     </div>
   )
 }

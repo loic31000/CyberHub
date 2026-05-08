@@ -1,218 +1,256 @@
+// frontend/src/pages/ToolDetail.tsx
 import { useState, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { toolsApi } from '@/api/client'
-import type { EthicalLevel, Tool } from '@/types'
+import type { Tool } from '@/types'
 import ReactMarkdown from 'react-markdown'
 import {
-  ArrowLeft, Pencil, Trash2, Monitor, Globe, Copy, Check, Terminal,
-  Download, ShieldAlert, BookOpen, Scale, FileText, AlertTriangle, Info,
+  ArrowLeft, Pencil, Trash2, Terminal, Download,
+  ShieldAlert, BookOpen, FileText, AlertTriangle, Info, Wrench,
 } from 'lucide-react'
 import ConfirmModal from '@/components/ConfirmModal'
-import CommandGenerator from '@/components/CommandGenerator'
-import { toast } from '@/store/toast'
-
-function CopyButton({ text }: { text: string }) {
-  const [copied, setCopied] = useState(false)
-  return (
-    <button onClick={() => { navigator.clipboard.writeText(text); setCopied(true); setTimeout(() => setCopied(false), 2000) }}
-      className="absolute top-2 right-2 p-1.5 rounded bg-bg-hover border border-border hover:border-cyber-cyan text-text-muted hover:text-cyber-cyan transition-colors">
-      {copied ? <Check size={12} className="text-cyber-green" /> : <Copy size={12} />}
-    </button>
-  )
-}
 
 function MarkdownSection({ title, content, icon }: { title: string; content: string; icon: React.ReactNode }) {
   if (!content) return null
   return (
-    <div className="card mb-4">
-      <h2 className="text-text-primary font-semibold flex items-center gap-2 mb-4 pb-3 border-b border-border">{icon}{title}</h2>
-      <div className="prose-cyber">
-        <ReactMarkdown components={{
-          code({ children, className }) {
-            const isBlock = className?.includes('language-')
-            if (isBlock) return (
-              <div className="relative group">
-                <pre className="bg-bg-primary border border-border rounded-lg p-4 overflow-x-auto my-3 text-sm">
-                  <code className="text-text-primary font-mono">{children}</code>
+    <section className="border border-[#1e2d40] bg-[#0a0f16]">
+      <div className="flex items-center gap-2 border-b border-[#1e2d40] px-5 py-3">
+        <span className="text-[#00d4ff]">{icon}</span>
+        <h3 className="font-mono text-[11px] font-bold uppercase tracking-[0.2em] text-[#8a9ab0]">{title}</h3>
+      </div>
+      <div className="p-6 prose prose-invert prose-sm max-w-none text-[#cbd5e1] 
+        [&_p]:mb-4 [&_p]:leading-relaxed
+        [&_ul]:mb-4 [&_ul]:mt-0 [&_li]:mb-1
+        [&_pre]:mb-6 [&_pre]:mt-2 [&_pre]:p-4 [&_pre]:bg-[#0d131f] [&_pre]:border [&_pre]:border-[#1e2d40] [&_pre]:rounded-none
+        [&_code]:bg-[#0d131f] [&_code]:border [&_code]:border-[#1e2d40] [&_code]:px-1.5 [&_code]:py-0.5 [&_code]:text-[#00d4ff] [&_code]:font-mono [&_code]:text-xs
+        [&_pre_code]:bg-transparent [&_pre_code]:border-0 [&_pre_code]:p-0 [&_pre_code]:text-[#f1f5f9] [&_pre_code]:font-mono [&_pre_code]:text-xs
+        [&_pre_code_.comment]:text-[#6b8cae]
+      ">
+        {/* Filtrage pour coloriser les commentaires dans les blocs de code (lignes commençant par #) */}
+        <ReactMarkdown
+          components={{
+            code({ node, className, children, ...props }) {
+              const isInline = !className?.includes('language-')
+              if (isInline) {
+                return <code className="text-[#00d4ff]" {...props}>{children}</code>
+              }
+              // Bloc de code : on remplace les lignes de commentaire par un span coloré
+              const codeContent = String(children).replace(/\n/g, '\n')
+              const lines = codeContent.split('\n')
+              const coloredLines = lines.map((line, idx) => {
+                if (line.trim().startsWith('#')) {
+                  return <span key={idx} className="comment block text-[#6b8cae]">{line}</span>
+                }
+                return <span key={idx} className="block">{line}</span>
+              })
+              return (
+                <pre className="bg-[#0d131f] border border-[#1e2d40] p-4 overflow-x-auto">
+                  <code className="text-[#f1f5f9] font-mono text-xs">
+                    {coloredLines}
+                  </code>
                 </pre>
-                <CopyButton text={String(children)} />
-              </div>
-            )
-            return <code className="text-cyber-cyan bg-bg-primary px-1.5 py-0.5 rounded text-sm">{children}</code>
-          }
-        }}>{content}</ReactMarkdown>
+              )
+            },
+          }}
+        >
+          {content}
+        </ReactMarkdown>
       </div>
-    </div>
+    </section>
   )
 }
 
-function EthicalBanner({ level }: { level: EthicalLevel }) {
-    if (level === 'standard') return null
-  const isWarning = level === 'warning'
-  const cls = isWarning
-    ? 'border-cyber-red/50 bg-cyber-red/10 text-cyber-red'
-    : 'border-cyber-orange/50 bg-cyber-orange/10 text-cyber-orange'
-  const Icon = isWarning ? AlertTriangle : Info
-  return (
-    <div className={`border rounded-lg p-4 mb-6 flex gap-3 items-start ${cls}`}>
-      <Icon size={20} className="flex-shrink-0 mt-0.5" />
-      <div>
-        <p className="font-semibold text-sm mb-1">
-          {isWarning ? `Outil offensif — référencé à titre pédagogique uniquement` : `Usage réglementé — autorisation écrite obligatoire`}
-        </p>
-        <p className="text-xs leading-relaxed opacity-90">
-          {isWarning ? `L'utilisation de cet outil contre un système sans autorisation est punie par le Code Pénal (Art. 323-1 à 323-7 en France). Cyber-Hub ne lance pas cet outil — il est documenté ici uniquement à des fins éducatives et défensives (CTF, lab perso, recherche académique).` : `Légal uniquement dans le cadre d'un audit autorisé : tes propres systèmes, lab personnel, CTF, programme de bug bounty avec scope écrit. Toute utilisation hors de ce cadre relève du Code Pénal Art. 323-1 à 323-7.`}
-        </p>
-      </div>
-    </div>
-  )
+const CATEGORY_STYLE: Record<string, string> = {
+  offensive: 'border-[#ef4444]/30 bg-[#ef4444]/10 text-[#ef4444]',
+  defensive: 'border-[#10b981]/30 bg-[#10b981]/10 text-[#10b981]',
+  osint:     'border-[#00d4ff]/30 bg-[#00d4ff]/10 text-[#00d4ff]',
 }
-
-function EthicalBadge({ level }: { level: EthicalLevel }) {
-    const cfg = {
-    standard: { label: '🟢 Standard',                    cls: 'border-cyber-green/40 text-cyber-green' },
-    elevated:  { label: `🟡 Élevé`,     cls: 'border-cyber-orange/40 text-cyber-orange' },
-    warning:   { label: `🔴 Avertissement`,      cls: 'border-cyber-red/40 text-cyber-red' },
-  }[level] ?? { label: level, cls: 'border-border text-text-muted' }
-  return <span className={`badge-tag ${cfg.cls}`}>{cfg.label}</span>
+const ETHICAL_STYLE: Record<string, string> = {
+  warning:  'border-[#ef4444]/30 bg-[#ef4444]/10 text-[#ef4444]',
+  elevated: 'border-[#eab308]/30 bg-[#eab308]/10 text-[#eab308]',
+  standard: 'border-[#10b981]/30 bg-[#10b981]/10 text-[#10b981]',
 }
 
 export default function ToolDetail() {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
-    const [tool, setTool] = useState<Tool | null>(null)
+  const [tool, setTool] = useState<Tool | null>(null)
   const [loading, setLoading] = useState(true)
-  const [deleting, setDeleting] = useState(false)
-  const [confirmOpen, setConfirmOpen] = useState(false)
-  const [showNotes, setShowNotes] = useState(false)
+  const [confirmDelete, setConfirmDelete] = useState(false)
 
   useEffect(() => {
-    if (!id) return
-    toolsApi.get(Number(id)).then(setTool).catch(() => setTool(null)).finally(() => setLoading(false))
+    toolsApi.get(Number(id))
+      .then(setTool)
+      .catch(() => setTool(null))
+      .finally(() => setLoading(false))
   }, [id])
 
   const handleDelete = async () => {
     if (!tool) return
-    setDeleting(true)
-    try {
-      await toolsApi.delete(Number(id))
-      toast.success(`Supprimer "${tool.name}" ? Cette action est irréversible.`)
-      navigate('/tools')
-    } catch {
-      toast.error(`Erreur`)
-      setDeleting(false)
-    }
+    await toolsApi.delete(tool.id)
+    navigate('/tools')
   }
 
-  if (loading) return (
-    <div className="p-8 animate-pulse">
-      <div className="h-6 bg-bg-card rounded w-1/4 mb-4" />
-      <div className="h-10 bg-bg-card rounded w-1/2 mb-8" />
-      <div className="card h-32" />
-    </div>
-  )
-
+  if (loading) return <div className="min-h-full bg-[#06080f]" />
   if (!tool) return (
-    <div className="p-8 text-center">
-      <p className="text-text-muted">{`Fiche non trouvée`}</p>
-      <button onClick={() => navigate('/tools')} className="btn-primary mt-4">{`Retour`}</button>
+    <div className="min-h-full bg-[#06080f] p-6 flex items-center justify-center">
+      <p className="font-mono text-sm uppercase tracking-widest text-[#64748b]">FICHE NON TROUVÉE</p>
     </div>
   )
 
-  const tags = tool.tags ? tool.tags.split(',').map(tg => tg.trim()).filter(Boolean) : []
-  const level = tool.ethical_level ?? 'standard'
+  const isWarning = tool.ethical_level === 'warning'
+  const isElevated = tool.ethical_level === 'elevated'
+  const catStyle = CATEGORY_STYLE[tool.category] ?? CATEGORY_STYLE.osint
+  const ethStyle = ETHICAL_STYLE[tool.ethical_level ?? 'standard'] ?? ETHICAL_STYLE.standard
 
   return (
-    <div className="p-8 max-w-4xl">
-      {/* Header */}
-      <div className="flex items-center justify-between mb-6">
-        <button onClick={() => navigate('/tools')} className="flex items-center gap-2 text-text-secondary hover:text-cyber-cyan transition-colors text-sm">
-          <ArrowLeft size={16} /> {`Retour aux outils`}
-        </button>
-        <div className="flex gap-2">
-          <button onClick={() => navigate(`/tools/${id}/edit`)} className="btn-secondary flex items-center gap-2 text-sm">
-            <Pencil size={14} /> {`Modifier`}
-          </button>
-          <button onClick={() => setConfirmOpen(true)} disabled={deleting} className="btn-danger flex items-center gap-2 text-sm">
-            <Trash2 size={14} /> {`Supprimer`}
+    <div className="flex flex-col h-full bg-[#06080f] text-[#f1f5f9]">
+      {/* Bandeau d'en-tête style BGPLookup */}
+      <div className="flex items-center justify-between px-6 py-4 border-b border-[#1e2d40] bg-[#0a0f16]/50">
+        <div className="flex items-center gap-3">
+          <div className="relative">
+            <Wrench className="text-[#00d4ff]" size={20} />
+            <div className="absolute -top-1 -right-1 w-2 h-2 bg-[#10b981] rounded-full animate-pulse shadow-[0_0_8px_#10b981]" />
+          </div>
+          <div>
+            <h1 className="text-sm font-bold tracking-[0.2em] uppercase">TOOL ARSENAL // DETAIL</h1>
+            <p className="text-[10px] text-[#64748b] font-mono">{tool.name} // {tool.category.toUpperCase()}</p>
+          </div>
+        </div>
+        <div className="flex items-center gap-4">
+          <button
+            type="button"
+            onClick={() => navigate('/tools')}
+            className="flex items-center gap-2 px-3 py-1.5 bg-[#1e2d40] hover:bg-[#2a3f55] text-[10px] font-bold border border-[#334155] transition-colors"
+          >
+            <ArrowLeft size={12} /> BACK TO ARSENAL
           </button>
         </div>
       </div>
 
-      <EthicalBanner level={level} />
-
-      {/* Title + badges */}
-      <div className="mb-8">
-        <h1 className="text-3xl font-bold text-text-primary mb-3">{tool.name}</h1>
-        <div className="flex flex-wrap gap-2">
-          <span className={
-            tool.category === 'offensive' ? 'badge-offensive' :
-            tool.category === 'defensive' ? 'badge-defensive' :
-            'badge-tag border-cyber-cyan/40 text-cyber-cyan'
-          }>{tool.category}</span>
-          <span className="badge-os capitalize">{tool.sub_category}</span>
-          <span className="badge-os flex items-center gap-1">
-            {tool.os === 'windows' && <Monitor size={12} />}
-            {tool.os === 'linux' && <Terminal size={12} />}
-            {tool.os === 'both' && <Globe size={12} />}
-            {tool.os === 'both' ? 'Windows + Linux' : tool.os}
-          </span>
-          <EthicalBadge level={level} />
-          {tags.map(tag => <span key={tag} className="badge-tag">{tag}</span>)}
-        </div>
-      </div>
-
-      <div className="card mb-4">
-        <p className="text-text-secondary leading-relaxed">{tool.description}</p>
-      </div>
-
-      <MarkdownSection title={`Procédure pas-à-pas`} content={tool.procedure ?? ''} icon={<BookOpen size={16} className="text-cyber-cyan" />} />
-      <CommandGenerator template={tool.command_template ?? ''} schemaJson={tool.input_schema ?? ''} />
-      <MarkdownSection title={`Installation`} content={tool.install} icon={<Download size={16} className="text-cyber-cyan" />} />
-      <MarkdownSection title={`Utilisation`} content={tool.usage} icon={<Terminal size={16} className="text-cyber-orange" />} />
-      <MarkdownSection title={`Exemples`} content={tool.examples} icon={<Copy size={16} className="text-cyber-purple" />} />
-      <MarkdownSection title={`Détection & Contre-mesures`} content={tool.defense} icon={<ShieldAlert size={16} className="text-cyber-green" />} />
-      <MarkdownSection title={`⚠️ Notes légales (Art. 323-1, scope, etc.)`} content={tool.legal_notes ?? ''} icon={<Scale size={16} className="text-cyber-red" />} />
-      <MarkdownSection title={`Cas d'usage éthiques`} content={tool.ethical_use_cases ?? ''} icon={<Scale size={16} className="text-cyber-green" />} />
-
-      {/* Notes perso */}
-      {(tool.user_notes || showNotes) && (
-        <div className="card mb-4">
-          <button onClick={() => setShowNotes(v => !v)}
-            className="w-full text-left text-text-primary font-semibold flex items-center justify-between gap-2 pb-3 border-b border-border">
-            <span className="flex items-center gap-2">
-              <FileText size={16} className="text-cyber-cyan" />
-              {`Notes personnelles (privées)`}
-              <span className="text-text-muted text-xs font-normal">{`(privées, isolées du contenu officiel)`}</span>
-            </span>
-            <span className="text-xs text-text-muted">{showNotes ? '▼' : '▶'}</span>
-          </button>
-          {showNotes && tool.user_notes && (
-            <div className="prose-cyber mt-4"><ReactMarkdown>{tool.user_notes}</ReactMarkdown></div>
-          )}
-          {showNotes && !tool.user_notes && (
-            <p className="text-text-muted text-sm mt-4">
-              {`Cliquez sur Modifier pour ajouter des notes personnelles.`}
+      {/* Zone de contenu scrollable */}
+      <div className="flex-1 overflow-auto p-6 space-y-6">
+        <div className="max-w-6xl mx-auto w-full">
+          {/* Badges + titre + description (pas de chevauchement) */}
+          <div className="mb-8">
+            <div className="flex flex-wrap items-center gap-2 mb-3">
+              <span className={`border px-2 py-0.5 font-mono text-[9px] uppercase tracking-widest ${catStyle}`}>
+                {tool.category}
+              </span>
+              <span className={`border px-2 py-0.5 font-mono text-[9px] uppercase tracking-widest ${ethStyle}`}>
+                {tool.ethical_level ?? 'standard'}
+              </span>
+              <span className="border border-[#1e2d40] px-2 py-0.5 font-mono text-[9px] uppercase tracking-widest text-[#8a9ab0]">
+                {tool.os}
+              </span>
+            </div>
+            <h1 className="break-words font-mono text-3xl font-bold uppercase tracking-[0.15em] text-[#f1f5f9]">
+              {tool.name}
+            </h1>
+            <p className="mt-3 max-w-full break-words font-mono text-[11px] leading-relaxed text-[#8a9ab0]">
+              {tool.description}
             </p>
-          )}
+          </div>
+
+          {/* Grille principale : 2 colonnes sur grand écran */}
+          <div className="grid grid-cols-1 gap-8 lg:grid-cols-3">
+            {/* Colonne gauche : markdown */}
+            <div className="space-y-8 lg:col-span-2">
+              <MarkdownSection title="INSTALLATION" content={tool.install ?? ''} icon={<Download size={14} />} />
+              <MarkdownSection title="UTILISATION" content={tool.usage ?? ''} icon={<Terminal size={14} />} />
+              <MarkdownSection title="EXEMPLES" content={tool.examples ?? ''} icon={<FileText size={14} />} />
+              <MarkdownSection title="CONTRE-MESURES" content={tool.defense ?? ''} icon={<ShieldAlert size={14} />} />
+              <MarkdownSection title="PROCÉDURE" content={tool.procedure ?? ''} icon={<BookOpen size={14} />} />
+
+              {(isWarning || isElevated) && (
+                <div className="border border-[#ef4444]/30 bg-[#ef4444]/5 p-5">
+                  <div className="mb-3 flex items-center gap-2">
+                    <AlertTriangle size={16} className="text-[#ef4444]" />
+                    <h3 className="font-mono text-[11px] font-bold uppercase tracking-widest text-[#ef4444]">AVERTISSEMENT ÉTHIQUE</h3>
+                  </div>
+                  <div className="space-y-4">
+                    {tool.legal_notes && (
+                      <div>
+                        <h4 className="mb-1 font-mono text-[10px] uppercase tracking-widest text-[#8a9ab0]">CADRE LÉGAL</h4>
+                        <p className="font-mono text-xs text-[#cbd5e1]">{tool.legal_notes}</p>
+                      </div>
+                    )}
+                    {tool.ethical_use_cases && (
+                      <div>
+                        <h4 className="mb-1 font-mono text-[10px] uppercase tracking-widest text-[#8a9ab0]">CAS D'USAGE AUTORISÉS</h4>
+                        <p className="font-mono text-xs text-[#cbd5e1]">{tool.ethical_use_cases}</p>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {/* Boutons d'action inline (éditer/supprimer) */}
+              <div className="flex flex-wrap items-center gap-3 pt-6 border-t border-[#1e2d40]">
+                <button
+                  type="button"
+                  onClick={() => navigate(`/tools/${tool.id}/edit`)}
+                  className="flex items-center gap-2 border border-[#00d4ff]/20 bg-[#00d4ff]/10 px-4 py-2 font-mono text-[10px] font-bold uppercase tracking-widest text-[#00d4ff] transition-colors hover:bg-[#00d4ff]/20"
+                >
+                  <Pencil size={13} /> MODIFIER
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setConfirmDelete(true)}
+                  className="flex items-center gap-2 border border-[#ef4444]/20 bg-[#ef4444]/10 px-4 py-2 font-mono text-[10px] font-bold uppercase tracking-widest text-[#ef4444] transition-colors hover:bg-[#ef4444]/20"
+                >
+                  <Trash2 size={13} /> SUPPRIMER
+                </button>
+              </div>
+            </div>
+
+            {/* Colonne droite : infos et tags */}
+            <div className="space-y-8">
+              <section className="border border-[#1e2d40] bg-[#0a0f16]">
+                <div className="flex items-center gap-2 border-b border-[#1e2d40] px-5 py-3">
+                  <Info size={13} className="text-[#00d4ff]" />
+                  <span className="font-mono text-[11px] font-bold uppercase tracking-[0.2em] text-[#8a9ab0]">INFOS</span>
+                </div>
+                <div className="divide-y divide-[#1e2d40]">
+                  {[
+                    { label: 'CATÉGORIE', value: tool.category, style: catStyle },
+                    { label: 'OS', value: tool.os, style: 'text-[#8a9ab0]' },
+                    { label: 'SOUS-CAT.', value: tool.sub_category, style: 'text-[#8a9ab0]' },
+                    { label: 'ÉTHIQUE', value: tool.ethical_level ?? 'standard', style: ethStyle },
+                  ].map(row => (
+                    <div key={row.label} className="flex items-center justify-between px-5 py-3">
+                      <span className="font-mono text-[10px] uppercase tracking-widest text-[#4a6480]">{row.label}</span>
+                      <span className={`border px-2 py-0.5 font-mono text-[9px] uppercase tracking-widest border-transparent ${row.style}`}>
+                        {row.value}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </section>
+
+              {tool.tags && (
+                <section className="border border-[#1e2d40] bg-[#0a0f16] p-5">
+                  <h3 className="mb-3 font-mono text-[10px] font-bold uppercase tracking-widest text-[#4a6480]">TAGS</h3>
+                  <div className="flex flex-wrap gap-2">
+                    {tool.tags.split(',').map(tag => (
+                      <span key={tag.trim()} className="border border-[#1e2d40] bg-[#0d131f] px-2 py-1 font-mono text-[9px] uppercase tracking-widest text-[#8a9ab0]">
+                        {tag.trim()}
+                      </span>
+                    ))}
+                  </div>
+                </section>
+              )}
+            </div>
+          </div>
         </div>
-      )}
-      {!tool.user_notes && !showNotes && (
-        <button onClick={() => setShowNotes(true)}
-          className="w-full card text-left text-text-muted hover:text-text-primary text-sm flex items-center gap-2">
-          <FileText size={14} />
-          {`Ajouter des notes personnelles…`}
-        </button>
-      )}
+      </div>
 
       <ConfirmModal
-        open={confirmOpen}
-        title={`Confirmation`}
-        message={`Supprimer "${tool.name}" ? Cette action est irréversible.`}
-        confirmLabel={`Supprimer`}
-        danger
-        onConfirm={() => { setConfirmOpen(false); handleDelete() }}
-        onCancel={() => setConfirmOpen(false)}
+        open={confirmDelete}
+        onCancel={() => setConfirmDelete(false)}
+        onConfirm={() => { handleDelete() }}
+        title="SUPPRIMER CET OUTIL ?"
+        message="CETTE ACTION EST IRRÉVERSIBLE. L'OUTIL SERA DÉFINITIVEMENT EFFACÉ DE LA BASE."
       />
     </div>
   )
