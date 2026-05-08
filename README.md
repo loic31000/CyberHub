@@ -28,6 +28,18 @@ Application de bureau pour centraliser vos outils, writeups CTF, veille CVE, pla
 ### Dashboard
 ![Dashboard](./.github/screenshots/dashboard.png)
 
+### CVE Watch
+![CVE](./.github/screenshots/cve.png)
+
+### MITRE ATT&CK
+![MITRE ATT&CK](./.github/screenshots/mitre.png)
+
+### LOLBINS
+![LOLBINS](./.github/screenshots/lolbins.png)
+
+### BGP Lookup
+![BGP Lookup](./.github/screenshots/bgp.png)
+
 ### IOC Manager
 ![IOC Manager](./.github/screenshots/iocmanager.png)
 
