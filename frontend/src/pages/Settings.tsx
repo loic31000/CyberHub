@@ -105,6 +105,45 @@ export default function Settings() {
     }
   }, [])
 
+  // NVD API Key
+  const [nvdConfig, setNvdConfig] = useState<{ has_key: boolean; masked: string } | null>(null)
+  const [nvdKey, setNvdKey] = useState('')
+  const [savingNvd, setSavingNvd] = useState(false)
+  const [deletingNvd, setDeletingNvd] = useState(false)
+
+  useEffect(() => {
+    settingsApi.getNvdKey().then(setNvdConfig).catch(() => {})
+  }, [])
+
+  const handleSaveNVD = async () => {
+    if (!nvdKey.trim()) return
+    setSavingNvd(true)
+    try {
+      await settingsApi.setNvdKey(nvdKey.trim())
+      toast.success('Clé NVD sauvegardée')
+      const cfg = await settingsApi.getNvdKey()
+      setNvdConfig(cfg)
+      setNvdKey('')
+    } catch {
+      toast.error('Erreur lors de la sauvegarde')
+    } finally {
+      setSavingNvd(false)
+    }
+  }
+
+  const handleDeleteNVD = async () => {
+    setDeletingNvd(true)
+    try {
+      await settingsApi.deleteNvdKey()
+      toast.success('Clé NVD supprimée')
+      setNvdConfig({ has_key: false, masked: '' })
+    } catch {
+      toast.error('Erreur lors de la suppression')
+    } finally {
+      setDeletingNvd(false)
+    }
+  }
+
   const handleSaveVT = async () => {
     if (!vtKey.trim()) return
     setSavingVt(true)
@@ -520,6 +559,54 @@ export default function Settings() {
                     className="px-4 py-2 text-[10px] font-mono font-bold uppercase tracking-widest bg-[#00d4ff] text-[#06080f] rounded hover:bg-[#00d4ff]/80 disabled:opacity-40 transition-colors"
                   >
                     {savingVt ? 'SAUVEGARDE...' : 'SAUVEGARDER'}
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* NVD API Key */}
+        <div className="space-y-3">
+          <h2 className="font-mono text-[11px] font-bold uppercase tracking-[0.2em] text-[#8a9ab0] flex items-center gap-2">
+            <Shield size={14} className="text-[#00d4ff]" /> NVD API KEY
+          </h2>
+          <div className="border border-[#1e2d40] bg-[#0a0f16] p-5 space-y-3">
+            {nvdConfig?.has_key ? (
+              <div className="space-y-3">
+                <div className="flex items-center gap-2 text-[11px] font-mono">
+                  <CheckCircle size={14} className="text-[#10b981]" />
+                  <span className="text-[#f1f5f9]">Clé configurée :</span>
+                  <code className="font-mono text-[#64748b]">{nvdConfig.masked}</code>
+                </div>
+                <button
+                  onClick={handleDeleteNVD}
+                  disabled={deletingNvd}
+                  className="flex items-center gap-2 border border-red-500/30 bg-red-500/10 px-3 py-1.5 text-[10px] font-mono font-bold uppercase tracking-widest text-red-400 hover:bg-red-500/20 transition-colors disabled:opacity-40"
+                >
+                  <EyeOff size={12} />
+                  {deletingNvd ? 'SUPPRESSION...' : 'SUPPRIMER LA CLÉ'}
+                </button>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                <p className="text-[11px] font-mono text-[#8a9ab0]">
+                  Clé API NVD optionnelle — augmente la limite de 5 à 50 req/30s pour l'import CVE.
+                </p>
+                <div className="flex gap-2">
+                  <input
+                    type="password"
+                    value={nvdKey}
+                    onChange={e => setNvdKey(e.target.value)}
+                    placeholder="Clé API NVD…"
+                    className="flex-1 bg-[#0d131f] border border-[#1e2d40] px-3 py-2 font-mono text-sm text-[#f1f5f9] placeholder-[#334155] focus:outline-none focus:border-[#00d4ff]/60"
+                  />
+                  <button
+                    onClick={handleSaveNVD}
+                    disabled={savingNvd || !nvdKey.trim()}
+                    className="px-4 py-2 text-[10px] font-mono font-bold uppercase tracking-widest bg-[#00d4ff] text-[#06080f] rounded hover:bg-[#00d4ff]/80 disabled:opacity-40 transition-colors"
+                  >
+                    {savingNvd ? 'SAUVEGARDE...' : 'SAUVEGARDER'}
                   </button>
                 </div>
               </div>

@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"log"
 	"net/http"
 	"strconv"
 
@@ -132,5 +133,40 @@ func ImportNVD(c *gin.Context) {
 		"created": created,
 		"skipped": skipped,
 		"total":   len(req.Vulnerabilities),
+	})
+}
+
+// FetchNVDOnline importe des CVE directement depuis l'API NVD publique.
+// POST /api/cve/fetch-from-nvd
+func FetchNVDOnline(c *gin.Context) {
+	var req models.NVDOnlineRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Paramètres invalides: " + err.Error()})
+		return
+	}
+
+	log.Printf("[NVD] FetchNVDOnline — paramètres reçus: pubStartDate=%q, pubEndDate=%q, cvssMin=%.1f, keyword=%q, resultsPerPage=%d, page=%d",
+		req.PubStartDate, req.PubEndDate, req.CVSSMin, req.Keyword, req.ResultsPerPage, req.Page)
+
+	// Validation simple
+	if req.PubStartDate == "" && req.Keyword == "" && req.CVSSMin == 0 {
+		log.Printf("[NVD] Requête rejetée : aucun critère fourni")
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Au moins un critère (date début, keyword, ou CVSS min) est requis"})
+		return
+	}
+
+	created, skipped, totalAvailable, totalRemote, err := store.FetchAndImportNVDAll(req)
+	if err != nil {
+		log.Printf("[NVD] Erreur import paginé: %v", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Erreur lors de l'import NVD: " + err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"message":         "Import depuis NVD réussi",
+		"created":         created,
+		"skipped":         skipped,
+		"total_available": totalAvailable,
+		"total_remote":    totalRemote,
 	})
 }

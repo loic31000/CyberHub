@@ -89,6 +89,7 @@ func NewRouter(correlationEngine *correlation.CorrelationEngine) *gin.Engine {
 
 			cve := protected.Group("/cve")
 			{
+				cve.POST("/fetch-from-nvd", handlers.FetchNVDOnline)
 				cve.GET("", handlers.ListCVE)
 				cve.GET("/:id", handlers.GetCVE)
 				cve.POST("", handlers.CreateCVE)
@@ -143,6 +144,7 @@ func NewRouter(correlationEngine *correlation.CorrelationEngine) *gin.Engine {
 			cisa := protected.Group("/cisa")
 			{
 				cisa.GET("/kev/check/:cve_id", cisaH.CheckKEV)
+				cisa.GET("/kev/batch", cisaH.BatchCheckKEV)
 				cisa.GET("/kev/stats", cisaH.GetStats)
 				cisa.POST("/kev/update", cisaH.UpdateKEV)
 			}
@@ -178,6 +180,9 @@ func NewRouter(correlationEngine *correlation.CorrelationEngine) *gin.Engine {
 				settings.GET("/virustotal", hashH.GetVTConfig)
 				settings.POST("/virustotal", hashH.SaveVTKey)
 				settings.DELETE("/virustotal", hashH.DeleteVTKey)
+				settings.GET("/nvd-key", handlers.GetNVDAPIKey)
+				settings.POST("/nvd-key", handlers.SetNVDAPIKey)
+				settings.DELETE("/nvd-key", handlers.DeleteNVDAPIKey)
 			}
 
 			bgp := protected.Group("/bgp")
@@ -239,6 +244,13 @@ func NewRouter(correlationEngine *correlation.CorrelationEngine) *gin.Engine {
 				hash.DELETE("/cache/:hash", hashH.DeleteCache)
 			}
 
+			threat := protected.Group("/threat")
+			{
+				threat.GET("/feeds", handlers.GetThreatFeeds)
+				threat.GET("/alerts", handlers.GetThreatAlerts)
+				threat.POST("/run/:name", handlers.RunThreatFeed)
+			}
+
 			cheatH := cheatsheets.NewCheatsheetsHandler()
 			cheat := protected.Group("/cheatsheets")
 			{
@@ -250,7 +262,6 @@ func NewRouter(correlationEngine *correlation.CorrelationEngine) *gin.Engine {
 
 	return r
 }
-
 
 func getDBPath() string {
 	if p := os.Getenv("CYBER_HUB_DB"); p != "" {

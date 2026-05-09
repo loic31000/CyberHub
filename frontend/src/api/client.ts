@@ -131,6 +131,9 @@ export const cveApi = {
 
   importNVD: (payload: object) =>
     http.post<NVDImportResponse>('/cve/import-nvd', payload).then((r) => r.data),
+
+  fetchFromNVD: (params: import('@/types/nvd').NVDOnlineRequest) =>
+    http.post<import('@/types/nvd').NVDOnlineResponse>('/cve/fetch-from-nvd', params).then(r => r.data),
 }
 
 // ---- Settings / Backup / Export ----
@@ -148,6 +151,15 @@ export const settingsApi = {
       cve:       { created: number; skipped: number }
       playbooks: { created: number; skipped: number }
     }>('/settings/import', payload).then((r) => r.data),
+
+  getNvdKey: () =>
+    http.get<import('@/types/nvd').NVDConfig>('/settings/nvd-key').then((r) => r.data),
+
+  setNvdKey: (apiKey: string) =>
+    http.post<{ success: boolean }>('/settings/nvd-key', { api_key: apiKey }).then((r) => r.data),
+
+  deleteNvdKey: () =>
+    http.delete<{ success: boolean }>('/settings/nvd-key').then((r) => r.data),
 }
 
 // ---- Recherche Globale ----
@@ -517,6 +529,11 @@ export const osintWmnApi = {
 export const cisaApi = {
   checkKEV: (cveId: string) =>
     http.get<{ exploited: boolean; entry: import('@/types/threat_intel').CISAKEVEntry | null }>(`/cisa/kev/check/${cveId}`).then((r) => r.data),
+
+  batchCheckKEV: (cveIds: string[]) =>
+    http.get<Record<string, boolean>>('/cisa/kev/batch', {
+      params: { ids: cveIds.join(',') },
+    }).then((r) => r.data),
 
   getStats: () =>
     http.get<{ total_entries: number; last_updated: string }>(`/cisa/kev/stats`).then((r) => r.data),

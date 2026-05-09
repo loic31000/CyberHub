@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	"github.com/cyber-hub/cyber-hub/internal/models"
+	"gorm.io/gorm/clause"
 )
 
 // ─── Seed / état ─────────────────────────────────────────────────────────────
@@ -16,34 +17,28 @@ func IsMITRESeeded() bool {
 	return count > 0
 }
 
-// SeedMITRE insère les tactiques et techniques en batch (upsert sur l'ID unique).
+// SeedMITRE insère ou met à jour les tactiques et techniques (ON CONFLICT DO UPDATE).
 func SeedMITRE(tactics []models.MITRETactic, techniques []models.MITRETechnique) error {
 	const batch = 200
 
-	// Upsert tactiques
-	for i := 0; i < len(tactics); i += batch {
-		end := i + batch
-		if end > len(tactics) {
-			end = len(tactics)
-		}
-		chunk := tactics[i:end]
-		if err := DB.Save(&chunk).Error; err != nil {
-			return err
-		}
+	tacticCols := clause.OnConflict{
+		Columns: []clause.Column{{Name: "tactic_id"}},
+		DoUpdates: clause.AssignmentColumns([]string{
+			"name", "short_name", "description", "url", "display_order",
+		}),
+	}
+	if err := DB.Clauses(tacticCols).CreateInBatches(tactics, batch).Error; err != nil {
+		return err
 	}
 
-	// Upsert techniques
-	for i := 0; i < len(techniques); i += batch {
-		end := i + batch
-		if end > len(techniques) {
-			end = len(techniques)
-		}
-		chunk := techniques[i:end]
-		if err := DB.Save(&chunk).Error; err != nil {
-			return err
-		}
+	techCols := clause.OnConflict{
+		Columns: []clause.Column{{Name: "technique_id"}},
+		DoUpdates: clause.AssignmentColumns([]string{
+			"name", "description", "tactics", "platforms",
+			"is_subtechnique", "parent_id", "detection", "url", "data_sources",
+		}),
 	}
-	return nil
+	return DB.Clauses(techCols).CreateInBatches(techniques, batch).Error
 }
 
 // ─── Lecture ─────────────────────────────────────────────────────────────────

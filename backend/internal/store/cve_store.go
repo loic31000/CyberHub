@@ -1,6 +1,12 @@
 package store
 
 import (
+	"encoding/json"
+	"fmt"
+	"io"
+	"log"
+	"net/http"
+	"net/url"
 	"strings"
 	"time"
 
@@ -146,9 +152,9 @@ func SeedCVEEntries() error {
 
 	seeds := []cveSeed{
 		{
-			id:       "CVE-2021-44228",
-			cvss:     10.0, severity: models.SeverityCritical,
-			products: "Apache Log4j 2.0-beta9 à 2.14.1",
+			id:   "CVE-2021-44228",
+			cvss: 10.0, severity: models.SeverityCritical,
+			products:  "Apache Log4j 2.0-beta9 à 2.14.1",
 			published: "2021-12-10",
 			description: "Log4Shell — RCE non authentifiée via la fonctionnalité JNDI de Log4j 2. " +
 				"L'injection de chaînes ${jndi:ldap://...} dans tout log traité par Log4j permet l'exécution de code arbitraire à distance. " +
@@ -157,9 +163,9 @@ func SeedCVEEntries() error {
 				"Patch : mettre à jour vers Log4j ≥ 2.17.1. Mitigation rapide : -Dlog4j2.formatMsgNoLookups=true",
 		},
 		{
-			id:       "CVE-2017-0144",
-			cvss:     9.3, severity: models.SeverityCritical,
-			products: "Windows XP, Vista, 7, Server 2003/2008 — SMBv1",
+			id:   "CVE-2017-0144",
+			cvss: 9.3, severity: models.SeverityCritical,
+			products:  "Windows XP, Vista, 7, Server 2003/2008 — SMBv1",
 			published: "2017-03-14",
 			description: "EternalBlue — RCE dans l'implémentation SMBv1 de Windows. " +
 				"Exploit développé par la NSA et divulgué par Shadow Brokers en 2017. " +
@@ -169,9 +175,9 @@ func SeedCVEEntries() error {
 				"Bloquer le port 445/TCP en entrée depuis Internet.",
 		},
 		{
-			id:       "CVE-2021-34527",
-			cvss:     8.8, severity: models.SeverityCritical,
-			products: "Windows Print Spooler — toutes versions Windows",
+			id:   "CVE-2021-34527",
+			cvss: 8.8, severity: models.SeverityCritical,
+			products:  "Windows Print Spooler — toutes versions Windows",
 			published: "2021-07-01",
 			description: "PrintNightmare — RCE et LPE via le service Windows Print Spooler. " +
 				"Permet à un utilisateur authentifié d'exécuter du code arbitraire en tant que SYSTEM " +
@@ -181,9 +187,9 @@ func SeedCVEEntries() error {
 				"Bloquer l'accès SMB au Spooler depuis les hôtes non-imprimantes.",
 		},
 		{
-			id:       "CVE-2021-26855",
-			cvss:     9.8, severity: models.SeverityCritical,
-			products: "Microsoft Exchange Server 2013/2016/2019 (on-premise)",
+			id:   "CVE-2021-26855",
+			cvss: 9.8, severity: models.SeverityCritical,
+			products:  "Microsoft Exchange Server 2013/2016/2019 (on-premise)",
 			published: "2021-03-02",
 			description: "ProxyLogon — SSRF pré-authentification dans Exchange permettant de bypasser l'authentification " +
 				"et d'écrire des webshells arbitraires. " +
@@ -194,9 +200,9 @@ func SeedCVEEntries() error {
 				"Utiliser le script MSERT de Microsoft pour scanner les compromissions.",
 		},
 		{
-			id:       "CVE-2022-30190",
-			cvss:     7.8, severity: models.SeverityHigh,
-			products: "Microsoft Support Diagnostic Tool (MSDT) — Windows 10/11, Server 2019/2022",
+			id:   "CVE-2022-30190",
+			cvss: 7.8, severity: models.SeverityHigh,
+			products:  "Microsoft Support Diagnostic Tool (MSDT) — Windows 10/11, Server 2019/2022",
 			published: "2022-05-30",
 			description: "Follina — RCE via l'outil de diagnostic MSDT appelé depuis un document Word. " +
 				"Aucune macro requise, déclenché à l'ouverture (preview incluse dans Explorer). " +
@@ -205,9 +211,9 @@ func SeedCVEEntries() error {
 				"Patch : KB5014699 (Windows 10), KB5014697 (Windows 11).",
 		},
 		{
-			id:       "CVE-2023-23397",
-			cvss:     9.8, severity: models.SeverityCritical,
-			products: "Microsoft Outlook pour Windows (toutes versions before March 2023)",
+			id:   "CVE-2023-23397",
+			cvss: 9.8, severity: models.SeverityCritical,
+			products:  "Microsoft Outlook pour Windows (toutes versions before March 2023)",
 			published: "2023-03-14",
 			description: "Vol de hash NTLM zero-click via Outlook. " +
 				"L'envoi d'un email avec une tâche ou un rendez-vous pointant vers un partage UNC distant " +
@@ -218,9 +224,9 @@ func SeedCVEEntries() error {
 				"désactiver NTLMv1.",
 		},
 		{
-			id:       "CVE-2014-0160",
-			cvss:     7.5, severity: models.SeverityHigh,
-			products: "OpenSSL 1.0.1 à 1.0.1f — nombreux serveurs web et VPN (2012-2014)",
+			id:   "CVE-2014-0160",
+			cvss: 7.5, severity: models.SeverityHigh,
+			products:  "OpenSSL 1.0.1 à 1.0.1f — nombreux serveurs web et VPN (2012-2014)",
 			published: "2014-04-07",
 			description: "Heartbleed — Fuite de mémoire dans l'extension Heartbeat d'OpenSSL. " +
 				"Permet de lire jusqu'à 64 Ko de mémoire du processus OpenSSL par requête, " +
@@ -230,9 +236,9 @@ func SeedCVEEntries() error {
 				"Révoquer et renouveler tous les certificats SSL des serveurs affectés.",
 		},
 		{
-			id:       "CVE-2024-3094",
-			cvss:     10.0, severity: models.SeverityCritical,
-			products: "XZ Utils 5.6.0 et 5.6.1 (liblzma) — distributions Linux rolling (Arch, Fedora Rawhide, Debian sid)",
+			id:   "CVE-2024-3094",
+			cvss: 10.0, severity: models.SeverityCritical,
+			products:  "XZ Utils 5.6.0 et 5.6.1 (liblzma) — distributions Linux rolling (Arch, Fedora Rawhide, Debian sid)",
 			published: "2024-03-29",
 			description: "Backdoor dans XZ Utils — l'une des supply chain attacks les plus sophistiquées jamais découvertes. " +
 				"Un attaquant (JiaT75 / Jia Tan) a passé 2 ans à construire de la confiance pour devenir co-mainteneur de XZ, " +
@@ -243,9 +249,9 @@ func SeedCVEEntries() error {
 				"Leçon : surveiller l'activité Git suspecte sur les dépendances critiques.",
 		},
 		{
-			id:       "CVE-2022-22965",
-			cvss:     9.8, severity: models.SeverityCritical,
-			products: "Spring Framework 5.3.0-17 et 5.2.0-19 — JDK ≥ 9",
+			id:   "CVE-2022-22965",
+			cvss: 9.8, severity: models.SeverityCritical,
+			products:  "Spring Framework 5.3.0-17 et 5.2.0-19 — JDK ≥ 9",
 			published: "2022-03-31",
 			description: "Spring4Shell — RCE dans Spring Framework via l'injection de paramètres dans les DataBinders. " +
 				"Permet l'écriture de webshells JSP sur le serveur Tomcat. " +
@@ -254,9 +260,9 @@ func SeedCVEEntries() error {
 				"Mitigation : mettre à jour Spring Boot ≥ 2.6.6 ou ≥ 2.5.12.",
 		},
 		{
-			id:       "CVE-2021-41773",
-			cvss:     7.5, severity: models.SeverityHigh,
-			products: "Apache HTTP Server 2.4.49",
+			id:   "CVE-2021-41773",
+			cvss: 7.5, severity: models.SeverityHigh,
+			products:  "Apache HTTP Server 2.4.49",
 			published: "2021-10-05",
 			description: "Path traversal et RCE dans Apache 2.4.49. " +
 				"Faille dans la normalisation des chemins permettant un directory traversal hors de la racine web. " +
@@ -266,8 +272,8 @@ func SeedCVEEntries() error {
 				"Vérifier : curl -s --path-as-is http://<IP>/cgi-bin/.%2e/.%2e/etc/passwd",
 		},
 		{
-			id:        "CVE-2023-44487",
-			cvss:      7.5, severity: models.SeverityHigh,
+			id:   "CVE-2023-44487",
+			cvss: 7.5, severity: models.SeverityHigh,
 			products:  "HTTP/2 — serveurs nginx, Apache, Node.js, Go, AWS, Google Cloud, Cloudflare",
 			published: "2023-10-10",
 			description: "HTTP/2 Rapid Reset Attack — technique DDoS exploitant le multiplexage HTTP/2. " +
@@ -279,8 +285,8 @@ func SeedCVEEntries() error {
 				"(nginx: http2_max_concurrent_streams 128), activer un service anti-DDoS en amont.",
 		},
 		{
-			id:        "CVE-2024-21762",
-			cvss:      9.8, severity: models.SeverityCritical,
+			id:   "CVE-2024-21762",
+			cvss: 9.8, severity: models.SeverityCritical,
 			products:  "Fortinet FortiOS 6.0-7.4, FortiProxy — SSL VPN",
 			published: "2024-02-08",
 			description: "RCE non authentifiée dans le SSL VPN de FortiOS (out-of-bounds write). " +
@@ -292,8 +298,8 @@ func SeedCVEEntries() error {
 				"Vérifier les IOCs de compromission avant application du patch.",
 		},
 		{
-			id:        "CVE-2024-6387",
-			cvss:      8.1, severity: models.SeverityCritical,
+			id:   "CVE-2024-6387",
+			cvss: 8.1, severity: models.SeverityCritical,
 			products:  "OpenSSH 8.5p1 à 9.7p1 — serveurs Linux (glibc)",
 			published: "2024-07-01",
 			description: "regreSSHion — RCE non authentifiée dans OpenSSH serveur (sshd). " +
@@ -306,8 +312,8 @@ func SeedCVEEntries() error {
 				"Appliquer rate-limiting des connexions SSH via fail2ban ou firewall.",
 		},
 		{
-			id:        "CVE-2021-3156",
-			cvss:      7.8, severity: models.SeverityHigh,
+			id:   "CVE-2021-3156",
+			cvss: 7.8, severity: models.SeverityHigh,
 			products:  "sudo ≤ 1.9.5p1 — Linux/Unix (toutes distributions)",
 			published: "2021-01-26",
 			description: "Baron Samedit — heap buffer overflow dans sudo permettant une élévation de privilèges locale vers root. " +
@@ -321,8 +327,8 @@ func SeedCVEEntries() error {
 				"— si crash, la version est vulnérable.",
 		},
 		{
-			id:        "CVE-2022-1388",
-			cvss:      9.8, severity: models.SeverityCritical,
+			id:   "CVE-2022-1388",
+			cvss: 9.8, severity: models.SeverityCritical,
 			products:  "F5 BIG-IP 13.1.x, 14.1.x, 15.1.x, 16.1.x — iControl REST API",
 			published: "2022-05-04",
 			description: "Bypass d'authentification dans l'API REST iControl de F5 BIG-IP. " +
@@ -334,8 +340,8 @@ func SeedCVEEntries() error {
 				"L'API iControl REST ne devrait jamais être exposée publiquement.",
 		},
 		{
-			id:        "CVE-2023-20198",
-			cvss:      10.0, severity: models.SeverityCritical,
+			id:   "CVE-2023-20198",
+			cvss: 10.0, severity: models.SeverityCritical,
 			products:  "Cisco IOS XE — Web UI (HTTP server activé)",
 			published: "2023-10-16",
 			description: "Création de compte admin non authentifiée dans l'interface Web de Cisco IOS XE. " +
@@ -348,8 +354,8 @@ func SeedCVEEntries() error {
 				"Scanner Shodan avec 'http.html_hash:-1076109428' pour identifier les devices compromis.",
 		},
 		{
-			id:        "CVE-2023-34362",
-			cvss:      9.8, severity: models.SeverityCritical,
+			id:   "CVE-2023-34362",
+			cvss: 9.8, severity: models.SeverityCritical,
 			products:  "Progress MOVEit Transfer (toutes versions avant juin 2023)",
 			published: "2023-06-01",
 			description: "Injection SQL dans MOVEit Transfer permettant un accès non authentifié à la base de données. " +
@@ -363,8 +369,8 @@ func SeedCVEEntries() error {
 				"Contacter les autorités si compromission avérée (données personnelles).",
 		},
 		{
-			id:        "CVE-2024-1709",
-			cvss:      10.0, severity: models.SeverityCritical,
+			id:   "CVE-2024-1709",
+			cvss: 10.0, severity: models.SeverityCritical,
 			products:  "ConnectWise ScreenConnect ≤ 23.9.7",
 			published: "2024-02-21",
 			description: "Bypass d'authentification critique dans ConnectWise ScreenConnect. " +
@@ -378,8 +384,8 @@ func SeedCVEEntries() error {
 				"Vérifier les comptes administrateurs créés récemment et les sessions suspectes.",
 		},
 		{
-			id:        "CVE-2023-4863",
-			cvss:      8.8, severity: models.SeverityCritical,
+			id:   "CVE-2023-4863",
+			cvss: 8.8, severity: models.SeverityCritical,
 			products:  "libwebp — Chrome, Firefox, Safari, Electron, Android, Edge (avant sept. 2023)",
 			published: "2023-09-12",
 			description: "Heap buffer overflow dans la bibliothèque libwebp lors du décodage d'images WebP malformées. " +
@@ -391,8 +397,8 @@ func SeedCVEEntries() error {
 				"Si spyware suspecté : contacter Citizen Lab ou Amnesty Tech.",
 		},
 		{
-			id:        "CVE-2021-26084",
-			cvss:      9.8, severity: models.SeverityCritical,
+			id:   "CVE-2021-26084",
+			cvss: 9.8, severity: models.SeverityCritical,
 			products:  "Atlassian Confluence Server et Data Center — toutes versions avant 6.13.23/7.4.11/7.11.6/7.12.5/7.13.0",
 			published: "2021-08-25",
 			description: "OGNL injection pré-authentification dans Atlassian Confluence. " +
@@ -404,8 +410,8 @@ func SeedCVEEntries() error {
 				"Ne jamais exposer Confluence directement sur Internet sans authentification renforcée.",
 		},
 		{
-			id:        "CVE-2022-47966",
-			cvss:      9.8, severity: models.SeverityCritical,
+			id:   "CVE-2022-47966",
+			cvss: 9.8, severity: models.SeverityCritical,
 			products:  "Zoho ManageEngine — 24+ produits (ServiceDesk Plus, ADSelfService, Endpoint Central...)",
 			published: "2023-01-10",
 			description: "RCE non authentifiée dans de nombreux produits Zoho ManageEngine via une vulnérabilité SAML. " +
@@ -461,3 +467,315 @@ func normalizeSeverity(s string) models.CVESeverity {
 		return models.SeverityNone
 	}
 }
+
+// FetchNVDOnline appelle l'API NVD v2 avec les paramètres fournis et retourne la réponse prête à être importée.
+// Si une clé API est stockée dans AppSetting (key "nvd_api_key"), elle sera utilisée pour augmenter les limites.
+func FetchNVDOnline(req models.NVDOnlineRequest) (*models.NVDOnlineResponse, error) {
+	// Valeurs par défaut
+	if req.ResultsPerPage <= 0 {
+		req.ResultsPerPage = 100
+	}
+	if req.ResultsPerPage > 2000 {
+		req.ResultsPerPage = 2000
+	}
+	if req.Page <= 0 {
+		req.Page = 1
+	}
+	startIndex := (req.Page - 1) * req.ResultsPerPage
+
+	// Récupérer la clé API si configurée
+	var apiKey string
+	var setting models.AppSetting
+	if err := DB.Where("key = ?", "nvd_api_key").First(&setting).Error; err == nil {
+		apiKey = setting.Value
+	}
+
+	// Construction de l'URL NVD v2.
+	// Règle importante : pubStartDate et pubEndDate doivent TOUJOURS être fournis ensemble.
+	// Si seul pubStartDate est renseigné, on calcule automatiquement pubEndDate = pubStartDate + 30j
+	// (plafonné à maintenant pour éviter les dates futures sans données).
+	baseURL := "https://services.nvd.nist.gov/rest/json/cves/2.0"
+
+	startDate, endDate := resolveNVDDateRange(req.PubStartDate, req.PubEndDate)
+
+	params := url.Values{}
+	if startDate != "" {
+		params.Set("pubStartDate", startDate)
+		params.Set("pubEndDate", endDate)
+	}
+	if req.CVSSMin >= 9.0 {
+		params.Set("cvssV3Severity", "CRITICAL")
+	}
+	if req.Keyword != "" {
+		params.Set("keywordSearch", req.Keyword)
+	}
+	params.Set("resultsPerPage", fmt.Sprintf("%d", req.ResultsPerPage))
+	params.Set("startIndex", fmt.Sprintf("%d", startIndex))
+
+	fullURL := baseURL + "?" + params.Encode()
+
+	log.Printf("[NVD] URL appelée: %s", fullURL)
+	if apiKey != "" {
+		log.Printf("[NVD] Clé API configurée (rate limit élevé)")
+	} else {
+		log.Printf("[NVD] Aucune clé API — limite: 5 req/30s (configurez 'nvd_api_key' dans les paramètres)")
+	}
+
+	// Préparer la requête HTTP
+	httpReq, err := http.NewRequest("GET", fullURL, nil)
+	if err != nil {
+		return nil, fmt.Errorf("construction requête: %w", err)
+	}
+	if apiKey != "" {
+		httpReq.Header.Set("apiKey", apiKey)
+	}
+
+	client := &http.Client{Timeout: 30 * time.Second}
+	resp, err := client.Do(httpReq)
+	if err != nil {
+		return nil, fmt.Errorf("appel API NVD: %w", err)
+	}
+	defer resp.Body.Close()
+
+	log.Printf("[NVD] Réponse HTTP status: %d", resp.StatusCode)
+
+	if resp.StatusCode == http.StatusNotFound {
+		// NVD retourne 404 quand aucune CVE ne correspond aux criteres (comportement documente).
+		// Ce n'est pas une erreur : on retourne une reponse vide.
+		log.Printf("[NVD] 404 = aucune CVE trouvee pour ces criteres (normal)")
+		return &models.NVDOnlineResponse{}, nil
+	}
+	if resp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(resp.Body)
+		log.Printf("[NVD] Erreur NVD body: %s", string(body))
+		return nil, fmt.Errorf("NVD API erreur %d: %s", resp.StatusCode, string(body))
+	}
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, fmt.Errorf("lecture réponse: %w", err)
+	}
+
+	log.Printf("[NVD] Body reçu (%d octets), décodage JSON...", len(body))
+
+	var nvdResp models.NVDOnlineResponse
+	if err := json.Unmarshal(body, &nvdResp); err != nil {
+		log.Printf("[NVD] Erreur décodage JSON: %v — début du body: %.200s", err, string(body))
+		return nil, fmt.Errorf("décodage JSON: %w", err)
+	}
+
+	if req.CVSSMin > 0 {
+		filtered := nvdResp.Vulnerabilities[:0]
+		for _, item := range nvdResp.Vulnerabilities {
+			if extractNVDItemScore(item) >= req.CVSSMin {
+				filtered = append(filtered, item)
+			}
+		}
+		nvdResp.Vulnerabilities = filtered
+	}
+
+	log.Printf("[NVD] Décodage OK — totalResults=%d, vulnerabilities=%d, itemsPerPage=%d",
+		nvdResp.TotalResults, len(nvdResp.Vulnerabilities), nvdResp.ItemsPerPage)
+
+	return &nvdResp, nil
+}
+
+// FetchAndImportNVDAll pagine l'API NVD complètement et importe chaque page en base au fil de l'eau.
+// Retourne : created (insérées), skipped (doublons), total (totalResults NVD), fetched (reçues sur ce run).
+// Respecte le rate limit NVD : 6 s entre pages sans clé API, 700 ms avec clé.
+// Si MaxPages > 0 dans req, s'arrête après ce nombre de pages.
+// Les erreurs HTTP sur une page sont loggées et n'interrompent pas l'import.
+func FetchAndImportNVDAll(req models.NVDOnlineRequest) (created, skipped, total, fetched int, err error) {
+	// Valeurs par défaut
+	if req.ResultsPerPage <= 0 {
+		req.ResultsPerPage = 100
+	}
+	if req.ResultsPerPage > 2000 {
+		req.ResultsPerPage = 2000
+	}
+
+	// Récupérer la clé API une seule fois
+	var apiKey string
+	var setting models.AppSetting
+	if dbErr := DB.Where("key = ?", "nvd_api_key").First(&setting).Error; dbErr == nil {
+		apiKey = setting.Value
+	}
+
+	delay := 6 * time.Second
+	if apiKey != "" {
+		delay = 700 * time.Millisecond
+	}
+
+	baseURL := "https://services.nvd.nist.gov/rest/json/cves/2.0"
+	startDate, endDate := resolveNVDDateRange(req.PubStartDate, req.PubEndDate)
+	client := &http.Client{Timeout: 30 * time.Second}
+
+	buildURL := func(startIndex int) string {
+		params := url.Values{}
+		if startDate != "" {
+			params.Set("pubStartDate", startDate)
+			params.Set("pubEndDate", endDate)
+		}
+		if req.CVSSMin >= 9.0 {
+			params.Set("cvssV3Severity", "CRITICAL")
+		}
+		if req.Keyword != "" {
+			params.Set("keywordSearch", req.Keyword)
+		}
+		params.Set("resultsPerPage", fmt.Sprintf("%d", req.ResultsPerPage))
+		params.Set("startIndex", fmt.Sprintf("%d", startIndex))
+		return baseURL + "?" + params.Encode()
+	}
+
+	fetchPage := func(startIndex int) (*models.NVDOnlineResponse, int, error) {
+		fullURL := buildURL(startIndex)
+		httpReq, reqErr := http.NewRequest("GET", fullURL, nil)
+		if reqErr != nil {
+			return nil, 0, reqErr
+		}
+		if apiKey != "" {
+			httpReq.Header.Set("apiKey", apiKey)
+		}
+		resp, doErr := client.Do(httpReq)
+		if doErr != nil {
+			return nil, 0, doErr
+		}
+		defer resp.Body.Close()
+
+		if resp.StatusCode == http.StatusNotFound {
+			return &models.NVDOnlineResponse{}, 0, nil
+		}
+		body, _ := io.ReadAll(resp.Body)
+		if resp.StatusCode != http.StatusOK {
+			return nil, 0, fmt.Errorf("HTTP %d: %s", resp.StatusCode, string(body))
+		}
+		var nvdResp models.NVDOnlineResponse
+		if jsonErr := json.Unmarshal(body, &nvdResp); jsonErr != nil {
+			return nil, 0, fmt.Errorf("JSON: %w", jsonErr)
+		}
+		rawCount := len(nvdResp.Vulnerabilities)
+		// Filtrage local par score si CVSSMin ne correspond pas à un niveau exact
+		if req.CVSSMin > 0 {
+			filtered := nvdResp.Vulnerabilities[:0]
+			for _, item := range nvdResp.Vulnerabilities {
+				if extractNVDItemScore(item) >= req.CVSSMin {
+					filtered = append(filtered, item)
+				}
+			}
+			nvdResp.Vulnerabilities = filtered
+		}
+		return &nvdResp, rawCount, nil
+	}
+
+	// Page 1 — découverte de totalResults
+	log.Printf("[NVD] Démarrage import paginé — resultsPerPage=%d, cvssMin=%.1f, délai=%v",
+		req.ResultsPerPage, req.CVSSMin, delay)
+
+	firstPage, rawCount, fetchErr := fetchPage(0)
+	if fetchErr != nil {
+		return 0, 0, 0, 0, fmt.Errorf("page 1: %w", fetchErr)
+	}
+
+	total = firstPage.TotalResults
+	totalPages := (total + req.ResultsPerPage - 1) / req.ResultsPerPage
+	if totalPages == 0 {
+		totalPages = 1
+	}
+	if req.MaxPages > 0 && totalPages > req.MaxPages {
+		totalPages = req.MaxPages
+	}
+
+	log.Printf("[NVD] totalResults=%d → %d pages à importer", total, totalPages)
+
+	// Import page 1
+	fetched += rawCount
+	c1, s1, _ := ImportNVD(firstPage.Vulnerabilities)
+	created += c1
+	skipped += s1
+	log.Printf("[NVD] Page 1/%d — startIndex=0, brut=%d, après filtre=%d, créées=%d, skippées=%d",
+		totalPages, rawCount, len(firstPage.Vulnerabilities), c1, s1)
+
+	// Pages suivantes
+	for pageNum := 2; pageNum <= totalPages; pageNum++ {
+		time.Sleep(delay)
+		startIndex := (pageNum - 1) * req.ResultsPerPage
+		page, raw, pageErr := fetchPage(startIndex)
+		if pageErr != nil {
+			log.Printf("[NVD] Page %d/%d — erreur (ignorée): %v", pageNum, totalPages, pageErr)
+			continue
+		}
+		fetched += raw
+		c, s, _ := ImportNVD(page.Vulnerabilities)
+		created += c
+		skipped += s
+		log.Printf("[NVD] Page %d/%d — startIndex=%d, brut=%d, après filtre=%d, créées=%d, skippées=%d",
+			pageNum, totalPages, startIndex, raw, len(page.Vulnerabilities), c, s)
+	}
+
+	log.Printf("[NVD] Import terminé — totalResults NVD=%d, brut reçues=%d, après filtre=%d, créées=%d, skippées=%d",
+		total, fetched, created+skipped, created, skipped)
+	return created, skipped, total, fetched, nil
+}
+
+// resolveNVDDateRange s'assure que les deux bornes de date sont présentes.
+// L'API NVD v2 exige pubStartDate ET pubEndDate ensemble (max 120 jours d'écart).
+// Si endDate est vide, on calcule endDate = startDate + 30 jours, plafonné à maintenant.
+func resolveNVDDateRange(startISO, endISO string) (string, string) {
+	if startISO == "" {
+		return "", ""
+	}
+
+	start := parseAnyDate(startISO)
+	if start.IsZero() {
+		log.Printf("[NVD] Impossible de parser pubStartDate=%q", startISO)
+		return startISO, endISO
+	}
+
+	var end time.Time
+	if endISO != "" {
+		end = parseAnyDate(endISO)
+	}
+	if end.IsZero() {
+		// Auto-calculer : start + 30 jours, plafonné à maintenant
+		end = start.AddDate(0, 0, 30)
+		if end.After(time.Now().UTC()) {
+			end = time.Now().UTC()
+		}
+		log.Printf("[NVD] pubEndDate absent — calculé automatiquement: %s", end.Format("2006-01-02"))
+	}
+
+	// Format NVD v2 : "yyyy-MM-ddTHH:mm:ss.000" (UTC implicite, sans timezone)
+	return start.UTC().Format("2006-01-02T15:04:05.000"),
+		end.UTC().Format("2006-01-02T15:04:05.000")
+}
+
+// parseAnyDate tente plusieurs formats courants pour parser une date.
+func parseAnyDate(s string) time.Time {
+	formats := []string{
+		"2006-01-02T15:04:05.000Z",
+		"2006-01-02T15:04:05Z",
+		"2006-01-02T15:04:05.000 +0000",
+		"2006-01-02T15:04:05",
+		"2006-01-02",
+	}
+	for _, f := range formats {
+		if t, err := time.Parse(f, s); err == nil {
+			return t
+		}
+	}
+	return time.Time{}
+}
+
+func extractNVDItemScore(item models.NVDImportItem) float64 {
+	if len(item.CVE.Metrics.V31) > 0 {
+		return item.CVE.Metrics.V31[0].CVSSData.BaseScore
+	}
+	if len(item.CVE.Metrics.V30) > 0 {
+		return item.CVE.Metrics.V30[0].CVSSData.BaseScore
+	}
+	if len(item.CVE.Metrics.V2) > 0 {
+		return item.CVE.Metrics.V2[0].CVSSData.BaseScore
+	}
+	return 0
+}
+

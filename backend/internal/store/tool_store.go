@@ -764,14 +764,19 @@ func SeedTools() error {
 	}
 
 	for _, s := range seeds {
-		// Upsert : insérer si absent, sinon synchroniser EthicalLevel + encadrement légal/éthique.
-		// On respecte les champs Description, Install, Usage… déjà édités par l'utilisateur.
+		// Unscoped pour trouver aussi les outils soft-deletés.
+		// Si l'outil existe mais a été supprimé par l'utilisateur (DeletedAt set) → ne pas restaurer.
 		var existing models.Tool
-		result := DB.Where("name = ?", s.Name).First(&existing)
+		result := DB.Unscoped().Where("name = ?", s.Name).First(&existing)
 		if result.Error != nil {
+			// N'existe pas du tout → créer
 			if _, err := CreateTool(&s); err != nil {
 				return err
 			}
+			continue
+		}
+		if existing.DeletedAt.Valid {
+			// Supprimé intentionnellement par l'utilisateur → ne pas restaurer
 			continue
 		}
 		updates := map[string]interface{}{}

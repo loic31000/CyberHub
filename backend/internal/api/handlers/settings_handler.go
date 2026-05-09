@@ -155,3 +155,42 @@ func upsertSetting(key, value string) {
 	store.DB.Unscoped().Where("key = ?", key).Delete(&models.AppSetting{})
 	store.DB.Create(&models.AppSetting{Key: key, Value: value})
 }
+
+// GetNVDAPIKey retourne la clé API NVD (masquée)
+func GetNVDAPIKey(c *gin.Context) {
+	var setting models.AppSetting
+	err := store.DB.Where("key = ?", "nvd_api_key").First(&setting).Error
+	if err != nil {
+		c.JSON(http.StatusOK, gin.H{"has_key": false, "masked": ""})
+		return
+	}
+	masked := ""
+	if len(setting.Value) > 8 {
+		masked = setting.Value[:4] + "****" + setting.Value[len(setting.Value)-4:]
+	}
+	c.JSON(http.StatusOK, gin.H{"has_key": true, "masked": masked})
+}
+
+// SetNVDAPIKey stocke la clé API NVD
+func SetNVDAPIKey(c *gin.Context) {
+	var req struct {
+		APIKey string `json:"api_key"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	if req.APIKey == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "clé API requise"})
+		return
+	}
+	// Hard-delete avant create pour éviter le conflit uniqueIndex + soft-delete GORM
+	upsertSetting("nvd_api_key", req.APIKey)
+	c.JSON(http.StatusOK, gin.H{"success": true})
+}
+
+// DeleteNVDAPIKey supprime la clé API NVD
+func DeleteNVDAPIKey(c *gin.Context) {
+	store.DB.Unscoped().Where("key = ?", "nvd_api_key").Delete(&models.AppSetting{})
+	c.JSON(http.StatusOK, gin.H{"success": true})
+}

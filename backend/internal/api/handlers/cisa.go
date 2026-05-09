@@ -100,6 +100,28 @@ func (h *CISAHandler) UpdateKEV(c *gin.Context) {
 	})
 }
 
+// BatchCheckKEV vérifie plusieurs CVE-IDs en une seule requête.
+// GET /cisa/kev/batch?ids=CVE-2024-1234,CVE-2024-5678
+func (h *CISAHandler) BatchCheckKEV(c *gin.Context) {
+	idsParam := c.Query("ids")
+	if idsParam == "" {
+		c.JSON(http.StatusOK, gin.H{})
+		return
+	}
+	ids := strings.Split(idsParam, ",")
+	result := make(map[string]bool, len(ids))
+	for _, id := range ids {
+		id = strings.TrimSpace(strings.ToUpper(id))
+		if id == "" {
+			continue
+		}
+		var count int64
+		h.db.Model(&models.CISAKEVEntry{}).Where("UPPER(cve_id) = ?", id).Count(&count)
+		result[id] = count > 0
+	}
+	c.JSON(http.StatusOK, result)
+}
+
 func (h *CISAHandler) GetEPSS(c *gin.Context) {
 	cveID := strings.ToUpper(c.Param("cve_id"))
 	var cached models.EPSSScore

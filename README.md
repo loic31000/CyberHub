@@ -52,19 +52,20 @@ Application de bureau pour centraliser vos outils, writeups CTF, veille CVE, pla
 - **Dashboard** — KPIs visuels, graphiques (writeups par plateforme, CVE par sévérité, top outils)
 - **Outils** — Catalogue de 28 outils avec fiches techniques détaillées (Nmap, Hydra, Metasploit, SQLMap, Gobuster, Trivy, Ghidra…)
 - **CTF Writeups** — Gestion par plateforme (TryHackMe, HackTheBox)
-- **Veille CVE** — Base locale + import NVD JSON 2.0 + recherche par sévérité/CVSS
+- **Veille CVE** — Base locale + import NVD JSON 2.0 (fichier) + import NVD en ligne paginé (clé API optionnelle) + recherche par sévérité/CVSS
 - **Playbooks** — 19 procédures de réponse à incident interactives (checklist step-by-step)
 - **MITRE ATT&CK Enterprise** — 823 techniques, 14 tactiques, indexées offline dans SQLite
-- **IOC Manager** — Gestionnaire centralisé d'Indicateurs de Compromission (IP, domaine, hash, URL, email, CIDR)
+- **IOC Manager** — Gestionnaire centralisé d’Indicateurs de Compromission (IP, domaine, hash, URL, email, CIDR)
 - **CLOAK OpSec** — 720 sous-techniques adversariales (anonymat, dissimulation, OpSec) · 13 tactiques · embarqué offline
 - **BGP / AS Lookup** — Proxy BGPView avec cache SQLite TTL 1h, bascule vers RIPE Stat en cas d’échec, résolution DNS-over-HTTPS, et statut de santé exposé dans l’UI
-- **BGP Historian** — Snapshots périodiques d'AS, diff entre snapshots, alertes sur changements de routage
-- **OSINT Runner** — Execution locale d'outils OSINT (theHarvester, Sherlock, Maigret) avec stream de sortie, extraction d'IOCs et import direct dans l'IOC Manager
-- **Notes d'investigation** — éditeur opérationnel avec liens vers IOCs, MITRE, CVE et recherche fulltext
+- **BGP Historian** — Snapshots périodiques d’AS, diff entre snapshots, alertes sur changements de routage
+- **OSINT Runner** — Exécution locale d’outils OSINT (theHarvester, Sherlock, Maigret) avec stream de sortie, extraction d’IOCs et import direct dans l’IOC Manager
+- **Notes d’investigation** — éditeur opérationnel avec liens vers IOCs, MITRE, CVE et recherche fulltext
 - **Hash Analyzer multi-sources** — analyse parallèle MD5/SHA256 sur 4 sources (VirusTotal, MalwareBazaar, ThreatFox, URLhaus) · score de détection · moteurs antivirus · cache SQLite 6h
 - **VirusTotal intégré** — clé API stockée en base, masquée, configurable depuis les Paramètres · fallback gracieux si non configuré
-- **IOC Manager amélioré** — cases à cocher par ligne · sélection tout/partielle (état indéterminé) · suppression groupée avec confirmation · barre d'actions contextuelle
+- **IOC Manager amélioré** — cases à cocher par ligne · sélection tout/partielle (état indéterminé) · suppression groupée avec confirmation · barre d’actions contextuelle
 - **Cheatsheets interactives** — plus de 16 outils avec commandes paramétrables, preview en temps réel et copie en un clic
+- **Outils** — 59 fiches techniques (offensive, défensive, OSINT, forensics, cloud, reverse engineering…)
 - **Dashboard v2** — widgets supplémentaires BGP Alerts, IOCs récents, corrélations récentes et notes récentes
 - **CISA KEV + EPSS** — badge rouge animé 🔥 sur les CVE exploitées activement, score de probabilité EPSS (FIRST.org) avec jauge, section dédiée dans le détail CVE, mise à jour depuis les Paramètres
 - **LOLBins & GTFOBins** — 232 binaires Windows (LOLBAS) + 15 binaires Linux (GTFOBins) · recherche, filtres par catégorie et technique MITRE, drawer latéral avec commandes d'abus colorées et copie en un clic
@@ -124,11 +125,26 @@ cd ..
 
 ```bash
 cd backend
-go build -ldflags="-s -w" -o cyber-hub.exe .   # Windows
-# go build -ldflags="-s -w" -o cyber-hub .      # Linux/macOS
+CGO_ENABLED=0 go build -ldflags="-s -w" -o ../cyber-hub.exe .   # Windows
+# CGO_ENABLED=0 go build -ldflags="-s -w" -o ../cyber-hub .      # Linux/macOS
 ```
 
+> `CGO_ENABLED=0` est requis — le driver SQLite embarqué (`glebarez/sqlite`) est pur Go, sans dépendance C.  
 > Les flags `-s -w` strippent les symboles de debug — binaire ~30% plus léger.
+
+### Build en une commande (recommandé)
+
+```powershell
+# Windows
+.\build.ps1
+```
+
+```bash
+# Linux / macOS
+./build.sh
+```
+
+Les scripts automatisent les 3 étapes : build React → copie dans `backend/web/` → compilation Go avec `CGO_ENABLED=0`. Le binaire final `cyber-hub.exe` / `cyber-hub` est généré à la racine du projet.
 
 ### 4. Lancer l'application
 
@@ -154,21 +170,28 @@ L'application démarre sur **http://localhost:7743** et ouvre le navigateur auto
 
 ## Modules disponibles
 
-### Outils (28 fiches)
+### Outils (59 fiches)
 
 | Catégorie | Outils |
 |-----------|--------|
-| Réseau | Nmap, Masscan |
-| Bruteforce | Hydra, John the Ripper |
-| Web | SQLmap, Nikto, ffuf, WPScan, OWASP ZAP |
-| Exploitation | Metasploit Framework |
-| Active Directory | CrackMapExec, Evil-WinRM, enum4linux-ng |
-| Wi-Fi | Aircrack-ng |
-| OSINT | theHarvester, Sherlock, Maigret |
-| Cloud/SecOps | Trivy, Prowler, Checkov |
-| Antivirus | ClamAV |
-| Reverse | Ghidra |
-| Forensics | Volatility 3, YARA |
+| Réseau | Nmap, Masscan, Scapy, Bettercap, Responder |
+| Bruteforce / Password | Hydra, John the Ripper, Hashcat |
+| Web | SQLmap, Nikto, ffuf, WPScan, OWASP ZAP, Burp Suite Community, Gobuster, Wfuzz, WhatWeb, LBD |
+| Exploitation | Metasploit Framework, Impacket |
+| Active Directory | CrackMapExec, Evil-WinRM, Enum4linux-ng, BloodHound, Mimikatz |
+| Wi-Fi | Aircrack-ng, Kismet |
+| OSINT | theHarvester, Sherlock, Maigret, Recon-ng, Dnsrecon |
+| Stéganographie | Stegseek |
+| Vulnerability Scanner | OpenVAS |
+| Cloud / DevSecOps | Trivy, Prowler, Checkov, TruffleHog |
+| Antivirus / Malware | ClamAV, Cuckoo Sandbox |
+| Reverse Engineering | Ghidra, Radare2 |
+| Forensics | Volatility 3, YARA, Wireshark, Autopsy, CyberChef, SQLite Forensic Browser, Zeek (ex-Bro) |
+| IDS / IPS | Suricata, Snort |
+| SIEM / EDR | Wazuh Agent, Grafana, Velociraptor, Metabase |
+| Audit / Compliance | Lynis, Osquery |
+| Network Monitoring | RITA |
+| File Integrity | AIDE |
 
 ### OSINT Runner & Cheatsheets
 
@@ -276,13 +299,24 @@ Suivi des changements de routage BGP dans le temps :
 - **Alertes** — détection automatique des changements lors d'un nouveau snapshot (`prefix_change`, `upstream_change`, `peer_change`, `downstream_change`) · badge rouge dans la sidebar · acquittement manuel
 - **Export IOC** — conversion d'un préfixe BGP en IOC de type CIDR
 
+### Import NVD en ligne
+
+Import direct depuis l'API NVD v2 sans téléchargement manuel de fichier :
+
+- **Endpoint** : `POST /api/cve/fetch-from-nvd`
+- **Paramètres** : `pub_start_date`, `pub_end_date`, `cvss_min`, `results_per_page` (max 2000), `max_pages` (0 = illimité)
+- **Pagination complète** : itère automatiquement toutes les pages (`startIndex` incrémental)
+- **Rate limit respecté** : 6 s entre pages sans clé API, 700 ms avec clé
+- **Clé API NVD** : configurable depuis les Paramètres (`GET/POST/DELETE /api/settings/nvd-key`) — augmente la limite de 5 req/30s à 50 req/30s
+- **Réponse** : `created`, `skipped`, `total_available` (NVD totalResults), `total_remote` (brut reçu avant filtre CVSS)
+
 ### CISA KEV & EPSS
 
 Enrichissement automatique des CVE depuis deux sources de threat intelligence :
 
 | Source | Données | Mise à jour |
 |--------|---------|-------------|
-| **CISA KEV** | Known Exploited Vulnerabilities — liste officielle des CVE exploitées activement | Depuis les Paramètres → bouton "Synchroniser KEV" |
+| **CISA KEV** | Known Exploited Vulnerabilities — liste officielle des CVE exploitées activement | Depuis les Paramètres → card CISA KEV → bouton "Mettre à jour" |
 | **EPSS** | Exploit Prediction Scoring System (FIRST.org) — probabilité d'exploitation dans les 30 jours | À la demande, requête API par CVE ID |
 
 - Badge rouge animé 🔥 sur toute CVE présente dans le catalogue KEV (liste et détail)
@@ -321,14 +355,29 @@ Synchronisation de deux feeds de menaces ouverts depuis les Paramètres :
 
 | Feed | Contenu | Format |
 |------|---------|--------|
-| **Feodo Tracker** (abuse.ch) | IPs C2 de Cobalt Strike, Emotet, QakBot, Pikabot… | CSV |
-| **URLhaus** (abuse.ch) | URLs malveillantes actives | CSV |
+| **Feodo Tracker** (abuse.ch) | IPs C2 de Cobalt Strike, Emotet, QakBot, Pikabot… | JSON (`ipblocklist.json`) |
+| **URLhaus** (abuse.ch) | URLs malveillantes actives | JSON (API v1 POST) |
 
 - Bouton de synchronisation par feed — appel backend → téléchargement → parse → upsert SQLite
 - TLP automatique : `Red` pour Feodo, `Amber` pour URLhaus
 - Déduplication avant insertion (skip si IOC déjà présent)
 - Affichage du résultat : nombre d'entrées ajoutées + date de dernière synchronisation
 
+### Paramètres
+
+Page de gestion centralisée, accessible depuis la sidebar :
+
+| Section | Fonctionnalité |
+|---------|----------------|
+| **Sauvegarde** | Déclenchement manuel · copie horodatée `cyber-hub.db.bak` (sauvegarde auto au démarrage et toutes les 24h) |
+| **Export / Import** | JSON complet (outils, CTF, CVE, playbooks) · import non destructif (entrées existantes ignorées) |
+| **Bases de données** | Mise à jour MITRE ATT&CK, CLOAK OpSec, WhatsMyName depuis internet · affichage du nombre d'entrées et date de dernière mise à jour |
+| **CISA KEV** | Re-télécharge le catalogue officiel CISA · insère les nouvelles entrées · affiche le total et la date de dernière mise à jour |
+| **Threat Feeds** | Synchronisation Feodo Tracker et URLhaus · affiche le nombre d'IOCs insérés et la date de dernière sync par feed |
+| **VirusTotal** | Stockage / suppression de la clé API (masquée `VT-XXXX****YYYY`) · active l'analyse VirusTotal dans le Hash Analyzer |
+| **NVD API Key** | Stockage / suppression de la clé API NVD (masquée) · active le rate limit étendu (50 req/30s au lieu de 5) pour l'import CVE paginé |
+
+Routes API correspondantes : `GET/POST/DELETE /api/settings/virustotal` · `GET/POST/DELETE /api/settings/nvd-key` · `POST /api/cisa/kev/update` · `POST /api/threat-feeds/sync/feodo` · `POST /api/threat-feeds/sync/urlhaus`.
 
 ---
 
@@ -337,11 +386,12 @@ Synchronisation de deux feeds de menaces ouverts depuis les Paramètres :
 | Couche | Mesure |
 |--------|--------|
 | Auth | JWT HS256 · bcrypt · secret généré aléatoirement au premier démarrage |
+| Rate limit | 8 tentatives de login / minute par IP — rejet `429` au-delà |
 | Réseau | Bind sur `127.0.0.1` uniquement — pas d'accès réseau externe |
 | CORS | Whitelist `localhost:7743` + `localhost:5173` (dev) |
-| Headers | `X-Frame-Options: DENY` · `X-Content-Type-Options` · `Referrer-Policy` |
+| Headers | `X-Frame-Options: DENY` · `X-Content-Type-Options: nosniff` · `Referrer-Policy: strict-origin-when-cross-origin` · `Permissions-Policy: geolocation=(), microphone=(), camera=()` |
 | Frontend | TypeScript strict · inputs validés |
-| Secrets | Aucun secret en dur — JWT secret stocké en DB |
+| Secrets | Aucun secret en dur — JWT secret et clés API stockés en DB (`app_settings`) |
 | BGP | Proxy local uniquement — aucune clé ni credential transmis |
 
 ---
@@ -351,17 +401,22 @@ Synchronisation de deux feeds de menaces ouverts depuis les Paramètres :
 ```
 cyber-hub/
 ├── backend/
+│   ├── cmd/
+│   │   └── reset-auth/        # Utilitaire CLI : réinitialise le mot de passe local
 │   ├── internal/
 │   │   ├── api/
 │   │   │   ├── handlers/      # Auth, Tools, CTF, CVE, Playbooks, MITRE, IOC, CLOAK, BGP, Hash, OSINT, Notes, LOLBins, ThreatFeeds
 │   │   │   ├── middleware/    # Auth (JWT header + ?token= SSE fallback), Rate limiter
 │   │   │   └── router.go
-│   │   ├── mitre/             # Seed MITRE STIX 2.0
-│   │   ├── cloak/             # Seed CLOAK (concealment-data.json)
+│   │   ├── mitre/             # Seed MITRE STIX 2.0 (async background)
+│   │   ├── cloak/             # Seed CLOAK (concealment-data.json, go:embed)
+│   │   ├── cisa/              # Sync CISA KEV + EPSS (FIRST.org API)
+│   │   ├── lolbins/           # Seed LOLBins/GTFOBins (lolbas.json + gtfobins.json)
 │   │   ├── osint/             # Moteur OSINT (wmn-data.json, goroutines, context.Background)
 │   │   ├── cheatsheets/       # Handler cheatsheets statiques
-│   │   ├── models/            # Structs GORM : BGPCache, BGPSnapshot, BGPAlert, HashCache, AppSetting
-│   │   └── store/             # Couche données
+│   │   ├── correlation/       # Moteur de corrélation IOC (6 goroutines parallèles)
+│   │   ├── models/            # Structs GORM : 19+ tables (BGPCache, HashCache, AppSetting, LOLBin…)
+│   │   └── store/             # Couche données — CRUD + seed + FetchNVDOnline
 │   ├── web/                   # Build React embarqué (go:embed)
 │   └── main.go
 ├── frontend/
@@ -386,7 +441,7 @@ cyber-hub/
 ```bash
 # Terminal 1 — Backend
 cd backend
-go run cmd/server/main.go
+go run main.go
 
 # Terminal 2 — Frontend (hot reload)
 cd frontend
@@ -404,6 +459,15 @@ npx tsc --noEmit
 cd backend
 gofmt -w ./internal/...
 ```
+
+### Réinitialiser le mot de passe (mot de passe oublié)
+
+```bash
+cd backend
+go run cmd/reset-auth/main.go
+```
+
+Ouvre la base SQLite locale et réinitialise le hash bcrypt. Utile si l'accès est perdu sans pouvoir relancer la procédure de setup.
 
 ---
 
@@ -463,4 +527,4 @@ CLOAK est distribué sous licence GPL v2 — crédit : Mick Deben, Leiden Univer
 
 ---
 
-*README mis à jour le 03/05/2026 — Cyber-Hub v1.0*
+*README mis à jour le 09/05/2026 — Cyber-Hub v1.0*

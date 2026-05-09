@@ -1,6 +1,10 @@
 package models
 
-import "time"
+import (
+	"time"
+
+	"gorm.io/gorm"
+)
 
 // ToolCategory représente le type d'outil (offensif ou défensif)
 type ToolCategory string
@@ -66,9 +70,10 @@ type Tool struct {
 	// Notes personnelles de l'utilisateur (Markdown libre, isolé du contenu officiel)
 	UserNotes string `json:"user_notes"`
 
-	Tags      string    `json:"tags"` // CSV : "réseau,scan,recon"
-	CreatedAt time.Time `json:"created_at"`
-	UpdatedAt time.Time `json:"updated_at"`
+	Tags      string         `json:"tags"` // CSV : "réseau,scan,recon"
+	CreatedAt time.Time      `json:"created_at"`
+	UpdatedAt time.Time      `json:"updated_at"`
+	DeletedAt gorm.DeletedAt `json:"-" gorm:"index"`
 }
 
 // ToolCreateRequest est le payload de création/mise à jour
