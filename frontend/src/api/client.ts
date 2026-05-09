@@ -398,6 +398,14 @@ export const threatApi = {
     http.post(`/threat/run/${name}`).then((r) => r.data),
 }
 
+// ---- Reverse Shell Generator ----
+export const revshellApi = {
+  generate: (params: import('@/types/revshell').RevShellParams) =>
+    http
+      .get<import('@/types/revshell').RevShellResponse>('/revshell', { params })
+      .then((r) => r.data),
+}
+
 // ---- Corrélation Globale ----
 export const correlationApi = {
   correlationByIOCId: (id: number) =>

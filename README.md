@@ -43,6 +43,12 @@ Application de bureau pour centraliser vos outils, writeups CTF, veille CVE, pla
 ### IOC Manager
 ![IOC Manager](./.github/screenshots/iocmanager.png)
 
+## ENCODER / DECODER
+![Encoder / Decoder](./.github/screenshots/encoder.png)
+
+## REVSHELL
+![Revshell](./.github/screenshots/revshell.png)
+
 ---
 
 ## Fonctionnalités
@@ -71,6 +77,15 @@ Application de bureau pour centraliser vos outils, writeups CTF, veille CVE, pla
 - **LOLBins & GTFOBins** — 232 binaires Windows (LOLBAS) + 15 binaires Linux (GTFOBins) · recherche, filtres par catégorie et technique MITRE, drawer latéral avec commandes d'abus colorées et copie en un clic
 - **Import IOC en masse** — CSV ou TXT, détection automatique du type (IP, hash, domaine, URL, email, CIDR), aperçu 5 lignes, déduplication, modal drag & drop
 - **Threat Feeds** — synchronisation Feodo Tracker (IPs C2 Cobalt Strike/Emotet) et URLhaus (URLs malveillantes actives) depuis les Paramètres · TLP auto · déduplication avant insertion
+
+---
+
+## 🛠️ Modules utilitaires
+
+- **Encoder / Decoder** — transformations offline : Base64 ↔ URL ↔ Hex ↔ ROT13 ↔ HTML entities. Preview temps réel, boutons SWAP/CLEAR/COPY, erreurs inline. Route : `/encoder`
+- **Reverse Shell Generator** — payloads pour 16 langages (bash/python/powershell/php…). Encodage none/base64/url, listener netcat auto. Route : `/revshell`
+
+**100% local, stateless, intégrés dans la sidebar.**
 
 ---
 

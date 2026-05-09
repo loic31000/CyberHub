@@ -26,6 +26,8 @@ import OSINTRunner from '@/pages/OSINTRunner'
 import NotesPage from '@/pages/NotesPage'
 import CheatsheetsPage from '@/pages/CheatsheetsPage'
 import LOLBinsPage from '@/pages/LOLBinsPage'
+import EncoderDecoder from '@/pages/EncoderDecoder'
+import RevShellGenerator from '@/pages/RevShellGenerator'
 
 // Guard : redirige vers /login si non authentifié
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
@@ -103,6 +105,12 @@ export default function App() {
 
           {/* LOLBins & GTFOBins */}
           <Route path="lolbins" element={<LOLBinsPage />} />
+
+          {/* Encoder / Decoder */}
+          <Route path="encoder" element={<EncoderDecoder />} />
+
+          {/* Reverse Shell Generator */}
+          <Route path="revshell" element={<RevShellGenerator />} />
 
         
           {/* Paramètres */}

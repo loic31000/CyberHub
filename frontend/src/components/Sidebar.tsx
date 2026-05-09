@@ -2,7 +2,7 @@ import { NavLink, useNavigate } from 'react-router-dom'
 import { useAuthStore } from '@/store/auth'
 import {
   LayoutDashboard, Wrench, FileText, ShieldAlert, BookOpen, LogOut, Settings,
-  ShieldBan, EyeOff, Network, History, GitBranch, Terminal, StickyNote, ChevronRight, Search
+  ShieldBan, EyeOff, Network, History, GitBranch, Terminal, StickyNote, ChevronRight, Search, Binary, Zap
 } from 'lucide-react'
 import clsx from 'clsx'
 
@@ -42,6 +42,8 @@ export default function Sidebar({ collapsed, bgpAlertCount = 0 }: any) {
       items: [
         { to: '/notes', label: 'Notes', icon: <StickyNote size={18} /> },
         { to: '/cheatsheets', label: 'Cheatsheets', icon: <ChevronRight size={18} /> },
+        { to: '/encoder', label: 'Encoder/Decoder', icon: <Binary size={18} /> },
+        { to: '/revshell', label: 'RevShell Gen', icon: <Zap size={18} /> },
         { to: '/bgp', label: 'BGP Lookup', icon: <Network size={18} />, end: true },
         { to: '/bgp/historian', label: 'BGP Historian', icon: <History size={18} />, badge: bgpAlertCount },
         { to: '/settings', label: 'Paramètres', icon: <Settings size={18} /> },

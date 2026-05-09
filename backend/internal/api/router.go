@@ -257,6 +257,8 @@ func NewRouter(correlationEngine *correlation.CorrelationEngine) *gin.Engine {
 				cheat.GET("", cheatH.List)
 				cheat.GET("/:tool_name", cheatH.GetByTool)
 			}
+
+			protected.GET("/revshell", handlers.GetRevShell)
 		}
 	}
 
