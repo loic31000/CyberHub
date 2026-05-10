@@ -64,7 +64,7 @@ function CreateModal({ onClose, onCreated }: CreateModalProps) {
           <h2 className="text-sm font-mono font-bold uppercase tracking-wider text-[#f1f5f9]">
             NOUVELLE INVESTIGATION
           </h2>
-          <button onClick={onClose} className="p-1 rounded hover:bg-[#1e2d40] text-[#64748b] hover:text-[#f1f5f9] transition-colors">
+          <button onClick={onClose} className="p-1 rounded hover:bg-[#1e2d40] text-[#64748b] hover:text-[#f1f5f9] transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-[#00d4ff]" aria-label="Fermer">
             <X size={16} />
           </button>
         </div>

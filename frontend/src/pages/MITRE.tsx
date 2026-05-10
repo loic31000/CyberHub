@@ -138,7 +138,7 @@ function DetailPanel({ technique, loading, onClose, tactics }: DetailPanelProps)
             <span className="text-sm font-mono font-bold text-[#f1f5f9] truncate">{technique?.name}</span>
           </div>
         )}
-        <button onClick={onClose} className="text-[#64748b] hover:text-[#f1f5f9] ml-2 flex-shrink-0"><X size={16} /></button>
+        <button onClick={onClose} className="text-[#64748b] hover:text-[#f1f5f9] ml-2 flex-shrink-0 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#00d4ff]" aria-label="Fermer"><X size={16} /></button>
       </div>
       {technique && !loading && (
         <div className="flex-1 overflow-y-auto p-4 space-y-4 text-sm">

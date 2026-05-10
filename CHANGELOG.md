@@ -2,6 +2,14 @@
 
 ---
 
+## v1.1 — Code splitting · Tests backend · Dashboard v3
+
+- **Code splitting React** — tous les 28 composants page migrés de `import` statiques vers `React.lazy()` + `<Suspense fallback={<Loader />}>` dans `App.tsx`. Nouveau composant `Loader.tsx`. Réduit significativement le bundle initial : chaque page est chargée à la demande, les chunks sont isolés par Vite.
+- **Suite de tests backend** — nouveau fichier `backend/internal/api/handlers/ioc_notes_test.go` : 13 cas table-driven (Go testing + Gin test mode) couvrant `CreateIOC` (validation type, TLP, statut, JSON malformé) et `NotesHandler` (création avec titre, contenu, tags, IOCs liés). Base SQLite in-memory initialisée via `TestMain` + `store.InitDB(":memory:")`.
+- **Dashboard v3** — refonte structurelle du tableau de bord : 12 modules tactiques (ajout Investigations, BGP Historian, Notes Ops, Cheatsheets, Encoder/Decoder, RevShell Generator), layout 3 colonnes (`lg:grid-cols-3`), bloc Threat Monitor avec alertes BGP en temps réel.
+
+---
+
 ## v1.0 — CISA KEV · EPSS · LOLBins/GTFOBins · Import IOC · Threat Feeds
 
 - **CISA KEV** — synchronisation du catalogue officiel des vulnérabilités exploitées activement : badge 🔥 animé dans la liste CVE, section dédiée dans `CVEDetail` (vendor, produit, date d'ajout, action requise, date limite de remédiation) · mise à jour depuis les Paramètres

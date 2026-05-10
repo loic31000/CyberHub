@@ -178,7 +178,8 @@ export default function CorrelationPage() {
                 {iocValue && (
                   <button
                     onClick={handleClearInput}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-[#64748b] hover:text-[#f1f5f9]"
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-[#64748b] hover:text-[#f1f5f9] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#00d4ff]"
+                    aria-label="Effacer"
                   >
                     <X size={14} />
                   </button>

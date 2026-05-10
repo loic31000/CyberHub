@@ -137,8 +137,9 @@ export default function CommandGenerator({ template, schemaJson }: Props) {
         <button
           onClick={copy}
           disabled={!allFilled || hasErrors}
-          className="absolute top-2 right-2 p-1.5 rounded bg-bg-hover border border-border hover:border-cyber-cyan text-text-muted hover:text-cyber-cyan transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+          className="absolute top-2 right-2 p-1.5 rounded bg-bg-hover border border-border hover:border-cyber-cyan text-text-muted hover:text-cyber-cyan transition-colors disabled:opacity-30 disabled:cursor-not-allowed focus:outline-none focus-visible:ring-2 focus-visible:ring-[#00d4ff]"
           title={hasErrors ? `Corrigez les erreurs avant de copier` : `Copier la commande`}
+          aria-label="Copier"
         >
           {copied ? <Check size={12} className="text-cyber-green" /> : <Copy size={12} />}
         </button>

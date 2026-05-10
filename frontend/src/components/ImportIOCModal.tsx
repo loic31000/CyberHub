@@ -112,7 +112,7 @@ export default function ImportIOCModal({ open, onClose, onImported }: Props) {
             <Upload size={18} className="text-cyber-cyan" />
             Import IOC — CSV / TXT
           </h2>
-          <button onClick={handleClose} className="p-1 rounded hover:bg-bg-primary text-text-muted hover:text-text-primary transition-colors">
+          <button onClick={handleClose} className="p-1 rounded hover:bg-bg-primary text-text-muted hover:text-text-primary transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-[#00d4ff]" aria-label="Fermer">
             <X size={18} />
           </button>
         </div>

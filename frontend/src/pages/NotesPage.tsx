@@ -567,7 +567,8 @@ export default function NotesPage() {
                 </div>
                 <button
                   onClick={handleSearch}
-                  className="flex items-center gap-1 px-3 py-2 border border-[#1e2d40] text-[#64748b] hover:text-[#00d4ff] hover:border-[#00d4ff]/40 transition-colors"
+                  className="flex items-center gap-1 px-3 py-2 border border-[#1e2d40] text-[#64748b] hover:text-[#00d4ff] hover:border-[#00d4ff]/40 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-[#00d4ff]"
+                  aria-label="Rechercher"
                 >
                   <Search size={14} />
                 </button>
@@ -597,7 +598,8 @@ export default function NotesPage() {
                     <p className="text-sm font-mono font-bold text-[#f1f5f9] truncate flex-1">{note.title}</p>
                     <button
                       onClick={e => { e.stopPropagation(); handleDelete(note.id) }}
-                      className="text-[#64748b] hover:text-red-400 shrink-0 transition-colors"
+                      className="text-[#64748b] hover:text-red-400 shrink-0 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-[#00d4ff]"
+                      aria-label="Supprimer"
                     >
                       <Trash2 size={13} />
                     </button>

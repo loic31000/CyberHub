@@ -113,7 +113,7 @@ function EventForm({ investigationId, onCreated, onCancel }: EventFormProps) {
     <div className="border border-[#00d4ff]/20 bg-[#0a0f16] p-5">
       <div className="flex items-center justify-between mb-4">
         <h3 className="text-xs font-mono font-bold uppercase tracking-wider text-[#00d4ff]">NOUVEL ÉVÉNEMENT</h3>
-        <button onClick={onCancel} className="p-1 rounded hover:bg-[#1e2d40] text-[#64748b] hover:text-[#f1f5f9] transition-colors">
+        <button onClick={onCancel} className="p-1 rounded hover:bg-[#1e2d40] text-[#64748b] hover:text-[#f1f5f9] transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-[#00d4ff]" aria-label="Fermer">
           <X size={14} />
         </button>
       </div>

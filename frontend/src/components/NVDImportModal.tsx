@@ -78,7 +78,7 @@ export default function NVDImportModal({ open, onClose, onSuccess }: Props) {
           <h2 className="font-mono text-xs font-bold uppercase tracking-[0.2em] text-[#00d4ff]">
             IMPORT NVD EN LIGNE
           </h2>
-          <button onClick={onClose} className="text-[#64748b] hover:text-white">
+          <button onClick={onClose} className="text-[#64748b] hover:text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-[#00d4ff]" aria-label="Fermer">
             <X size={18} />
           </button>
         </div>

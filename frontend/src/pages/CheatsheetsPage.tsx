@@ -35,8 +35,9 @@ function CommandCard({ cmd }: CommandCardProps) {
         <p className="text-xs font-mono font-bold text-[#8a9ab0]">{cmd.title}</p>
         <button
           onClick={handleCopy}
-          className="shrink-0 text-[#64748b] hover:text-cyan-400 transition-colors"
+          className="shrink-0 text-[#64748b] hover:text-cyan-400 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-[#00d4ff]"
           title="Copier"
+          aria-label="Copier"
         >
           {copied ? <Check size={14} className="text-green-400" /> : <Copy size={14} />}
         </button>
@@ -81,7 +82,7 @@ function CheatsheetDrawer({ cheatsheet, onClose }: DrawerProps) {
             <h2 className="text-lg font-mono font-bold text-[#f1f5f9]">{cheatsheet.tool}</h2>
             <p className="text-[11px] font-mono text-[#64748b]">{cheatsheet.description}</p>
           </div>
-          <button onClick={onClose} className="text-[#64748b] hover:text-red-400 transition-colors">
+          <button onClick={onClose} className="text-[#64748b] hover:text-red-400 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-[#00d4ff]" aria-label="Fermer">
             <X size={20} />
           </button>
         </div>

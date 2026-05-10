@@ -445,15 +445,17 @@ export default function OSINTRunner() {
                   <span className="text-[10px] text-[#64748b] ml-auto">{relativeTime(job.created_at)}</span>
                   <button
                     onClick={() => handleReview(job.id)}
-                    className="p-1 text-[#64748b] hover:text-[#00d4ff] transition-colors"
+                    className="p-1 text-[#64748b] hover:text-[#00d4ff] transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-[#00d4ff]"
                     title="Revoir"
+                    aria-label="Voir"
                   >
                     <Eye size={13} />
                   </button>
                   <button
                     onClick={() => handleDelete(job.id)}
-                    className="p-1 text-[#64748b] hover:text-red-400 transition-colors"
+                    className="p-1 text-[#64748b] hover:text-red-400 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-[#00d4ff]"
                     title="Supprimer"
+                    aria-label="Supprimer"
                   >
                     <Trash2 size={13} />
                   </button>

@@ -284,8 +284,9 @@ export default function MITRELayerDetail() {
                     </div>
                     <button
                       onClick={() => removeEntry(entry.technique_id)}
-                      className="p-1 rounded opacity-0 group-hover:opacity-100 hover:bg-red-500/10 text-[#64748b] hover:text-red-400 transition-all shrink-0"
+                      className="p-1 rounded opacity-0 group-hover:opacity-100 hover:bg-red-500/10 text-[#64748b] hover:text-red-400 transition-all shrink-0 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#00d4ff]"
                       title="Retirer"
+                      aria-label="Retirer"
                     >
                       <Minus size={12} />
                     </button>
@@ -336,7 +337,7 @@ export default function MITRELayerDetail() {
                     className="w-full bg-[#0d131f] border border-[#1e2d40] pl-9 pr-3 py-1.5 font-mono text-xs text-[#f1f5f9] placeholder-[#2a3f55] focus:outline-none focus:border-[#00d4ff]/40"
                   />
                   {query && (
-                    <button onClick={() => setQuery('')} className="absolute right-3 top-1/2 -translate-y-1/2 text-[#64748b] hover:text-[#f1f5f9]">
+                    <button onClick={() => setQuery('')} className="absolute right-3 top-1/2 -translate-y-1/2 text-[#64748b] hover:text-[#f1f5f9] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#00d4ff]" aria-label="Effacer la recherche">
                       <X size={11} />
                     </button>
                   )}

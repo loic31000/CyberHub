@@ -54,19 +54,19 @@ export default function Sidebar({ collapsed, bgpAlertCount = 0 }: any) {
   ]
 
   return (
-    <aside className={clsx('bg-[#06080f] border-r border-[#1e2d40] flex flex-col transition-all duration-300', collapsed ? 'w-20' : 'w-64')}>
+    <aside className={clsx('bg-[#0a0e17] border-r border-[#1e2d40] flex flex-col transition-all duration-300', collapsed ? 'w-20' : 'w-64')}>
       
-      {/* MENU DE NAVIGATION - POLICE PLUS LISIBLE (text-sm font-medium) */}
-      <nav className="flex-1 overflow-y-auto py-6 space-y-6 custom-scrollbar">
+      {/* MENU DE NAVIGATION */}
+      <nav className="flex-1 overflow-y-auto py-3 space-y-3 custom-scrollbar">
         {groups.map((g) => (
-          <div key={g.section} className="mb-2">
-            {!collapsed && <div className="px-6 mb-3 text-[10px] font-bold text-[#4a6480] tracking-[0.15em]">{g.section}</div>}
-            
+          <div key={g.section} className="mb-0">
+            {!collapsed && <div className="px-5 mb-1 text-[10px] font-bold text-[#4a6480] tracking-[0.15em]">{g.section}</div>}
+
             {g.items.map((i) => (
               <NavLink key={i.to} to={i.to} end={i.end} className={({ isActive }) => clsx(
-                'flex items-center gap-3 py-2.5 text-sm font-medium transition-colors relative group',
+                'flex items-center gap-3 py-2 text-xs font-mono transition-colors relative group',
                 collapsed ? 'justify-center mx-4 rounded-md' : 'px-6',
-                isActive ? 'text-[#00d4ff] bg-[#00d4ff]/5' : 'text-[#8a9ab0] hover:text-[#e2e8f0] hover:bg-[#1e2d40]/40'
+                isActive ? 'text-[#00d4ff] bg-[#00d4ff]/5' : 'text-[#8a9ab0] hover:text-[#e2e8f0] hover:bg-[#1e2d40]/30'
               )}>
                 {({ isActive }) => (
                   <>
@@ -83,8 +83,8 @@ export default function Sidebar({ collapsed, bgpAlertCount = 0 }: any) {
       </nav>
 
       {/* FOOTER DECONNEXION */}
-      <div className="p-4 border-t border-[#1e2d40]">
-        <button onClick={() => { logout(); navigate('/login') }} className={clsx("flex items-center gap-3 text-[#ef4444] hover:bg-[#ef4444]/10 w-full rounded transition-colors text-sm font-medium", collapsed ? 'justify-center p-2' : 'px-3 py-2.5')}>
+      <div className="p-3 border-t border-[#1e2d40]">
+        <button onClick={() => { logout(); navigate('/login') }} className={clsx("flex items-center gap-3 text-[#ef4444] hover:bg-[#ef4444]/10 w-full rounded transition-colors text-sm font-medium", collapsed ? 'justify-center p-2' : 'px-3 py-2')}>
           <LogOut size={18} /> {!collapsed && <span>Déconnexion</span>}
         </button>
       </div>

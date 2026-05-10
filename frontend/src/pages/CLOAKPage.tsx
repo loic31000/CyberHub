@@ -168,7 +168,7 @@ function AnnotationPanel({
           <p className="text-sm font-mono font-bold text-[#f1f5f9] leading-tight mt-1.5">{itemName}</p>
           <p className="text-[10px] font-mono text-[#00d4ff] mt-0.5">ANNOTER LA FICHE</p>
         </div>
-        <button onClick={onClose} className="text-[#64748b] hover:text-[#f1f5f9] flex-shrink-0"><X size={16} /></button>
+        <button onClick={onClose} className="text-[#64748b] hover:text-[#f1f5f9] flex-shrink-0 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#00d4ff]" aria-label="Fermer"><X size={16} /></button>
       </div>
 
       <div className="flex-1 overflow-y-auto p-4 space-y-4">
@@ -289,11 +289,12 @@ function DetailPanel({ detail, annotation, onClose, onAnnotate }: DetailPanelPro
         </div>
         <div className="flex items-center gap-1.5 flex-shrink-0">
           <button onClick={onAnnotate}
-            className={`p-1.5 rounded transition-colors ${annotation ? 'text-[#00d4ff] bg-[#00d4ff]/10' : 'text-[#64748b] hover:text-[#00d4ff] hover:bg-[#00d4ff]/10'}`}
-            title="Annoter la fiche">
+            className={`p-1.5 rounded transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-[#00d4ff] ${annotation ? 'text-[#00d4ff] bg-[#00d4ff]/10' : 'text-[#64748b] hover:text-[#00d4ff] hover:bg-[#00d4ff]/10'}`}
+            title="Annoter la fiche"
+            aria-label="Modifier l'annotation">
             <Pencil size={13} />
           </button>
-          <button onClick={onClose} className="p-1.5 text-[#64748b] hover:text-[#f1f5f9] transition-colors"><X size={14} /></button>
+          <button onClick={onClose} className="p-1.5 text-[#64748b] hover:text-[#f1f5f9] transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-[#00d4ff]" aria-label="Fermer"><X size={14} /></button>
         </div>
       </div>
 
@@ -442,12 +443,13 @@ function TechniqueCard({
         ) : <div />}
         <button
           onClick={(e) => { e.stopPropagation(); onAnnotate(tactic, tech) }}
-          className={`p-1 rounded transition-all ${
+          className={`p-1 rounded transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-[#00d4ff] ${
             annotation
               ? 'text-[#00d4ff] opacity-100 hover:bg-[#00d4ff]/10'
               : 'text-[#64748b] opacity-0 group-hover:opacity-60 hover:!opacity-100 hover:text-[#00d4ff] hover:bg-[#00d4ff]/10'
           }`}
           title="Annoter la fiche"
+          aria-label="Modifier l'annotation"
         >
           <Pencil size={10} />
         </button>
@@ -668,7 +670,7 @@ export default function CLOAKPage() {
               className="w-full bg-[#0d131f] border border-[#1e2d40] pl-9 pr-3 py-2 font-mono text-xs text-[#f1f5f9] placeholder-[#2a3f55] outline-none focus:border-[#00d4ff]/40"
             />
             {query && (
-              <button onClick={() => setQuery('')} className="absolute right-2 top-1/2 -translate-y-1/2 text-[#64748b] hover:text-[#f1f5f9]">
+              <button onClick={() => setQuery('')} className="absolute right-2 top-1/2 -translate-y-1/2 text-[#64748b] hover:text-[#f1f5f9] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#00d4ff]" aria-label="Effacer la recherche">
                 <X size={12} />
               </button>
             )}

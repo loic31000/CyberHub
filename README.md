@@ -19,7 +19,7 @@ Application de bureau pour centraliser outils, writeups CTF, veille CVE, playboo
 - **CTF Writeups** — Gestion par plateforme (TryHackMe, HackTheBox) · 8 writeups inclus
 - **Veille CVE** — Base locale + import NVD JSON/API paginé · badge CISA KEV 🔥 · score EPSS (FIRST.org)
 - **Playbooks** — 19 procédures de réponse à incident interactives (checklist step-by-step)
-- **MITRE ATT&CK** — 823 techniques · 14 tactiques · format STIX 2.0 · 100% offline
+- **MITRE ATT&CK** — 823 techniques · 14 tactiques · format STIX 2.0 · 100% offline · **ATT&CK Layers** : création et visualisation de couches d'annotation par technique
 - **CLOAK OpSec** — 720 sous-techniques · 13 tactiques · anonymat, dissimulation, OpSec · 100% offline
 - **IOC Manager** — IP/domaine/hash/URL/email/CIDR · TLP · sélection groupée · import CSV/TXT en masse
 - **Hash Analyzer** — VirusTotal · MalwareBazaar · ThreatFox · URLhaus · 4 sources parallèles · cache SQLite
@@ -111,6 +111,9 @@ cd frontend && npx tsc --noEmit
 # Formatage Go
 cd backend && gofmt -w ./internal/...
 
+# Lancer les tests backend (SQLite in-memory, pas de serveur requis)
+cd backend && go test ./internal/api/handlers/...
+
 # Réinitialiser le mot de passe (accès perdu)
 cd backend && go run cmd/reset-auth/main.go
 ```
@@ -170,4 +173,4 @@ CLOAK est distribué sous licence GPL v2 — crédit : Mick Deben, Leiden Univer
 
 ---
 
-*Cyber-Hub v1.0 — mis à jour le 09/05/2026*
+*Cyber-Hub v1.1 — mis à jour le 10/05/2026*

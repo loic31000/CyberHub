@@ -235,7 +235,7 @@ function HashAnalysisPanel({
           )}
           <button
             onClick={onForceRefresh}
-            className="text-[10px] px-2 py-1 border border-[#1e2d40] text-[#64748b] hover:text-[#00d4ff] hover:border-[#00d4ff]/40 transition-colors flex items-center gap-1 font-mono"
+            className="text-[10px] px-2 py-1 border border-[#1e2d40] text-[#64748b] hover:text-[#00d4ff] hover:border-[#00d4ff]/40 transition-colors flex items-center gap-1 font-mono focus:outline-none focus-visible:ring-2 focus-visible:ring-[#00d4ff]"
           >
             <RefreshCw size={11} /> FORCER MAJ
           </button>
@@ -756,15 +756,15 @@ export default function IOCPage() {
                         <td className="px-4 py-3 text-right">
                           <div className="flex items-center justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
                             <button onClick={() => { setSelectedIOC(ioc); setActiveTab('details'); loadCorrelation(ioc) }}
-                              className="p-1.5 rounded hover:bg-[#00d4ff]/10 text-[#64748b] hover:text-[#00d4ff] transition-colors" title="Voir détails">
+                              className="p-1.5 rounded hover:bg-[#00d4ff]/10 text-[#64748b] hover:text-[#00d4ff] transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-[#00d4ff]" title="Voir détails" aria-label="Voir détails">
                               <ShieldBan size={13} />
                             </button>
                             <button onClick={() => { setEditTarget(ioc); setShowForm(true) }}
-                              className="p-1.5 rounded hover:bg-[#00d4ff]/10 text-[#64748b] hover:text-[#00d4ff] transition-colors" title="Modifier">
+                              className="p-1.5 rounded hover:bg-[#00d4ff]/10 text-[#64748b] hover:text-[#00d4ff] transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-[#00d4ff]" title="Modifier" aria-label="Modifier">
                               <Edit2 size={13} />
                             </button>
                             <button onClick={() => handleDelete(ioc)}
-                              className="p-1.5 rounded hover:bg-red-500/10 text-[#64748b] hover:text-red-400 transition-colors" title="Supprimer">
+                              className="p-1.5 rounded hover:bg-red-500/10 text-[#64748b] hover:text-red-400 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-[#00d4ff]" title="Supprimer" aria-label="Supprimer">
                               <Trash2 size={13} />
                             </button>
                           </div>
@@ -785,7 +785,8 @@ export default function IOCPage() {
                   {typeIcon(selectedIOC.type)} IOC #{selectedIOC.id}
                 </h2>
                 <button onClick={() => setSelectedIOC(null)}
-                  className="p-1 rounded hover:bg-[#1e2d40] text-[#64748b] hover:text-[#f1f5f9] transition-colors">
+                  className="p-1 rounded hover:bg-[#1e2d40] text-[#64748b] hover:text-[#f1f5f9] transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-[#00d4ff]"
+                  aria-label="Fermer">
                   <X size={16} />
                 </button>
               </div>
@@ -944,7 +945,8 @@ export default function IOCPage() {
                 {editTarget ? 'MODIFIER L\'IOC' : 'NOUVEL IOC'}
               </h2>
               <button onClick={() => { setShowForm(false); setEditTarget(null) }}
-                className="p-1 rounded hover:bg-[#1e2d40] text-[#64748b] hover:text-[#f1f5f9] transition-colors">
+                className="p-1 rounded hover:bg-[#1e2d40] text-[#64748b] hover:text-[#f1f5f9] transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-[#00d4ff]"
+                aria-label="Fermer">
                 <X size={18} />
               </button>
             </div>

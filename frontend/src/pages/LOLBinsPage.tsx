@@ -48,8 +48,9 @@ function CopyButton({ text }: { text: string }) {
   return (
     <button
       onClick={handleCopy}
-      className="p-1.5 rounded hover:bg-white/10 text-gray-400 hover:text-cyan-400 transition-colors"
+      className="p-1.5 rounded hover:bg-white/10 text-gray-400 hover:text-cyan-400 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-[#00d4ff]"
       title="Copier"
+      aria-label="Copier"
     >
       {copied ? <Check size={13} className="text-cyan-400" /> : <Copy size={13} />}
     </button>
@@ -82,7 +83,8 @@ function LOLBinDrawer({ item, onClose }: DrawerProps) {
         </div>
         <button
           onClick={onClose}
-          className="p-1 hover:bg-[#1e2d40] text-[#64748b] hover:text-[#f1f5f9] transition-colors"
+          className="p-1 hover:bg-[#1e2d40] text-[#64748b] hover:text-[#f1f5f9] transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-[#00d4ff]"
+          aria-label="Fermer"
         >
           <X size={16} />
         </button>

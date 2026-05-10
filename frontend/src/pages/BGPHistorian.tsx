@@ -143,7 +143,7 @@ function DiffModal({ diffResponse, onClose }: DiffModalProps) {
             <ChevronRight size={12} />
             <span className="text-[#10b981]">#{newer.id}</span>
           </div>
-          <button onClick={onClose} className="p-1 hover:bg-[#1e2d40] text-[#4a6480] hover:text-[#f1f5f9] transition-colors">
+          <button onClick={onClose} className="p-1 hover:bg-[#1e2d40] text-[#4a6480] hover:text-[#f1f5f9] transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-[#00d4ff]" aria-label="Fermer">
             <X size={16} />
           </button>
         </div>
@@ -279,12 +279,13 @@ function AlertsSection() {
           <button
             onClick={purgeCorruptedAlerts}
             disabled={purging}
-            className="p-1.5 hover:bg-[#ef4444]/10 text-[#ef4444] hover:text-[#ef4444] transition-colors rounded"
+            className="p-1.5 hover:bg-[#ef4444]/10 text-[#ef4444] hover:text-[#ef4444] transition-colors rounded focus:outline-none focus-visible:ring-2 focus-visible:ring-[#00d4ff]"
             title="Purger les alertes corrompues (dates invalides)"
+            aria-label="Supprimer les alertes corrompues"
           >
             {purging ? <Loader2 size={12} className="animate-spin" /> : <Trash2 size={12} />}
           </button>
-          <button onClick={loadAlerts} disabled={loading} className="p-1.5 hover:bg-[#1e2d40] text-[#4a6480] hover:text-[#8a9ab0] transition-colors" title="Rafraîchir">
+          <button onClick={loadAlerts} disabled={loading} className="p-1.5 hover:bg-[#1e2d40] text-[#4a6480] hover:text-[#8a9ab0] transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-[#00d4ff]" title="Rafraîchir" aria-label="Actualiser">
             <RefreshCw size={12} className={loading ? 'animate-spin' : ''} />
           </button>
         </div>

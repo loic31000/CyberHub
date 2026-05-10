@@ -37,7 +37,8 @@ function ToastCard({ toast }: { toast: ToastItem }) {
       <span className="flex-1 leading-snug">{toast.message}</span>
       <button
         onClick={() => remove(toast.id)}
-        className="text-text-muted hover:text-text-primary transition-colors shrink-0"
+        className="text-text-muted hover:text-text-primary transition-colors shrink-0 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#00d4ff]"
+        aria-label="Fermer"
       >
         <X size={14} />
       </button>

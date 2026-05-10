@@ -56,11 +56,11 @@ export default function Layout() {
   return (
     <div className="flex flex-col h-screen overflow-hidden bg-[#06080f] text-[#f1f5f9] font-sans selection:bg-[#00d4ff]/30">
       
-      {/* TOPBAR alignée (h-16) */}
-      <header className="flex items-stretch h-16 border-b bg-[#0a0e17] flex-shrink-0 z-20" style={{ borderColor: '#1e2d40' }}>
+      {/* TOPBAR alignée (h-12) */}
+      <header className="flex items-stretch h-12 border-b bg-[#0a0e17] flex-shrink-0 z-20" style={{ borderColor: '#1e2d40' }}>
         
         {/* ZONE LOGO STRICTEMENT ALIGNÉE AVEC LA SIDEBAR (w-64 ou w-20) */}
-        <div className={`flex items-center px-6 border-r transition-[width] duration-300 overflow-hidden ${collapsed ? 'w-20 justify-center' : 'w-64 justify-between'}`} style={{ borderColor: '#1e2d40' }}>
+        <div className={`flex items-center px-4 border-r transition-[width] duration-300 overflow-hidden ${collapsed ? 'w-20 justify-center' : 'w-64 justify-between'}`} style={{ borderColor: '#1e2d40' }}>
           <div className="flex items-center gap-3">
             
             {/* ENCADRÉ CARRÉ NÉON */}
@@ -75,7 +75,7 @@ export default function Layout() {
 
             {/* GROS TITRE */}
             {!collapsed && (
-              <h1 className="text-xl font-black tracking-widest text-[#f1f5f9] flex items-center m-0">
+              <h1 className="text-base font-black tracking-widest text-[#f1f5f9] flex items-center m-0">
                 CYBER<span className="text-[#00d4ff]">HUB</span>
               </h1>
             )}
@@ -94,10 +94,14 @@ export default function Layout() {
         </div>
 
         {/* SEARCH BAR & BREADCRUMB */}
-        <div className="flex-1 flex items-center px-6 gap-6">
-          <button onClick={() => setSearchOpen(true)} className="flex items-center gap-2 text-[#64748b] hover:text-[#00d4ff] transition-colors text-xs font-mono group">
-            <Search size={14} className="opacity-50 group-hover:opacity-100" />
-            <span>[CTRL+K] COMMAND_SEARCH</span>
+        <div className="flex-1 flex items-center px-4 gap-5">
+          <button
+            onClick={() => setSearchOpen(true)}
+            className="flex items-center gap-2 bg-[#0d1420] border border-[#1e2d40] hover:border-[#00d4ff]/60 focus:border-[#00d4ff] focus:outline-none focus:ring-1 focus:ring-[#00d4ff]/30 rounded px-3 py-1 text-[#64748b] hover:text-[#00d4ff] transition-all duration-150 text-xs font-mono group"
+          >
+            <Search size={13} className="opacity-70 group-hover:opacity-100 transition-opacity" />
+            <span className="hidden sm:inline">[CTRL+K]</span>
+            <span className="text-[#4a6480] hidden md:inline">COMMAND_SEARCH</span>
           </button>
           
           <div className="h-4 w-px bg-[#1e2d40]" />
@@ -110,7 +114,7 @@ export default function Layout() {
         </div>
 
         {/* RIGHT ACTIONS */}
-        <div className="flex items-center gap-5 px-6 font-mono text-[11px]">
+        <div className="flex items-center gap-4 px-4 font-mono text-[11px]">
           {bgpAlertCount > 0 && (
             <div className="text-[#ef4444] border border-[#ef4444]/30 bg-[#ef4444]/10 px-2 py-0.5 rounded">
               {bgpAlertCount} BGP ALERTS

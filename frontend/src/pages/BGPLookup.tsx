@@ -254,8 +254,9 @@ function ASNTabs({ asn, info, onNavigatePeer, lastSnapshotDate }: ASNTabsProps) 
             <div className="flex items-center gap-1">
               <button
                 onClick={() => copyToClipboard(p.prefix)}
-                className="p-1 hover:bg-[#1e2d40] text-[#4a6480] hover:text-[#00d4ff] transition-colors"
+                className="p-1 hover:bg-[#1e2d40] text-[#4a6480] hover:text-[#00d4ff] transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-[#00d4ff]"
                 title="Copier"
+                aria-label="Copier"
               >
                 <Copy size={12} />
               </button>
@@ -731,7 +732,7 @@ export default function BGPLookup() {
                             )}
                           </div>
                           <div className="flex gap-1">
-                            <button onClick={() => copyToClipboard(p.prefix)} className="p-1 hover:bg-[#1e2d40] text-[#4a6480] hover:text-[#00d4ff] transition-colors">
+                            <button onClick={() => copyToClipboard(p.prefix)} className="p-1 hover:bg-[#1e2d40] text-[#4a6480] hover:text-[#00d4ff] transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-[#00d4ff]" aria-label="Copier">
                               <Copy size={12} />
                             </button>
                             {p.asn && p.asn.asn !== 0 && (

@@ -47,7 +47,7 @@ function CreateModal({ onClose, onCreated }: CreateModalProps) {
       <div className="bg-[#0a0f16] border border-[#1e2d40] p-6 w-full max-w-md">
         <div className="flex items-center justify-between mb-5">
           <h2 className="text-sm font-mono font-bold uppercase tracking-wider text-[#f1f5f9]">NOUVEAU LAYER</h2>
-          <button onClick={onClose} className="p-1 rounded hover:bg-[#1e2d40] text-[#64748b] hover:text-[#f1f5f9] transition-colors"><X size={16} /></button>
+          <button onClick={onClose} className="p-1 rounded hover:bg-[#1e2d40] text-[#64748b] hover:text-[#f1f5f9] transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-[#00d4ff]" aria-label="Fermer"><X size={16} /></button>
         </div>
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
@@ -200,10 +200,10 @@ export default function MITRELayers() {
                       <h3 className="text-sm font-mono font-bold text-[#f1f5f9] truncate">{layer.name}</h3>
                     </div>
                     <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
-                      <button onClick={e => handleExport(layer, e)} className="p-1.5 rounded hover:bg-[#00d4ff]/10 text-[#64748b] hover:text-[#00d4ff] transition-colors" title="Exporter">
+                      <button onClick={e => handleExport(layer, e)} className="p-1.5 rounded hover:bg-[#00d4ff]/10 text-[#64748b] hover:text-[#00d4ff] transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-[#00d4ff]" title="Exporter" aria-label="Télécharger">
                         <Download size={12} />
                       </button>
-                      <button onClick={e => handleDelete(layer, e)} className="p-1.5 rounded hover:bg-red-500/10 text-[#64748b] hover:text-red-400 transition-colors" title="Supprimer">
+                      <button onClick={e => handleDelete(layer, e)} className="p-1.5 rounded hover:bg-red-500/10 text-[#64748b] hover:text-red-400 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-[#00d4ff]" title="Supprimer" aria-label="Supprimer">
                         <Trash2 size={12} />
                       </button>
                     </div>

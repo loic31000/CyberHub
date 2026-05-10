@@ -85,7 +85,8 @@ export default function Login() {
                   disabled={loading || statusLoading}
                 />
                 <button type="button" onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-text-muted hover:text-text-primary">
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-text-muted hover:text-text-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-[#00d4ff]"
+                  aria-label={showPassword ? 'Masquer le mot de passe' : 'Voir le mot de passe'}>
                   {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
                 </button>
               </div>
