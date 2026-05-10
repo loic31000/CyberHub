@@ -3,6 +3,7 @@ package cheatsheets
 import (
 	_ "embed"
 	"encoding/json"
+	"log"
 	"net/http"
 	"strings"
 
@@ -40,7 +41,7 @@ type CheatsheetsHandler struct {
 func NewCheatsheetsHandler() *CheatsheetsHandler {
 	var file cheatsheetsFile
 	if err := json.Unmarshal(cheatsheetsJSON, &file); err != nil {
-		panic("cheatsheets.json invalide : " + err.Error())
+		log.Fatalf("cheatsheets.json invalide : %v", err)
 	}
 	return &CheatsheetsHandler{data: file.Cheatsheets}
 }

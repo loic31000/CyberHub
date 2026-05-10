@@ -164,9 +164,14 @@ func GetNVDAPIKey(c *gin.Context) {
 		c.JSON(http.StatusOK, gin.H{"has_key": false, "masked": ""})
 		return
 	}
+	plain, ok := decryptSetting(store.DB, setting.Value)
+	if !ok || plain == "" {
+		c.JSON(http.StatusOK, gin.H{"has_key": false, "masked": ""})
+		return
+	}
 	masked := ""
-	if len(setting.Value) > 8 {
-		masked = setting.Value[:4] + "****" + setting.Value[len(setting.Value)-4:]
+	if len(plain) > 8 {
+		masked = plain[:4] + "****" + plain[len(plain)-4:]
 	}
 	c.JSON(http.StatusOK, gin.H{"has_key": true, "masked": masked})
 }
@@ -184,8 +189,12 @@ func SetNVDAPIKey(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "clé API requise"})
 		return
 	}
-	// Hard-delete avant create pour éviter le conflit uniqueIndex + soft-delete GORM
-	upsertSetting("nvd_api_key", req.APIKey)
+	encrypted, encErr := encryptSetting(store.DB, req.APIKey)
+	if encErr != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Erreur chiffrement"})
+		return
+	}
+	upsertSetting("nvd_api_key", encrypted)
 	c.JSON(http.StatusOK, gin.H{"success": true})
 }
 

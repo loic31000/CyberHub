@@ -177,11 +177,12 @@ func (h *HashHandler) GetVTConfig(c *gin.Context) {
 		c.JSON(http.StatusOK, gin.H{"configured": false, "masked_key": ""})
 		return
 	}
-	if s.Value == "" {
+	plain, ok := decryptSetting(h.db, s.Value)
+	if !ok || plain == "" {
 		c.JSON(http.StatusOK, gin.H{"configured": false, "masked_key": ""})
 		return
 	}
-	masked := maskVTKey(s.Value)
+	masked := maskVTKey(plain)
 	c.JSON(http.StatusOK, gin.H{"configured": true, "masked_key": masked})
 }
 
@@ -198,9 +199,13 @@ func (h *HashHandler) SaveVTKey(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "api_key requis"})
 		return
 	}
-	// Supprimer l'ancienne valeur et insérer la nouvelle
+	encrypted, encErr := encryptSetting(h.db, strings.TrimSpace(req.APIKey))
+	if encErr != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Erreur chiffrement"})
+		return
+	}
 	h.db.Where("key = ?", "virustotal_api_key").Delete(&models.AppSetting{})
-	h.db.Create(&models.AppSetting{Key: "virustotal_api_key", Value: strings.TrimSpace(req.APIKey)})
+	h.db.Create(&models.AppSetting{Key: "virustotal_api_key", Value: encrypted})
 	c.JSON(http.StatusOK, gin.H{"success": true})
 }
 
@@ -546,10 +551,10 @@ func (h *HashHandler) queryVirusTotal(ctx context.Context, hash string) HashSour
 	if err := h.db.Where("key = ?", "virustotal_api_key").First(&setting).Error; err != nil {
 		return HashSourceResult{Source: "virustotal", Status: "not_configured", Found: false}
 	}
-	if strings.TrimSpace(setting.Value) == "" {
+	apiKey, ok := decryptSetting(h.db, strings.TrimSpace(setting.Value))
+	if !ok || apiKey == "" {
 		return HashSourceResult{Source: "virustotal", Status: "not_configured", Found: false}
 	}
-	apiKey := strings.TrimSpace(setting.Value)
 
 	vtCtx, cancel := context.WithTimeout(ctx, 15*time.Second)
 	defer cancel()

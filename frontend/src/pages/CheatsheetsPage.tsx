@@ -4,7 +4,7 @@ import { cheatsheetsApi } from '@/api/client'
 import type { CheatsheetSummary, Cheatsheet, CheatsheetCommand } from '@/types/cheatsheet'
 import { toast } from '@/store/toast'
 
-const CATEGORIES = ['Tous', 'Reconnaissance', 'Exploitation', 'Post-Exploitation', 'OSINT', 'Réseau', 'Cracking', 'Forensic']
+const CATEGORIES = ['Tous', 'Reconnaissance', 'Exploitation', 'Post-Exploitation', 'Pentest', 'OSINT', 'Web', 'Réseau', 'Linux', 'Windows', 'DevOps', 'Hash / Encodage', 'Cracking', 'Forensic']
 
 interface CommandCardProps {
   cmd: CheatsheetCommand

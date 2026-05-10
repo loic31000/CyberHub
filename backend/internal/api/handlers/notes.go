@@ -45,7 +45,9 @@ func (h *NotesHandler) Create(c *gin.Context) {
 
 	createdBy := "unknown"
 	if sub, ok := c.Get("sub"); ok {
-		createdBy = sub.(string)
+		if s, ok := sub.(string); ok {
+			createdBy = s
+		}
 	}
 
 	note := models.Note{
