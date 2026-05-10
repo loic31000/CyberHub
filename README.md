@@ -1,4 +1,4 @@
-# CYBER-HUB v1.0
+# CYBER-HUB v1.1
 
 > Hub de ressources cybersécurité — 100% local, 100% offline
 
