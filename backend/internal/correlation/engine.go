@@ -49,17 +49,40 @@ type CorrelationLOLBin struct {
 	Category string `json:"category"`
 }
 
+type CorrelationInvestigation struct {
+	ID     uint   `json:"id"`
+	Title  string `json:"title"`
+	Status string `json:"status"`
+}
+
+type CorrelationAttackLayer struct {
+	ID   uint   `json:"id"`
+	Name string `json:"name"`
+}
+
+type CorrelationNote struct {
+	ID      uint   `json:"id"`
+	Title   string `json:"title"`
+	Excerpt string `json:"excerpt"`
+}
+
 type CorrelationResult struct {
-	IOCType      string                   `json:"ioc_type"`
-	IOCValue     string                   `json:"ioc_value"`
-	Techniques   []CorrelationTechnique   `json:"techniques"`
-	CloakTactics []CorrelationCloakTactic `json:"cloak_tactics"`
-	Tools        []CorrelationTool        `json:"tools"`
-	Playbooks    []CorrelationPlaybook    `json:"playbooks"`
-	CVEs         []CorrelationCVE         `json:"cves"`
-	LOLBins      []CorrelationLOLBin      `json:"lolbins"`
-	GeneratedAt  time.Time                `json:"generated_at"`
-	FromCache    bool                     `json:"from_cache"`
+	IOCType        string                     `json:"ioc_type"`
+	IOCValue       string                     `json:"ioc_value"`
+	Techniques     []CorrelationTechnique     `json:"techniques"`
+	CloakTactics   []CorrelationCloakTactic   `json:"cloak_tactics"`
+	Tools          []CorrelationTool          `json:"tools"`
+	Playbooks      []CorrelationPlaybook      `json:"playbooks"`
+	CVEs           []CorrelationCVE           `json:"cves"`
+	LOLBins        []CorrelationLOLBin        `json:"lolbins"`
+	Investigations []CorrelationInvestigation `json:"investigations"`
+	AttackLayers   []CorrelationAttackLayer   `json:"attack_layers"`
+	Notes          []CorrelationNote          `json:"notes"`
+	Confidence     float64                    `json:"confidence"`
+	Rationale      string                     `json:"rationale"`
+	NextActions    []string                   `json:"next_actions"`
+	GeneratedAt    time.Time                  `json:"generated_at"`
+	FromCache      bool                       `json:"from_cache"`
 }
 
 type CorrelationRules struct {
@@ -107,7 +130,6 @@ type CorrelationRules struct {
 	} `json:"cidr"`
 }
 
-// cloakJSONData représente le format du fichier cloak.json embarqué
 type cloakJSONData struct {
 	Tactics []cloakJSONTactic `json:"tactics"`
 }
@@ -131,8 +153,6 @@ type CorrelationEngine struct {
 	cloakData cloakJSONData
 }
 
-// NewCorrelationEngine crée le moteur de corrélation.
-// cloakData contient le JSON embarqué de cloak.json (lue depuis le FS embed du main).
 func NewCorrelationEngine(db *gorm.DB, cloakData []byte) *CorrelationEngine {
 	var rules CorrelationRules
 	if err := json.Unmarshal(rulesJSON, &rules); err != nil {
@@ -252,14 +272,11 @@ func (ce *CorrelationEngine) getRulesForType(iocType string) *struct {
 	}
 }
 
-// lookupCloakTactics fait un lookup in-memory case-insensitive dans le JSON CLOAK embarqué.
-// Retourne les tactiques trouvées avec leurs 5 premières techniques.
 func (ce *CorrelationEngine) lookupCloakTactics(tacticNames []string) []CorrelationCloakTactic {
 	result := make([]CorrelationCloakTactic, 0)
 	for _, ruleName := range tacticNames {
 		for _, tactic := range ce.cloakData.Tactics {
 			if strings.EqualFold(tactic.Name, ruleName) {
-				// Construire la description avec les techniques (max 5)
 				desc := tactic.Description
 				if len(tactic.Techniques) > 0 {
 					techNames := make([]string, 0, 5)
@@ -275,28 +292,137 @@ func (ce *CorrelationEngine) lookupCloakTactics(tacticNames []string) []Correlat
 					Name:        tactic.Name,
 					Description: desc,
 				})
-				break // Une tactique trouvée par nom de règle suffit
+				break
 			}
 		}
 	}
 	return result
 }
 
-func (ce *CorrelationEngine) Analyze(iocType, iocValue string) CorrelationResult {
-	result := CorrelationResult{
-		IOCType:      iocType,
-		IOCValue:     iocValue,
-		Techniques:   []CorrelationTechnique{},
-		CloakTactics: []CorrelationCloakTactic{},
-		Tools:        []CorrelationTool{},
-		Playbooks:    []CorrelationPlaybook{},
-		CVEs:         []CorrelationCVE{},
-		LOLBins:      []CorrelationLOLBin{},
-		GeneratedAt:  time.Now(),
-		FromCache:    false,
+// computeEnrichment calcule le score de confiance, la rationale et les actions suivantes
+// à partir des résultats collectés. Déterministe et auditable.
+func computeEnrichment(iocType, iocValue string, r CorrelationResult) (float64, string, []string) {
+	score := 0
+	if len(r.Techniques) > 0 {
+		score += 25
+	}
+	if len(r.Playbooks) > 0 {
+		score += 15
+	}
+	if len(r.Investigations) > 0 {
+		score += 25
+	}
+	if len(r.Notes) > 0 {
+		score += 10
+	}
+	if len(r.CVEs) > 0 {
+		score += 10
+	}
+	if len(r.LOLBins) > 0 {
+		score += 10
+	}
+	if len(r.CloakTactics) > 0 {
+		score += 10
+	}
+	if len(r.AttackLayers) > 0 {
+		score += 5
+	}
+	if score > 100 {
+		score = 100
+	}
+	confidence := float64(score) / 100.0
+
+	parts := make([]string, 0, 6)
+	if len(r.Techniques) > 0 {
+		ids := make([]string, 0, len(r.Techniques))
+		for _, t := range r.Techniques {
+			ids = append(ids, t.TechniqueID)
+		}
+		parts = append(parts, fmt.Sprintf("%d technique(s) MITRE (%s)", len(r.Techniques), strings.Join(ids, ", ")))
+	}
+	if len(r.Investigations) > 0 {
+		parts = append(parts, fmt.Sprintf("présent dans %d investigation(s)", len(r.Investigations)))
+	}
+	if len(r.Playbooks) > 0 {
+		parts = append(parts, fmt.Sprintf("%d playbook(s) correspondant(s)", len(r.Playbooks)))
+	}
+	if len(r.CVEs) > 0 {
+		parts = append(parts, fmt.Sprintf("%d CVE(s) ≥ 7.0 liée(s)", len(r.CVEs)))
+	}
+	if len(r.Notes) > 0 {
+		parts = append(parts, fmt.Sprintf("%d note(s) pertinente(s)", len(r.Notes)))
+	}
+	if len(r.AttackLayers) > 0 {
+		parts = append(parts, fmt.Sprintf("%d layer(s) ATT&CK contenant ces techniques", len(r.AttackLayers)))
 	}
 
-	// 1. Vérifier le cache
+	var rationale string
+	if len(parts) == 0 {
+		rationale = fmt.Sprintf("[%s] Aucun signal fort dans les bases locales — CVE et playbooks génériques supprimés.", strings.ToUpper(iocType))
+	} else {
+		rationale = fmt.Sprintf("[%s] %s.", strings.ToUpper(iocType), strings.Join(parts, " · "))
+	}
+
+	actions := make([]string, 0, 6)
+	switch iocType {
+	case "ip":
+		actions = append(actions, "Vérifier l'ASN dans BGP Lookup")
+		actions = append(actions, "Rechercher dans Threat Feeds (Feodo, URLhaus)")
+	case "domain":
+		actions = append(actions, "Vérifier la réputation dans URLhaus / Threat Feeds")
+		actions = append(actions, "Lancer une recherche OSINT (theHarvester, Gobuster)")
+	case "hash":
+		actions = append(actions, "Analyser avec VirusTotal / MalwareBazaar")
+		actions = append(actions, "Reverser le binaire avec Ghidra ou YARA")
+	case "url":
+		actions = append(actions, "Scanner avec OWASP ZAP ou SQLmap")
+		actions = append(actions, "Vérifier dans URLhaus / Threat Feeds")
+	case "email":
+		actions = append(actions, "Rechercher via OSINT Runner (Maigret, Sherlock)")
+		actions = append(actions, "Vérifier les fuites de credentials")
+	case "cidr":
+		actions = append(actions, "Scanner le range avec Nmap ou Masscan")
+		actions = append(actions, "Vérifier les ASN associés dans BGP Historian")
+	}
+	if len(r.Investigations) > 0 {
+		actions = append(actions, fmt.Sprintf("Ajouter un événement dans l'investigation « %s »", r.Investigations[0].Title))
+	}
+	if len(r.Playbooks) > 0 {
+		actions = append(actions, fmt.Sprintf("Exécuter le playbook « %s »", r.Playbooks[0].Title))
+	}
+	if len(r.CVEs) > 0 {
+		actions = append(actions, "Vérifier le statut KEV pour les CVE trouvées")
+	}
+
+	return confidence, rationale, actions
+}
+
+func (ce *CorrelationEngine) Analyze(iocType, iocValue string) CorrelationResult {
+	result := CorrelationResult{
+		IOCType:        iocType,
+		IOCValue:       iocValue,
+		Techniques:     []CorrelationTechnique{},
+		CloakTactics:   []CorrelationCloakTactic{},
+		Tools:          []CorrelationTool{},
+		Playbooks:      []CorrelationPlaybook{},
+		CVEs:           []CorrelationCVE{},
+		LOLBins:        []CorrelationLOLBin{},
+		Investigations: []CorrelationInvestigation{},
+		AttackLayers:   []CorrelationAttackLayer{},
+		Notes:          []CorrelationNote{},
+		NextActions:    []string{},
+		GeneratedAt:    time.Now(),
+		FromCache:      false,
+	}
+
+	// Validation stricte en premier — aucun cache ni goroutine pour une valeur invalide
+	if ok, reason := validateIOCValue(iocType, iocValue); !ok {
+		result.Rationale = reason
+		result.Confidence = 0
+		result.NextActions = []string{"Vérifier la valeur saisie et corriger le type d'IOC si nécessaire."}
+		return result
+	}
+
 	now := time.Now()
 	var cached models.CorrelationCache
 	if err := ce.db.Where("ioc_type = ? AND ioc_value = ? AND expires_at > ?", iocType, iocValue, now).
@@ -304,24 +430,44 @@ func (ce *CorrelationEngine) Analyze(iocType, iocValue string) CorrelationResult
 		var cachedResult CorrelationResult
 		if err := json.Unmarshal([]byte(cached.Result), &cachedResult); err == nil {
 			cachedResult.FromCache = true
+			// Garantir que les slices nil du cache deviennent des slices vides
+			if cachedResult.Investigations == nil {
+				cachedResult.Investigations = []CorrelationInvestigation{}
+			}
+			if cachedResult.AttackLayers == nil {
+				cachedResult.AttackLayers = []CorrelationAttackLayer{}
+			}
+			if cachedResult.Notes == nil {
+				cachedResult.Notes = []CorrelationNote{}
+			}
+			if cachedResult.NextActions == nil {
+				cachedResult.NextActions = []string{}
+			}
+			// Appliquer le signal gating même sur les résultats cachés (corrige les anciens caches pré-patch)
+			hasStrongSignal := len(cachedResult.Techniques) > 0 || len(cachedResult.Investigations) > 0
+			if !hasStrongSignal {
+				cachedResult.CVEs      = []CorrelationCVE{}
+				cachedResult.Playbooks = []CorrelationPlaybook{}
+			}
 			return cachedResult
 		}
 	}
 
-	// 2. Charger les règles
 	rules := ce.getRulesForType(iocType)
 	if rules == nil {
 		return result
 	}
 
-	// 3. Lancer 6 goroutines en parallèle
 	var wg sync.WaitGroup
-	techsChan := make(chan []CorrelationTechnique, 1)
-	cloakChan := make(chan []CorrelationCloakTactic, 1)
-	toolsChan := make(chan []CorrelationTool, 1)
+	techsChan     := make(chan []CorrelationTechnique, 1)
+	cloakChan     := make(chan []CorrelationCloakTactic, 1)
+	toolsChan     := make(chan []CorrelationTool, 1)
 	playbooksChan := make(chan []CorrelationPlaybook, 1)
-	cvesChan := make(chan []CorrelationCVE, 1)
-	lolbinsChan := make(chan []CorrelationLOLBin, 1)
+	cvesChan      := make(chan []CorrelationCVE, 1)
+	lolbinsChan   := make(chan []CorrelationLOLBin, 1)
+	invsChan      := make(chan []CorrelationInvestigation, 1)
+	layersChan    := make(chan []CorrelationAttackLayer, 1)
+	notesChan     := make(chan []CorrelationNote, 1)
 
 	// Goroutine 1 : MITRE Techniques
 	wg.Add(1)
@@ -341,7 +487,6 @@ func (ce *CorrelationEngine) Analyze(iocType, iocValue string) CorrelationResult
 	}()
 
 	// Goroutine 2 : CLOAK Tactics — lookup in-memory depuis cloak.json embarqué
-	// ⚠️ Ne pas interroger la DB cloak_overrides (généralement vide) — utiliser les données JSON officielles
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
@@ -390,7 +535,7 @@ func (ce *CorrelationEngine) Analyze(iocType, iocValue string) CorrelationResult
 		playbooksChan <- r
 	}()
 
-	// Goroutine 5 : CVEs (si activé)
+	// Goroutine 5 : CVEs (si activé pour ce type)
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
@@ -409,13 +554,12 @@ func (ce *CorrelationEngine) Analyze(iocType, iocValue string) CorrelationResult
 		cvesChan <- r
 	}()
 
-	// Goroutine 6 : LOLBins — si l'IOC est un hash ou domaine, cherche correspondance par nom
+	// Goroutine 6 : LOLBins — si hash ou domaine, cherche correspondance par nom
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
 		r := make([]CorrelationLOLBin, 0)
 		if iocType == "hash" || iocType == "domain" {
-			// Cherche un LOLBin dont le nom correspond (ex: "certutil.exe" dans la valeur)
 			nameLike := "%" + strings.ToLower(iocValue) + "%"
 			var bins []models.LOLBin
 			ce.db.Where("LOWER(name) LIKE ? OR LOWER(full_path) LIKE ?", nameLike, nameLike).
@@ -431,6 +575,94 @@ func (ce *CorrelationEngine) Analyze(iocType, iocValue string) CorrelationResult
 		lolbinsChan <- r
 	}()
 
+	// Goroutine 7 : Investigations — recherche directe + via événements
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		like := "%" + strings.ToLower(iocValue) + "%"
+		var directInvs []models.Investigation
+		ce.db.Where(
+			"LOWER(title) LIKE ? OR LOWER(description) LIKE ? OR LOWER(tags) LIKE ?",
+			like, like, like,
+		).Limit(5).Find(&directInvs)
+
+		seen := make(map[uint]bool)
+		r := make([]CorrelationInvestigation, 0)
+		for _, inv := range directInvs {
+			seen[inv.ID] = true
+			r = append(r, CorrelationInvestigation{ID: inv.ID, Title: inv.Title, Status: string(inv.Status)})
+		}
+
+		if len(r) < 5 {
+			var events []models.InvestigationEvent
+			ce.db.Where(
+				"LOWER(title) LIKE ? OR LOWER(description) LIKE ? OR LOWER(metadata) LIKE ?",
+				like, like, like,
+			).Limit(10).Find(&events)
+			extraIDs := make([]uint, 0)
+			for _, ev := range events {
+				if !seen[ev.InvestigationID] {
+					seen[ev.InvestigationID] = true
+					extraIDs = append(extraIDs, ev.InvestigationID)
+				}
+			}
+			if len(extraIDs) > 0 {
+				remaining := 5 - len(r)
+				var moreInvs []models.Investigation
+				ce.db.Where("id IN ?", extraIDs).Limit(remaining).Find(&moreInvs)
+				for _, inv := range moreInvs {
+					r = append(r, CorrelationInvestigation{ID: inv.ID, Title: inv.Title, Status: string(inv.Status)})
+				}
+			}
+		}
+		invsChan <- r
+	}()
+
+	// Goroutine 8 : ATT&CK Layers contenant les techniques de la règle
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		r := make([]CorrelationAttackLayer, 0)
+		if len(rules.MitreTechniqueIDs) == 0 {
+			layersChan <- r
+			return
+		}
+		query := ce.db.Model(&models.AttackLayer{})
+		for i, tid := range rules.MitreTechniqueIDs {
+			pattern := `%"technique_id":"` + tid + `"%`
+			if i == 0 {
+				query = query.Where("layer_data LIKE ?", pattern)
+			} else {
+				query = query.Or("layer_data LIKE ?", pattern)
+			}
+		}
+		var layers []models.AttackLayer
+		query.Limit(5).Find(&layers)
+		for _, l := range layers {
+			r = append(r, CorrelationAttackLayer{ID: l.ID, Name: l.Name})
+		}
+		layersChan <- r
+	}()
+
+	// Goroutine 9 : Notes contenant la valeur de l'IOC
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		like := "%" + strings.ToLower(iocValue) + "%"
+		var notes []models.Note
+		ce.db.Where("LOWER(title) LIKE ? OR LOWER(content) LIKE ? OR LOWER(tags) LIKE ?", like, like, like).
+			Limit(5).Find(&notes)
+		r := make([]CorrelationNote, 0)
+		for _, n := range notes {
+			excerpt := n.Content
+			if len(excerpt) > 120 {
+				excerpt = excerpt[:120] + "…"
+			}
+			r = append(r, CorrelationNote{ID: n.ID, Title: n.Title, Excerpt: excerpt})
+		}
+		notesChan <- r
+	}()
+
 	wg.Wait()
 	close(techsChan)
 	close(cloakChan)
@@ -438,15 +670,30 @@ func (ce *CorrelationEngine) Analyze(iocType, iocValue string) CorrelationResult
 	close(playbooksChan)
 	close(cvesChan)
 	close(lolbinsChan)
+	close(invsChan)
+	close(layersChan)
+	close(notesChan)
 
-	result.Techniques = <-techsChan
-	result.CloakTactics = <-cloakChan
-	result.Tools = <-toolsChan
-	result.Playbooks = <-playbooksChan
-	result.CVEs = <-cvesChan
-	result.LOLBins = <-lolbinsChan
+	result.Techniques     = <-techsChan
+	result.CloakTactics   = <-cloakChan
+	result.Tools          = <-toolsChan
+	result.Playbooks      = <-playbooksChan
+	result.CVEs           = <-cvesChan
+	result.LOLBins        = <-lolbinsChan
+	result.Investigations = <-invsChan
+	result.AttackLayers   = <-layersChan
+	result.Notes          = <-notesChan
 
-	// 4. Sérialiser et upsert dans le cache
+	// Signal gating : CVE et playbooks ne remontent que si un signal concret (MITRE ou investigation) existe.
+	// Sans signal fort, ces résultats seraient des faux positifs génériques non liés à l'IOC.
+	hasStrongSignal := len(result.Techniques) > 0 || len(result.Investigations) > 0
+	if !hasStrongSignal {
+		result.CVEs      = []CorrelationCVE{}
+		result.Playbooks = []CorrelationPlaybook{}
+	}
+
+	result.Confidence, result.Rationale, result.NextActions = computeEnrichment(iocType, iocValue, result)
+
 	resultJSON, _ := json.Marshal(result)
 	cache := models.CorrelationCache{
 		IOCType:   iocType,

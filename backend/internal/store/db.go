@@ -86,6 +86,9 @@ func InitDB(dbPath string) error {
 		&models.EPSSScore{},
 		&models.ThreatFeedSync{},
 		&models.LOLBin{},
+		&models.Investigation{},
+		&models.InvestigationEvent{},
+		&models.AttackLayer{},
 	); err != nil {
 		return err
 	}

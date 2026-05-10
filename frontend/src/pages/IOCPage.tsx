@@ -716,10 +716,8 @@ export default function IOCPage() {
                       </th>
                       <th className="text-left px-4 py-3">TYPE</th>
                       <th className="text-left px-4 py-3">VALEUR</th>
-                      <th className="text-left px-4 py-3">SOURCE</th>
                       <th className="text-left px-4 py-3">TLP</th>
                       <th className="text-left px-4 py-3">TAGS</th>
-                      <th className="text-left px-4 py-3">MITRE</th>
                       <th className="text-left px-4 py-3">STATUT</th>
                       <th className="text-right px-4 py-3">ACTIONS</th>
                     </tr>
@@ -740,30 +738,20 @@ export default function IOCPage() {
                             {typeIcon(ioc.type)} {ioc.type}
                           </span>
                         </td>
-                        <td className="px-4 py-3 max-w-[260px] break-all font-mono text-xs text-[#f1f5f9]">{ioc.value}</td>
-                        <td className="px-4 py-3 text-xs text-[#64748b] max-w-[120px] truncate">{ioc.source || '—'}</td>
+                        <td className="px-4 py-3 max-w-[320px] break-all font-mono text-xs text-[#f1f5f9]">{ioc.value}</td>
                         <td className="px-4 py-3">{tlpBadge(ioc.tlp)}</td>
                         <td className="px-4 py-3">
-                          <div className="flex flex-wrap gap-1">
-                            {parseTags(ioc.tags).slice(0, 3).map(tag => (
-                              <span key={tag} className="text-[10px] font-mono bg-[#0d131f] border border-[#1e2d40] px-1.5 py-0.5 text-[#64748b]">{tag}</span>
-                            ))}
-                            {parseTags(ioc.tags).length > 3 && (
-                              <span className="text-[10px] text-[#64748b]">+{parseTags(ioc.tags).length - 3}</span>
-                            )}
-                          </div>
+                          {parseTags(ioc.tags).length > 0
+                            ? <span className="text-[10px] font-mono text-[#64748b] border border-[#1e2d40] px-1.5 py-0.5">{parseTags(ioc.tags).length} tag{parseTags(ioc.tags).length > 1 ? 's' : ''}</span>
+                            : <span className="text-[10px] text-[#2a3f55]">—</span>
+                          }
                         </td>
                         <td className="px-4 py-3">
-                          {ioc.mitre_tech_id
-                            ? <span className="text-xs text-[#00d4ff]">{ioc.mitre_tech_id}</span>
-                            : <span className="text-xs text-[#64748b]">—</span>}
-                        </td>
-                        <td className="px-4 py-3">
-                          <span className={`text-xs ${STATUS_COLORS[ioc.status] ?? 'text-[#64748b]'}`}>
-                            {ioc.status === 'active' ? 'ACTIF'
-                              : ioc.status === 'archived' ? 'ARCHIVÉ'
-                              : 'FAUX POSITIF'}
-                          </span>
+                          {ioc.status !== 'active' && (
+                            <span className={`text-xs ${STATUS_COLORS[ioc.status] ?? 'text-[#64748b]'}`}>
+                              {ioc.status === 'archived' ? 'ARCHIVÉ' : 'FAUX POSITIF'}
+                            </span>
+                          )}
                         </td>
                         <td className="px-4 py-3 text-right">
                           <div className="flex items-center justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
@@ -841,53 +829,79 @@ export default function IOCPage() {
               <div className="flex-1 overflow-y-auto p-4 space-y-4">
                 {activeTab === 'details' ? (
                   <>
-                    <div>
-                      <label className="text-[10px] font-mono text-[#4a6480] uppercase tracking-wider block mb-1">TYPE</label>
-                      <span className="text-sm font-mono text-[#f1f5f9] uppercase">{selectedIOC.type}</span>
-                    </div>
-                    <div>
-                      <label className="text-[10px] font-mono text-[#4a6480] uppercase tracking-wider block mb-1">VALEUR</label>
-                      <span className="text-sm font-mono text-[#f1f5f9] break-all">{selectedIOC.value}</span>
-                    </div>
-                    <div>
-                      <label className="text-[10px] font-mono text-[#4a6480] uppercase tracking-wider block mb-1">SOURCE</label>
-                      <span className="text-sm font-mono text-[#f1f5f9]">{selectedIOC.source || '—'}</span>
-                    </div>
-                    <div>
-                      <label className="text-[10px] font-mono text-[#4a6480] uppercase tracking-wider block mb-1">TLP</label>
-                      {tlpBadge(selectedIOC.tlp)}
-                    </div>
-                    <div>
-                      <label className="text-[10px] font-mono text-[#4a6480] uppercase tracking-wider block mb-1">STATUT</label>
-                      <span className={`text-sm font-mono ${STATUS_COLORS[selectedIOC.status] ?? 'text-[#64748b]'}`}>
-                        {selectedIOC.status === 'active' ? 'ACTIF'
-                          : selectedIOC.status === 'archived' ? 'ARCHIVÉ'
-                          : 'FAUX POSITIF'}
-                      </span>
-                    </div>
-                    <div>
-                      <label className="text-[10px] font-mono text-[#4a6480] uppercase tracking-wider block mb-1">TAGS</label>
-                      <div className="flex flex-wrap gap-1">
-                        {parseTags(selectedIOC.tags).map(tag => (
-                          <span key={tag} className="text-[10px] bg-[#0d131f] border border-[#1e2d40] px-2 py-1 text-[#64748b] font-mono">{tag}</span>
-                        ))}
+                    {/* Carte 1 — Identité */}
+                    <div className="border border-[#1e2d40] bg-[#0d131f]/60 rounded-lg p-4 space-y-3">
+                      <div className="flex items-start justify-between gap-3">
+                        <div>
+                          <label className="text-[10px] font-mono text-[#4a6480] uppercase tracking-wider block mb-1.5">TYPE</label>
+                          <span className="text-sm font-mono text-[#00d4ff] uppercase flex items-center gap-1.5">
+                            {typeIcon(selectedIOC.type)} {selectedIOC.type}
+                          </span>
+                        </div>
+                        <div className="text-right">
+                          <label className="text-[10px] font-mono text-[#4a6480] uppercase tracking-wider block mb-1.5">TLP</label>
+                          {tlpBadge(selectedIOC.tlp)}
+                        </div>
+                      </div>
+                      <div>
+                        <label className="text-[10px] font-mono text-[#4a6480] uppercase tracking-wider block mb-1.5">VALEUR</label>
+                        <p className="text-sm font-mono text-[#f1f5f9] break-all leading-relaxed">{selectedIOC.value}</p>
+                      </div>
+                      <div className="grid grid-cols-2 gap-3 pt-3 border-t border-[#1e2d40]">
+                        <div>
+                          <label className="text-[10px] font-mono text-[#4a6480] uppercase tracking-wider block mb-1.5">SOURCE</label>
+                          <span className="text-xs font-mono text-[#f1f5f9]">{selectedIOC.source || '—'}</span>
+                        </div>
+                        <div>
+                          <label className="text-[10px] font-mono text-[#4a6480] uppercase tracking-wider block mb-1.5">STATUT</label>
+                          <span className={`text-xs font-mono ${STATUS_COLORS[selectedIOC.status] ?? 'text-[#64748b]'}`}>
+                            {selectedIOC.status === 'active' ? 'ACTIF'
+                              : selectedIOC.status === 'archived' ? 'ARCHIVÉ'
+                              : 'FAUX POSITIF'}
+                          </span>
+                        </div>
                       </div>
                     </div>
-                    <div>
-                      <label className="text-[10px] font-mono text-[#4a6480] uppercase tracking-wider block mb-1">MITRE ATT&CK</label>
-                      <span className="text-sm font-mono text-[#f1f5f9]">{selectedIOC.mitre_tech_id || '—'}</span>
+
+                    {/* Carte 2 — Classification */}
+                    <div className="border border-[#1e2d40] bg-[#0d131f]/60 rounded-lg p-4 space-y-3">
+                      <div>
+                        <label className="text-[10px] font-mono text-[#4a6480] uppercase tracking-wider block mb-2">TAGS</label>
+                        {parseTags(selectedIOC.tags).length > 0 ? (
+                          <div className="flex flex-wrap gap-1.5">
+                            {parseTags(selectedIOC.tags).map(tag => (
+                              <span key={tag} className="text-[10px] bg-[#0d131f] border border-[#1e2d40] px-2 py-1 text-[#64748b] font-mono">{tag}</span>
+                            ))}
+                          </div>
+                        ) : (
+                          <span className="text-xs font-mono text-[#2a3f55]">—</span>
+                        )}
+                      </div>
+                      <div className="pt-3 border-t border-[#1e2d40]">
+                        <label className="text-[10px] font-mono text-[#4a6480] uppercase tracking-wider block mb-1.5">MITRE ATT&CK</label>
+                        <span className={`text-sm font-mono ${selectedIOC.mitre_tech_id ? 'text-[#00d4ff]' : 'text-[#2a3f55]'}`}>
+                          {selectedIOC.mitre_tech_id || '—'}
+                        </span>
+                      </div>
                     </div>
-                    <div>
-                      <label className="text-[10px] font-mono text-[#4a6480] uppercase tracking-wider block mb-1">NOTES</label>
-                      <p className="text-sm font-mono text-[#cbd5e1] whitespace-pre-wrap">{selectedIOC.notes || '—'}</p>
+
+                    {/* Carte 3 — Notes */}
+                    <div className={`border rounded-lg p-4 ${selectedIOC.notes ? 'border-[#1e2d40] bg-[#0d131f]/60' : 'border-[#1e2d40]/40'}`}>
+                      <label className="text-[10px] font-mono text-[#4a6480] uppercase tracking-wider block mb-2">NOTES</label>
+                      {selectedIOC.notes
+                        ? <p className="text-sm font-mono text-[#cbd5e1] whitespace-pre-wrap leading-relaxed">{selectedIOC.notes}</p>
+                        : <p className="text-xs font-mono text-[#2a3f55]">—</p>
+                      }
                     </div>
-                    <div className="flex gap-2 pt-2">
+
+                    {/* Actions */}
+                    <div className="flex gap-2 pt-1">
                       <button onClick={() => { setEditTarget(selectedIOC); setShowForm(true); setSelectedIOC(null) }}
-                        className="flex-1 px-3 py-2 text-xs font-mono font-bold bg-[#00d4ff] text-[#06080f] rounded hover:bg-[#00d4ff]/80 transition-colors">
+                        className="flex-1 px-3 py-2.5 text-xs font-mono font-bold bg-[#00d4ff] text-[#06080f] rounded hover:bg-[#00d4ff]/80 transition-colors">
                         MODIFIER
                       </button>
                       <button onClick={() => { handleDelete(selectedIOC); setSelectedIOC(null) }}
-                        className="px-3 py-2 text-xs font-mono border border-red-500 text-red-400 rounded hover:bg-red-500/10 transition-colors">
+                        className="px-3 py-2.5 text-xs font-mono border border-red-500 text-red-400 rounded hover:bg-red-500/10 transition-colors">
                         SUPPRIMER
                       </button>
                     </div>

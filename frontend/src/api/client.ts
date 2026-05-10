@@ -580,6 +580,86 @@ export const threatFeedsApi = {
     http.post<import('@/types/threat_intel').ThreatFeedSyncResult>(`/threat-feeds/sync/urlhaus`).then((r) => r.data),
 }
 
+// ---- MITRE Attack Layers ----
+export const attackLayerApi = {
+  list: () =>
+    http
+      .get<import('@/types/attackLayer').AttackLayerListResponse>('/mitre/layers')
+      .then((r) => r.data),
+
+  get: (id: number) =>
+    http
+      .get<import('@/types/attackLayer').AttackLayer>(`/mitre/layers/${id}`)
+      .then((r) => r.data),
+
+  create: (data: import('@/types/attackLayer').AttackLayerCreatePayload) =>
+    http
+      .post<import('@/types/attackLayer').AttackLayer>('/mitre/layers', data)
+      .then((r) => r.data),
+
+  update: (id: number, data: { name?: string; description?: string; layer_data?: string }) =>
+    http
+      .put<import('@/types/attackLayer').AttackLayer>(`/mitre/layers/${id}`, data)
+      .then((r) => r.data),
+
+  delete: (id: number) =>
+    http.delete(`/mitre/layers/${id}`).then((r) => r.data),
+
+  import: (navJson: unknown) =>
+    http
+      .post<{ layer: import('@/types/attackLayer').AttackLayer; imported: number }>(
+        '/mitre/layers/import',
+        navJson,
+      )
+      .then((r) => r.data),
+
+  exportUrl: (id: number) => `/api/mitre/layers/${id}/export`,
+}
+
+// ---- Investigations / Timeline ----
+export const investigationApi = {
+  list: (params?: import('@/types/investigation').InvestigationFilter) =>
+    http
+      .get<import('@/types/investigation').InvestigationListResponse>('/investigations', { params })
+      .then((r) => r.data),
+
+  get: (id: number) =>
+    http
+      .get<import('@/types/investigation').Investigation>(`/investigations/${id}`)
+      .then((r) => r.data),
+
+  create: (data: import('@/types/investigation').InvestigationCreatePayload) =>
+    http
+      .post<import('@/types/investigation').Investigation>('/investigations', data)
+      .then((r) => r.data),
+
+  update: (id: number, data: Partial<import('@/types/investigation').InvestigationCreatePayload>) =>
+    http
+      .put<import('@/types/investigation').Investigation>(`/investigations/${id}`, data)
+      .then((r) => r.data),
+
+  delete: (id: number) =>
+    http.delete(`/investigations/${id}`).then((r) => r.data),
+
+  listEvents: (id: number, params?: import('@/types/investigation').EventFilter) =>
+    http
+      .get<import('@/types/investigation').EventListResponse>(`/investigations/${id}/events`, { params })
+      .then((r) => r.data),
+
+  createEvent: (id: number, data: import('@/types/investigation').EventCreatePayload) =>
+    http
+      .post<import('@/types/investigation').InvestigationEvent>(`/investigations/${id}/events`, data)
+      .then((r) => r.data),
+
+  updateEvent: (eventId: number, data: Partial<import('@/types/investigation').EventCreatePayload>) =>
+    http
+      .put<import('@/types/investigation').InvestigationEvent>(`/investigations/events/${eventId}`, data)
+      .then((r) => r.data),
+
+  deleteEvent: (eventId: number) =>
+    http.delete(`/investigations/events/${eventId}`).then((r) => r.data),
+}
+
 // ---- Settings DB Versions ----
 export const settingsDbApi = {
   getVersions: () =>

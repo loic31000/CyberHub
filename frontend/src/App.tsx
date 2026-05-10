@@ -28,6 +28,10 @@ import CheatsheetsPage from '@/pages/CheatsheetsPage'
 import LOLBinsPage from '@/pages/LOLBinsPage'
 import EncoderDecoder from '@/pages/EncoderDecoder'
 import RevShellGenerator from '@/pages/RevShellGenerator'
+import InvestigationList from '@/pages/InvestigationList'
+import InvestigationDetail from '@/pages/InvestigationDetail'
+import MITRELayers from '@/pages/MITRELayers'
+import MITRELayerDetail from '@/pages/MITRELayerDetail'
 
 // Guard : redirige vers /login si non authentifié
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
@@ -80,6 +84,8 @@ export default function App() {
 
           {/* MITRE ATT&CK */}
           <Route path="mitre" element={<MITREPage />} />
+          <Route path="mitre/layers" element={<MITRELayers />} />
+          <Route path="mitre/layers/:id" element={<MITRELayerDetail />} />
 
           {/* CLOAK - OpSec concealment TTPs */}
           <Route path="cloak" element={<CLOAKPage />} />
@@ -112,7 +118,10 @@ export default function App() {
           {/* Reverse Shell Generator */}
           <Route path="revshell" element={<RevShellGenerator />} />
 
-        
+          {/* Investigations / Timeline */}
+          <Route path="investigations" element={<InvestigationList />} />
+          <Route path="investigations/:id" element={<InvestigationDetail />} />
+
           {/* Paramètres */}
           <Route path="settings" element={<SettingsPage />} />
         </Route>

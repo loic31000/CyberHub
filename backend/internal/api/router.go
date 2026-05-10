@@ -126,6 +126,15 @@ func NewRouter(correlationEngine *correlation.CorrelationEngine) *gin.Engine {
 				mitre.GET("/tactics", handlers.ListMITRETactics)
 				mitre.GET("/techniques", handlers.ListMITRETechniques)
 				mitre.GET("/techniques/:id", handlers.GetMITRETechnique)
+
+				layerH := handlers.NewAttackLayerHandler(store.DB)
+				mitre.GET("/layers", layerH.List)
+				mitre.POST("/layers", layerH.Create)
+				mitre.POST("/layers/import", layerH.Import)
+				mitre.GET("/layers/:id", layerH.Get)
+				mitre.PUT("/layers/:id", layerH.Update)
+				mitre.DELETE("/layers/:id", layerH.Delete)
+				mitre.GET("/layers/:id/export", layerH.Export)
 			}
 
 			ioc := protected.Group("/ioc")
@@ -259,6 +268,20 @@ func NewRouter(correlationEngine *correlation.CorrelationEngine) *gin.Engine {
 			}
 
 			protected.GET("/revshell", handlers.GetRevShell)
+
+			invH := handlers.NewInvestigationHandler(store.DB)
+			investigations := protected.Group("/investigations")
+			{
+				investigations.GET("", invH.List)
+				investigations.POST("", invH.Create)
+				investigations.PUT("/events/:eventId", invH.UpdateEvent)
+				investigations.DELETE("/events/:eventId", invH.DeleteEvent)
+				investigations.GET("/:id", invH.Get)
+				investigations.PUT("/:id", invH.Update)
+				investigations.DELETE("/:id", invH.Delete)
+				investigations.GET("/:id/events", invH.ListEvents)
+				investigations.POST("/:id/events", invH.CreateEvent)
+			}
 		}
 	}
 

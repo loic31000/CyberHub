@@ -31,6 +31,23 @@ export interface CorrelationLOLBin {
   category: string
 }
 
+export interface CorrelationInvestigation {
+  id: number
+  title: string
+  status: string
+}
+
+export interface CorrelationAttackLayer {
+  id: number
+  name: string
+}
+
+export interface CorrelationNote {
+  id: number
+  title: string
+  excerpt: string
+}
+
 export interface CorrelationResult {
   ioc_type: string
   ioc_value: string
@@ -40,6 +57,12 @@ export interface CorrelationResult {
   playbooks: CorrelationPlaybook[]
   cves: CorrelationCVE[]
   lolbins: CorrelationLOLBin[]
+  investigations: CorrelationInvestigation[]
+  attack_layers: CorrelationAttackLayer[]
+  notes: CorrelationNote[]
+  confidence: number
+  rationale: string
+  next_actions: string[]
   generated_at: string
   from_cache: boolean
 }

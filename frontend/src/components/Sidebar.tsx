@@ -2,7 +2,7 @@ import { NavLink, useNavigate } from 'react-router-dom'
 import { useAuthStore } from '@/store/auth'
 import {
   LayoutDashboard, Wrench, FileText, ShieldAlert, BookOpen, LogOut, Settings,
-  ShieldBan, EyeOff, Network, History, GitBranch, Terminal, StickyNote, ChevronRight, Search, Binary, Zap
+  ShieldBan, EyeOff, Network, History, GitBranch, Terminal, StickyNote, ChevronRight, Search, Binary, Zap, Activity, Layers
 } from 'lucide-react'
 import clsx from 'clsx'
 
@@ -25,6 +25,7 @@ export default function Sidebar({ collapsed, bgpAlertCount = 0 }: any) {
         { to: '/cve', label: 'CVE & KEV', icon: <ShieldAlert size={18} /> },
         { to: '/playbooks', label: 'Playbooks', icon: <BookOpen size={18} /> },
         { to: '/mitre', label: 'MITRE ATT&CK', icon: <Terminal size={18} /> },
+        { to: '/mitre/layers', label: 'Layers ATT&CK', icon: <Layers size={18} /> },
         { to: '/lolbins', label: 'LOLBins', icon: <Terminal size={18} /> },
       ],
     },
@@ -35,6 +36,7 @@ export default function Sidebar({ collapsed, bgpAlertCount = 0 }: any) {
         { to: '/ioc', label: 'IOC Manager', icon: <ShieldBan size={18} /> },
         { to: '/correlation', label: 'Corrélation', icon: <GitBranch size={18} /> },
         { to: '/osint', label: 'OSINT Runner', icon: <Search size={18} /> },
+        { to: '/investigations', label: 'Investigations', icon: <Activity size={18} /> },
       ],
     },
     {

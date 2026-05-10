@@ -40,7 +40,7 @@ Application de bureau pour centraliser vos outils, writeups CTF, veille CVE, pla
 ### BGP Lookup
 ![BGP Lookup](./.github/screenshots/bgp.png)
 
-### IOC Manager
+### IOC Manager v1.0
 ![IOC Manager](./.github/screenshots/iocmanager.png)
 
 ## ENCODER / DECODER
@@ -61,7 +61,7 @@ Application de bureau pour centraliser vos outils, writeups CTF, veille CVE, pla
 - **Veille CVE** — Base locale + import NVD JSON 2.0 (fichier) + import NVD en ligne paginé (clé API optionnelle) + recherche par sévérité/CVSS
 - **Playbooks** — 19 procédures de réponse à incident interactives (checklist step-by-step)
 - **MITRE ATT&CK Enterprise** — 823 techniques, 14 tactiques, indexées offline dans SQLite
-- **IOC Manager** — Gestionnaire centralisé d’Indicateurs de Compromission (IP, domaine, hash, URL, email, CIDR)
+- **IOC Manager** — Gestionnaire centralisé d’Indicateurs de Compromission (IP, domaine, hash, URL, email, CIDR) · table 7 colonnes scannable · panneau détail 3 cartes hiérarchisées
 - **CLOAK OpSec** — 720 sous-techniques adversariales (anonymat, dissimulation, OpSec) · 13 tactiques · embarqué offline
 - **BGP / AS Lookup** — Proxy BGPView avec cache SQLite TTL 1h, bascule vers RIPE Stat en cas d’échec, résolution DNS-over-HTTPS, et statut de santé exposé dans l’UI
 - **BGP Historian** — Snapshots périodiques d’AS, diff entre snapshots, alertes sur changements de routage
@@ -497,6 +497,7 @@ Ouvre la base SQLite locale et réinitialise le hash bcrypt. Utile si l'accès e
 - **Import IOC en masse** — modal drag & drop CSV/TXT · détection automatique du type · aperçu 5 lignes · déduplication · TLP/statut configurables
 - **Threat Feeds** — synchronisation Feodo Tracker (IPs C2) et URLhaus (URLs malveillantes) depuis les Paramètres · TLP automatique · déduplication avant insertion
 - **Corrélation — LOLBins** — 6e goroutine dans le moteur de corrélation : matching IOC hash/domaine contre la table `lol_bins` · section LOLBins dans `CorrelationPanel`
+- **Corrélation — moteur enrichi** — 9 goroutines · validation stricte IOC (IPv4, CIDR, domaine, hash, URL, email) · signal gating CVE/playbooks · confiance + rationale + actions · Investigations, ATT&CK Layers, Notes · IOC Manager UX v1.0 : table 7 cols + panneau 3 cartes (2026-05-10)
 - **Backend** — nouveaux modèles : `LOLBin`, mise à jour `CorrelationResult` avec `LOLBins []CorrelationLOLBin` · routes `/api/lolbins/...`
 - **Frontend** — `LOLBinsPage.tsx` · `types/lolbins.ts` · `types/threat_intel.ts` · `CorrelationPanel` section LOLBins
 

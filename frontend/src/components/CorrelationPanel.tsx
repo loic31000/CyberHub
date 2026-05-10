@@ -2,9 +2,16 @@ import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
   Crosshair, EyeOff, Wrench, BookOpen, ShieldAlert, Terminal,
-  ChevronDown, ChevronRight, AlertCircle,
+  ChevronDown, ChevronRight, AlertCircle, Search, Layers,
+  FileText, ArrowRight, Activity,
 } from 'lucide-react'
-import type { CorrelationResult, CorrelationLOLBin } from '@/types/correlation'
+import type {
+  CorrelationResult,
+  CorrelationLOLBin,
+  CorrelationInvestigation,
+  CorrelationAttackLayer,
+  CorrelationNote,
+} from '@/types/correlation'
 
 interface Props {
   result: CorrelationResult | null
@@ -17,10 +24,11 @@ interface SectionProps {
   icon: React.ReactNode
   count: number
   children: React.ReactNode
+  defaultOpen?: boolean
 }
 
-function Section({ title, icon, count, children }: SectionProps) {
-  const [open, setOpen] = useState(true)
+function Section({ title, icon, count, children, defaultOpen = true }: SectionProps) {
+  const [open, setOpen] = useState(defaultOpen)
   return (
     <div className="border border-border rounded-lg overflow-hidden">
       <button
@@ -29,7 +37,9 @@ function Section({ title, icon, count, children }: SectionProps) {
       >
         <span className="text-cyber-cyan">{icon}</span>
         <span className="flex-1 font-medium text-text-primary text-sm">{title}</span>
-        <span className="px-2 py-0.5 rounded-full bg-cyber-cyan/15 text-cyber-cyan text-xs font-bold">
+        <span className={`px-2 py-0.5 rounded-full text-xs font-bold ${
+          count > 0 ? 'bg-cyber-cyan/15 text-cyber-cyan' : 'bg-gray-700/50 text-text-muted'
+        }`}>
           {count}
         </span>
         {open ? <ChevronDown size={14} className="text-text-muted" /> : <ChevronRight size={14} className="text-text-muted" />}
@@ -41,6 +51,20 @@ function Section({ title, icon, count, children }: SectionProps) {
 
 function EmptyHint({ label }: { label: string }) {
   return <p className="text-text-muted text-xs italic">{label}</p>
+}
+
+function ConfidenceBadge({ confidence }: { confidence: number }) {
+  const pct = Math.round(confidence * 100)
+  const color = pct >= 60 ? 'text-red-400 border-red-500/40 bg-red-500/10'
+    : pct >= 30 ? 'text-amber-400 border-amber-500/40 bg-amber-500/10'
+    : 'text-slate-400 border-slate-500/40 bg-slate-500/10'
+  const label = pct >= 60 ? 'Confiance forte' : pct >= 30 ? 'Confiance modérée' : 'Confiance faible'
+  return (
+    <div className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full border text-xs font-semibold ${color}`}>
+      <Activity size={12} />
+      {label} — {pct}%
+    </div>
+  )
 }
 
 export default function CorrelationPanel({ result, loading, error }: Props) {
@@ -67,8 +91,23 @@ export default function CorrelationPanel({ result, loading, error }: Props) {
 
   if (!result) return null
 
+  const investigations: CorrelationInvestigation[] = result.investigations ?? []
+  const attackLayers: CorrelationAttackLayer[] = result.attack_layers ?? []
+  const notes: CorrelationNote[] = result.notes ?? []
+  const nextActions: string[] = result.next_actions ?? []
+  const confidence = result.confidence ?? 0
+  const rationale = result.rationale ?? ''
+
   return (
     <div className="space-y-3">
+      {/* Header : confiance + rationale */}
+      {rationale && (
+        <div className="p-3 rounded-lg bg-bg-hover border border-border space-y-2">
+          <ConfidenceBadge confidence={confidence} />
+          <p className="text-xs text-text-secondary leading-relaxed">{rationale}</p>
+        </div>
+      )}
+
       {/* Section 1 — MITRE ATT&CK */}
       <Section
         title="MITRE ATT&CK"
@@ -103,7 +142,64 @@ export default function CorrelationPanel({ result, loading, error }: Props) {
         )}
       </Section>
 
-      {/* Section 2 — CLOAK OpSec */}
+      {/* Section 2 — ATT&CK Layers */}
+      <Section
+        title="ATT&CK Layers"
+        icon={<Layers size={16} />}
+        count={attackLayers.length}
+        defaultOpen={attackLayers.length > 0}
+      >
+        {attackLayers.length === 0 ? (
+          <EmptyHint label="Aucun layer ATT&CK contenant ces techniques" />
+        ) : (
+          <ul className="space-y-1">
+            {attackLayers.map((layer) => (
+              <li key={layer.id}>
+                <button
+                  onClick={() => navigate(`/mitre/layers/${layer.id}`)}
+                  className="text-xs text-text-secondary hover:text-cyber-cyan hover:underline transition-colors text-left"
+                >
+                  → {layer.name}
+                </button>
+              </li>
+            ))}
+          </ul>
+        )}
+      </Section>
+
+      {/* Section 3 — Investigations */}
+      <Section
+        title="Investigations liées"
+        icon={<Search size={16} />}
+        count={investigations.length}
+        defaultOpen={investigations.length > 0}
+      >
+        {investigations.length === 0 ? (
+          <EmptyHint label="Aucune investigation ne référence cet IOC" />
+        ) : (
+          <ul className="space-y-1.5">
+            {investigations.map((inv) => (
+              <li key={inv.id} className="flex items-center gap-2">
+                <button
+                  onClick={() => navigate(`/investigations/${inv.id}`)}
+                  className="flex-1 text-xs text-text-secondary hover:text-cyber-cyan hover:underline transition-colors text-left"
+                >
+                  → {inv.title}
+                </button>
+                <span className={`px-1.5 py-0.5 rounded text-xs font-medium ${
+                  inv.status === 'open' ? 'bg-green-500/15 text-green-400'
+                  : inv.status === 'closed' ? 'bg-gray-500/20 text-gray-400'
+                  : 'bg-yellow-500/15 text-yellow-400'
+                }`}>
+                  {inv.status}
+                </span>
+              </li>
+            ))}
+          </ul>
+        )}
+      </Section>
+
+      {/* Section 4 — CLOAK OpSec */}
       <Section
         title="CLOAK OpSec"
         icon={<EyeOff size={16} />}
@@ -125,30 +221,7 @@ export default function CorrelationPanel({ result, loading, error }: Props) {
         )}
       </Section>
 
-      {/* Section 3 — Outils recommandés */}
-      <Section
-        title="Outils recommandés"
-        icon={<Wrench size={16} />}
-        count={result.tools.length}
-      >
-        {result.tools.length === 0 ? (
-          <EmptyHint label="Aucun outil recommandé" />
-        ) : (
-          <div className="flex flex-wrap gap-2">
-            {result.tools.map((tool, i) => (
-              <button
-                key={i}
-                onClick={() => navigate('/tools')}
-                className="px-3 py-1 rounded-full text-xs font-medium bg-gray-700 text-text-secondary hover:bg-cyber-cyan/20 hover:text-cyber-cyan transition-colors"
-              >
-                {tool.name}
-              </button>
-            ))}
-          </div>
-        )}
-      </Section>
-
-      {/* Section 4 — Playbooks suggérés */}
+      {/* Section 5 — Playbooks suggérés */}
       <Section
         title="Playbooks suggérés"
         icon={<BookOpen size={16} />}
@@ -172,7 +245,30 @@ export default function CorrelationPanel({ result, loading, error }: Props) {
         )}
       </Section>
 
-      {/* Section 5 — CVE liées */}
+      {/* Section 6 — Outils recommandés */}
+      <Section
+        title="Outils recommandés"
+        icon={<Wrench size={16} />}
+        count={result.tools.length}
+      >
+        {result.tools.length === 0 ? (
+          <EmptyHint label="Aucun outil recommandé" />
+        ) : (
+          <div className="flex flex-wrap gap-2">
+            {result.tools.map((tool, i) => (
+              <button
+                key={i}
+                onClick={() => navigate('/tools')}
+                className="px-3 py-1 rounded-full text-xs font-medium bg-gray-700 text-text-secondary hover:bg-cyber-cyan/20 hover:text-cyber-cyan transition-colors"
+              >
+                {tool.name}
+              </button>
+            ))}
+          </div>
+        )}
+      </Section>
+
+      {/* Section 7 — CVE liées */}
       <Section
         title="CVE liées (CVSS ≥ 7.0)"
         icon={<ShieldAlert size={16} />}
@@ -210,8 +306,7 @@ export default function CorrelationPanel({ result, loading, error }: Props) {
         )}
       </Section>
 
-
-      {/* Section 6 — LOLBins / GTFOBins */}
+      {/* Section 8 — LOLBins / GTFOBins */}
       <Section
         title="LOLBins / GTFOBins"
         icon={<Terminal size={16} />}
@@ -239,6 +334,52 @@ export default function CorrelationPanel({ result, loading, error }: Props) {
           </div>
         )}
       </Section>
+
+      {/* Section 9 — Notes liées */}
+      <Section
+        title="Notes pertinentes"
+        icon={<FileText size={16} />}
+        count={notes.length}
+        defaultOpen={notes.length > 0}
+      >
+        {notes.length === 0 ? (
+          <EmptyHint label="Aucune note ne mentionne cet IOC" />
+        ) : (
+          <ul className="space-y-2">
+            {notes.map((note) => (
+              <li key={note.id} className="p-2 rounded bg-bg-primary border border-border">
+                <button
+                  onClick={() => navigate('/notes')}
+                  className="text-xs font-semibold text-text-primary hover:text-cyber-cyan transition-colors text-left"
+                >
+                  {note.title}
+                </button>
+                {note.excerpt && (
+                  <p className="text-xs text-text-muted mt-0.5 line-clamp-2">{note.excerpt}</p>
+                )}
+              </li>
+            ))}
+          </ul>
+        )}
+      </Section>
+
+      {/* Section 10 — Actions suivantes */}
+      {nextActions.length > 0 && (
+        <div className="p-4 rounded-lg bg-cyber-cyan/5 border border-cyber-cyan/20">
+          <p className="text-xs font-semibold text-cyber-cyan mb-2 flex items-center gap-1.5">
+            <ArrowRight size={13} />
+            Actions recommandées
+          </p>
+          <ul className="space-y-1">
+            {nextActions.map((action, i) => (
+              <li key={i} className="text-xs text-text-secondary flex items-start gap-1.5">
+                <span className="text-cyber-cyan/60 mt-0.5">›</span>
+                {action}
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
 
       {/* Footer */}
       <div className="text-xs text-text-muted text-right pt-1">
