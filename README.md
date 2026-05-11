@@ -25,7 +25,7 @@ Application de bureau pour centraliser outils, writeups CTF, veille CVE, playboo
 - **Hash Analyzer** — VirusTotal · MalwareBazaar · ThreatFox · URLhaus · 4 sources parallèles · cache SQLite
 - **BGP / AS Lookup** — Proxy BGPView · cache SQLite TTL 1h · fallback RIPE Stat · export IOC CIDR
 - **BGP Historian** — Snapshots AS périodiques · diff visuel · alertes automatiques sur changements de routage
-- **OSINT Runner** — Exécution locale theHarvester / Sherlock / Maigret · extraction IOC · import direct
+- **OSINT Runner** — Exécution locale WhatsMyName · extraction IOC · import direct
 - **Notes** — Éditeur opérationnel · liens IOC/MITRE/CVE · recherche fulltext · import/export JSON/MD/TXT/HTML
 - **Investigations** — Timeline d'investigation avec événements horodatés
 - **Corrélation IOC** — Moteur 9 goroutines · matching CVE, playbooks, MITRE, LOLBins, BGP, threat feeds
