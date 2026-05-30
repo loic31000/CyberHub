@@ -143,7 +143,7 @@ func main() {
 		}
 	}
 
-	addr := "127.0.0.1:" + port
+	addr := ":" + port
 	url := "http://localhost:" + port
 
 	log.Printf("[INFO] Démarrage du serveur sur %s", url)

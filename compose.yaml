@@ -1,0 +1,19 @@
+services:
+  cyber-hub:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: cyber-hub:latest
+    container_name: cyber-hub
+
+    ports:
+      - "7743:7743"
+
+    volumes:
+      # Persistance de la base SQLite, des sauvegardes et du fichier PID
+      - cyber-hub-data:/data
+
+    restart: unless-stopped
+
+volumes:
+  cyber-hub-data:
