@@ -2,12 +2,12 @@ name: Security and maintainability
 on:
   pull_request:
   push:
-    branches: [main]
+    branches: [chore/security-ci-pilot]
   workflow_dispatch:
 permissions:
   contents: read
 jobs:
   audit:
-    uses: loic31000/security-ci/.github/workflows/security-audit.yml@01b77b075f305b4286b53e36f152f8c8ca4ccede
+    uses: loic31000/security-ci/.github/workflows/security-audit.yml@022b74b19fc92d0ce5ad2d08fe87a85446f404e2
     with:
       enforce: false
