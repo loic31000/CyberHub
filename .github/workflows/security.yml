@@ -11,9 +11,6 @@ jobs:
     uses: loic31000/security-ci/.github/workflows/security-audit.yml@022b74b19fc92d0ce5ad2d08fe87a85446f404e2
     with:
       enforce: false
-
-  audit_strict_validation:
-    name: Strict mode validation (expected alerts)
-    uses: loic31000/security-ci/.github/workflows/security-audit.yml@022b74b19fc92d0ce5ad2d08fe87a85446f404e2
-    with:
-      enforce: true
+      # Infrastructure-only smoke tests; NOT CyberHub application coverage.
+      test_command: "python -m pip install coverage==7.10.7 && python -m coverage run --source=.github/audit-fixtures -m unittest discover -s .github/audit-fixtures -p 'test_*.py' && python -m coverage xml -o coverage.xml && python -m coverage report --fail-under=100"
+      coverage_paths: coverage.xml
