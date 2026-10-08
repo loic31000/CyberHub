@@ -5,6 +5,6 @@ permissions:
   contents: read
 jobs:
   audit_strict_validation:
-    uses: loic31000/security-ci/.github/workflows/security-audit.yml@c852c7482af6ee8590dc66281de4d814750ee0f3
+    uses: loic31000/security-ci/.github/workflows/security-audit.yml@cc84807d025ae41c37d930ccd76235b50a050432
     with:
       enforce: true
