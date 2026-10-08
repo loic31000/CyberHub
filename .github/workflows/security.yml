@@ -8,7 +8,7 @@ permissions:
   contents: read
 jobs:
   audit:
-    uses: loic31000/security-ci/.github/workflows/security-audit.yml@022b74b19fc92d0ce5ad2d08fe87a85446f404e2
+    uses: loic31000/security-ci/.github/workflows/security-audit.yml@e0328b13cb7eb7fb69f294fe303f9d83143f52b0
     with:
       enforce: false
       # Infrastructure-only smoke tests; NOT CyberHub application coverage.
