@@ -13,7 +13,7 @@ jobs:
         uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8
         with:
           repository: loic31000/security-ci
-          ref: a61c1fd32c9880cdb86b819c773bcfaa7a8a9ff7
+          ref: fd8327abcc2589069bc0ab6e32e5c642a0a9707e
           persist-credentials: false
           path: audit-engine
       - name: Exercise real SARIF decision logic
