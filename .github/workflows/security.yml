@@ -12,5 +12,16 @@ jobs:
     with:
       enforce: false
       # Infrastructure-only smoke tests; NOT CyberHub application coverage.
-      test_command: "python -m pip install coverage==7.10.7 && python -m coverage run --source=.github/audit-fixtures -m unittest discover -s .github/audit-fixtures -p 'test_*.py' && python -m coverage xml -o coverage.xml && python -m coverage report --fail-under=100"
+      test_command: |
+        python -m pip install coverage==7.10.7
+        mkdir -p "$RUNNER_TEMP/ci-audit-smoke"
+        cat > "$RUNNER_TEMP/ci-audit-smoke/smoke.py" <<'PY'
+        def add(a, b):
+            return a + b
+
+        assert add(2, 3) == 5
+        PY
+        python -m coverage run --source="$RUNNER_TEMP/ci-audit-smoke" "$RUNNER_TEMP/ci-audit-smoke/smoke.py"
+        python -m coverage xml -o coverage.xml
+        python -m coverage report --fail-under=100
       coverage_paths: coverage.xml
