@@ -84,7 +84,9 @@ func main() {
 	// Seed CISA KEV (Known Exploited Vulnerabilities)
 	cisa.SeedKEV(store.DB)
 	// Seed LOLBins (LOLBAS Windows + GTFOBins Linux)
-	lolbins.SeedLOLBins(store.DB)
+	if err := lolbins.SeedLOLBins(store.DB); err != nil {
+		log.Printf("[WARN] Erreur seed LOLBins : %v", err)
+	}
 
 	// Mode production (pas de logs Gin colorisés)
 	gin.SetMode(gin.ReleaseMode)
