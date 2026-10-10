@@ -33,7 +33,7 @@ func InitDB(dbPath string) error {
 	}
 	activeDBPath = dbPath
 	if existingDB {
-		backupPath, err := BackupDB()
+		backupPath, err := createBackup(dbPath, backupPreMigration)
 		if err != nil {
 			log.Printf("[BACKUP] Échec avant migration : %v", err)
 			return err
@@ -47,52 +47,8 @@ func InitDB(dbPath string) error {
 	if err := DB.Exec("PRAGMA journal_mode = WAL").Error; err != nil {
 		return err
 	}
-
-	// Migration : supprime la colonne legacy 'tool NOT NULL' de osint_jobs si elle existe.
-	// SQLite ne supporte pas ALTER COLUMN, on recree la table sans cette colonne.
-	var toolColExists int
-	if err := DB.Raw("SELECT COUNT(*) FROM pragma_table_info('osint_jobs') WHERE name='tool'").Scan(&toolColExists).Error; err != nil {
+	if err := migrateOSINTJob(DB); err != nil {
 		return err
-	}
-	if toolColExists > 0 {
-		log.Println("[DB] Migration osint_jobs : suppression colonne legacy 'tool'")
-		if err := DB.Transaction(func(tx *gorm.DB) error {
-			if err := tx.Exec("DROP TABLE IF EXISTS osint_jobs_v2").Error; err != nil {
-				return err
-			}
-			if err := tx.Exec(`CREATE TABLE osint_jobs_v2 (
-			id INTEGER PRIMARY KEY AUTOINCREMENT,
-			created_at DATETIME,
-			updated_at DATETIME,
-			username TEXT NOT NULL,
-			status TEXT NOT NULL DEFAULT 'pending',
-			total_sites INTEGER,
-			checked_sites INTEGER,
-			found_count INTEGER,
-			filter_category TEXT,
-			results TEXT,
-			duration INTEGER,
-			launched_by TEXT
-		)`).Error; err != nil {
-				return err
-			}
-			if err := tx.Exec(`INSERT INTO osint_jobs_v2
-			SELECT id, created_at, updated_at, username, status,
-			       total_sites, checked_sites, found_count,
-			       filter_category, results, duration, launched_by
-			FROM osint_jobs`).Error; err != nil {
-				return err
-			}
-			if err := tx.Exec("DROP TABLE osint_jobs").Error; err != nil {
-				return err
-			}
-			if err := tx.Exec("ALTER TABLE osint_jobs_v2 RENAME TO osint_jobs").Error; err != nil {
-				return err
-			}
-			return tx.Exec("CREATE INDEX IF NOT EXISTS idx_osint_jobs_username ON osint_jobs(username)").Error
-		}); err != nil {
-			return err
-		}
 	}
 
 	if err = DB.AutoMigrate(
@@ -126,14 +82,42 @@ func InitDB(dbPath string) error {
 	); err != nil {
 		return err
 	}
-	// La table legacy vient d'être migrée explicitement. Le migrateur SQLite de GORM
-	// peut reconstruire cette table et omettre username lors d'une copie.
-	if !DB.Migrator().HasTable(&models.OSINTJob{}) {
-		if err := DB.AutoMigrate(&models.OSINTJob{}); err != nil {
-			return err
-		}
-	}
-
 	log.Printf("[DB] Base initialisee : %s", dbPath)
 	return nil
+}
+
+// Existing tables are changed only with additive ALTER TABLE operations. GORM's
+// SQLite AutoMigrate can rebuild an existing table and lose data or constraints.
+func migrateOSINTJob(db *gorm.DB) error {
+	model := &models.OSINTJob{}
+	if !db.Migrator().HasTable(model) {
+		return db.AutoMigrate(model)
+	}
+	return db.Transaction(func(tx *gorm.DB) error {
+		if tx.Migrator().HasColumn(model, "tool") {
+			log.Println("[DB] Migration osint_jobs : suppression colonne legacy 'tool'")
+			if err := tx.Exec("ALTER TABLE osint_jobs DROP COLUMN tool").Error; err != nil {
+				return err
+			}
+		}
+		stmt := &gorm.Statement{DB: tx}
+		if err := stmt.Parse(model); err != nil {
+			return err
+		}
+		for _, field := range stmt.Schema.Fields {
+			if field.DBName != "" && !tx.Migrator().HasColumn(model, field.DBName) {
+				if err := tx.Migrator().AddColumn(model, field.Name); err != nil {
+					return err
+				}
+			}
+		}
+		for _, index := range stmt.Schema.ParseIndexes() {
+			if !tx.Migrator().HasIndex(model, index.Name) {
+				if err := tx.Migrator().CreateIndex(model, index.Name); err != nil {
+					return err
+				}
+			}
+		}
+		return nil
+	})
 }

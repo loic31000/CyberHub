@@ -6,9 +6,15 @@ import (
 	"log"
 	"os"
 	"path/filepath"
+	"regexp"
+	"sort"
+	"strconv"
+	"strings"
 	"time"
 
 	"github.com/cyber-hub/cyber-hub/internal/models"
+	"github.com/glebarez/sqlite"
+	"gorm.io/gorm"
 )
 
 // ExportPayload contient toutes les données exportables du hub.
@@ -173,16 +179,106 @@ func BackupDB() (string, error) {
 	if path == "" {
 		path = "cyber-hub.db"
 	}
-	return backupDBAt(path)
+	return createBackup(path, backupManual)
 }
 
-func backupDBAt(dbPath string) (string, error) {
-	backupPath := filepath.Join(filepath.Dir(dbPath), fmt.Sprintf("cyber-hub-%s.db.bak", time.Now().Format("2006-01-02-150405.000000000")))
+type backupKind string
+
+const (
+	backupManual       backupKind = "manual"
+	backupAutomatic    backupKind = "auto"
+	backupPreMigration backupKind = "pre-migration"
+)
+
+var managedBackupName = regexp.MustCompile(`^cyber-hub-(auto|pre-migration)-[0-9]{8}T[0-9]{6}\.[0-9]{9}Z\.db\.bak$`)
+
+func createBackup(dbPath string, kind backupKind) (string, error) {
+	backupPath := filepath.Join(filepath.Dir(dbPath), fmt.Sprintf("cyber-hub-%s-%s.db.bak", kind, time.Now().UTC().Format("20060102T150405.000000000Z")))
 	if err := DB.Exec("VACUUM INTO ?", backupPath).Error; err != nil {
 		_ = os.Remove(backupPath)
+		log.Printf("[BACKUP] Échec de création %s : %v", kind, err)
 		return "", fmt.Errorf("sauvegarde SQLite : %w", err)
 	}
+	if err := verifyBackup(backupPath); err != nil {
+		_ = os.Remove(backupPath)
+		log.Printf("[BACKUP] Échec de vérification %s : %v", kind, err)
+		return "", fmt.Errorf("vérification sauvegarde SQLite : %w", err)
+	}
+	log.Printf("[BACKUP] Sauvegarde %s créée et vérifiée : %s", kind, backupPath)
+	if kind != backupManual {
+		limit := retentionLimit(kind)
+		if err := pruneBackups(filepath.Dir(dbPath), kind, limit); err != nil {
+			log.Printf("[BACKUP] Échec du nettoyage %s : %v", kind, err)
+		}
+	}
 	return backupPath, nil
+}
+
+func verifyBackup(path string) error {
+	backup, err := gorm.Open(sqlite.Open(path), &gorm.Config{})
+	if err != nil {
+		return err
+	}
+	sqlDB, err := backup.DB()
+	if err != nil {
+		return err
+	}
+	defer sqlDB.Close()
+	var result string
+	if err := backup.Raw("PRAGMA integrity_check").Scan(&result).Error; err != nil {
+		return err
+	}
+	if result != "ok" {
+		return fmt.Errorf("integrity_check: %s", result)
+	}
+	return nil
+}
+
+func retentionLimit(kind backupKind) int {
+	defaultLimit, minimum, env := 14, 1, "CYBER_HUB_AUTO_BACKUP_KEEP"
+	if kind == backupPreMigration {
+		defaultLimit, minimum, env = 3, 3, "CYBER_HUB_PRE_MIGRATION_BACKUP_KEEP"
+	}
+	value := os.Getenv(env)
+	if value == "" {
+		return defaultLimit
+	}
+	limit, err := strconv.Atoi(value)
+	if err != nil || limit < minimum {
+		log.Printf("[BACKUP] Valeur %s invalide (%q), utilisation de %d", env, value, defaultLimit)
+		return defaultLimit
+	}
+	return limit
+}
+
+func pruneBackups(dir string, kind backupKind, keep int) error {
+	if keep < 1 {
+		return fmt.Errorf("rétention invalide: %d", keep)
+	}
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		return err
+	}
+	var names []string
+	for _, entry := range entries {
+		name := entry.Name()
+		if entry.Type().IsRegular() && managedBackupName.MatchString(name) &&
+			strings.HasPrefix(name, "cyber-hub-"+string(kind)+"-") {
+			names = append(names, name)
+		}
+	}
+	sort.Sort(sort.Reverse(sort.StringSlice(names)))
+	if len(names) <= keep {
+		return nil
+	}
+	for _, name := range names[keep:] {
+		path := filepath.Join(dir, name)
+		if err := os.Remove(path); err != nil {
+			return err
+		}
+		log.Printf("[BACKUP] Ancienne sauvegarde %s supprimée : %s", kind, path)
+	}
+	return nil
 }
 
 // AutoBackup est appelé au démarrage : backup immédiat + goroutine quotidienne.
@@ -201,12 +297,18 @@ func AutoBackup() {
 }
 
 func backupAndLog() {
-	path, err := BackupDB()
-	if err != nil {
-		log.Printf("[BACKUP] Échec de la sauvegarde : %v", err)
+	if DB == nil {
+		log.Printf("[BACKUP] Échec de la sauvegarde : base de données non initialisée")
 		return
 	}
-	log.Printf("[BACKUP] Sauvegarde créée : %s", path)
+	path := activeDBPath
+	if path == "" {
+		path = "cyber-hub.db"
+	}
+	_, err := createBackup(path, backupAutomatic)
+	if err != nil {
+		log.Printf("[BACKUP] Échec de la sauvegarde : %v", err)
+	}
 }
 
 // --- helpers JSON pour l'export (serialize via json.Marshal) ---

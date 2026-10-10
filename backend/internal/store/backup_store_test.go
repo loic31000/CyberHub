@@ -5,6 +5,7 @@ import (
 	"log"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/glebarez/sqlite"
@@ -55,6 +56,9 @@ func TestBackupDBIncludesWALWrites(t *testing.T) {
 	if filepath.Ext(backupPath) != ".bak" {
 		t.Fatalf("unexpected backup path %q", backupPath)
 	}
+	if !strings.HasPrefix(filepath.Base(backupPath), "cyber-hub-manual-") {
+		t.Fatalf("manual backup is not identified: %q", backupPath)
+	}
 	backup, err := gorm.Open(sqlite.Open(backupPath), &gorm.Config{})
 	if err != nil {
 		t.Fatal(err)
@@ -66,6 +70,104 @@ func TestBackupDBIncludesWALWrites(t *testing.T) {
 	}
 	if value != "latest" {
 		t.Fatalf("backup contains %q, want latest", value)
+	}
+}
+
+func TestBackupRetentionKeepsManualAndMinimumPreMigration(t *testing.T) {
+	previousDB, previousPath := DB, activeDBPath
+	defer func() { DB, activeDBPath = previousDB, previousPath }()
+	dir := t.TempDir()
+	path := filepath.Join(dir, "cyber-hub.db")
+	var err error
+	DB, err = gorm.Open(sqlite.Open(path), &gorm.Config{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer closeCurrentDB(t)
+	activeDBPath = path
+	if err := DB.Exec("CREATE TABLE data (value TEXT)").Error; err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("CYBER_HUB_AUTO_BACKUP_KEEP", "2")
+	t.Setenv("CYBER_HUB_PRE_MIGRATION_BACKUP_KEEP", "1") // floor is three
+	manual, err := BackupDB()
+	if err != nil {
+		t.Fatal(err)
+	}
+	legacyManual := filepath.Join(dir, "cyber-hub-2020-01-01-000000.db.bak")
+	foreign := filepath.Join(dir, "other-auto-20200101T000000.000000000Z.db.bak")
+	for _, file := range []string{legacyManual, foreign} {
+		if err := os.WriteFile(file, []byte("keep"), 0600); err != nil {
+			t.Fatal(err)
+		}
+	}
+	for i := 0; i < 5; i++ {
+		if _, err := createBackup(path, backupAutomatic); err != nil {
+			t.Fatal(err)
+		}
+		if _, err := createBackup(path, backupPreMigration); err != nil {
+			t.Fatal(err)
+		}
+	}
+	for _, item := range []struct {
+		kind backupKind
+		want int
+	}{{backupAutomatic, 2}, {backupPreMigration, 3}} {
+		files, err := filepath.Glob(filepath.Join(dir, "cyber-hub-"+string(item.kind)+"-*.db.bak"))
+		if err != nil || len(files) != item.want {
+			t.Fatalf("%s backups = %v, err %v", item.kind, files, err)
+		}
+		for _, file := range files {
+			if err := verifyBackup(file); err != nil {
+				t.Fatalf("retained backup %s invalid: %v", file, err)
+			}
+		}
+	}
+	for _, file := range []string{manual, legacyManual, foreign} {
+		if _, err := os.Stat(file); err != nil {
+			t.Fatalf("unmanaged backup removed: %s, %v", file, err)
+		}
+	}
+}
+
+func TestBackupDiskFailureDoesNotPrune(t *testing.T) {
+	previousDB, previousPath := DB, activeDBPath
+	defer func() { DB, activeDBPath = previousDB, previousPath }()
+	dir := t.TempDir()
+	var err error
+	DB, err = gorm.Open(sqlite.Open(filepath.Join(dir, "source.db")), &gorm.Config{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer closeCurrentDB(t)
+	old, err := createBackup(filepath.Join(dir, "source.db"), backupAutomatic)
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, err = createBackup(filepath.Join(dir, "missing-directory", "source.db"), backupAutomatic)
+	if err == nil || !strings.Contains(err.Error(), "sauvegarde SQLite") {
+		t.Fatalf("expected disk/path error, got %v", err)
+	}
+	if _, err := os.Stat(old); err != nil {
+		t.Fatalf("old backup deleted after failure: %v", err)
+	}
+}
+
+func TestBackupRetentionDefaultsAndBounds(t *testing.T) {
+	t.Setenv("CYBER_HUB_AUTO_BACKUP_KEEP", "")
+	t.Setenv("CYBER_HUB_PRE_MIGRATION_BACKUP_KEEP", "")
+	if retentionLimit(backupAutomatic) != 14 || retentionLimit(backupPreMigration) != 3 {
+		t.Fatal("wrong default retention")
+	}
+	t.Setenv("CYBER_HUB_AUTO_BACKUP_KEEP", "0")
+	t.Setenv("CYBER_HUB_PRE_MIGRATION_BACKUP_KEEP", "2")
+	if retentionLimit(backupAutomatic) != 14 || retentionLimit(backupPreMigration) != 3 {
+		t.Fatal("minimum retention was not enforced")
+	}
+	t.Setenv("CYBER_HUB_AUTO_BACKUP_KEEP", "1")
+	t.Setenv("CYBER_HUB_PRE_MIGRATION_BACKUP_KEEP", "5")
+	if retentionLimit(backupAutomatic) != 1 || retentionLimit(backupPreMigration) != 5 {
+		t.Fatal("valid retention settings ignored")
 	}
 }
 
