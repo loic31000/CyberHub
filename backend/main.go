@@ -49,14 +49,12 @@ func main() {
 	// Instance unique : tuer l'ancienne instance si elle tourne encore
 	ensureSingleInstance()
 
-	// Backup automatique : sauvegarde immédiate + planifiée toutes les 24h
-	store.AutoBackup()
-	log.Printf("[BACKUP] Sauvegarde automatique activée (backup au démarrage + toutes les 24h)")
-
 	// Initialisation de la base de données SQLite
 	if err := store.InitDB(dbPath); err != nil {
 		log.Fatalf("[FATAL] Impossible d'initialiser la base de données : %v", err)
 	}
+	store.AutoBackup()
+	log.Printf("[BACKUP] Sauvegarde automatique activée (backup au démarrage + toutes les 24h)")
 
 	// Seed des outils (upsert — ajoute les nouveaux sans toucher aux existants)
 	if err := store.SeedTools(); err != nil {
@@ -143,7 +141,10 @@ func main() {
 		}
 	}
 
-	addr := ":" + port
+	addr := "127.0.0.1:" + port
+	if os.Getenv("CYBER_HUB_LISTEN_ALL") == "1" {
+		addr = ":" + port
+	}
 	url := "http://localhost:" + port
 
 	log.Printf("[INFO] Démarrage du serveur sur %s", url)

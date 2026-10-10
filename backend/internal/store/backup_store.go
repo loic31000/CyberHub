@@ -3,8 +3,6 @@ package store
 import (
 	"encoding/json"
 	"fmt"
-	"io"
-	"os"
 	"time"
 
 	"github.com/cyber-hub/cyber-hub/internal/models"
@@ -12,18 +10,18 @@ import (
 
 // ExportPayload contient toutes les données exportables du hub.
 type ExportPayload struct {
-	ExportedAt string               `json:"exported_at"`
-	Version    string               `json:"version"`
-	Tools      []models.Tool        `json:"tools"`
+	ExportedAt  string              `json:"exported_at"`
+	Version     string              `json:"version"`
+	Tools       []models.Tool       `json:"tools"`
 	CTFWriteups []models.CTFWriteup `json:"ctf_writeups"`
-	CVEEntries []models.CVEEntry    `json:"cve_entries"`
-	Playbooks  []exportPlaybook     `json:"playbooks"`
+	CVEEntries  []models.CVEEntry   `json:"cve_entries"`
+	Playbooks   []exportPlaybook    `json:"playbooks"`
 }
 
 type exportPlaybook struct {
-	Title       string               `json:"title"`
-	Scenario    string               `json:"scenario"`
-	Description string               `json:"description"`
+	Title       string                `json:"title"`
+	Scenario    string                `json:"scenario"`
+	Description string                `json:"description"`
 	Steps       []models.PlaybookStep `json:"steps"`
 }
 
@@ -163,28 +161,15 @@ func ImportAll(payload *ExportPayload) (*ImportResult, error) {
 	return result, nil
 }
 
-// BackupDB copie le fichier cyber-hub.db vers cyber-hub-YYYY-MM-DD.db.bak
-// et retourne le chemin du fichier de backup.
+// BackupDB crée un instantané SQLite cohérent, y compris les écritures présentes dans le WAL.
 func BackupDB() (string, error) {
-	dbPath := "cyber-hub.db"
-	backupPath := fmt.Sprintf("cyber-hub-%s.db.bak", time.Now().Format("2006-01-02"))
-
-	src, err := os.Open(dbPath)
-	if err != nil {
-		return "", fmt.Errorf("impossible d'ouvrir la BDD source : %w", err)
+	if DB == nil {
+		return "", fmt.Errorf("base de données non initialisée")
 	}
-	defer src.Close()
-
-	dst, err := os.Create(backupPath)
-	if err != nil {
-		return "", fmt.Errorf("impossible de créer le fichier backup : %w", err)
+	backupPath := fmt.Sprintf("cyber-hub-%s.db.bak", time.Now().Format("2006-01-02-150405.000000000"))
+	if err := DB.Exec("VACUUM INTO ?", backupPath).Error; err != nil {
+		return "", fmt.Errorf("sauvegarde SQLite : %w", err)
 	}
-	defer dst.Close()
-
-	if _, err = io.Copy(dst, src); err != nil {
-		return "", fmt.Errorf("erreur copie : %w", err)
-	}
-
 	return backupPath, nil
 }
 

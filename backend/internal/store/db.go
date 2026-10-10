@@ -2,7 +2,6 @@ package store
 
 import (
 	"log"
-	"os"
 
 	"github.com/cyber-hub/cyber-hub/internal/models"
 	"github.com/glebarez/sqlite"
@@ -16,13 +15,8 @@ var DB *gorm.DB
 func InitDB(dbPath string) error {
 	var err error
 
-	logLevel := logger.Error
-	if os.Getenv("GIN_MODE") != "release" {
-		logLevel = logger.Info
-	}
-
 	DB, err = gorm.Open(sqlite.Open(dbPath), &gorm.Config{
-		Logger: logger.Default.LogMode(logLevel),
+		Logger: logger.New(log.Default(), logger.Config{LogLevel: logger.Error, ParameterizedQueries: true}),
 	})
 	if err != nil {
 		return err

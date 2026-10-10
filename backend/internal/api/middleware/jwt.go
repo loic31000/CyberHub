@@ -1,7 +1,6 @@
 package middleware
 
 import (
-	"errors"
 	"net/http"
 	"strings"
 	"time"
@@ -32,7 +31,6 @@ func GenerateToken(secret string) (string, error) {
 // AuthRequired est le middleware Gin qui vérifie le JWT.
 // Accepte le token via :
 //   - Header  : Authorization: Bearer <token>
-//   - Query   : ?token=<token>  (fallback pour EventSource / SSE qui ne peut pas envoyer de headers)
 func AuthRequired(getSecret func() string) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		var tokenStr string
@@ -48,25 +46,23 @@ func AuthRequired(getSecret func() string) gin.HandlerFunc {
 				})
 				return
 			}
-		} else if q := c.Query("token"); q != "" {
-			// 2) Query param — fallback pour SSE / EventSource
-			tokenStr = q
 		}
 
 		if tokenStr == "" {
 			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{
-				"error": "Token manquant (header Authorization ou ?token= requis)",
+				"error": "Token manquant (header Authorization requis)",
 			})
 			return
 		}
 
 		secret := getSecret()
+		if secret == "" {
+			c.AbortWithStatus(http.StatusUnauthorized)
+			return
+		}
 		token, err := jwt.ParseWithClaims(tokenStr, &Claims{}, func(t *jwt.Token) (interface{}, error) {
-			if _, ok := t.Method.(*jwt.SigningMethodHMAC); !ok {
-				return nil, errors.New("méthode de signature inattendue")
-			}
 			return []byte(secret), nil
-		})
+		}, jwt.WithValidMethods([]string{jwt.SigningMethodHS256.Alg()}), jwt.WithIssuer("cyber-hub"), jwt.WithExpirationRequired())
 
 		if err != nil || !token.Valid {
 			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{
