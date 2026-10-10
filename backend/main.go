@@ -9,17 +9,15 @@ import (
 	"net/http"
 	"os"
 	"os/exec"
-	"os/signal"
 	"runtime"
 	"strconv"
-	"strings"
-	"syscall"
 	"time"
 
 	"github.com/cyber-hub/cyber-hub/internal/api"
 	"github.com/cyber-hub/cyber-hub/internal/api/handlers"
 	"github.com/cyber-hub/cyber-hub/internal/cisa"
 	"github.com/cyber-hub/cyber-hub/internal/correlation"
+	"github.com/cyber-hub/cyber-hub/internal/instance"
 	"github.com/cyber-hub/cyber-hub/internal/lolbins"
 	"github.com/cyber-hub/cyber-hub/internal/mitre"
 	"github.com/cyber-hub/cyber-hub/internal/models"
@@ -33,9 +31,9 @@ import (
 var webFiles embed.FS
 
 const (
-	port    = "7743"
-	dbPath  = "cyber-hub.db"
-	pidFile = "cyber-hub.pid"
+	port     = "7743"
+	dbPath   = "cyber-hub.db"
+	lockFile = "cyber-hub.lock"
 )
 
 func main() {
@@ -46,17 +44,18 @@ func main() {
 	fmt.Println("╚══════════════════════════════════════╝")
 	fmt.Println()
 
-	// Instance unique : tuer l'ancienne instance si elle tourne encore
-	ensureSingleInstance()
-
-	// Backup automatique : sauvegarde immédiate + planifiée toutes les 24h
-	store.AutoBackup()
-	log.Printf("[BACKUP] Sauvegarde automatique activée (backup au démarrage + toutes les 24h)")
+	lock, err := instance.Acquire(lockFile)
+	if err != nil {
+		log.Fatalf("[FATAL] Impossible de démarrer : %v", err)
+	}
+	defer lock.Release()
 
 	// Initialisation de la base de données SQLite
 	if err := store.InitDB(dbPath); err != nil {
 		log.Fatalf("[FATAL] Impossible d'initialiser la base de données : %v", err)
 	}
+	store.AutoBackup()
+	log.Printf("[BACKUP] Sauvegarde automatique activée (backup au démarrage + toutes les 24h)")
 
 	// Seed des outils (upsert — ajoute les nouveaux sans toucher aux existants)
 	if err := store.SeedTools(); err != nil {
@@ -85,7 +84,9 @@ func main() {
 	// Seed CISA KEV (Known Exploited Vulnerabilities)
 	cisa.SeedKEV(store.DB)
 	// Seed LOLBins (LOLBAS Windows + GTFOBins Linux)
-	lolbins.SeedLOLBins(store.DB)
+	if err := lolbins.SeedLOLBins(store.DB); err != nil {
+		log.Printf("[WARN] Erreur seed LOLBins : %v", err)
+	}
 
 	// Mode production (pas de logs Gin colorisés)
 	gin.SetMode(gin.ReleaseMode)
@@ -143,7 +144,10 @@ func main() {
 		}
 	}
 
-	addr := ":" + port
+	addr := "127.0.0.1:" + port
+	if os.Getenv("CYBER_HUB_LISTEN_ALL") == "1" {
+		addr = ":" + port
+	}
 	url := "http://localhost:" + port
 
 	log.Printf("[INFO] Démarrage du serveur sur %s", url)
@@ -185,43 +189,6 @@ func initCloakCount(data []byte) {
 	store.DB.Create(&models.AppSetting{Key: "cloak_technique_count", Value: strconv.Itoa(count)})
 	store.DB.Create(&models.AppSetting{Key: "cloak_last_updated", Value: now})
 	log.Printf("[CLOAK] Compteur initialisé : %d sous-techniques", count)
-}
-
-// ensureSingleInstance garantit qu'une seule instance de Cyber-Hub tourne à la fois.
-//
-// Comportement :
-//  1. Si un fichier cyber-hub.pid existe → lire le PID → tuer ce processus
-//  2. Écrire le PID courant dans cyber-hub.pid
-//  3. Enregistrer un handler de signal (Ctrl+C / SIGTERM) pour nettoyer le fichier PID à la sortie
-//
-// Ainsi, relancer l'exe coupe automatiquement l'ancienne instance avant de démarrer.
-func ensureSingleInstance() {
-	// Lire le PID de l'instance précédente
-	if data, err := os.ReadFile(pidFile); err == nil {
-		pidStr := strings.TrimSpace(string(data))
-		if pid, err := strconv.Atoi(pidStr); err == nil && pid > 0 && pid != os.Getpid() {
-			if proc, err := os.FindProcess(pid); err == nil {
-				if killErr := proc.Kill(); killErr == nil {
-					log.Printf("[INFO] Instance précédente (PID %d) arrêtée automatiquement", pid)
-					// Laisser le temps au port 7743 de se libérer avant de rebinder
-					time.Sleep(600 * time.Millisecond)
-				}
-			}
-		}
-	}
-
-	// Écrire notre PID
-	_ = os.WriteFile(pidFile, []byte(strconv.Itoa(os.Getpid())), 0600)
-
-	// Nettoyer le fichier PID lors d'un arrêt propre (Ctrl+C, SIGTERM)
-	c := make(chan os.Signal, 1)
-	signal.Notify(c, os.Interrupt, syscall.SIGTERM)
-	go func() {
-		sig := <-c
-		log.Printf("[INFO] Signal %v reçu — arrêt de Cyber-Hub", sig)
-		_ = os.Remove(pidFile)
-		os.Exit(0)
-	}()
 }
 
 // openBrowser ouvre l'URL dans le navigateur par défaut

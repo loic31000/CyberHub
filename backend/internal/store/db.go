@@ -11,53 +11,44 @@ import (
 )
 
 var DB *gorm.DB
+var activeDBPath string
 
 // InitDB initialise la connexion SQLite et execute les migrations
 func InitDB(dbPath string) error {
 	var err error
-
-	logLevel := logger.Error
-	if os.Getenv("GIN_MODE") != "release" {
-		logLevel = logger.Info
+	var existingDB bool
+	if dbPath != ":memory:" {
+		_, statErr := os.Stat(dbPath)
+		if statErr != nil && !os.IsNotExist(statErr) {
+			return statErr
+		}
+		existingDB = statErr == nil
 	}
 
 	DB, err = gorm.Open(sqlite.Open(dbPath), &gorm.Config{
-		Logger: logger.Default.LogMode(logLevel),
+		Logger: logger.New(log.Default(), logger.Config{LogLevel: logger.Error, ParameterizedQueries: true}),
 	})
 	if err != nil {
 		return err
 	}
+	activeDBPath = dbPath
+	if existingDB {
+		backupPath, err := createBackup(dbPath, backupPreMigration)
+		if err != nil {
+			log.Printf("[BACKUP] Échec avant migration : %v", err)
+			return err
+		}
+		log.Printf("[BACKUP] Instantané avant migration : %s", backupPath)
+	}
 
-	DB.Exec("PRAGMA foreign_keys = ON")
-	DB.Exec("PRAGMA journal_mode = WAL")
-
-	// Migration : supprime la colonne legacy 'tool NOT NULL' de osint_jobs si elle existe.
-	// SQLite ne supporte pas ALTER COLUMN, on recree la table sans cette colonne.
-	var toolColExists int
-	DB.Raw("SELECT COUNT(*) FROM pragma_table_info('osint_jobs') WHERE name='tool'").Scan(&toolColExists)
-	if toolColExists > 0 {
-		log.Println("[DB] Migration osint_jobs : suppression colonne legacy 'tool'")
-		DB.Exec(`CREATE TABLE IF NOT EXISTS osint_jobs_v2 (
-			id INTEGER PRIMARY KEY AUTOINCREMENT,
-			created_at DATETIME,
-			updated_at DATETIME,
-			username TEXT NOT NULL,
-			status TEXT NOT NULL DEFAULT 'pending',
-			total_sites INTEGER DEFAULT 0,
-			checked_sites INTEGER DEFAULT 0,
-			found_count INTEGER DEFAULT 0,
-			filter_category TEXT DEFAULT '',
-			results TEXT DEFAULT '',
-			duration INTEGER DEFAULT 0,
-			launched_by TEXT DEFAULT ''
-		)`)
-		DB.Exec(`INSERT OR IGNORE INTO osint_jobs_v2
-			SELECT id, created_at, updated_at, username, status,
-			       total_sites, checked_sites, found_count,
-			       filter_category, results, duration, launched_by
-			FROM osint_jobs`)
-		DB.Exec(`DROP TABLE osint_jobs`)
-		DB.Exec(`ALTER TABLE osint_jobs_v2 RENAME TO osint_jobs`)
+	if err := DB.Exec("PRAGMA foreign_keys = ON").Error; err != nil {
+		return err
+	}
+	if err := DB.Exec("PRAGMA journal_mode = WAL").Error; err != nil {
+		return err
+	}
+	if err := migrateOSINTJob(DB); err != nil {
+		return err
 	}
 
 	if err = DB.AutoMigrate(
@@ -77,7 +68,6 @@ func InitDB(dbPath string) error {
 		&models.BGPSnapshot{},
 		&models.BGPAlert{},
 		&models.CorrelationCache{},
-		&models.OSINTJob{},
 		&models.WMNMeta{},
 		&models.Note{},
 		&models.HashCache{},
@@ -92,11 +82,42 @@ func InitDB(dbPath string) error {
 	); err != nil {
 		return err
 	}
-
-	for _, t := range []string{"run_histories", "osint_histories", "spiderfoot_scans"} {
-		DB.Exec("DROP TABLE IF EXISTS " + t)
-	}
-
 	log.Printf("[DB] Base initialisee : %s", dbPath)
 	return nil
+}
+
+// Existing tables are changed only with additive ALTER TABLE operations. GORM's
+// SQLite AutoMigrate can rebuild an existing table and lose data or constraints.
+func migrateOSINTJob(db *gorm.DB) error {
+	model := &models.OSINTJob{}
+	if !db.Migrator().HasTable(model) {
+		return db.AutoMigrate(model)
+	}
+	return db.Transaction(func(tx *gorm.DB) error {
+		if tx.Migrator().HasColumn(model, "tool") {
+			log.Println("[DB] Migration osint_jobs : suppression colonne legacy 'tool'")
+			if err := tx.Exec("ALTER TABLE osint_jobs DROP COLUMN tool").Error; err != nil {
+				return err
+			}
+		}
+		stmt := &gorm.Statement{DB: tx}
+		if err := stmt.Parse(model); err != nil {
+			return err
+		}
+		for _, field := range stmt.Schema.Fields {
+			if field.DBName != "" && !tx.Migrator().HasColumn(model, field.DBName) {
+				if err := tx.Migrator().AddColumn(model, field.Name); err != nil {
+					return err
+				}
+			}
+		}
+		for _, index := range stmt.Schema.ParseIndexes() {
+			if !tx.Migrator().HasIndex(model, index.Name) {
+				if err := tx.Migrator().CreateIndex(model, index.Name); err != nil {
+					return err
+				}
+			}
+		}
+		return nil
+	})
 }
