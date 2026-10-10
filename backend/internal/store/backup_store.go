@@ -3,6 +3,9 @@ package store
 import (
 	"encoding/json"
 	"fmt"
+	"log"
+	"os"
+	"path/filepath"
 	"time"
 
 	"github.com/cyber-hub/cyber-hub/internal/models"
@@ -166,8 +169,17 @@ func BackupDB() (string, error) {
 	if DB == nil {
 		return "", fmt.Errorf("base de données non initialisée")
 	}
-	backupPath := fmt.Sprintf("cyber-hub-%s.db.bak", time.Now().Format("2006-01-02-150405.000000000"))
+	path := activeDBPath
+	if path == "" {
+		path = "cyber-hub.db"
+	}
+	return backupDBAt(path)
+}
+
+func backupDBAt(dbPath string) (string, error) {
+	backupPath := filepath.Join(filepath.Dir(dbPath), fmt.Sprintf("cyber-hub-%s.db.bak", time.Now().Format("2006-01-02-150405.000000000")))
 	if err := DB.Exec("VACUUM INTO ?", backupPath).Error; err != nil {
+		_ = os.Remove(backupPath)
 		return "", fmt.Errorf("sauvegarde SQLite : %w", err)
 	}
 	return backupPath, nil
@@ -176,18 +188,25 @@ func BackupDB() (string, error) {
 // AutoBackup est appelé au démarrage : backup immédiat + goroutine quotidienne.
 func AutoBackup() {
 	// Backup immédiat au démarrage
-	if path, err := BackupDB(); err == nil {
-		_ = path // log géré par main.go
-	}
+	backupAndLog()
 
 	// Backup automatique toutes les 24h
 	go func() {
 		ticker := time.NewTicker(24 * time.Hour)
 		defer ticker.Stop()
 		for range ticker.C {
-			BackupDB() //nolint:errcheck
+			backupAndLog()
 		}
 	}()
+}
+
+func backupAndLog() {
+	path, err := BackupDB()
+	if err != nil {
+		log.Printf("[BACKUP] Échec de la sauvegarde : %v", err)
+		return
+	}
+	log.Printf("[BACKUP] Sauvegarde créée : %s", path)
 }
 
 // --- helpers JSON pour l'export (serialize via json.Marshal) ---

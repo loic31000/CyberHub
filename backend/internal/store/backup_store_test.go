@@ -1,6 +1,8 @@
 package store
 
 import (
+	"bytes"
+	"log"
 	"os"
 	"path/filepath"
 	"testing"
@@ -11,7 +13,9 @@ import (
 
 func TestBackupDBIncludesWALWrites(t *testing.T) {
 	previousDB := DB
-	defer func() { DB = previousDB }()
+	previousPath := activeDBPath
+	activeDBPath = "source.db"
+	defer func() { DB = previousDB; activeDBPath = previousPath }()
 	previousDir, err := os.Getwd()
 	if err != nil {
 		t.Fatal(err)
@@ -62,5 +66,18 @@ func TestBackupDBIncludesWALWrites(t *testing.T) {
 	}
 	if value != "latest" {
 		t.Fatalf("backup contains %q, want latest", value)
+	}
+}
+
+func TestBackupFailureIsLogged(t *testing.T) {
+	previousDB := DB
+	DB = nil
+	defer func() { DB = previousDB }()
+	var output bytes.Buffer
+	log.SetOutput(&output)
+	defer log.SetOutput(os.Stderr)
+	backupAndLog()
+	if !bytes.Contains(output.Bytes(), []byte("Échec de la sauvegarde")) {
+		t.Fatalf("missing backup failure log: %q", output.String())
 	}
 }
