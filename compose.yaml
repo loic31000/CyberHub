@@ -10,7 +10,7 @@ services:
       - "127.0.0.1:7743:7743"
 
     volumes:
-      # Persistance de la base SQLite, des sauvegardes et du fichier PID
+      # Persistance de la base SQLite, des sauvegardes et du verrou d'instance
       - cyber-hub-data:/data
 
     restart: unless-stopped
