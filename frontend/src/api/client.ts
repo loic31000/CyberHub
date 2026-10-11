@@ -527,10 +527,6 @@ export const osintWmnApi = {
       .post<{ success: boolean; site_count: number; updated_at: string }>('/osint/update-db')
       .then((r) => r.data),
 
-  streamUrl: (id: number) => {
-    const token = localStorage.getItem('cyber_hub_token') ?? ''
-    return `/api/osint/jobs/${id}/stream?token=${encodeURIComponent(token)}`
-  },
 }
 
 // ---- CISA KEV + EPSS ----

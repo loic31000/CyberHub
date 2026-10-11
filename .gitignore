@@ -6,6 +6,7 @@
 *.exe
 *.exe~
 *.pid
+*.lock
 cyber-hub
 cyber-hub.exe
 
@@ -26,7 +27,6 @@ backend/*.bak
 # === Frontend ===
 frontend/node_modules/
 frontend/dist/
-frontend/package-lock.json
 frontend/yarn.lock
 
 # === Logs ===
