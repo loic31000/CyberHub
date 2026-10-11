@@ -338,6 +338,26 @@ a:focus-visible {
   font-size: 14px;
   font-weight: 700;
 }
+.compare-actions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 16px 24px;
+}
+.compare-cta-featured {
+  min-height: 46px;
+  gap: 18px;
+  background: #e9a37f;
+  color: #10191d;
+  padding: 11px 16px;
+  border: 0;
+}
+.compare-cta-featured:hover {
+  background: #f8b995;
+}
+.compare-cta-featured:focus-visible {
+  outline-color: #f2eee6;
+}
 .compare-footnote {
   margin-top: 40px;
   font-family: "DM Mono", Consolas, monospace;

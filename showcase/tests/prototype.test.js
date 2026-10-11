@@ -52,14 +52,29 @@ test("deux parcours distincts exposent toutes les scènes demandées", () => {
   );
 });
 
+test("A V2 garde un scénario fictif cohérent sur quatre actes", () => {
+  const html = read("a-v2.html");
+  for (const anchor of ["signal", "comprendre", "cartographier", "agir"])
+    assert.match(html, new RegExp(`id="${anchor}"`));
+  assert.match(read("index.html"), /href="\.\/a-v2\.html"/);
+  assert.match(html, /198\.51\.100\.42/g);
+  assert.match(html, /Note A \+ Note B/);
+  assert.match(html, /DÉMONSTRATION FICTIVE/);
+  assert.match(html, /class="map-list"/);
+  assert.match(html, /class="relation-map"/);
+});
+
 test("le code public et le build ne contiennent pas de client ou route privée", () => {
   const sources = [
     "index.html",
     "a.html",
     "b.html",
+    "a-v2.html",
     "src/main.js",
+    "src/a-v2.js",
     "src/fixtures.js",
     "src/styles.css",
+    "src/a-v2.css",
   ];
   const built = readdirSync(join(root, "dist/assets"))
     .filter((name) => /\.(css|js)$/.test(name))
@@ -70,6 +85,7 @@ test("le code public et le build ne contiennent pas de client ou route privée",
     "dist/index.html",
     "dist/a.html",
     "dist/b.html",
+    "dist/a-v2.html",
   ]) {
     const text = read(path);
     assert.doesNotMatch(
@@ -82,7 +98,12 @@ test("le code public et le build ne contiennent pas de client ou route privée",
     read("src/main.js"),
     /\bfetch\s*\(|XMLHttpRequest|WebSocket|EventSource/,
   );
+  assert.doesNotMatch(
+    read("src/a-v2.js"),
+    /\bfetch\s*\(|XMLHttpRequest|WebSocket|EventSource/,
+  );
   assert.doesNotMatch(read("src/styles.css"), /https?:\/\//);
+  assert.doesNotMatch(read("src/a-v2.css"), /https?:\/\//);
 });
 
 test("les couleurs de texte principales atteignent le contraste AA de base", () => {
