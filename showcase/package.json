@@ -14,6 +14,7 @@
     "capture:compare": "node scripts/compare-v2-v3.mjs",
     "test:visual": "node scripts/visual-regression.mjs",
     "test:terminal": "node scripts/terminal-check.mjs",
+    "test:secondary": "node scripts/secondary-check.mjs",
     "visual:update": "node scripts/visual-regression.mjs --update",
     "format:check": "prettier --check index.html a.html a-v2.html a-v3.html terminal-story.html src scripts tests vite.config.js"
   },

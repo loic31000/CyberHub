@@ -12,13 +12,13 @@ npm run dev
 
 Vite écoute uniquement sur `127.0.0.1:5174` et refuse de changer de port silencieusement.
 
-| Vue | URL locale |
-| --- | --- |
-| Accueil et archives | http://127.0.0.1:5174/ |
+| Vue                       | URL locale                                |
+| ------------------------- | ----------------------------------------- |
+| Accueil et archives       | http://127.0.0.1:5174/                    |
 | Nouvelle vitrine terminal | http://127.0.0.1:5174/terminal-story.html |
-| A V1 | http://127.0.0.1:5174/a.html |
-| A V2 | http://127.0.0.1:5174/a-v2.html |
-| A V3 | http://127.0.0.1:5174/a-v3.html |
+| A V1                      | http://127.0.0.1:5174/a.html              |
+| A V2                      | http://127.0.0.1:5174/a-v2.html           |
+| A V3                      | http://127.0.0.1:5174/a-v3.html           |
 
 Les audits [A V2](a-v2-audit.md), [A V3](a-v3-audit.md) et [direction V3](direction-audit.md), les captures des trois versions et les six références visuelles de A V3 restent disponibles. Les anciennes explorations B, Atelier et Topologie ont été retirées du laboratoire actif.
 
@@ -32,7 +32,9 @@ Le pilote [pilot-gsap.js](src/pilot-gsap.js) possède dix étapes nommées. Il a
 
 [Voir Corrélation et MITRE en mouvement](captures/terminal-story/product-demos.webm).
 
-Les scènes CVE et Investigations restent fonctionnelles dans leur forme actuelle. Pour leur prochaine évolution, la Console existante fournit déjà une recherche CVE avec filtres de sévérité et de statut, un détail sourcé NVD/KEV, ainsi qu'un dossier d'investigation avec événements horodatés et source d'origine. Les séquences prévues sont recherche → filtre → fiche → provenance pour CVE, puis dossier → indicateur → sources → chronologie → prochaine vérification pour Investigations. Les commandes OSINT et BGP demeurent des exemples indépendants. Aucun de ces contrôles publics ne lance une requête.
+La seconde moitié s'appuie sur [secondary-demos.js](src/secondary-demos.js). La veille CVE reprend les contrôles de CVE Watch : recherche, sévérité, index et fiche avec provenance. Ses références `CH-VEILLE-*` sont synthétiques ; aucun score NVD, KEV ou EPSS n'est inventé. OSINT Runner montre une recherche locale de pseudonyme et l'inspection de pistes non attribuées. BGP Lookup/Historian compare deux instantanés fictifs d'ASN privés sur un préfixe de documentation. Investigations et Playbooks montrent l'ajout d'une source, des événements et la prochaine question dans une timeline GSAP. Le final présente des vues représentatives du produit dans un mouvement de recul. Ces scènes ne lancent aucune requête ou collecte.
+
+[Voir les scènes secondaires et le final en mouvement](captures/terminal-story/secondary-scenes.webm).
 
 « Arrêter les animations » supprime les mouvements et conserve tous les résultats visibles. Le parcours suit le défilement natif. La page contient une transcription statique, des descriptions des vues, des contrôles clavier et une version lisible sans JavaScript. Le bandeau narratif animé est décoratif pour les technologies d'assistance ; les informations correspondantes restent dans les titres et textes statiques. Sur mobile, chaque interface reste dans le flux de lecture.
 
@@ -47,12 +49,13 @@ npm run test:v2
 npm run test:v3
 npm run test:visual
 npm run test:terminal
+npm run test:secondary
 npm run format:check
 npm audit --audit-level=low
 ```
 
 `npm test` construit le site puis vérifie les archives et l'isolement des routes privées. Les scripts navigateur utilisent Chromium installé localement, ou `PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH` si nécessaire. `test:visual` compare A V3 à ses références existantes ; `visual:update` ne doit être utilisé qu'après une revue explicite des changements visuels.
 
-`test:terminal` et ses [captures précédentes](captures/terminal-story/report.json) décrivent encore l'ancien déplacement global de l'IP et les anciennes scènes Corrélation/MITRE. Cette suite longue devra être adaptée avant la validation finale ; elle n'a pas été exécutée pour cette itération. Les contrôles rapides du nouveau parcours portent sur le build, Chromium à 390 et 1440 px, le mouvement réduit, le clavier, JavaScript et les requêtes privées. Ils ne remplacent pas un audit humain WCAG ou un test avec lecteur d'écran.
+`test:terminal` et ses [captures précédentes](captures/terminal-story/report.json) décrivent encore l'ancien déplacement global de l'IP et des sélecteurs supprimés. Cette suite longue devra être adaptée avant la validation finale ; elle n'a pas été exécutée pour cette itération. `test:secondary` reprend les assertions pertinentes pour les nouvelles scènes : contrôles, résultat statique, mouvement réduit, clavier, JavaScript, requêtes privées et débordement à 390/1440 px. Il ne remplace pas un audit humain WCAG ou un test avec lecteur d'écran.
 
 Le lecteur peut vérifier le code source du projet dans son [dépôt GitHub](https://github.com/loic31000/CyberHub).
