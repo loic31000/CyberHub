@@ -50,4 +50,25 @@ describe('navigation et authentification', () => {
     await screen.findByText('Outils chargés')
     expect(window.location.pathname).toBe('/tools')
   })
+
+  it('demande huit caractères avant la configuration initiale', async () => {
+    vi.mocked(authApi.getStatus).mockResolvedValue({ is_setup: false })
+    vi.mocked(authApi.setup).mockResolvedValue({ token: 'setup-token', message: 'OK' })
+    render(<App />)
+    await waitFor(() => expect(window.location.pathname).toBe('/login'))
+    await screen.findByPlaceholderText('Min. 8 caractères')
+    const password = document.querySelector('input[type="password"]')
+    expect(password).not.toBeNull()
+
+    fireEvent.change(password!, { target: { value: 'sept123' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Configurer' }))
+    expect(screen.getByText('Le mot de passe doit contenir au moins 8 caractères')).toBeTruthy()
+    expect(authApi.setup).not.toHaveBeenCalled()
+
+    fireEvent.change(password!, { target: { value: 'huit1234' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Configurer' }))
+    await screen.findByText('Dashboard chargé')
+    expect(authApi.setup).toHaveBeenCalledWith('huit1234')
+    expect(window.location.pathname).toBe('/dashboard')
+  })
 })
