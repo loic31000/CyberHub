@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { STORY_STATES, resolveStory } from "../src/story-engine.js";
 
-const markers = [0, 100, 200, 300, 400, 500, 600, 700];
+const markers = [0, 100, 200, 300, 400, 500, 600, 700, 800, 900];
 
 test("la progression déclarative couvre chaque état dans l'ordre et revient en arrière", () => {
   assert.deepEqual(
@@ -15,6 +15,8 @@ test("la progression déclarative couvre chaque état dans l'ordre et revient en
       "investigation-attached",
       "playbook-reviewed",
       "disciplines-explored",
+      "osint-explored",
+      "bgp-compared",
       "cyberhub-revealed",
     ],
   );
@@ -31,5 +33,5 @@ test("la progression déclarative couvre chaque état dans l'ordre et revient en
   assert.deepEqual(backward, forward.toReversed());
   assert.equal(resolveStory(550, markers).active, 6);
   assert.equal(resolveStory(-100, markers).active, 0);
-  assert.equal(resolveStory(900, markers).active, 7);
+  assert.equal(resolveStory(1100, markers).active, 9);
 });

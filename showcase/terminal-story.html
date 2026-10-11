@@ -439,7 +439,10 @@
               <span class="mitre-tactic-active"
                 >Exécution <b>sélectionnée</b></span
               >
-              <span>Découverte</span><span>Persistance</span>
+              <span>Accès initial</span><span>Persistance</span>
+              <span>Élévation de privilèges</span><span>Défense</span>
+              <span>Découverte</span><span>Mouvement latéral</span>
+              <span>Collecte</span><span>Exfiltration</span>
             </div>
             <div class="mitre-results">
               <div class="product-subhead">
@@ -448,6 +451,9 @@
                   >3 techniques dans l'extrait</span
                 >
               </div>
+              <p class="mitre-family">
+                T1059 / INTERPRÉTEUR DE COMMANDES ET DE SCRIPTS
+              </p>
               <button
                 type="button"
                 class="mitre-card mitre-match"
@@ -527,7 +533,7 @@
             à incident.
           </p>
         </div>
-        <div class="investigation-work">
+        <div class="investigation-work product-shell">
           <div class="timeline-area">
             <p class="mini-label">Dossier conceptuel / CH-DÉMO</p>
             <p class="timeline-value">
@@ -631,202 +637,284 @@
         aria-labelledby="disciplines-title"
       >
         <div class="section-head">
-          <p class="scene-index">04 / changer d'échelle</p>
+          <p class="scene-index">06 / explorer la veille</p>
           <h2 id="disciplines-title">
-            Une plateforme.<br /><em>Plusieurs façons de lire.</em>
+            Lire le risque,<br /><em>remonter à la source.</em>
           </h2>
           <p>
-            Ces domaines existent dans CyberHub. Les exemples ci-dessous sont
-            indépendants du fichier de démonstration : ils expliquent des
-            usages, pas les résultats de cette commande.
+            Les modules s'ouvrent sur des questions différentes. Ici, les
+            données sont synthétiques et n'ont pas été importées dans la
+            Console.
           </p>
         </div>
-        <div class="discipline-machine">
-          <div
-            class="discipline-controls"
-            role="group"
-            aria-label="Choisir un domaine"
-          >
-            <button
-              type="button"
-              class="discipline-tab is-active"
-              data-discipline="cve"
-              aria-pressed="true"
-            >
-              <span>01</span> CVE &amp; veille
-              <b aria-hidden="true">↗</b></button
-            ><button
-              type="button"
-              class="discipline-tab"
-              data-discipline="osint"
-              aria-pressed="false"
-            >
-              <span>02</span> OSINT <b aria-hidden="true">↗</b></button
-            ><button
-              type="button"
-              class="discipline-tab"
-              data-discipline="bgp"
-              aria-pressed="false"
-            >
-              <span>03</span> BGP &amp; historique <b aria-hidden="true">↗</b>
-            </button>
-          </div>
-          <div class="discipline-stage">
-            <div class="discipline-info">
-              <p class="mini-label" id="discipline-overline">
-                CVE / veille documentée
-              </p>
-              <h3 id="discipline-heading">
-                Voir la priorité,<br /><em>garder la source.</em>
-              </h3>
-              <p id="discipline-description">
-                La veille CVE locale peut importer des données NVD et afficher
-                les indicateurs CISA KEV et EPSS. Ici, trois entrées sans
-                identifiant réel montrent comment la lecture se hiérarchise.
-              </p>
-              <p id="discipline-limit">
-                Exemple fictif · aucun score réel ni vulnérabilité évaluée.
-              </p>
-            </div>
-            <div class="discipline-visual" aria-hidden="true">
-              <svg
-                id="discipline-svg"
-                viewBox="0 0 650 410"
-                preserveAspectRatio="xMidYMid meet"
-              >
-                <g class="cve-graphic">
-                  <text x="25" y="30">ÉCHANTILLON / VEILLE</text>
-                  <path d="M25 65H620M25 158H620M25 251H620M25 344H620" />
-                  <text x="25" y="112">01 / CRITIQUE</text>
-                  <rect x="280" y="82" width="300" height="32" />
-                  <text x="25" y="205">02 / À EXAMINER</text>
-                  <rect x="280" y="175" width="205" height="32" />
-                  <text x="25" y="298">03 / CONTEXTE</text>
-                  <rect x="280" y="268" width="117" height="32" />
-                  <text x="25" y="386">
-                    NVD · KEV · EPSS / CAPACITÉS DU MODULE
-                  </text>
-                </g>
-                <g class="osint-graphic" hidden>
-                  <text x="25" y="30">SOURCES PUBLIQUES / EXEMPLE</text>
-                  <path d="M60 90H585M110 165H535M50 240H600M110 315H535" />
-                  <rect x="50" y="76" width="70" height="28" />
-                  <rect x="210" y="151" width="70" height="28" />
-                  <rect x="395" y="226" width="70" height="28" />
-                  <text x="135" y="99">source A → nom d'essai</text>
-                  <text x="295" y="174">source B → variante</text>
-                  <text x="75" y="263">source C → à vérifier</text>
-                  <text x="25" y="386">WHATS MY NAME / RECHERCHE LOCALE</text>
-                </g>
-                <g class="bgp-graphic" hidden>
-                  <text x="25" y="30">HISTORIQUE DE ROUTAGE / EXEMPLE</text>
-                  <path d="M25 345H620M25 65V345" />
-                  <path
-                    class="bgp-line one"
-                    d="M45 265C120 265 120 215 200 215S280 180 350 180 450 105 595 105"
-                  />
-                  <path
-                    class="bgp-line two"
-                    d="M45 320C120 320 120 290 200 290S280 275 350 275 450 238 595 238"
-                  />
-                  <line class="bgp-cursor" x1="45" y1="65" x2="45" y2="345" />
-                  <circle class="bgp-cursor-dot" cx="45" cy="265" r="8" />
-                  <text x="45" y="381">t0</text>
-                  <text x="300" y="381">t1</text>
-                  <text x="540" y="381">t2</text>
-                  <text x="403" y="90">AS64512 / chemin A</text>
-                  <text x="403" y="222">AS64513 / chemin B</text>
-                </g>
-              </svg>
-            </div>
-          </div>
-        </div>
-        <div class="module-demo" data-demo="cve">
-          <p class="mini-label">Geste / ouvrir une fiche de veille fictive</p>
-          <div
-            class="demo-actions"
-            role="group"
-            aria-label="Explorer la fiche CVE illustrative"
-          >
-            <button
-              type="button"
-              data-demo-step="cve:fiche"
-              aria-pressed="true"
-            >
-              01 / Fiche
-            </button>
-            <button
-              type="button"
-              data-demo-step="cve:source"
-              aria-pressed="false"
-            >
-              02 / Source
-            </button>
-            <button
-              type="button"
-              data-demo-step="cve:indicateurs"
-              aria-pressed="false"
-            >
-              03 / Indicateurs
-            </button>
-          </div>
-          <p class="demo-detail">
-            Fiche illustrative sans identifiant CVE ni score. CyberHub affiche
-            des fiches CVE détaillées ; cet exemple ne décrit aucune
-            vulnérabilité réelle.
-          </p>
-        </div>
-        <div class="module-demo" data-demo="osint">
-          <p class="mini-label">Geste / vérifier une provenance fictive</p>
-          <div
-            class="demo-actions"
-            role="group"
-            aria-label="Explorer les sources OSINT illustratives"
-          >
-            <button type="button" data-demo-step="osint:a" aria-pressed="true">
-              Source A
-            </button>
-            <button type="button" data-demo-step="osint:b" aria-pressed="false">
-              Source B
-            </button>
-            <button type="button" data-demo-step="osint:c" aria-pressed="false">
-              Source C
-            </button>
-          </div>
-          <p class="demo-detail">
-            Source A : mention fictive dans un annuaire de démonstration. Un
-            résultat de pseudonyme demande toujours une vérification de
-            provenance ; aucune recherche n'est lancée ici.
-          </p>
-        </div>
-        <div class="module-demo" data-demo="bgp">
-          <p class="mini-label">Geste / comparer deux instantanés fictifs</p>
-          <div
-            class="demo-actions"
-            role="group"
-            aria-label="Comparer les états BGP illustratifs"
-          >
-            <button type="button" data-demo-step="bgp:t0" aria-pressed="true">
-              t0 / état initial
-            </button>
-            <button type="button" data-demo-step="bgp:t1" aria-pressed="false">
-              t1 / comparaison
-            </button>
-          </div>
-          <p class="demo-detail">
-            t0 : deux chemins illustratifs sont présents pour des ASN privés.
-            Ils ne représentent aucune observation réelle.
-          </p>
-        </div>
-        <p
-          class="discipline-transcript"
-          id="discipline-transcript"
-          aria-live="polite"
-        >
-          Vue CVE : trois bandes illustratives classées pour examen. CyberHub
-          propose une veille locale et l'import NVD ; les valeurs ici ne
-          proviennent d'aucune source réelle.
+        <nav class="domain-nav" aria-label="Explorer les modules">
+          <a href="#disciplines">01 / CVE &amp; KEV</a
+          ><a href="#osint-scene">02 / OSINT Runner</a
+          ><a href="#bgp-scene">03 / BGP Historian</a>
+        </nav>
+        <p class="pilot-accessible-summary">
+          Exemple statique de veille : la recherche « serveur » puis le filtre
+          Critique mettent en avant l'entrée synthétique CH-VEILLE-02. La fiche
+          indique sa sévérité et l'absence de référence NVD, CISA KEV ou EPSS
+          vérifiée. Aucun score n'est inventé.
         </p>
+        <div
+          class="product-shell cve-shell"
+          aria-label="Simulation locale de CVE Watch"
+        >
+          <div class="product-shell-head">
+            <div>
+              <span class="product-signal" aria-hidden="true"></span
+              ><strong>CVE WATCH // INDEX</strong
+              ><small>Jeu de démonstration synthétique</small>
+            </div>
+            <span class="product-head-state">SOURCE / AUCUN IMPORT</span>
+          </div>
+          <div class="cve-toolbar">
+            <span
+              class="product-field cve-search"
+              role="textbox"
+              aria-readonly="true"
+              tabindex="0"
+              aria-label="Recherche illustrative serveur"
+              ><span class="cve-query">serveur</span
+              ><span class="product-caret" aria-hidden="true"></span
+            ></span>
+            <button class="cve-severity" type="button" aria-pressed="true">
+              CRITIQUE <span aria-hidden="true">⌄</span>
+            </button>
+            <span class="cve-result-count">1 entrée illustrative</span>
+          </div>
+          <div class="cve-workspace">
+            <div
+              class="cve-index"
+              role="group"
+              aria-label="Entrées synthétiques"
+            >
+              <div class="cve-table-head">
+                <span>RÉFÉRENCE</span><span>SÉVÉRITÉ</span><span>PRODUIT</span
+                ><span>STATUT</span>
+              </div>
+              <button
+                type="button"
+                class="cve-row cve-secondary"
+                data-entry="01"
+              >
+                <span>CH-VEILLE-01<small>Exemple de mise à jour</small></span
+                ><b>MOYENNE</b><span>Client fictif</span><span>À EXAMINER</span>
+              </button>
+              <button
+                type="button"
+                class="cve-row cve-primary"
+                data-entry="02"
+                aria-pressed="true"
+              >
+                <span>CH-VEILLE-02<small>Service serveur fictif</small></span
+                ><b>CRITIQUE</b><span>Serveur fictif</span
+                ><span>À EXAMINER</span>
+              </button>
+              <button
+                type="button"
+                class="cve-row cve-secondary"
+                data-entry="03"
+              >
+                <span>CH-VEILLE-03<small>Exemple de configuration</small></span
+                ><b>ÉLEVÉE</b><span>Serveur fictif</span><span>À EXAMINER</span>
+              </button>
+            </div>
+            <aside
+              class="cve-inspector"
+              aria-label="Fiche de veille sélectionnée"
+            >
+              <p class="product-kicker">FICHE / ENTRÉE SYNTHÉTIQUE</p>
+              <h3>CH-VEILLE-02</h3>
+              <p class="cve-inspector-intro">
+                Une entrée fictive sert à montrer l'ordre de lecture :
+                qualifier, documenter, puis vérifier la source.
+              </p>
+              <dl>
+                <div>
+                  <dt>Sévérité</dt>
+                  <dd>Critique · illustrative</dd>
+                </div>
+                <div>
+                  <dt>Produit</dt>
+                  <dd>Serveur fictif</dd>
+                </div>
+                <div>
+                  <dt>Provenance</dt>
+                  <dd>Jeu local de démonstration</dd>
+                </div>
+                <div>
+                  <dt>NVD / KEV / EPSS</dt>
+                  <dd>Non renseignés · aucune vérification</dd>
+                </div>
+              </dl>
+              <p class="cve-limit">
+                Aucun identifiant CVE public, score CVSS ni statut KEV n'est
+                revendiqué.
+              </p>
+            </aside>
+          </div>
+        </div>
+      </section>
+
+      <section
+        class="osint-scene story-section"
+        id="osint-scene"
+        aria-labelledby="osint-title"
+      >
+        <div class="section-head">
+          <p class="scene-index">07 / examiner une piste</p>
+          <h2 id="osint-title">
+            Un pseudonyme.<br /><em>Des sources distinctes.</em>
+          </h2>
+          <p>
+            Le vrai OSINT Runner organise une recherche WhatsMyName, ses
+            résultats et son historique. Ici, aucun site n'est interrogé.
+          </p>
+        </div>
+        <p class="pilot-accessible-summary">
+          Simulation locale : le pseudonyme fictif exemple_26 donne trois lignes
+          illustratives. Une mention, un nom ressemblant et une source
+          indisponible ne permettent aucune attribution d'identité.
+        </p>
+        <div
+          class="product-shell osint-shell"
+          aria-label="Simulation locale d'OSINT Runner"
+        >
+          <div class="product-shell-head">
+            <div>
+              <span class="product-signal" aria-hidden="true"></span
+              ><strong>OSINT RUNNER // RECON</strong
+              ><small>Simulation locale · zéro requête</small>
+            </div>
+            <span class="product-head-state">SOURCE / FICTIVE</span>
+          </div>
+          <div class="osint-command">
+            <span class="product-kicker">PSEUDONYME</span
+            ><span
+              class="product-field osint-field"
+              role="textbox"
+              aria-readonly="true"
+              tabindex="0"
+              ><span class="osint-query">exemple_26</span
+              ><span class="product-caret" aria-hidden="true"></span></span
+            ><span class="osint-run">RECHERCHE ILLUSTRÉE ↗</span>
+          </div>
+          <div class="osint-body">
+            <div class="osint-ledger">
+              <div class="product-subhead">
+                <strong>SOURCES DE DÉMONSTRATION</strong
+                ><span>3 pistes · 0 identité confirmée</span>
+              </div>
+              <button
+                type="button"
+                class="osint-source"
+                data-source="a"
+                aria-pressed="true"
+              >
+                <span>01 / ANNUAIRE A</span><strong>Mention fictive</strong
+                ><small>À vérifier à la source</small></button
+              ><button type="button" class="osint-source" data-source="b">
+                <span>02 / PLATEFORME B</span><strong>Nom ressemblant</strong
+                ><small>Identité non établie</small></button
+              ><button type="button" class="osint-source" data-source="c">
+                <span>03 / SOURCE C</span><strong>Indisponible</strong
+                ><small>Aucune donnée à conclure</small>
+              </button>
+            </div>
+            <aside class="osint-inspector">
+              <p class="product-kicker">INSPECTION / SOURCE A</p>
+              <h3>Une mention<br />n'est pas une preuve.</h3>
+              <p class="osint-source-detail">
+                Annuaire illustratif : pseudonyme mentionné. L'origine et la
+                propriété du compte restent à confirmer.
+              </p>
+              <p class="osint-warning">
+                Aucun profil réel consulté · aucune attribution automatique.
+              </p>
+            </aside>
+          </div>
+        </div>
+      </section>
+
+      <section
+        class="bgp-scene story-section"
+        id="bgp-scene"
+        aria-labelledby="bgp-title"
+      >
+        <div class="section-head">
+          <p class="scene-index">08 / comparer le réseau</p>
+          <h2 id="bgp-title">
+            Le routage change.<br /><em>La trace reste.</em>
+          </h2>
+          <p>
+            Lookup recherche un AS ou une IP ; Historian compare des
+            instantanés. Cette comparaison emploie des ASN privés et un préfixe
+            réservé à la documentation.
+          </p>
+        </div>
+        <p class="pilot-accessible-summary">
+          Simulation locale : pour AS64512 et le préfixe de documentation
+          198.51.100.0/24, l'état t0 contient un chemin par AS64513. L'état t1
+          illustre un retrait de ce chemin et un chemin par AS64514. Aucun état
+          réseau réel n'est observé.
+        </p>
+        <div
+          class="product-shell bgp-shell"
+          aria-label="Simulation locale de BGP Lookup et Historian"
+        >
+          <div class="product-shell-head">
+            <div>
+              <span class="product-signal" aria-hidden="true"></span
+              ><strong>BGP HISTORIAN // SNAPSHOTS</strong
+              ><small>États illustratifs · aucune collecte</small>
+            </div>
+            <span class="product-head-state">AS64512 / PRIVÉ</span>
+          </div>
+          <div class="bgp-lookup">
+            <span class="product-kicker">LOOKUP</span><strong>AS64512</strong
+            ><span>198.51.100.0/24 · préfixe de documentation</span>
+          </div>
+          <div class="bgp-comparison">
+            <div
+              class="bgp-snapshots"
+              role="group"
+              aria-label="Choisir un instantané"
+            >
+              <button
+                type="button"
+                class="bgp-snapshot"
+                data-snapshot="t0"
+                aria-pressed="true"
+              >
+                <span>t0 / ÉTAT INITIAL</span><strong>AS64512 → AS64513</strong
+                ><small>Chemin illustratif</small></button
+              ><button
+                type="button"
+                class="bgp-snapshot"
+                data-snapshot="t1"
+                aria-pressed="true"
+              >
+                <span>t1 / ÉTAT SUIVANT</span><strong>AS64512 → AS64514</strong
+                ><small>Chemin illustratif</small>
+              </button>
+            </div>
+            <div class="bgp-diff">
+              <p class="product-kicker">DIFF / DEUX INSTANTANÉS</p>
+              <div class="bgp-diff-line bgp-removed">
+                <span>−</span><strong>via AS64513</strong
+                ><small>Retiré dans l'exemple</small>
+              </div>
+              <div class="bgp-diff-line bgp-added">
+                <span>+</span><strong>via AS64514</strong
+                ><small>Ajouté dans l'exemple</small>
+              </div>
+              <p>Aucun changement de routage réel n'est affirmé.</p>
+            </div>
+          </div>
+        </div>
       </section>
 
       <section
@@ -835,7 +923,7 @@
         aria-labelledby="final-title"
       >
         <div class="final-light" aria-hidden="true"></div>
-        <p class="scene-index">07 / découvrir CyberHub</p>
+        <p class="scene-index">09 / découvrir CyberHub</p>
         <h2 id="final-title">Rendre visible<br /><em>l'invisible.</em></h2>
         <p class="final-intro">
           CyberHub est un espace personnel pour relier recherche, connaissance
@@ -847,13 +935,35 @@
           reste locale et privée ; aucun résultat de ce site n'y est envoyé.
         </p>
         <div
-          class="final-constellation"
+          class="final-stage"
           aria-label="Parcours fictif dans CyberHub : un indice devient un IOC documenté, ses liens sont examinés, puis ses sources sont conservées dans un dossier."
         >
-          <span>INDICE</span><i aria-hidden="true"></i><span>IOC MANAGER</span
-          ><i aria-hidden="true"></i><span>RELATIONS</span
-          ><i aria-hidden="true"></i><span>DOSSIER CH-DÉMO</span>
-          <strong class="final-thread-target">198.51.100.42</strong>
+          <div class="final-camera" aria-hidden="true">
+            <div class="final-view final-view-main">
+              <div class="final-view-bar">CYBERHUB <span>● LOCAL</span></div>
+              <div class="final-view-content">
+                <div class="final-view-side">
+                  IOC MANAGER<br />CVE &amp; KEV<br />MITRE ATT&amp;CK<br />OSINT
+                  RUNNER<br />BGP HISTORIAN
+                </div>
+                <div class="final-view-data">
+                  <small>IOC MANAGER // INDEX</small
+                  ><strong>Une valeur. Son contexte.</strong
+                  ><span>198.51.100.42 · IP · source conservée</span
+                  ><span>Deux mentions · attribution inconnue</span>
+                </div>
+              </div>
+            </div>
+            <div class="final-view final-view-mitre">
+              <small>MITRE // MATRIX</small><strong>T1059.001</strong
+              ><span>PowerShell · Exécution · Windows</span>
+            </div>
+            <div class="final-view final-view-case">
+              <small>INVESTIGATIONS // CH-DÉMO</small
+              ><strong>Une question à documenter.</strong
+              ><span>2 événements · provenance conservée</span>
+            </div>
+          </div>
         </div>
         <div class="final-actions">
           <a

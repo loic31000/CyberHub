@@ -42,8 +42,20 @@ export const STORY_STATES = Object.freeze([
   {
     id: "disciplines-explored",
     scene: "disciplines",
-    caption: "Changer de domaine, garder les limites.",
-    detail: "CVE, OSINT et BGP montrent des exemples indépendants.",
+    caption: "Lire la veille, garder la provenance.",
+    detail: "Une entrée synthétique illustre recherche, sévérité et fiche.",
+  },
+  {
+    id: "osint-explored",
+    scene: "osint-scene",
+    caption: "Une piste OSINT reste une piste.",
+    detail: "Les sources fictives ne prouvent aucune identité commune.",
+  },
+  {
+    id: "bgp-compared",
+    scene: "bgp-scene",
+    caption: "Deux instantanés rendent le changement lisible.",
+    detail: "Les chemins illustratifs ne proviennent d'aucune collecte.",
   },
   {
     id: "cyberhub-revealed",

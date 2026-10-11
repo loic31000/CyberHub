@@ -41,7 +41,9 @@ function makeGuide(section, name, steps, finish, replay) {
   again.addEventListener("click", replay);
   actions.append(skip, again);
   guide.append(heading, markers, progress, copy, actions);
-  section.querySelector(".section-head").after(guide);
+  const sectionHead = section.querySelector(".section-head");
+  if (sectionHead) sectionHead.after(guide);
+  else section.querySelector(".final-stage").before(guide);
   return {
     count,
     markers: [...markers.children],
@@ -50,7 +52,7 @@ function makeGuide(section, name, steps, finish, replay) {
   };
 }
 
-function installDemo({
+export function installDemo({
   section,
   name,
   steps,
@@ -59,7 +61,7 @@ function installDemo({
   final,
   build,
 }) {
-  const shell = section.querySelector(".product-shell");
+  const shell = section.querySelector(".product-shell, .final-stage");
   let timeline;
   let started = false;
   let complete = false;
