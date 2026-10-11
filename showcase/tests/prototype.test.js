@@ -75,6 +75,29 @@ test("A V3 conserve l’enquête fictive et expose une version statique stylée"
   assert.match(html, /class="map-list"/);
 });
 
+test("les deux nouvelles directions ont un parcours et un système complets", () => {
+  for (const [page, kit, css] of [
+    ["atelier-traces.html", "atelier-traces-kit.html", "atelier-traces.css"],
+    [
+      "topologie-indices.html",
+      "topologie-indices-kit.html",
+      "topologie-indices.css",
+    ],
+  ]) {
+    const story = read(page);
+    for (const id of ["observations", "relations", "dossier"])
+      assert.match(story, new RegExp(`id="${id}"`));
+    assert.match(story, /198\.51\.100\.42/);
+    assert.match(story, /DÉMONSTRATION FICTIVE/);
+    assert.match(story, /data-map-node/);
+    assert.match(story, new RegExp(`href="/src/${css}"`));
+    const system = read(kit);
+    for (const id of ["identite", "composants", "mouvement"])
+      assert.match(system, new RegExp(`id="${id}"`));
+    assert.match(read("index.html"), new RegExp(`href="\\./${page}"`));
+  }
+});
+
 test("le code public et le build ne contiennent pas de client ou route privée", () => {
   const sources = [
     "index.html",
@@ -82,13 +105,20 @@ test("le code public et le build ne contiennent pas de client ou route privée",
     "b.html",
     "a-v2.html",
     "a-v3.html",
+    "atelier-traces.html",
+    "atelier-traces-kit.html",
+    "topologie-indices.html",
+    "topologie-indices-kit.html",
     "src/main.js",
     "src/a-v2.js",
     "src/a-v3.js",
+    "src/design-explorations.js",
     "src/fixtures.js",
     "src/styles.css",
     "src/a-v2.css",
     "src/a-v3.css",
+    "src/atelier-traces.css",
+    "src/topologie-indices.css",
   ];
   const built = readdirSync(join(root, "dist/assets"))
     .filter((name) => /\.(css|js)$/.test(name))
@@ -101,6 +131,10 @@ test("le code public et le build ne contiennent pas de client ou route privée",
     "dist/b.html",
     "dist/a-v2.html",
     "dist/a-v3.html",
+    "dist/atelier-traces.html",
+    "dist/atelier-traces-kit.html",
+    "dist/topologie-indices.html",
+    "dist/topologie-indices-kit.html",
   ]) {
     const text = read(path);
     assert.doesNotMatch(
@@ -121,9 +155,15 @@ test("le code public et le build ne contiennent pas de client ou route privée",
     read("src/a-v3.js"),
     /\bfetch\s*\(|XMLHttpRequest|WebSocket|EventSource/,
   );
+  assert.doesNotMatch(
+    read("src/design-explorations.js"),
+    /\bfetch\s*\(|XMLHttpRequest|WebSocket|EventSource/,
+  );
   assert.doesNotMatch(read("src/styles.css"), /https?:\/\//);
   assert.doesNotMatch(read("src/a-v2.css"), /https?:\/\//);
   assert.doesNotMatch(read("src/a-v3.css"), /https?:\/\//);
+  assert.doesNotMatch(read("src/atelier-traces.css"), /https?:\/\//);
+  assert.doesNotMatch(read("src/topologie-indices.css"), /https?:\/\//);
 });
 
 test("les couleurs de texte principales atteignent le contraste AA de base", () => {

@@ -2211,3 +2211,196 @@ dd {
     grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 }
+/* The new directions use different visual grammars; the earlier explorations stay below. */
+.compare-page {
+  background:
+    linear-gradient(111deg, #081314 0 52%, #25196c 52% 100%) top / 100% 860px
+      no-repeat,
+    #121c21;
+}
+.compare-intro {
+  max-width: 1190px;
+  margin-bottom: 34px;
+}
+.compare-intro h1 {
+  font-size: clamp(3.6rem, 6.7vw, 7.5rem);
+  font-weight: 850;
+  letter-spacing: -0.085em;
+}
+.compare-intro h1 em {
+  font-family: Manrope, "Segoe UI", sans-serif;
+  font-style: normal;
+  font-weight: 850;
+  letter-spacing: -0.085em;
+  color: #e2ff59;
+}
+.compare-intro > p:last-child {
+  max-width: 810px;
+  color: #e2e5db;
+}
+.decision-thread {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 3px;
+  margin: 0 0 30px;
+  border-block: 1px solid #e7efdb8a;
+  padding-block: 8px;
+  font:
+    400 0.74rem "DM Mono",
+    monospace;
+  letter-spacing: 0.08em;
+}
+.decision-thread span {
+  padding: 12px 8px;
+  border-left: 3px solid #ff6246;
+}
+.decision-thread span:nth-child(2) {
+  border-color: #83e0d6;
+}
+.decision-thread span:nth-child(3) {
+  border-color: #c5b4ff;
+}
+.decision-thread span:nth-child(4) {
+  border-color: #e2ff59;
+}
+.direction-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 24px;
+  margin: 30px 0 85px;
+}
+.direction-card {
+  min-width: 0;
+  border: 1px solid #657274;
+  background: #18272b;
+}
+.direction-cover {
+  height: 310px;
+  padding: 28px;
+  position: relative;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+}
+.direction-cover > span:first-child {
+  font:
+    400 0.75rem "DM Mono",
+    monospace;
+  letter-spacing: 0.1em;
+}
+.direction-cover strong {
+  font-size: clamp(2rem, 3.5vw, 3.8rem);
+  line-height: 1.06;
+  letter-spacing: -0.075em;
+  font-weight: 900;
+}
+.direction-cover strong i {
+  font-family: "Manrope", sans-serif;
+  font-style: normal;
+  font-weight: 900;
+}
+.direction-atelier .direction-cover {
+  background: #081314;
+  color: #ece9df;
+  background-image: repeating-linear-gradient(
+    90deg,
+    transparent 0 119px,
+    #83e0d62b 120px 121px
+  );
+}
+.direction-atelier .direction-cover strong i {
+  color: #ff6246;
+}
+.direction-atelier .cover-piece {
+  align-self: flex-end;
+  background: #ff6246;
+  color: #081314;
+  border-left: 7px solid #83e0d6;
+  padding: 15px 22px;
+  box-shadow: 8px 9px 0 #83e0d6;
+  font:
+    400 0.83rem/1.5 "DM Mono",
+    monospace;
+}
+.direction-topologie .direction-cover {
+  background: #3826a2;
+  color: #f5f4ef;
+  background-image:
+    linear-gradient(#c5b4ff35 1px, transparent 1px),
+    linear-gradient(90deg, #c5b4ff35 1px, transparent 1px);
+  background-size: 48px 48px;
+}
+.direction-topologie .direction-cover strong i {
+  font-family: "Manrope", sans-serif;
+  font-style: normal;
+  font-weight: 800;
+  color: #e2ff59;
+}
+.direction-topologie .cover-path {
+  align-self: flex-end;
+  color: #e2ff59;
+  font:
+    400 1.35rem "DM Mono",
+    monospace;
+}
+.direction-copy {
+  padding: 32px 35px 38px;
+}
+.direction-atelier .compare-cta-featured {
+  background: #ff6246;
+  border-color: #ff6246;
+  color: #081314;
+}
+.direction-topologie .compare-cta-featured {
+  background: #e2ff59;
+  border-color: #e2ff59;
+  color: #10102f;
+}
+.direction-copy .eyebrow {
+  color: #e8bb91;
+}
+.direction-copy h2 {
+  font-size: clamp(1.5rem, 2vw, 2.2rem);
+  line-height: 1.2;
+  margin: 10px 0;
+}
+.direction-copy > p:not(.eyebrow) {
+  line-height: 1.55;
+  max-width: 560px;
+}
+.previous-title {
+  font:
+    400 clamp(2rem, 3vw, 3.5rem) Georgia,
+    serif;
+  margin: 0 0 25px;
+  color: #f4efe5;
+}
+@media (max-width: 720px) {
+  .compare-page {
+    background:
+      linear-gradient(145deg, #081314 0 52%, #25196c 52% 100%) top / 100% 760px
+        no-repeat,
+      #121c21;
+  }
+  .compare-intro h1 {
+    font-size: clamp(3rem, 10vw, 5rem);
+  }
+  .decision-thread {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  .direction-grid {
+    grid-template-columns: 1fr;
+    gap: 18px;
+    margin: 36px 0 70px;
+  }
+  .direction-cover {
+    height: 280px;
+  }
+  .direction-copy {
+    padding: 24px;
+  }
+  .direction-cover strong {
+    font-size: clamp(2rem, 7vw, 3.6rem);
+  }
+}
