@@ -1,0 +1,539 @@
+<!doctype html>
+<html lang="fr">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="theme-color" content="#0d121a" />
+    <meta
+      name="description"
+      content="Une simulation CyberHub 2026 : d'une commande illustrative à un indicateur sourcé, puis aux disciplines du projet."
+    />
+    <title>De la commande à la compréhension — CyberHub 2026</title>
+    <link rel="icon" type="image/svg+xml" href="/terminal-mark.svg" />
+    <link rel="stylesheet" href="/src/terminal-story.css" />
+    <script type="module" src="/src/terminal-story.js"></script>
+  </head>
+  <body class="terminal-story">
+    <a class="skip-link" href="#main">Aller au contenu</a>
+    <header class="story-header">
+      <a
+        class="story-brand"
+        href="./terminal-story.html"
+        aria-label="CyberHub 2026, accueil du showcase"
+        ><span class="story-mark" aria-hidden="true"
+          ><span></span><span></span><span></span></span
+        ><span>Cyber<span>Hub</span></span></a
+      >
+      <nav class="story-nav" aria-label="Navigation principale">
+        <a href="#terminal">La commande</a><a href="#relations">Les liens</a
+        ><a href="#disciplines">Les domaines</a
+        ><a href="#investigation">La méthode</a>
+      </nav>
+      <div class="header-end">
+        <button type="button" class="motion-control" aria-pressed="false">
+          Arrêter les animations</button
+        ><button
+          type="button"
+          class="menu-control"
+          aria-expanded="false"
+          aria-controls="mobile-nav"
+        >
+          Menu <span aria-hidden="true">☰</span>
+        </button>
+      </div>
+    </header>
+    <nav
+      id="mobile-nav"
+      class="mobile-nav"
+      aria-label="Navigation mobile"
+      hidden
+    >
+      <a href="#terminal">La commande</a><a href="#relations">Les liens</a
+      ><a href="#disciplines">Les domaines</a
+      ><a href="#investigation">La méthode</a
+      ><a href="#decouvrir">Découvrir CyberHub</a>
+    </nav>
+    <div class="story-progress" aria-hidden="true"><span></span></div>
+
+    <main id="main">
+      <section
+        class="handoff-track"
+        id="terminal"
+        aria-labelledby="story-title"
+      >
+        <span class="scene-anchor" id="ioc" aria-hidden="true"></span>
+        <div class="handoff-sticky">
+          <div class="hero-heading">
+            <p class="scene-index">
+              <span class="active-cursor" aria-hidden="true"></span> CyberHub /
+              démonstration 01—02
+            </p>
+            <h1 id="story-title">
+              Un indice n'est pas<br /><em>encore une réponse.</em>
+            </h1>
+            <p>
+              Une commande illustrative trouve une adresse dans un journal
+              fictif. CyberHub aide ensuite à en garder la source, le contexte
+              et les questions ouvertes.
+            </p>
+          </div>
+          <div class="handoff-workspace">
+            <div class="terminal-window" aria-label="Terminal illustratif">
+              <div class="terminal-chrome">
+                <span class="terminal-ident">cyberhub / terminal fictif</span
+                ><span class="terminal-counter">01 — repérer</span
+                ><span class="terminal-dots" aria-hidden="true"
+                  ><i></i><i></i><i></i
+                ></span>
+              </div>
+              <div class="terminal-surface" aria-hidden="true">
+                <div class="command-line">
+                  <span class="prompt">❯</span
+                  ><span class="typed-command"
+                    >rg "198.51.100.42" ./demo/events.log</span
+                  ><span class="terminal-caret"></span>
+                </div>
+                <div class="terminal-result result-one">
+                  <span class="result-path">./demo/events.log:14</span
+                  ><span class="result-detail"
+                    >09:14 · référence observée · source A ·
+                    <mark class="source-ip">198.51.100.42</mark></span
+                  >
+                </div>
+                <div class="terminal-result result-two">
+                  <span class="result-path">./demo/events.log:31</span
+                  ><span class="result-detail"
+                    >11:32 · seconde mention · source B · 198.51.100.42</span
+                  >
+                </div>
+                <p class="terminal-end">
+                  2 lignes dans un fichier d'exemple · aucun réseau
+                  interrogé<span aria-hidden="true">_</span>
+                </p>
+              </div>
+              <div class="terminal-bottom">
+                <span
+                  >Simulation illustrative — aucune commande réellement
+                  exécutée</span
+                ><button
+                  type="button"
+                  id="replay-command"
+                  class="terminal-replay"
+                >
+                  Rejouer ↺
+                </button>
+              </div>
+            </div>
+            <div class="ioc-workspace" aria-labelledby="ioc-title">
+              <div class="ioc-top">
+                <span>CyberHub / IOC Manager</span><span>02 — qualifier</span>
+              </div>
+              <div class="ioc-identity">
+                <span class="ioc-type">Indicateur · IP</span>
+                <h2 id="ioc-title">
+                  Une valeur,<br /><em>avec son histoire.</em>
+                </h2>
+                <p>
+                  On conserve ce que le fichier dit. On laisse visible ce qu'il
+                  ne dit pas.
+                </p>
+              </div>
+              <div class="ioc-value-line">
+                <span>Valeur</span
+                ><strong class="ioc-target">198.51.100.42</strong
+                ><span class="ioc-confirm" aria-hidden="true">↳</span>
+              </div>
+              <dl class="ioc-facts">
+                <div>
+                  <dt>Type</dt>
+                  <dd>Adresse IPv4 de documentation</dd>
+                </div>
+                <div>
+                  <dt>Provenance</dt>
+                  <dd>./demo/events.log · fichier synthétique</dd>
+                </div>
+                <div>
+                  <dt>Contexte</dt>
+                  <dd>Deux mentions à des heures différentes</dd>
+                </div>
+                <div class="unknown">
+                  <dt>Encore inconnu</dt>
+                  <dd>Rôle, réputation et causalité : non établis</dd>
+                </div>
+              </dl>
+              <p class="ioc-footnote">
+                Fiche de démonstration · aucune création dans la Console privée.
+              </p>
+            </div>
+          </div>
+          <span class="handoff-token" aria-hidden="true">198.51.100.42</span>
+          <div class="handoff-controls">
+            <a href="#ioc" class="handoff-next"
+              >Passer à la fiche IOC <span aria-hidden="true">↓</span></a
+            ><span id="stage-label">01 / repérer</span
+            ><a href="#relations"
+              >Examiner les liens <span aria-hidden="true">↓</span></a
+            >
+          </div>
+        </div>
+      </section>
+      <div class="static-transcript">
+        <details>
+          <summary>Lire la transcription du terminal et du transfert</summary>
+          <p>
+            Commande illustrative :
+            <code>rg "198.51.100.42" ./demo/events.log</code>. Deux lignes
+            fictives du fichier <code>./demo/events.log</code>, aux lignes 14 et
+            31, mentionnent l'adresse de documentation 198.51.100.42. Aucun
+            processus n'est exécuté. La démonstration reprend la valeur dans une
+            fiche IOC fictive avec sa provenance, ses deux mentions et les
+            inconnues : rôle, réputation, causalité.
+          </p>
+        </details>
+      </div>
+
+      <section
+        class="relations-section story-section"
+        id="relations"
+        aria-labelledby="relations-title"
+      >
+        <div class="section-head">
+          <p class="scene-index">03 / examiner</p>
+          <h2 id="relations-title">
+            Un rapprochement<br /><em>n'est pas une conclusion.</em>
+          </h2>
+          <p>
+            La même adresse est citée par deux lignes du journal. Ce lien est
+            documenté. Les techniques MITRE à droite sont un référentiel à
+            consulter séparément, sans attribution automatique à l'indicateur.
+          </p>
+        </div>
+        <div class="relations-canvas">
+          <div class="source-note source-a">
+            <span>Source A / ligne 14</span><strong>Première mention</strong
+            ><small>./demo/events.log · 09:14</small>
+          </div>
+          <svg
+            class="relation-drawing"
+            viewBox="0 0 960 300"
+            preserveAspectRatio="none"
+            aria-hidden="true"
+          >
+            <path
+              class="relation-path path-a"
+              d="M205 58C340 58 325 150 475 150"
+            />
+            <path
+              class="relation-path path-b"
+              d="M205 245C340 245 325 150 475 150"
+            />
+            <path class="relation-path path-question" d="M555 150H760" />
+            <circle cx="505" cy="150" r="7" />
+          </svg>
+          <div class="relation-center">
+            <span>Valeur commune</span><strong>198.51.100.42</strong
+            ><small>Citation partagée, portée limitée</small>
+          </div>
+          <div class="source-note source-b">
+            <span>Source B / ligne 31</span><strong>Seconde mention</strong
+            ><small>./demo/events.log · 11:32</small>
+          </div>
+          <div class="relation-question">
+            <span>Question ouverte</span
+            ><strong>Pourquoi apparaît-elle ici ?</strong
+            ><small>Les deux lignes seules ne suffisent pas.</small>
+          </div>
+        </div>
+        <div class="relation-explanation">
+          <p>
+            <span class="relation-key" aria-hidden="true"></span>Trait plein :
+            deux citations vérifiables dans le même fichier fictif. Il ne
+            représente ni trafic, ni cause, ni confiance calculée.
+          </p>
+          <a href="#disciplines">Voir les autres lectures ↓</a>
+        </div>
+        <div class="mitre-strip" aria-labelledby="mitre-title">
+          <div>
+            <p class="mini-label">Référentiel présent dans CyberHub</p>
+            <h3 id="mitre-title">MITRE ATT&amp;CK</h3>
+            <p>
+              CyberHub permet de consulter tactiques et techniques et de créer
+              des layers annotés. Ces noms ne sont pas déduits des deux lignes
+              du terminal.
+            </p>
+          </div>
+          <div class="mitre-columns">
+            <div>
+              <span>Exécution</span><strong>T1059</strong
+              ><small>Interpréteur de commandes et de scripts</small>
+            </div>
+            <div>
+              <span>Persistance</span><strong>T1053</strong
+              ><small>Tâche planifiée</small>
+            </div>
+            <div>
+              <span>Découverte</span><strong>T1082</strong
+              ><small>Informations système</small>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section
+        class="disciplines-section story-section"
+        id="disciplines"
+        aria-labelledby="disciplines-title"
+      >
+        <div class="section-head">
+          <p class="scene-index">04 / changer d'échelle</p>
+          <h2 id="disciplines-title">
+            Une plateforme.<br /><em>Plusieurs façons de lire.</em>
+          </h2>
+          <p>
+            Ces domaines existent dans CyberHub. Les exemples ci-dessous sont
+            indépendants du fichier de démonstration : ils expliquent des
+            usages, pas les résultats de cette commande.
+          </p>
+        </div>
+        <div class="discipline-machine">
+          <div
+            class="discipline-controls"
+            role="group"
+            aria-label="Choisir un domaine"
+          >
+            <button
+              type="button"
+              class="discipline-tab is-active"
+              data-discipline="cve"
+              aria-pressed="true"
+            >
+              <span>01</span> CVE &amp; veille
+              <b aria-hidden="true">↗</b></button
+            ><button
+              type="button"
+              class="discipline-tab"
+              data-discipline="osint"
+              aria-pressed="false"
+            >
+              <span>02</span> OSINT <b aria-hidden="true">↗</b></button
+            ><button
+              type="button"
+              class="discipline-tab"
+              data-discipline="bgp"
+              aria-pressed="false"
+            >
+              <span>03</span> BGP &amp; historique <b aria-hidden="true">↗</b>
+            </button>
+          </div>
+          <div class="discipline-stage" aria-live="polite">
+            <div class="discipline-info">
+              <p class="mini-label" id="discipline-overline">
+                CVE / veille documentée
+              </p>
+              <h3 id="discipline-heading">
+                Voir la priorité,<br /><em>garder la source.</em>
+              </h3>
+              <p id="discipline-description">
+                La veille CVE locale peut importer des données NVD et afficher
+                les indicateurs CISA KEV et EPSS. Ici, trois entrées sans
+                identifiant réel montrent comment la lecture se hiérarchise.
+              </p>
+              <p id="discipline-limit">
+                Exemple fictif · aucun score réel ni vulnérabilité évaluée.
+              </p>
+            </div>
+            <div class="discipline-visual" aria-hidden="true">
+              <svg
+                id="discipline-svg"
+                viewBox="0 0 650 410"
+                preserveAspectRatio="xMidYMid meet"
+              >
+                <g class="cve-graphic">
+                  <text x="25" y="30">ÉCHANTILLON / VEILLE</text>
+                  <path d="M25 65H620M25 158H620M25 251H620M25 344H620" />
+                  <text x="25" y="112">01 / CRITIQUE</text>
+                  <rect x="280" y="82" width="300" height="32" />
+                  <text x="25" y="205">02 / À EXAMINER</text>
+                  <rect x="280" y="175" width="205" height="32" />
+                  <text x="25" y="298">03 / CONTEXTE</text>
+                  <rect x="280" y="268" width="117" height="32" />
+                  <text x="25" y="386">
+                    NVD · KEV · EPSS / CAPACITÉS DU MODULE
+                  </text>
+                </g>
+                <g class="osint-graphic" hidden>
+                  <text x="25" y="30">SOURCES PUBLIQUES / EXEMPLE</text>
+                  <path d="M60 90H585M110 165H535M50 240H600M110 315H535" />
+                  <rect x="50" y="76" width="70" height="28" />
+                  <rect x="210" y="151" width="70" height="28" />
+                  <rect x="395" y="226" width="70" height="28" />
+                  <text x="135" y="99">source A → nom d'essai</text>
+                  <text x="295" y="174">source B → variante</text>
+                  <text x="75" y="263">source C → à vérifier</text>
+                  <text x="25" y="386">WHATS MY NAME / RECHERCHE LOCALE</text>
+                </g>
+                <g class="bgp-graphic" hidden>
+                  <text x="25" y="30">HISTORIQUE DE ROUTAGE / EXEMPLE</text>
+                  <path d="M25 345H620M25 65V345" />
+                  <path
+                    class="bgp-line one"
+                    d="M45 265C120 265 120 215 200 215S280 180 350 180 450 105 595 105"
+                  />
+                  <path
+                    class="bgp-line two"
+                    d="M45 320C120 320 120 290 200 290S280 275 350 275 450 238 595 238"
+                  />
+                  <text x="45" y="381">t0</text>
+                  <text x="300" y="381">t1</text>
+                  <text x="540" y="381">t2</text>
+                  <text x="403" y="90">AS64512 / chemin A</text>
+                  <text x="403" y="222">AS64513 / chemin B</text>
+                </g>
+              </svg>
+            </div>
+          </div>
+        </div>
+        <p class="discipline-transcript" id="discipline-transcript">
+          Vue CVE : trois bandes illustratives classées pour examen. CyberHub
+          propose une veille locale et l'import NVD ; les valeurs ici ne
+          proviennent d'aucune source réelle.
+        </p>
+      </section>
+
+      <section
+        class="investigation-section story-section"
+        id="investigation"
+        aria-labelledby="investigation-title"
+      >
+        <div class="section-head">
+          <p class="scene-index">05 / conserver la méthode</p>
+          <h2 id="investigation-title">
+            La suite appartient<br /><em>à l'enquête.</em>
+          </h2>
+          <p>
+            CyberHub possède des investigations avec événements horodatés et des
+            playbooks de vérification. Cette scène montre une façon possible de
+            les lire ensemble, sans créer de dossier réel ni simuler une réponse
+            à incident.
+          </p>
+        </div>
+        <div class="investigation-work">
+          <div class="timeline-area">
+            <p class="mini-label">Dossier conceptuel / CH-DÉMO</p>
+            <ol class="investigation-timeline">
+              <li>
+                <span class="timeline-time">09:14</span
+                ><strong>Source A conservée</strong
+                ><small>Ligne 14 du fichier fictif.</small>
+              </li>
+              <li>
+                <span class="timeline-time">11:32</span
+                ><strong>Seconde mention reliée</strong
+                ><small>Même valeur, contexte encore inconnu.</small>
+              </li>
+              <li>
+                <span class="timeline-time">À vérifier</span
+                ><strong>Question ajoutée au dossier</strong
+                ><small>Comparer la provenance avant toute conclusion.</small>
+              </li>
+            </ol>
+            <button type="button" class="attach-source" aria-pressed="false">
+              Rattacher la source au dossier <span aria-hidden="true">↗</span>
+            </button>
+            <p id="source-status" role="status">
+              Démonstration locale · aucune donnée enregistrée.
+            </p>
+          </div>
+          <div class="case-area">
+            <div class="case-envelope">
+              <span class="case-stamp">CH / 26</span>
+              <p>Dossier d'investigation</p>
+              <h3>Une question<br />à documenter.</h3>
+              <p>
+                Deux mentions · une adresse de documentation · aucune cause
+                établie.
+              </p>
+              <details class="case-details">
+                <summary>Ouvrir le dossier</summary>
+                <p>
+                  Le dossier fictif garde les lignes 14 et 31 comme sources,
+                  leur date illustrative et la question « pourquoi cette adresse
+                  est-elle citée ? ». Il ne contient aucune observation
+                  opérationnelle.
+                </p>
+              </details>
+            </div>
+            <div class="playbook">
+              <p class="mini-label">Playbook / consultation</p>
+              <h3>Vérifier sans présumer.</h3>
+              <details>
+                <summary><span>01</span> Confirmer la provenance</summary>
+                <p>
+                  Relire le fichier et ses métadonnées ; ne pas attribuer un
+                  événement à une adresse seule.
+                </p>
+              </details>
+              <details>
+                <summary><span>02</span> Comparer les contextes</summary>
+                <p>
+                  Examiner les deux lignes et documenter leurs différences avant
+                  toute hypothèse.
+                </p>
+              </details>
+              <details>
+                <summary><span>03</span> Noter ce qui manque</summary>
+                <p>
+                  Écrire les limites de la preuve et la prochaine source à
+                  consulter.
+                </p>
+              </details>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section
+        class="final-section story-section"
+        id="decouvrir"
+        aria-labelledby="final-title"
+      >
+        <div class="final-light" aria-hidden="true"></div>
+        <p class="scene-index">06 / découvrir CyberHub</p>
+        <h2 id="final-title">Rendre visible<br /><em>l'invisible.</em></h2>
+        <p class="final-intro">
+          CyberHub est un espace personnel pour relier recherche, connaissance
+          et investigation cyber : IOC, CVE, MITRE ATT&amp;CK, OSINT, BGP,
+          notes, outils, playbooks et dossiers.
+        </p>
+        <p class="final-disclaimer">
+          Ce parcours est une démonstration publique fictive. La Console réelle
+          reste locale et privée ; aucun résultat de ce site n'y est envoyé.
+        </p>
+        <div class="final-actions">
+          <a
+            class="story-primary"
+            href="https://github.com/loic31000/CyberHub#modules"
+            >Découvrir les fonctionnalités <span aria-hidden="true">↗</span></a
+          ><a href="https://github.com/loic31000/CyberHub"
+            >Voir le code GitHub ↗</a
+          ><a href="https://github.com/loic31000/CyberHub#installation--build"
+            >Installer CyberHub ↗</a
+          >
+        </div>
+        <div class="final-foot">
+          <span>CYBERHUB / 2026</span
+          ><span>Démonstration illustrative · aucune API privée</span
+          ><a href="./index.html">Comparer avec les archives ↑</a>
+        </div>
+      </section>
+      <noscript
+        ><p class="no-script-note">
+          Sans animation : la démonstration reste lisible. Les vues OSINT et BGP
+          présentent respectivement une comparaison de sources publiques
+          fictives et deux chemins de routage fictifs. Aucun résultat n'est lié
+          à l'adresse du terminal.
+        </p></noscript
+      >
+    </main>
+  </body>
+</html>

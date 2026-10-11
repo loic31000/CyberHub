@@ -14,6 +14,9 @@ export default defineConfig({
         seismic: fileURLToPath(new URL("./a.html", import.meta.url)),
         seismicV2: fileURLToPath(new URL("./a-v2.html", import.meta.url)),
         seismicV3: fileURLToPath(new URL("./a-v3.html", import.meta.url)),
+        terminalStory: fileURLToPath(
+          new URL("./terminal-story.html", import.meta.url),
+        ),
       },
     },
   },
