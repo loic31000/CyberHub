@@ -1,8 +1,14 @@
 # CyberHub 2026 — laboratoire de direction artistique
 
-Deux prototypes de l’[issue #7](https://github.com/loic31000/CyberHub/issues/7), à comparer avant de choisir une direction. Ce dossier est un site Vite autonome. Il ne lit ni `frontend/`, ni `backend/`, ni SQLite ; il ne définit aucun proxy `/api`. Toutes les fiches et relations sont des exemples **synthétiques**, visibles comme tels dans l’interface. La Console privée reste sur ses ports et son volume actuels.
+Deux prototypes de l’[issue #7](https://github.com/loic31000/CyberHub/issues/7), dont A est désormais la direction retenue pour une itération V2. Ce dossier est un site Vite autonome. Il ne lit ni `frontend/`, ni `backend/`, ni SQLite ; il ne définit aucun proxy `/api`. Toutes les fiches et relations sont des exemples **synthétiques**, visibles comme tels dans l’interface. La Console privée reste sur ses ports et son volume actuels.
 
 ## Ouvrir les prototypes
+
+**A V2 est la direction retenue pour validation visuelle.** A V1 et B restent disponibles pour la comparaison. Lire l’[audit avant/après](a-v2-audit.md) pour les défauts constatés à six largeurs, les captures et les limites des essais d’accessibilité.
+
+| Vue supplémentaire | URL locale | Intention |
+| --- | --- | --- |
+| A V2 — Sismographe éditorial | http://127.0.0.1:5174/a-v2.html | Une même adresse fictive traverse les quatre actes, du signal à la méthode de vérification. |
 
 Dans PowerShell :
 
@@ -36,6 +42,7 @@ Les captures générées par le test navigateur sont dans [`captures/`](captures
 npm run build
 npm test
 npm run test:browser
+npm run test:v2
 npm audit
 ```
 

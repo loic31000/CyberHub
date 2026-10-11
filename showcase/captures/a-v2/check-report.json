@@ -1,0 +1,55 @@
+{
+  "widths": [
+    {
+      "width": 320,
+      "overflow": 0,
+      "errors": 0
+    },
+    {
+      "width": 390,
+      "overflow": 0,
+      "errors": 0
+    },
+    {
+      "width": 768,
+      "overflow": 0,
+      "errors": 0
+    },
+    {
+      "width": 1024,
+      "overflow": 0,
+      "errors": 0
+    },
+    {
+      "width": 1440,
+      "overflow": 0,
+      "errors": 0
+    },
+    {
+      "width": 1920,
+      "overflow": 0,
+      "errors": 0
+    }
+  ],
+  "axe": {
+    "390": [],
+    "1440": []
+  },
+  "motion": {
+    "heroAnimation": "draw",
+    "video": "parcours-a-v2.webm",
+    "frameTiming": {
+      "medianMs": 17,
+      "p95Ms": 17
+    }
+  },
+  "textResize200": {
+    "overflow": 0,
+    "width": 640
+  },
+  "nativeZoom": {
+    "beforeZoom": 1280,
+    "afterZoom": 1280,
+    "supported": false
+  }
+}
