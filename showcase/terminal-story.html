@@ -59,7 +59,6 @@
       <strong class="story-status-title">Une ligne a été trouvée.</strong>
       <span class="story-status-detail">La source reste visible.</span>
     </div>
-    <span class="handoff-token" aria-hidden="true">198.51.100.42</span>
 
     <main id="main">
       <section
@@ -221,57 +220,138 @@
             Un rapprochement<br /><em>n'est pas une conclusion.</em>
           </h2>
           <p>
-            La même adresse est citée par deux lignes du journal. Ce lien est
-            documenté. Les techniques MITRE à droite sont un référentiel à
-            consulter séparément, sans attribution automatique à l'indicateur.
+            Deux mentions dans un même journal peuvent être rapprochées.
+            L'analyse montre leur source et ce qui reste à vérifier, sans
+            inventer de lien avec un autre module.
           </p>
         </div>
-        <div class="relations-canvas">
-          <div class="source-note source-a">
-            <span>Source A / ligne 14</span><strong>Première mention</strong
-            ><small>./demo/events.log · 09:14</small>
+        <p class="pilot-accessible-summary">
+          Démonstration statique de Corrélation : l'adresse de documentation
+          198.51.100.42 est analysée localement. Le fichier fictif
+          ./demo/events.log la mentionne aux lignes 14 et 31. L'inspecteur
+          montre une source, deux observations et aucune attribution MITRE,
+          CLOAK ou CVE. Aucune analyse réelle n'est lancée.
+        </p>
+        <div
+          class="product-shell correlation-shell"
+          aria-label="Simulation du module Corrélation"
+        >
+          <div class="product-shell-head">
+            <div>
+              <span class="product-signal" aria-hidden="true"></span
+              ><strong>CORRELATION ENGINE // ANALYZE</strong
+              ><small>Analyse illustrative · aucune API interrogée</small>
+            </div>
+            <span class="product-head-state">EXEMPLE LOCAL</span>
           </div>
-          <svg
-            class="relation-drawing"
-            viewBox="0 0 960 300"
-            preserveAspectRatio="none"
-            aria-hidden="true"
+          <div class="correlation-query-bar">
+            <p class="product-kicker">Nouvelle analyse</p>
+            <div class="correlation-form">
+              <span class="product-type"
+                >IP <span aria-hidden="true">⌄</span></span
+              >
+              <div
+                class="product-field correlation-field"
+                role="textbox"
+                aria-readonly="true"
+                tabindex="0"
+                aria-label="Adresse IP fictive 198.51.100.42"
+              >
+                <span class="correlation-value" aria-hidden="true"
+                  >198.51.100.42</span
+                ><span class="product-caret" aria-hidden="true"></span>
+              </div>
+              <button type="button" class="correlation-run">
+                Analyser <span aria-hidden="true">↗</span>
+              </button>
+            </div>
+            <p class="product-fineprint">
+              Valeur de documentation · recherche simulée dans les seules lignes
+              affichées.
+            </p>
+          </div>
+          <div
+            class="correlation-loading"
+            role="status"
+            aria-label="Simulation d'analyse en cours"
           >
-            <path
-              class="relation-path path-a"
-              d="M205 58C340 58 325 150 475 150"
-            />
-            <path
-              class="relation-path path-b"
-              d="M205 245C340 245 325 150 475 150"
-            />
-            <path class="relation-path path-question" d="M555 150H760" />
-            <circle cx="505" cy="150" r="7" />
-          </svg>
-          <div class="relation-center">
-            <span>Valeur commune</span><strong>198.51.100.42</strong
-            ><small>Citation partagée, portée limitée</small>
+            <span class="product-spinner" aria-hidden="true"></span
+            >Rapprochement des mentions fictives…
           </div>
-          <div class="source-note source-b">
-            <span>Source B / ligne 31</span><strong>Seconde mention</strong
-            ><small>./demo/events.log · 11:32</small>
+          <div class="correlation-results">
+            <div class="product-subhead">
+              <strong>RÉSULTATS DE CORRÉLATION</strong
+              ><span>1 source · 2 mentions</span>
+            </div>
+            <div class="correlation-grid">
+              <div class="correlation-list">
+                <p class="product-kicker">
+                  ./demo/events.log
+                  <span class="product-tag">SOURCE FICTIVE</span>
+                </p>
+                <button
+                  type="button"
+                  class="correlation-row"
+                  data-line="14"
+                  aria-pressed="true"
+                >
+                  <span class="correlation-row-index">01 / LIGNE 14</span
+                  ><strong>09:14 · 198.51.100.42</strong
+                  ><span>Première mention dans le journal</span>
+                </button>
+                <button
+                  type="button"
+                  class="correlation-row"
+                  data-line="31"
+                  aria-pressed="false"
+                >
+                  <span class="correlation-row-index">02 / LIGNE 31</span
+                  ><strong>11:32 · 198.51.100.42</strong
+                  ><span>Seconde mention dans le même fichier</span>
+                </button>
+              </div>
+              <aside
+                class="correlation-inspector"
+                aria-label="Détail de la mention sélectionnée"
+              >
+                <p class="product-kicker">
+                  INSPECTEUR /
+                  <span class="correlation-selected-line">LIGNE 14</span>
+                </p>
+                <h3>Une même valeur, deux observations.</h3>
+                <dl>
+                  <div>
+                    <dt>Valeur commune</dt>
+                    <dd>198.51.100.42</dd>
+                  </div>
+                  <div>
+                    <dt>Source</dt>
+                    <dd>./demo/events.log</dd>
+                  </div>
+                  <div>
+                    <dt>Observation sélectionnée</dt>
+                    <dd class="correlation-selected-time">09:14 · ligne 14</dd>
+                  </div>
+                </dl>
+                <p class="correlation-limit">
+                  Ce rapprochement confirme seulement deux citations dans le
+                  même exemple. Rôle, trafic, réputation et causalité restent
+                  inconnus.
+                </p>
+              </aside>
+            </div>
+            <div
+              class="correlation-module-status"
+              aria-label="Autres rubriques sans lien établi"
+            >
+              <span>MITRE ATT&amp;CK <b>aucune association</b></span>
+              <span>CLOAK <b>non évalué</b></span>
+              <span>CVE <b>aucune association</b></span>
+            </div>
           </div>
-          <div class="relation-question">
-            <span>Question ouverte</span
-            ><strong>Pourquoi apparaît-elle ici ?</strong
-            ><small>Les deux lignes seules ne suffisent pas.</small>
-          </div>
-        </div>
-        <div class="relation-explanation">
-          <p>
-            <span class="relation-key" aria-hidden="true"></span>Trait plein :
-            deux citations vérifiables dans le même fichier fictif. Il ne
-            représente ni trafic, ni cause, ni confiance calculée.
-          </p>
-          <a href="#mitre">Explorer le référentiel MITRE ↓</a>
         </div>
         <p class="scene-callout relation-callout">
-          Deux observations. Un point commun. Pas encore une conclusion.
+          Deux observations. Une source. Une question à vérifier.
         </p>
       </section>
 
@@ -284,84 +364,148 @@
           <p class="scene-index">04 / consulter un référentiel</p>
           <h2>Décrire une technique,<br /><em>sans l’attribuer.</em></h2>
           <p>
-            La recherche PowerShell ci-dessous parcourt un référentiel
-            illustratif. Elle est indépendante de l’adresse trouvée dans le
-            journal fictif.
+            Chercher PowerShell, filtrer les résultats, ouvrir une technique :
+            le référentiel reste indépendant de l’adresse du journal fictif.
           </p>
         </div>
-        <div class="mitre-strip" aria-labelledby="mitre-title">
-          <div>
-            <p class="mini-label">Référentiel présent dans CyberHub</p>
-            <h3 id="mitre-title">MITRE ATT&amp;CK</h3>
-            <p>
-              CyberHub permet de consulter tactiques et techniques et de créer
-              des layers annotés. Ces noms ne sont pas déduits des deux lignes
-              du terminal.
-            </p>
+        <p class="pilot-accessible-summary">
+          Démonstration statique MITRE ATT&amp;CK : une recherche PowerShell
+          filtre la liste et sélectionne T1059.001, sous-technique de T1059. La
+          tactique officielle est Exécution et la plateforme indiquée est
+          Windows. La référence publique MITRE est disponible dans le détail.
+          Cette technique n'est pas attribuée à l'adresse du récit.
+        </p>
+        <div class="product-shell mitre-lab" aria-labelledby="mitre-title">
+          <div class="product-shell-head">
+            <div>
+              <span class="product-signal" aria-hidden="true"></span
+              ><strong id="mitre-title">MITRE ATT&amp;CK // MATRIX</strong
+              ><small
+                >Extrait local du référentiel · consultation fictive</small
+              >
+            </div>
+            <span class="product-head-state">RÉFÉRENCE PUBLIQUE</span>
           </div>
-          <div
-            class="mitre-search"
-            aria-label="Recherche illustrative dans le référentiel MITRE"
-          >
-            <span>Recherche / techniques</span
-            ><strong class="mitre-query">PowerShell</strong>
-            <small>Aucune requête envoyée · exemple local</small>
+          <div class="mitre-toolbar">
+            <p class="product-kicker">Rechercher une technique</p>
+            <div
+              class="product-field mitre-search-box"
+              role="textbox"
+              aria-readonly="true"
+              tabindex="0"
+              aria-label="Recherche illustrative PowerShell"
+            >
+              <span class="mitre-query" aria-hidden="true">PowerShell</span
+              ><span class="product-caret" aria-hidden="true"></span>
+            </div>
+            <div
+              class="mitre-platforms"
+              aria-label="Filtres de plateformes illustratifs"
+            >
+              <span>PLATEFORME</span>
+              <button
+                type="button"
+                class="mitre-platform"
+                data-platform="Windows"
+                aria-pressed="true"
+              >
+                Windows
+              </button>
+              <button
+                type="button"
+                class="mitre-platform"
+                data-platform="Linux"
+                aria-pressed="false"
+              >
+                Linux
+              </button>
+              <button
+                type="button"
+                class="mitre-platform"
+                data-platform="macOS"
+                aria-pressed="false"
+              >
+                macOS
+              </button>
+            </div>
           </div>
-          <div class="mitre-columns">
-            <button
-              type="button"
-              class="mitre-choice"
-              data-technique="t1059"
-              aria-pressed="true"
+          <div class="mitre-workspace">
+            <div
+              class="mitre-tactics"
+              role="group"
+              aria-label="Tactiques MITRE illustratives"
             >
-              <span>Exécution</span><strong>T1059</strong
-              ><small>Interpréteur de commandes et de scripts</small>
-            </button>
-            <button
-              type="button"
-              class="mitre-choice"
-              data-technique="t1053"
-              aria-pressed="false"
+              <span class="product-kicker">TACTIQUES</span>
+              <span class="mitre-tactic-active"
+                >Exécution <b>sélectionnée</b></span
+              >
+              <span>Découverte</span><span>Persistance</span>
+            </div>
+            <div class="mitre-results">
+              <div class="product-subhead">
+                <strong>TECHNIQUES</strong
+                ><span class="mitre-result-count"
+                  >3 techniques dans l'extrait</span
+                >
+              </div>
+              <button
+                type="button"
+                class="mitre-card mitre-match"
+                aria-pressed="true"
+              >
+                <span class="mitre-card-id"
+                  >T1059.001 <small>SOUS-TECHNIQUE</small></span
+                >
+                <strong>PowerShell</strong>
+                <span>Exécution · Windows</span>
+              </button>
+              <div class="mitre-card mitre-filtered">
+                <span class="mitre-card-id">T1059.003</span
+                ><strong>Windows Command Shell</strong
+                ><span>Autre sous-technique de T1059</span>
+              </div>
+              <div class="mitre-card mitre-filtered">
+                <span class="mitre-card-id">T1059.004</span
+                ><strong>Unix Shell</strong
+                ><span>Autre sous-technique de T1059</span>
+              </div>
+            </div>
+            <aside
+              class="mitre-detail"
+              aria-label="Détail de la technique sélectionnée"
             >
-              <span>Persistance</span><strong>T1053</strong
-              ><small>Tâche planifiée</small>
-            </button>
-            <button
-              type="button"
-              class="mitre-choice"
-              data-technique="t1082"
-              aria-pressed="false"
-            >
-              <span>Découverte</span><strong>T1082</strong
-              ><small>Informations système</small>
-            </button>
-          </div>
-          <div class="mitre-inspector">
-            <span class="mini-label"
-              >Technique consultée · exemple de référentiel</span
-            >
-            <strong id="mitre-detail-title"
-              >T1059 · Interpréteur de commandes et de scripts</strong
-            >
-            <p id="mitre-detail">
-              Tactique : Exécution. Une technique peut être ouverte pour
-              consulter son contexte ; rien dans les deux lignes fictives ne
-              permet de l'attribuer à l'adresse.
-            </p>
-            <p class="mitre-reference">
-              Référence : MITRE ATT&amp;CK, technique T1059 · consultation
-              illustrative. L’adresse IP du récit n’est pas associée à cette
-              technique.
-            </p>
-          </div>
-          <div
-            class="mitre-matrix"
-            aria-label="Extrait illustratif de la matrice MITRE : technique T1059 dans la tactique Exécution"
-          >
-            <span>Découverte</span><span>Exécution</span
-            ><span>Persistance</span> <span>—</span
-            ><strong>T1059<br />Interpréteur de commandes et de scripts</strong
-            ><span>—</span>
+              <p class="product-kicker">FICHE TECHNIQUE / T1059.001</p>
+              <h3>PowerShell</h3>
+              <p class="mitre-detail-intro">
+                Sous-technique de T1059 — Interpréteur de commandes et de
+                scripts.
+              </p>
+              <dl>
+                <div class="mitre-detail-tactic">
+                  <dt>Tactique</dt>
+                  <dd>Exécution</dd>
+                </div>
+                <div class="mitre-detail-platform">
+                  <dt>Plateforme</dt>
+                  <dd>Windows</dd>
+                </div>
+                <div class="mitre-detail-reference">
+                  <dt>Référence</dt>
+                  <dd>
+                    <a
+                      href="https://attack.mitre.org/techniques/T1059/001/"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      >MITRE ATT&amp;CK · T1059.001 ↗</a
+                    >
+                  </dd>
+                </div>
+              </dl>
+              <p class="mitre-detail-limit">
+                Lecture du référentiel uniquement. Aucun indice de cet exemple
+                ne relie PowerShell à l’IP du terminal.
+              </p>
+            </aside>
           </div>
         </div>
       </section>

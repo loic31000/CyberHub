@@ -5,19 +5,14 @@ import {
   prefersReducedMotion,
   sectionProgress,
 } from "./motion.js";
-import {
-  STORY_STATES,
-  interpolatePoint,
-  projectAnchor,
-  resolveStory,
-} from "./story-engine.js";
+import { STORY_STATES, resolveStory } from "./story-engine.js";
 import { createPilot } from "./pilot-gsap.js";
+import { createProductDemos } from "./product-demos.js";
 
 const $ = (selector) => document.querySelector(selector);
 const $$ = (selector) => [...document.querySelectorAll(selector)];
 const body = document.body;
 const stage = $(".handoff-track");
-const token = $(".handoff-token");
 const motionControl = $(".motion-control");
 let scrollFrame = 0;
 let waypoints = [];
@@ -27,49 +22,6 @@ let captionAnimations = [];
 // The source data is always in the HTML. JavaScript only stages its visual
 // presentation; the complete views remain readable without scripting.
 const chapterDefinitions = [
-  {
-    id: "relations",
-    selector: ".relations-section",
-    guideBefore: ".relations-canvas",
-    steps: [
-      "Le canevas de corrélation s'ouvre sans relation présumée.",
-      "La ligne 14 fournit une première mention sourcée.",
-      "La ligne 31 ajoute une seconde observation distincte.",
-      "La valeur commune est rapprochée des deux sources.",
-      "Les liens documentent seulement cette concordance.",
-      "La question ouverte et les limites restent visibles.",
-    ],
-    reveal: [
-      [".source-a", 1],
-      [".source-b", 2],
-      [".relation-center", 3],
-      [".relation-path", 4],
-      [".relation-drawing circle", 4],
-      [".relation-question", 5],
-      [".relation-explanation", 5],
-      [".relation-callout", 5],
-    ],
-  },
-  {
-    id: "mitre",
-    selector: ".mitre-demo",
-    guideBefore: ".mitre-strip",
-    steps: [
-      "La consultation du référentiel commence par une recherche vide.",
-      "Le terme « PowerShell » est saisi dans la recherche illustrative.",
-      "Le résultat T1059 apparaît ; d'autres techniques restent consultables séparément.",
-      "La fiche T1059 s'ouvre avec sa tactique et sa description.",
-      "La référence et la limite d'attribution sont explicitées.",
-      "La matrice met en valeur la technique consultée.",
-    ],
-    reveal: [
-      [".mitre-query", 1],
-      [".mitre-columns", 2],
-      [".mitre-inspector", 3],
-      [".mitre-reference", 4],
-      [".mitre-matrix", 5],
-    ],
-  },
   {
     id: "investigation",
     selector: ".investigation-section",
@@ -173,8 +125,6 @@ function createChapter(definition) {
 }
 
 function renderChapter(chapter, step) {
-  chapter.typing?.cancel();
-  chapter.typing = null;
   chapter.step = step;
   chapter.element.dataset.demoStage = String(step);
   chapter.count.textContent = `${String(step + 1).padStart(2, "0")} / ${String(chapter.steps.length).padStart(2, "0")}`;
@@ -185,13 +135,6 @@ function renderChapter(chapter, step) {
   );
   for (const { node, threshold } of chapter.reveals)
     node.classList.toggle("demo-pending", threshold > step);
-  if (chapter.id === "mitre" && step === 1 && motionAllowed()) {
-    const query = chapter.element.querySelector(".mitre-query");
-    chapter.typing = query.animate(
-      [{ clipPath: "inset(0 100% 0 0)" }, { clipPath: "inset(0 0 0 0)" }],
-      { duration: 900, easing: "steps(10, end)" },
-    );
-  }
 }
 
 function finishChapter(chapter) {
@@ -224,20 +167,15 @@ function playChapter(chapter, replay = false) {
       return;
     }
     renderChapter(chapter, chapter.step + 1);
-    chapter.timer = setTimeout(
-      advance,
-      chapter.id === "terminal" ? 1650 : 1200,
-    );
+    chapter.timer = setTimeout(advance, 1200);
   };
   chapter.timer = setTimeout(advance, 950);
 }
 
 function updateChapters() {
-  for (const id of ["relations", "mitre", "investigation"]) {
-    const chapter = chapters.get(id);
-    if (!chapter.complete && chapter.element.getBoundingClientRect().bottom < 0)
-      finishChapter(chapter);
-  }
+  const chapter = chapters.get("investigation");
+  if (!chapter.complete && chapter.element.getBoundingClientRect().bottom < 0)
+    finishChapter(chapter);
 }
 
 function documentTop(selector) {
@@ -250,7 +188,7 @@ function measureWaypoints() {
   const points = [
     0,
     documentTop(".handoff-track") + stageRange * 0.72,
-    documentTop(".relations-canvas") - height * 0.52,
+    documentTop(".correlation-shell") - height * 0.52,
     documentTop(".mitre-demo") - height * 0.52,
     documentTop(".investigation-work") - height * 0.52,
     documentTop(".playbook") - height * 0.52,
@@ -262,51 +200,6 @@ function measureWaypoints() {
     ordered.push(Math.max(index ? ordered[index - 1] + 1 : 0, point)),
   );
   waypoints = ordered;
-}
-
-function anchorPoint(state) {
-  const viewport = {
-    width: window.innerWidth,
-    height: window.innerHeight,
-    topInset:
-      $(".story-header").offsetHeight + $(".story-status").offsetHeight + 18,
-  };
-  const mobile = viewport.width <= 760;
-  const railX = viewport.width - (mobile ? 78 : 118);
-  if (!state.anchor)
-    return { x: railX, y: mobile ? 147 : viewport.height * 0.48 };
-  return projectAnchor(
-    $(state.anchor).getBoundingClientRect(),
-    viewport,
-    railX,
-  );
-}
-
-function updateToken(story) {
-  if (!motionAllowed()) {
-    token.style.opacity = "0";
-    delete body.dataset.tokenDock;
-    return;
-  }
-  const from = anchorPoint(STORY_STATES[story.from]);
-  const to = anchorPoint(STORY_STATES[story.to]);
-  const point = interpolatePoint(from, to, story.progress);
-  const thread = story.active === 3 || story.active === 6;
-  token.dataset.role = thread ? "thread" : "case";
-  token.style.transform = `translate3d(${Math.round(point.x - token.offsetWidth / 2)}px, ${Math.round(point.y - token.offsetHeight / 2)}px, 0)`;
-  const started = window.scrollY > waypoints[0] + 35;
-  const independentReference = story.active === 3 || story.active === 6;
-  const stageRect = stage.getBoundingClientRect();
-  const pilotVisible =
-    stageRect.top < window.innerHeight && stageRect.bottom > 0;
-  token.style.opacity = String(
-    started && !independentReference && !pilotVisible ? 1 : 0,
-  );
-  const dockIndex =
-    story.progress < 0.08 ? story.from : story.progress > 0.92 ? story.to : -1;
-  const dockState = STORY_STATES[dockIndex];
-  body.dataset.tokenDock =
-    started && !pilotVisible && dockState?.anchor ? dockState.id : "";
 }
 
 function updateStoryCopy(index) {
@@ -347,6 +240,7 @@ function updateScroll() {
   const story = resolveStory(window.scrollY, waypoints);
   updateStoryCopy(story.active);
   pilot.syncStatus();
+  productDemos.syncStatus();
   const moving = motionAllowed();
   const handoff = clamp(
     -stage.getBoundingClientRect().top /
@@ -356,18 +250,14 @@ function updateScroll() {
   updateChapters();
   $("#stage-label").textContent =
     handoff > 0.55 ? "02 / qualifier" : "01 / repérer";
-  updateToken(story);
   for (const [selector, property] of [
-    [".relations-section", "--relations-progress"],
     [".investigation-section", "--investigation-progress"],
     [".final-section", "--final-progress"],
   ]) {
     const node = $(selector);
     const finished =
-      (property === "--relations-progress" &&
-        chapters.get("relations").complete) ||
-      (property === "--investigation-progress" &&
-        chapters.get("investigation").complete);
+      property === "--investigation-progress" &&
+      chapters.get("investigation").complete;
     const value = moving && !finished ? sectionProgress(node).toFixed(3) : "1";
     node.style.setProperty(property, value);
     if (property === "--investigation-progress")
@@ -470,32 +360,6 @@ function selectDiscipline(name) {
   requestScroll();
 }
 
-const mitreDetails = {
-  t1059: [
-    "T1059 · Interpréteur de commandes et de scripts",
-    "Tactique : Exécution. Une technique peut être ouverte pour consulter son contexte ; rien dans les deux lignes fictives ne permet de l'attribuer à l'adresse.",
-  ],
-  t1053: [
-    "T1053 · Tâche planifiée",
-    "Tactique : Persistance. CyberHub permet de consulter la fiche de technique et les tactiques associées ; cet exemple n'est lié à aucun IOC du récit.",
-  ],
-  t1082: [
-    "T1082 · Informations système",
-    "Tactique : Découverte. Ce référentiel décrit des comportements possibles, pas une observation réalisée dans la démonstration.",
-  ],
-};
-function selectTechnique(id) {
-  const [title, detail] = mitreDetails[id];
-  $$(".mitre-choice").forEach((button) =>
-    button.setAttribute(
-      "aria-pressed",
-      String(button.dataset.technique === id),
-    ),
-  );
-  $("#mitre-detail-title").textContent = title;
-  $("#mitre-detail").textContent = detail;
-}
-
 const demoDetails = {
   "cve:fiche":
     "Fiche illustrative sans identifiant CVE ni score. CyberHub affiche des fiches CVE détaillées ; cet exemple ne décrit aucune vulnérabilité réelle.",
@@ -539,6 +403,7 @@ function setMotionState(stopped) {
     : "Arrêter les animations";
   if (stopped) {
     pilot.finish();
+    productDemos.finish();
     captionAnimations.forEach((animation) => animation.cancel());
     for (const chapter of chapters.values()) finishChapter(chapter);
   }
@@ -547,6 +412,7 @@ function setMotionState(stopped) {
 
 body.classList.add("story-enhanced");
 const pilot = createPilot({ motionAllowed });
+const productDemos = createProductDemos({ motionAllowed });
 chapterDefinitions.forEach(createChapter);
 const chapterObserver = new IntersectionObserver(
   (entries) => {
@@ -558,7 +424,7 @@ const chapterObserver = new IntersectionObserver(
   },
   { rootMargin: "0px 0px -20% 0px" },
 );
-for (const id of ["relations", "mitre", "investigation"]) {
+for (const id of ["investigation"]) {
   const chapter = chapters.get(id);
   chapter.element.dataset.demoChapter = id;
   chapterObserver.observe(chapter.element);
@@ -573,6 +439,7 @@ window
   .addEventListener("change", () => {
     if (prefersReducedMotion()) {
       pilot.finish();
+      productDemos.finish();
       for (const chapter of chapters.values()) finishChapter(chapter);
     }
     refreshLayout();
@@ -589,11 +456,6 @@ if ("ResizeObserver" in window) {
 $$(".discipline-tab").forEach((button) =>
   button.addEventListener("click", () =>
     selectDiscipline(button.dataset.discipline),
-  ),
-);
-$$(".mitre-choice").forEach((button) =>
-  button.addEventListener("click", () =>
-    selectTechnique(button.dataset.technique),
   ),
 );
 $$("[data-demo-step]").forEach((button) =>
