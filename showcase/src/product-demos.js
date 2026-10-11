@@ -204,7 +204,7 @@ function correlationDemo(motionAllowed) {
     value.textContent = "";
     selectLine(14);
     rows.forEach((row) => row.setAttribute("aria-pressed", "false"));
-    gsap.set(shell, { autoAlpha: 0, y: 28 });
+    gsap.set(shell, { clipPath: "inset(0 100% 0 0)" });
     gsap.set(results, { autoAlpha: 0, height: 0, overflow: "hidden" });
     gsap.set(rows, { autoAlpha: 0, x: -18 });
     gsap.set(inspector, { autoAlpha: 0, x: 28 });
@@ -226,7 +226,11 @@ function correlationDemo(motionAllowed) {
     });
     tl.addLabel("open")
       .call(() => cue(0))
-      .to(shell, { autoAlpha: 1, y: 0, duration: 0.8, ease: "power3.out" });
+      .to(shell, {
+        clipPath: "inset(0 0% 0 0)",
+        duration: 0.95,
+        ease: "power3.inOut",
+      });
     tl.addLabel("focus")
       .call(() => cue(1))
       .to(field, {
@@ -293,14 +297,14 @@ function correlationDemo(motionAllowed) {
     final,
     build,
     steps: [
-      "L'interface d'analyse s'ouvre sur un champ vide.",
-      "Le champ IP reçoit le focus.",
-      "Une adresse de documentation est saisie.",
-      "L'analyse fictive rapproche les lignes affichées.",
-      "Deux mentions du même fichier sont retrouvées.",
-      "La ligne 14 est sélectionnée pour inspection.",
-      "L'inspecteur conserve la valeur, la source et l'heure.",
-      "Aucun lien externe n'est déduit ; les limites restent visibles.",
+      "L'analyse ouvre son champ IP.",
+      "Le champ IP est sélectionné.",
+      "L'adresse de documentation est saisie.",
+      "Le même journal est examiné.",
+      "Deux mentions du fichier sont retrouvées.",
+      "La ligne 14 est sélectionnée.",
+      "Source et heure entrent dans l'inspecteur.",
+      "Aucun lien externe n'est déduit.",
     ],
   });
   run.addEventListener("click", demo.finish);
@@ -358,7 +362,12 @@ function mitreDemo(motionAllowed) {
     count.textContent = "3 techniques dans l'extrait";
     platforms.forEach((button) => button.setAttribute("aria-pressed", "false"));
     cards[0].setAttribute("aria-pressed", "false");
-    gsap.set(shell, { autoAlpha: 0, y: 30 });
+    gsap.set(shell, {
+      autoAlpha: 0,
+      scale: 0.94,
+      x: -26,
+      transformOrigin: "20% 30%",
+    });
     gsap.set(cards, { autoAlpha: 0, y: 14 });
     gsap.set(detail, { autoAlpha: 0, x: 32 });
     gsap.set(detailParts, { autoAlpha: 0, y: 10 });
@@ -377,7 +386,13 @@ function mitreDemo(motionAllowed) {
     });
     tl.addLabel("open")
       .call(() => cue(0))
-      .to(shell, { autoAlpha: 1, y: 0, duration: 0.78, ease: "power3.out" });
+      .to(shell, {
+        autoAlpha: 1,
+        scale: 1,
+        x: 0,
+        duration: 0.9,
+        ease: "power3.out",
+      });
     tl.addLabel("browse")
       .call(() => cue(1))
       .to(cards, { autoAlpha: 1, y: 0, stagger: 0.16, duration: 0.48 });
@@ -442,14 +457,14 @@ function mitreDemo(motionAllowed) {
     final,
     build,
     steps: [
-      "Le référentiel s'ouvre sans recherche active.",
-      "Plusieurs sous-techniques de T1059 sont visibles.",
-      "Le champ de recherche prend le focus.",
-      "PowerShell est saisi dans la recherche illustrative.",
-      "La liste se réduit à T1059.001.",
-      "Le filtre Windows est sélectionné.",
-      "La technique PowerShell est sélectionnée.",
-      "La fiche montre Exécution, Windows et la référence MITRE officielle.",
+      "La matrice des tactiques s'ouvre.",
+      "La famille T1059 présente ses sous-techniques.",
+      "La recherche est sélectionnée.",
+      "PowerShell est saisi.",
+      "La matrice ne garde que T1059.001.",
+      "La plateforme Windows est retenue.",
+      "PowerShell est sélectionné.",
+      "La fiche distingue tactique, plateforme et source.",
     ],
   });
   cards[0].addEventListener("click", demo.finish);

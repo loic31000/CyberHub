@@ -802,6 +802,7 @@
               ><span class="product-caret" aria-hidden="true"></span></span
             ><span class="osint-run">RECHERCHE ILLUSTRÉE ↗</span>
           </div>
+          <div class="osint-scan-track" aria-hidden="true"><span></span></div>
           <div class="osint-body">
             <div class="osint-ledger">
               <div class="product-subhead">
@@ -883,6 +884,9 @@
               role="group"
               aria-label="Choisir un instantané"
             >
+              <div class="bgp-time-axis" aria-hidden="true">
+                <span>t0 / initial</span><i>→</i><span>t1 / suivant</span>
+              </div>
               <button
                 type="button"
                 class="bgp-snapshot"
@@ -903,6 +907,9 @@
             </div>
             <div class="bgp-diff">
               <p class="product-kicker">DIFF / DEUX INSTANTANÉS</p>
+              <p class="bgp-diff-empty" hidden>
+                Sélectionnez les deux instantanés pour comparer leurs chemins.
+              </p>
               <div class="bgp-diff-line bgp-removed">
                 <span>−</span><strong>via AS64513</strong
                 ><small>Retiré dans l'exemple</small>
@@ -936,7 +943,7 @@
         </p>
         <div
           class="final-stage"
-          aria-label="Parcours fictif dans CyberHub : un indice devient un IOC documenté, ses liens sont examinés, puis ses sources sont conservées dans un dossier."
+          aria-label="Aperçu fictif de CyberHub : IOC Manager, matrice MITRE et dossier d'investigation."
         >
           <div class="final-camera" aria-hidden="true">
             <div class="final-view final-view-main">

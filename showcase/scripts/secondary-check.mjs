@@ -49,6 +49,12 @@ try {
     }
     assert.equal(await page.locator(".cve-primary").isVisible(), true);
     assert.equal(
+      await page
+        .locator(".investigation-section .attach-source")
+        .getAttribute("aria-pressed"),
+      "true",
+    );
+    assert.equal(
       await page.locator(".cve-secondary").first().isVisible(),
       false,
     );
@@ -83,6 +89,7 @@ try {
         .evaluate((node) => node.classList.contains("is-hidden")),
       true,
     );
+    assert.equal(await page.locator(".bgp-diff-empty").isVisible(), true);
     assert.equal(await page.locator(".final-constellation").count(), 0);
     assert.equal(await page.locator(".final-view").count(), 3);
     assert.ok(

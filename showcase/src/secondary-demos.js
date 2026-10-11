@@ -18,12 +18,12 @@ function cveDemo(motionAllowed) {
     ".disciplines-section",
     "CVE & KEV",
     [
-      "La veille locale s'ouvre sur trois entrées synthétiques.",
-      "La recherche illustrative saisit « serveur ».",
+      "Trois entrées fictives arrivent dans la veille.",
+      "La recherche saisit « serveur ».",
       "Le filtre Critique est choisi.",
-      "L'entrée concernée remonte dans la liste ; les autres s'écartent.",
-      "CH-VEILLE-02 est sélectionnée et sa fiche s'ouvre.",
-      "La provenance et les données absentes restent visibles.",
+      "CH-VEILLE-02 remonte dans la liste.",
+      "La fiche sélectionnée s'ouvre.",
+      "La provenance et les inconnues restent visibles.",
     ],
     motionAllowed,
     ({ $, $$ }) => {
@@ -63,8 +63,8 @@ function cveDemo(motionAllowed) {
         filter.firstChild.textContent = "TOUTES SÉVÉRITÉS ";
         count.textContent = "3 entrées illustratives";
         select(primary);
-        gsap.set(shell, { autoAlpha: 0, y: 34 });
-        gsap.set(inspector, { autoAlpha: 0, x: 42 });
+        gsap.set(rows, { autoAlpha: 0, x: -18 });
+        gsap.set(inspector, { clipPath: "inset(0 0 0 100%)" });
       }
       function final() {
         gsap.killTweensOf(rows);
@@ -86,7 +86,7 @@ function cveDemo(motionAllowed) {
         });
         tl.addLabel("index")
           .call(() => cue(0))
-          .to(shell, { autoAlpha: 1, y: 0, duration: 0.8 });
+          .to(rows, { autoAlpha: 1, x: 0, stagger: 0.12, duration: 0.46 });
         tl.addLabel("search")
           .call(() => cue(1))
           .to(query, { text: fullQuery, duration: 1.0, ease: "none" });
@@ -125,7 +125,11 @@ function cveDemo(motionAllowed) {
           .fromTo(primary, { x: -12 }, { x: 0, duration: 0.35 });
         tl.addLabel("provenance")
           .call(() => cue(5))
-          .to(inspector, { autoAlpha: 1, x: 0, duration: 0.7 });
+          .to(inspector, {
+            clipPath: "inset(0 0 0 0%)",
+            duration: 0.72,
+            ease: "power3.inOut",
+          });
         return tl;
       }
       rows.forEach((row) =>
@@ -168,15 +172,17 @@ function osintDemo(motionAllowed) {
     ".osint-scene",
     "OSINT RUNNER",
     [
-      "Le module présente un champ de pseudonyme et des sources séparées.",
-      "« exemple_26 » est saisi dans une recherche simulée.",
-      "Trois pistes illustratives apparaissent, avec leurs limites.",
-      "La source A est inspectée ; aucune identité n'est attribuée.",
+      "Le champ attend un pseudonyme fictif.",
+      "« exemple_26 » est saisi localement.",
+      "Trois sources distinctes sont parcourues.",
+      "Une mention est inspectée, sans attribution.",
     ],
     motionAllowed,
     ({ $, $$ }) => {
       const shell = $(".osint-shell");
+      const field = $(".osint-field");
       const query = $(".osint-query");
+      const scan = $(".osint-scan-track span");
       const sources = $$(".osint-source");
       const inspector = $(".osint-inspector");
       const fullQuery = query.textContent;
@@ -206,15 +212,19 @@ function osintDemo(motionAllowed) {
           details[id][1];
       }
       function prepare() {
-        gsap.set([shell, ...sources, inspector], { clearProps: "all" });
+        gsap.set([shell, field, query, scan, ...sources, inspector], {
+          clearProps: "all",
+        });
         query.textContent = "";
         select("a");
-        gsap.set(shell, { autoAlpha: 0, y: 30 });
-        gsap.set(sources, { autoAlpha: 0, x: -18 });
-        gsap.set(inspector, { autoAlpha: 0, x: 28 });
+        gsap.set(scan, { width: "0%" });
+        gsap.set(sources, { clipPath: "inset(0 100% 0 0)" });
+        gsap.set(inspector, { clipPath: "inset(0 0 100% 0)" });
       }
       function final() {
-        gsap.set([shell, ...sources, inspector, query], { clearProps: "all" });
+        gsap.set([shell, field, query, scan, ...sources, inspector], {
+          clearProps: "all",
+        });
         query.textContent = fullQuery;
         select("a");
       }
@@ -225,16 +235,38 @@ function osintDemo(motionAllowed) {
         });
         tl.addLabel("open")
           .call(() => cue(0))
-          .to(shell, { autoAlpha: 1, y: 0, duration: 0.7 });
+          .to(field, {
+            borderColor: "#6be2ec",
+            backgroundColor: "#163543",
+            duration: 0.55,
+          });
         tl.addLabel("query")
           .call(() => cue(1))
           .to(query, { text: fullQuery, duration: 0.9, ease: "none" });
         tl.addLabel("sources")
           .call(() => cue(2))
-          .to(sources, { autoAlpha: 1, x: 0, stagger: 0.18, duration: 0.44 });
+          .to(scan, { width: "100%", duration: 1.2, ease: "none" })
+          .to(
+            sources,
+            { clipPath: "inset(0 0% 0 0)", stagger: 0.16, duration: 0.48 },
+            "<",
+          );
         tl.addLabel("inspect")
           .call(() => cue(3))
-          .to(inspector, { autoAlpha: 1, x: 0, duration: 0.65 });
+          .to(inspector, {
+            clipPath: "inset(0 0 0% 0)",
+            duration: 0.75,
+            ease: "power3.inOut",
+          })
+          .to(
+            field,
+            {
+              borderColor: "#3c596b",
+              backgroundColor: "#101b27",
+              duration: 0.35,
+            },
+            "<",
+          );
         return tl;
       }
       sources.forEach((source) =>
@@ -254,25 +286,42 @@ function bgpDemo(motionAllowed) {
     ".bgp-scene",
     "BGP HISTORIAN",
     [
-      "Un AS privé et un préfixe de documentation entrent dans Lookup.",
-      "Deux instantanés fictifs sont placés côte à côte.",
-      "La comparaison signale un chemin retiré et un chemin ajouté.",
+      "AS64512 est recherché dans cet exemple local.",
+      "Deux instants fictifs prennent place sur l'axe.",
+      "Un chemin disparaît ; un autre apparaît.",
     ],
     motionAllowed,
     ({ $, $$ }) => {
       const shell = $(".bgp-shell");
       const lookup = $(".bgp-lookup");
+      const axis = $(".bgp-time-axis");
       const snapshots = $$(".bgp-snapshot");
       const diff = $(".bgp-diff");
+      const diffEmpty = $(".bgp-diff-empty");
+      function resetComparison() {
+        snapshots.forEach((snapshot) =>
+          snapshot.setAttribute("aria-pressed", "true"),
+        );
+        diff.classList.remove("is-hidden");
+        diffEmpty.hidden = true;
+      }
       function prepare() {
-        gsap.set([shell, lookup, ...snapshots, diff], { clearProps: "all" });
-        gsap.set(shell, { autoAlpha: 0, y: 28 });
+        gsap.set([shell, lookup, axis, ...snapshots, diff], {
+          clearProps: "all",
+        });
+        resetComparison();
         gsap.set(lookup, { autoAlpha: 0, x: -24 });
-        gsap.set(snapshots, { autoAlpha: 0, y: 22 });
-        gsap.set(diff, { autoAlpha: 0, x: 30 });
+        gsap.set(axis, { scaleX: 0, transformOrigin: "left center" });
+        gsap.set(snapshots, { autoAlpha: 0 });
+        gsap.set(snapshots[0], { x: -22 });
+        gsap.set(snapshots[1], { x: 22 });
+        gsap.set(diff, { clipPath: "inset(0 100% 0 0)" });
       }
       function final() {
-        gsap.set([shell, lookup, ...snapshots, diff], { clearProps: "all" });
+        gsap.set([shell, lookup, axis, ...snapshots, diff], {
+          clearProps: "all",
+        });
+        resetComparison();
       }
       function build(cue) {
         const tl = gsap.timeline({
@@ -281,14 +330,22 @@ function bgpDemo(motionAllowed) {
         });
         tl.addLabel("lookup")
           .call(() => cue(0))
-          .to(shell, { autoAlpha: 1, y: 0, duration: 0.7 })
-          .to(lookup, { autoAlpha: 1, x: 0, duration: 0.4 }, "<+0.1");
+          .to(lookup, { autoAlpha: 1, x: 0, duration: 0.68 });
         tl.addLabel("snapshots")
           .call(() => cue(1))
-          .to(snapshots, { autoAlpha: 1, y: 0, stagger: 0.25, duration: 0.55 });
+          .to(axis, { scaleX: 1, duration: 0.5 })
+          .to(
+            snapshots,
+            { autoAlpha: 1, x: 0, stagger: 0.22, duration: 0.62 },
+            "<+0.15",
+          );
         tl.addLabel("diff")
           .call(() => cue(2))
-          .to(diff, { autoAlpha: 1, x: 0, duration: 0.65 })
+          .to(diff, {
+            clipPath: "inset(0 0% 0 0)",
+            duration: 0.78,
+            ease: "power3.inOut",
+          })
           .fromTo(
             diff.querySelectorAll(".bgp-diff-line"),
             { x: -12 },
@@ -304,12 +361,11 @@ function bgpDemo(motionAllowed) {
             "aria-pressed",
             String(item.getAttribute("aria-pressed") !== "true"),
           );
-          diff.classList.toggle(
-            "is-hidden",
-            snapshots.some(
-              (node) => node.getAttribute("aria-pressed") !== "true",
-            ),
+          const incomplete = snapshots.some(
+            (node) => node.getAttribute("aria-pressed") !== "true",
           );
+          diff.classList.toggle("is-hidden", incomplete);
+          diffEmpty.hidden = !incomplete;
         }),
       );
       return { prepare, final, build };
@@ -323,11 +379,11 @@ function investigationDemo(motionAllowed) {
     ".investigation-section",
     "INVESTIGATION",
     [
-      "Un dossier conceptuel s'ouvre.",
-      "L'indicateur et la provenance entrent dans le dossier.",
-      "Deux événements datés construisent la chronologie.",
-      "La question de vérification est inscrite.",
-      "Un playbook propose trois étapes ; aucune n'est exécutée.",
+      "Le dossier fictif s'ouvre.",
+      "Indicateur et source y sont rattachés.",
+      "Deux événements entrent dans la chronologie.",
+      "Une question reste à vérifier.",
+      "Le playbook guide la lecture, sans exécution.",
     ],
     motionAllowed,
     ({ $, $$ }) => {
@@ -338,6 +394,14 @@ function investigationDemo(motionAllowed) {
       const events = $$(".investigation-timeline li");
       const question = $(".case-question");
       const playbook = $(".playbook");
+      const attach = $(".attach-source");
+      const sourceStatus = $("#source-status");
+      function setAttached(attached) {
+        attach.setAttribute("aria-pressed", String(attached));
+        sourceStatus.textContent = attached
+          ? "Source ajoutée au dossier fictif dans cette page seulement. Aucune donnée enregistrée."
+          : "Démonstration locale · aucune donnée enregistrée.";
+      }
       const nodes = [
         shell,
         caseFile,
@@ -349,7 +413,12 @@ function investigationDemo(motionAllowed) {
       ];
       function prepare() {
         gsap.set(nodes, { clearProps: "all" });
-        gsap.set(shell, { autoAlpha: 0, y: 30 });
+        setAttached(false);
+        gsap.set(caseFile, {
+          rotateY: -12,
+          scale: 0.96,
+          transformOrigin: "left center",
+        });
         gsap.set([indicator, slip, ...events, question, playbook], {
           autoAlpha: 0,
         });
@@ -360,6 +429,7 @@ function investigationDemo(motionAllowed) {
       }
       function final() {
         gsap.set(nodes, { clearProps: "all" });
+        setAttached(true);
       }
       function build(cue) {
         const tl = gsap.timeline({
@@ -368,17 +438,18 @@ function investigationDemo(motionAllowed) {
         });
         tl.addLabel("open")
           .call(() => cue(0))
-          .to(shell, { autoAlpha: 1, y: 0, duration: 0.75 })
-          .fromTo(
-            caseFile,
-            { rotateY: -7 },
-            { rotateY: 0, duration: 0.55 },
-            "<",
-          );
+          .to(caseFile, {
+            rotateY: 0,
+            scale: 1,
+            duration: 0.82,
+            ease: "power3.out",
+          });
         tl.addLabel("indicator")
           .call(() => cue(1))
           .to(indicator, { autoAlpha: 1, x: 0, duration: 0.55 })
-          .to(slip, { autoAlpha: 1, x: 0, duration: 0.5 }, "<+0.15");
+          .to(slip, { autoAlpha: 1, x: 0, duration: 0.5 }, "<+0.15")
+          .to(attach, { scale: 0.96, duration: 0.13, yoyo: true, repeat: 1 })
+          .call(() => setAttached(true));
         tl.addLabel("events")
           .call(() => cue(2))
           .to(events.slice(0, 2), {
@@ -406,10 +477,10 @@ function finalDemo(motionAllowed) {
     ".final-section",
     "CYBERHUB",
     [
-      "Les vues précédentes reviennent dans un même espace.",
-      "IOC, MITRE et Investigation forment une vue du produit.",
-      "Le cadre recule et révèle l'ensemble de CyberHub.",
-      "Rendre visible l'invisible : découvrir le projet.",
+      "Une première vue du produit réapparaît.",
+      "MITRE et le dossier rejoignent l'ensemble.",
+      "Le regard recule : les modules forment CyberHub.",
+      "Rendre visible l'invisible. Explorer le projet.",
     ],
     motionAllowed,
     ({ $, $$ }) => {
@@ -417,14 +488,25 @@ function finalDemo(motionAllowed) {
       const camera = $(".final-camera");
       const views = $$(".final-view");
       const title = $("#final-title");
+      const intro = $(".final-intro");
+      const disclaimer = $(".final-disclaimer");
       const actions = $(".final-actions");
-      const nodes = [stage, camera, ...views, title, actions];
+      const nodes = [
+        stage,
+        camera,
+        ...views,
+        title,
+        intro,
+        disclaimer,
+        actions,
+      ];
       function prepare() {
         gsap.set(nodes, { clearProps: "all" });
-        gsap.set(camera, { scale: 1.18, rotateX: 4, y: 40, autoAlpha: 0 });
-        gsap.set(views.slice(1), { autoAlpha: 0, x: 80 });
-        gsap.set(title, { autoAlpha: 0, y: 24 });
-        gsap.set(actions, { autoAlpha: 0, y: 16 });
+        gsap.set(camera, { scale: 1.16, rotateY: -6, x: 52, autoAlpha: 0 });
+        gsap.set(views.slice(1), { autoAlpha: 0, x: 65 });
+        gsap.set(title, { clipPath: "inset(100% 0 0 0)", y: 18 });
+        gsap.set([intro, disclaimer], { autoAlpha: 0, y: 10 });
+        gsap.set(actions, { autoAlpha: 0, y: 12 });
       }
       function final() {
         gsap.set(nodes, { clearProps: "all" });
@@ -436,7 +518,7 @@ function finalDemo(motionAllowed) {
         });
         tl.addLabel("return")
           .call(() => cue(0))
-          .to(camera, { autoAlpha: 1, y: 0, duration: 0.9 });
+          .to(camera, { autoAlpha: 1, x: 0, duration: 0.88 });
         tl.addLabel("compose")
           .call(() => cue(1))
           .to(views.slice(1), {
@@ -447,11 +529,16 @@ function finalDemo(motionAllowed) {
           });
         tl.addLabel("reveal")
           .call(() => cue(2))
-          .to(camera, { scale: 1, rotateX: 0, duration: 1.1 });
+          .to(camera, { scale: 1, rotateY: 0, duration: 1.06 });
         tl.addLabel("title")
           .call(() => cue(3))
-          .to(title, { autoAlpha: 1, y: 0, duration: 0.7 })
-          .to(actions, { autoAlpha: 1, y: 0, duration: 0.58 }, "<+0.3");
+          .to(title, { clipPath: "inset(0% 0 0 0)", y: 0, duration: 0.82 })
+          .to(
+            [intro, disclaimer],
+            { autoAlpha: 1, y: 0, stagger: 0.12, duration: 0.5 },
+            "<+0.24",
+          )
+          .to(actions, { autoAlpha: 1, y: 0, duration: 0.58 }, "<+0.42");
         return tl;
       }
       return { prepare, final, build };
