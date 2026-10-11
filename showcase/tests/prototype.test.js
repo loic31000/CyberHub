@@ -23,36 +23,25 @@ function contrast(foreground, background) {
   return (Math.max(first, second) + 0.05) / (Math.min(first, second) + 0.05);
 }
 
-test("deux parcours distincts exposent toutes les scènes demandées", () => {
-  for (const page of ["a.html", "b.html"]) {
-    const html = read(page);
-    const anchors =
-      page === "a.html"
-        ? ["signal", "comprendre", "cartographier", "console"]
-        : ["dossier", "recouper", "atlas", "console"];
-    for (const anchor of anchors)
-      assert.match(html, new RegExp(`id="${anchor}"`));
-    for (const heading of [
-      "<h1",
-      "<h2",
-      "DONNÉES FICTIVES",
-      "motion-toggle",
-      "data-evidence",
-    ]) {
-      assert.ok(html.includes(heading), `${page} manque ${heading}`);
-    }
-  }
+test("A V1 et ses données synthétiques restent disponibles", () => {
+  const html = read("a.html");
+  for (const anchor of ["signal", "comprendre", "cartographier", "console"])
+    assert.match(html, new RegExp(`id="${anchor}"`));
+  for (const heading of [
+    "<h1",
+    "<h2",
+    "DONNÉES FICTIVES",
+    "motion-toggle",
+    "data-evidence",
+  ])
+    assert.ok(html.includes(heading), `A V1 manque ${heading}`);
   assert.match(read("index.html"), /href="\.\/a\.html"/);
-  assert.match(read("index.html"), /href="\.\/b\.html"/);
   assert.equal(evidence.length, 3);
   assert.equal(signals.length, 3);
-  assert.deepEqual(
-    new Set(evidence.map((item) => item.id)).size,
-    evidence.length,
-  );
+  assert.equal(new Set(evidence.map((item) => item.id)).size, evidence.length);
 });
 
-test("A V2 garde un scénario fictif cohérent sur quatre actes", () => {
+test("A V2 garde son scénario fictif et ses quatre actes", () => {
   const html = read("a-v2.html");
   for (const anchor of ["signal", "comprendre", "cartographier", "agir"])
     assert.match(html, new RegExp(`id="${anchor}"`));
@@ -64,7 +53,7 @@ test("A V2 garde un scénario fictif cohérent sur quatre actes", () => {
   assert.match(html, /class="relation-map"/);
 });
 
-test("A V3 conserve l’enquête fictive et expose une version statique stylée", () => {
+test("A V3 garde son parcours et son style sans JavaScript", () => {
   const html = read("a-v3.html");
   for (const anchor of ["signal", "comprendre", "cartographier", "agir"])
     assert.match(html, new RegExp(`id="${anchor}"`));
@@ -75,50 +64,36 @@ test("A V3 conserve l’enquête fictive et expose une version statique stylée"
   assert.match(html, /class="map-list"/);
 });
 
-test("les deux nouvelles directions ont un parcours et un système complets", () => {
-  for (const [page, kit, css] of [
-    ["atelier-traces.html", "atelier-traces-kit.html", "atelier-traces.css"],
-    [
-      "topologie-indices.html",
-      "topologie-indices-kit.html",
-      "topologie-indices.css",
-    ],
-  ]) {
-    const story = read(page);
-    for (const id of ["observations", "relations", "dossier"])
-      assert.match(story, new RegExp(`id="${id}"`));
-    assert.match(story, /198\.51\.100\.42/);
-    assert.match(story, /DÉMONSTRATION FICTIVE/);
-    assert.match(story, /data-map-node/);
-    assert.match(story, new RegExp(`href="/src/${css}"`));
-    const system = read(kit);
-    for (const id of ["identite", "composants", "mouvement"])
-      assert.match(system, new RegExp(`id="${id}"`));
-    assert.match(read("index.html"), new RegExp(`href="\\./${page}"`));
-  }
+test("le laboratoire ne référence plus les explorations rejetées", () => {
+  for (const path of [
+    "index.html",
+    "a.html",
+    "a-v2.html",
+    "a-v3.html",
+    "vite.config.js",
+    "package.json",
+  ])
+    assert.doesNotMatch(
+      read(path),
+      /b\.html|atelier-traces|topologie-indices|test:directions/i,
+      path,
+    );
 });
 
 test("le code public et le build ne contiennent pas de client ou route privée", () => {
   const sources = [
     "index.html",
     "a.html",
-    "b.html",
     "a-v2.html",
     "a-v3.html",
-    "atelier-traces.html",
-    "atelier-traces-kit.html",
-    "topologie-indices.html",
-    "topologie-indices-kit.html",
+    "src/lab.css",
     "src/main.js",
     "src/a-v2.js",
     "src/a-v3.js",
-    "src/design-explorations.js",
     "src/fixtures.js",
     "src/styles.css",
     "src/a-v2.css",
     "src/a-v3.css",
-    "src/atelier-traces.css",
-    "src/topologie-indices.css",
   ];
   const built = readdirSync(join(root, "dist/assets"))
     .filter((name) => /\.(css|js)$/.test(name))
@@ -128,45 +103,31 @@ test("le code public et le build ne contiennent pas de client ou route privée",
     ...built,
     "dist/index.html",
     "dist/a.html",
-    "dist/b.html",
     "dist/a-v2.html",
     "dist/a-v3.html",
-    "dist/atelier-traces.html",
-    "dist/atelier-traces-kit.html",
-    "dist/topologie-indices.html",
-    "dist/topologie-indices-kit.html",
   ]) {
-    const text = read(path);
     assert.doesNotMatch(
-      text,
+      read(path),
       /\/api(?:\/|\b)|cyber_hub_token|Authorization|localhost:7743|fetch\(['"]https?:/i,
       path,
     );
   }
-  assert.doesNotMatch(
-    read("src/main.js"),
-    /\bfetch\s*\(|XMLHttpRequest|WebSocket|EventSource/,
-  );
-  assert.doesNotMatch(
-    read("src/a-v2.js"),
-    /\bfetch\s*\(|XMLHttpRequest|WebSocket|EventSource/,
-  );
-  assert.doesNotMatch(
-    read("src/a-v3.js"),
-    /\bfetch\s*\(|XMLHttpRequest|WebSocket|EventSource/,
-  );
-  assert.doesNotMatch(
-    read("src/design-explorations.js"),
-    /\bfetch\s*\(|XMLHttpRequest|WebSocket|EventSource/,
-  );
-  assert.doesNotMatch(read("src/styles.css"), /https?:\/\//);
-  assert.doesNotMatch(read("src/a-v2.css"), /https?:\/\//);
-  assert.doesNotMatch(read("src/a-v3.css"), /https?:\/\//);
-  assert.doesNotMatch(read("src/atelier-traces.css"), /https?:\/\//);
-  assert.doesNotMatch(read("src/topologie-indices.css"), /https?:\/\//);
+  for (const script of ["src/main.js", "src/a-v2.js", "src/a-v3.js"])
+    assert.doesNotMatch(
+      read(script),
+      /\bfetch\s*\(|XMLHttpRequest|WebSocket|EventSource/,
+      script,
+    );
+  for (const css of [
+    "src/lab.css",
+    "src/styles.css",
+    "src/a-v2.css",
+    "src/a-v3.css",
+  ])
+    assert.doesNotMatch(read(css), /https?:\/\//, css);
 });
 
-test("les couleurs de texte principales atteignent le contraste AA de base", () => {
+test("les couleurs structurantes de A V1 gardent le contraste AA", () => {
   const css = read("src/styles.css");
   const color = (token) => {
     const match = css.match(new RegExp(`${token}:\\s*#([0-9a-f]{6})`, "i"));
@@ -177,13 +138,6 @@ test("les couleurs de texte principales atteignent le contraste AA de base", () 
     [color("--paper"), color("--ink")],
     [color("--copper"), color("--ink")],
     [color("--mist"), color("--ink")],
-    [color("--b-ink"), color("--b-paper")],
-    [color("--b-red"), color("--b-paper")],
-    [color("--b-blue"), color("--b-paper")],
-  ]) {
-    assert.ok(
-      contrast(foreground, background) >= 4.5,
-      `${foreground} sur ${background}`,
-    );
-  }
+  ])
+    assert.ok(contrast(foreground, background) >= 4.5);
 });

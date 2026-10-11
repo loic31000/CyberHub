@@ -101,26 +101,6 @@ async function exercisePage(browser, route, name, viewport, mobile = false) {
       await page.locator(".map-node.node-two").getAttribute("aria-pressed"),
       "true",
     );
-  } else {
-    const atlas = page.locator('.atlas-graphic [data-evidence="e2"]');
-    await atlas.click();
-    assert.equal(
-      await page.locator(".atlas-selected [data-evidence-code]").textContent(),
-      "B—02",
-    );
-    const ledger = page.locator('.ledger-row[data-evidence="e3"]');
-    await ledger.focus();
-    await page.keyboard.press("Enter");
-    assert.equal(
-      await page.locator(".b-open-file [data-evidence-title]").textContent(),
-      "Une action documentée",
-    );
-    assert.match(
-      await page
-        .locator(".b-open-file")
-        .evaluate((element) => getComputedStyle(element).animationName),
-      /file-change/,
-    );
   }
 
   await page.locator(".motion-toggle").click();
@@ -158,10 +138,7 @@ async function main() {
       "Le Showcase ne doit pas router /api vers Go",
     );
 
-    for (const [route, name] of [
-      ["a.html", "a"],
-      ["b.html", "b"],
-    ]) {
+    for (const [route, name] of [["a.html", "a"]]) {
       await exercisePage(browser, route, name, { width: 1440, height: 900 });
       await exercisePage(
         browser,
@@ -242,7 +219,7 @@ async function main() {
     }
     assert.deepEqual(readFileSync(cssPath), originalCss);
     console.log(
-      "PASS : A et B à 1440/768/390/320 px, animations, interactions souris/clavier/tactile, mouvement réduit, HMR, aucune requête externe ou API privée.",
+      "PASS : A V1 à 1440/768/390/320 px, animations, interactions souris/clavier/tactile, mouvement réduit, HMR, aucune requête externe ou API privée.",
     );
     console.log(`Captures : ${captures}`);
   } finally {

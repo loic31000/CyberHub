@@ -1,22 +1,8 @@
-# CyberHub 2026 — laboratoire de direction artistique
+# CyberHub 2026 — laboratoire local
 
-Laboratoire de l’[issue #7](https://github.com/loic31000/CyberHub/issues/7). Après A V3, deux nouvelles identités complètes sont proposées pour décision : **Atelier des traces** et **Topologie d’indices**. Aucune direction artistique définitive n’est validée. Ce site Vite autonome ne lit ni `frontend/`, ni `backend/`, ni SQLite et ne définit aucun proxy `/api`. Les données sont **synthétiques** ; la Console privée reste inchangée.
+Ce laboratoire Vite est autonome : aucune connexion à la Console privée, à SQLite ou aux API du backend. Les données affichées sont synthétiques. La nouvelle vitrine narrative **« De la commande à la compréhension »** est en préparation ; les trois prototypes A restent comme archives de comparaison.
 
-## Ouvrir les prototypes
-
-**Comparer les deux nouvelles pistes et leurs UI kits avant tout travail V4.** Lire l’[audit V3](direction-audit.md), le [redémarrage créatif](direction-reset.md) et la [comparaison de décision](direction-comparison.md). A V1, A V2, A V3 et B restent accessibles comme explorations précédentes.
-
-| Nouvelle piste | Parcours | Système graphique |
-| --- | --- | --- |
-| Atelier des traces | http://127.0.0.1:5174/atelier-traces.html | http://127.0.0.1:5174/atelier-traces-kit.html |
-| Topologie d’indices | http://127.0.0.1:5174/topologie-indices.html | http://127.0.0.1:5174/topologie-indices-kit.html |
-
-| Vue supplémentaire | URL locale | Intention |
-| --- | --- | --- |
-| A V2 — Sismographe éditorial | http://127.0.0.1:5174/a-v2.html | Une même adresse fictive traverse les quatre actes, du signal à la méthode de vérification. |
-| A V3 — Instrument de lecture | http://127.0.0.1:5174/a-v3.html | Le signal devient une adresse, deux notes, une relation, puis un dossier fictif ; le tracé suit la lecture et son retour. |
-
-Dans PowerShell :
+## Ouvrir le laboratoire
 
 ```powershell
 cd C:\Users\sion\CyberHub\showcase
@@ -24,52 +10,29 @@ npm ci
 npm run dev
 ```
 
-| Vue | URL locale | Intention |
-| --- | --- | --- |
-| Comparaison | http://127.0.0.1:5174/ | Comparer les deux nouvelles identités et retrouver les anciennes pistes. |
-| A — Sismographe éditorial | http://127.0.0.1:5174/a.html | Le signal prend forme, puis devient une relation et une interface. |
-| B — Atlas d’indices | http://127.0.0.1:5174/b.html | Une enquête se construit par fiches, annotations et sources. |
+Vite écoute uniquement sur `127.0.0.1:5174` et refuse de changer de port silencieusement.
 
-Le port **5174** est fixe : Vite refuse de démarrer s’il est occupé, au lieu de choisir silencieusement un autre port. Les modifications HTML/CSS/JS arrivent via HMR, sans reconstruire Docker. Le serveur est lié à `127.0.0.1`. Arrêter Vite avec `Ctrl+C` dans son terminal. Pour une prévisualisation du build, arrêter le serveur de développement puis lancer `npm run build; npm run preview`.
+| Vue | URL locale |
+| --- | --- |
+| Accueil et archives | http://127.0.0.1:5174/ |
+| A V1 | http://127.0.0.1:5174/a.html |
+| A V2 | http://127.0.0.1:5174/a-v2.html |
+| A V3 | http://127.0.0.1:5174/a-v3.html |
 
-## Comparer ce qui compte
+Les audits [A V2](a-v2-audit.md), [A V3](a-v3-audit.md) et [direction V3](direction-audit.md), les captures des trois versions et les six références visuelles de A V3 restent disponibles. Les anciennes explorations B, Atelier et Topologie ont été retirées du laboratoire actif.
 
-Dans **Atelier**, suivre l’extraction d’une adresse depuis une note fictive, ouvrir les deux sources et sélectionner une pièce du registre. L’orange marque une mention extraite ; le cyan marque sa provenance. Dans **Topologie**, suivre deux chemins vers une adresse commune, sélectionner les nœuds ou leur liste textuelle, puis ouvrir la prochaine vérification. Le trait plein indique une citation ; le pointillé garde l’hypothèse ouverte. Chaque piste possède une page de composants, des états interactifs, des captures et une vidéo dans [`captures/directions/`](captures/directions/).
-
-### Explorations précédentes
-
-Dans **A**, observer l’apparition initiale du tracé, puis cliquer sur *Observer / Relier / Décider* dans « Comprendre ». Dans « Cartographier », choisir un nœud ou la liste alternative et vérifier que provenance, niveau de certitude et relation changent ensemble. La Console illustrée reprend la forme du tracé dans une hiérarchie de travail sombre.
-
-Dans **B**, ouvrir successivement les fiches de l’index, puis sélectionner une fiche dans l’atlas. La carte reste accompagnée de relations écrites ; l’interface de Console reprend le langage du dossier et rend la prochaine vérification explicite. A privilégie une progression par actes ; B invite à revenir sur une source et à changer d’hypothèse.
-
-Les deux pages comprennent un bouton **Réduire les effets**. La préférence système `prefers-reduced-motion` l’emporte et affiche directement les états stables. Le scroll reste natif. Les animations principales sont : tracé initial A (2,2 s, une seule fois), révélation des sections (0,8 s à l’entrée), lignes de relation A (1,3 s au passage), ouverture d’une fiche B (0,33 s sur sélection). Les survols et états de focus restent visibles sans mouvement. Aucune donnée ne dépend de l’animation pour être comprise.
-
-## Captures et vérifications
-
-Les captures générées par le test navigateur sont dans [`captures/`](captures/) : `comparison-desktop.png`, `a-desktop.png`, `a-mobile.png`, `b-desktop.png`, `b-mobile.png`. Les vues A/B montrent une sélection faite pendant le test, pour rendre les états interactifs visibles.
+## Vérifier
 
 ```powershell
-npm run build
 npm test
 npm run test:browser
 npm run test:v2
 npm run test:v3
-npm run test:directions
 npm run test:visual
 npm run format:check
-npm audit
+npm audit --audit-level=low
 ```
 
-`npm test` reconstruit puis contrôle les pages, les fixtures, le contraste des principales paires de texte et l’absence de routes, tokens ou clients privés dans le build. `test:browser` lance Vite si nécessaire, emploie Chromium installé localement, teste 1440/768/390/320 px, les interactions souris/clavier/tactile, le mouvement réduit, l’absence de débordement, de requête externe ou d’accès `/api`, puis vérifie HMR en restaurant exactement le CSS d’origine. S’il ne trouve pas Chromium, définir `PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH` vers un exécutable compatible.
+`npm test` construit le site puis vérifie les archives et l'isolement des routes privées. Les scripts navigateur utilisent Chromium installé localement, ou `PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH` si nécessaire. `test:visual` compare A V3 à ses références existantes ; `visual:update` ne doit être utilisé qu'après une revue explicite des changements visuels.
 
-`test:v3` parcourt A V3 à 320/390/768/1024/1440/1920 px, vérifie les états interactifs, la progression et le retour du tracé, le mouvement réduit ou arrêté, le rendu sans JavaScript, axe-core sur plusieurs états, et enregistre captures et vidéo dans [`captures/a-v3/`](captures/a-v3/). `test:visual` compare six scènes avec des [références contrôlées](captures/a-v3/reference/) ; `visual:update` ne doit servir qu’après examen d’un changement visuel voulu. Le [rapport V3](a-v3-audit.md) présente les résultats et les limites de ces contrôles.
-
-`test:directions` vérifie les quatre nouvelles pages à six largeurs, axe-core sur parcours/UI kits et états interactifs, navigation clavier/tactile, menu mobile, pause du mouvement, rendu statique sans JavaScript et absence de requêtes externes. Il produit les captures des scènes, les planches de composants et deux vidéos d’interaction dans [`captures/directions/`](captures/directions/), avec un [rapport JSON](captures/directions/check-report.json).
-
-Les contrastes mesurés des paires structurantes sont : ivoire/encre A **15,39:1**, cuivre/encre A **8,49:1**, encre/papier B **11,22:1**, rouge/papier B **5,17:1**, ardoise/papier B **5,12:1**. Ces mesures ciblées et les essais automatisés ne constituent pas une certification WCAG 2.2 AA ; une revue avec lecteur d’écran et appareils physiques reste nécessaire avant publication.
-
-## Assets et limites
-
-Le signal, les diagrammes, les marques et le favicon sont réalisés dans ce dépôt en HTML/CSS/SVG. Les polices Manrope, DM Sans et DM Mono sont fournies localement par Fontsource, sous licence **SIL Open Font License 1.1** ; Georgia, Segoe UI et Consolas servent de repli système. Aucun chargement de police ou d’image externe n’est nécessaire à l’exécution. Le navigateur ne reçoit aucune adresse du réseau privé, donnée de la base, valeur JWT ou état opérationnel réel. Les chiffres et dossiers visibles sont des exemples fictifs ; le futur inventaire réseau et NetAlertX ne sont pas représentés comme des fonctions livrées.
-
-Ces maquettes explorent la forme. Le récit final, la direction choisie, les textes publics et une éventuelle publication restent à valider avant l’implémentation des issues #8–#10.
+La vitrine sera une simulation illustrative : aucune commande saisie dans le terminal ne sera exécutée et aucune observation réseau réelle ne sera produite. Le lecteur pourra vérifier le code source du projet dans son [dépôt GitHub](https://github.com/loic31000/CyberHub).
