@@ -67,7 +67,14 @@
         id="terminal"
         aria-labelledby="story-title"
       >
-        <span class="scene-anchor" id="ioc" aria-hidden="true"></span>
+        <p class="pilot-accessible-summary">
+          Démonstration fictive : une commande non exécutée retrouve deux
+          mentions de l'adresse de documentation 198.51.100.42 dans
+          ./demo/events.log, lignes 14 et 31. L'adresse est reprise dans une
+          fiche IOC illustrative avec son type IPv4, sa source, son contexte et
+          ses limites : rôle, réputation et causalité inconnus. Aucune donnée
+          n'est enregistrée et aucune API privée n'est appelée.
+        </p>
         <div class="handoff-sticky">
           <div class="hero-heading">
             <p class="scene-index">
@@ -133,7 +140,7 @@
                 </button>
               </div>
             </div>
-            <div class="ioc-workspace" aria-labelledby="ioc-title">
+            <div class="ioc-workspace" id="ioc" aria-labelledby="ioc-title">
               <div class="ioc-top">
                 <span>CyberHub / IOC Manager</span><span>02 — qualifier</span>
               </div>

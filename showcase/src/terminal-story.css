@@ -2110,6 +2110,128 @@ body[data-token-dock="cyberhub-revealed"] .final-thread-target {
   }
 }
 
+/* Pilot: GSAP directs only Terminal → IOC. The rest of the page keeps V2. */
+.pilot-accessible-summary {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+.story-enhanced.pilot-enhanced:not(.motion-stopped) .handoff-track {
+  height: auto;
+  min-height: 100vh;
+  overflow-x: clip;
+}
+.story-enhanced.pilot-enhanced:not(.motion-stopped) .handoff-sticky {
+  position: relative;
+  top: auto;
+  height: auto;
+  min-height: 0;
+  overflow: visible;
+  display: block;
+}
+.story-enhanced.pilot-enhanced:not(.motion-stopped) .hero-heading,
+.story-enhanced.pilot-enhanced:not(.motion-stopped) .terminal-window,
+.story-enhanced.pilot-enhanced:not(.motion-stopped) .ioc-workspace {
+  transform: none;
+}
+.story-enhanced.pilot-enhanced:not(.motion-stopped) .handoff-workspace {
+  display: grid;
+  max-height: none;
+  min-height: 0;
+  padding: clamp(1.5rem, 3vw, 3rem) 0;
+}
+.story-enhanced.pilot-enhanced:not(.motion-stopped) .ioc-workspace {
+  position: relative;
+  top: 2rem;
+}
+.pilot-guide {
+  max-width: none;
+  margin: 1.5rem 0 0;
+  border-left: 1px solid #3d6271;
+  border-right: 1px solid #3d6271;
+}
+.pilot-guide .demo-guide-copy {
+  min-height: 1.4em;
+}
+.pilot-guide .demo-guide-steps {
+  flex-wrap: wrap;
+}
+.pilot-pointer {
+  position: fixed;
+  left: 0;
+  top: 0;
+  width: 28px;
+  height: 36px;
+  z-index: 90;
+  pointer-events: none;
+  filter: drop-shadow(0 4px 8px #000b);
+  opacity: 0;
+}
+.pilot-pointer svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+.pilot-pointer path:first-child {
+  fill: #091822;
+  stroke: #d3feff;
+  stroke-width: 3;
+  stroke-linejoin: round;
+}
+.pilot-pointer path:last-child {
+  fill: none;
+  stroke: #62dce4;
+  stroke-width: 1;
+}
+.pilot-enhanced .source-ip {
+  position: relative;
+  display: inline-block;
+}
+.pilot-shared-chip {
+  position: absolute;
+  inset: 0 auto auto 0;
+  z-index: 3;
+  white-space: nowrap;
+  padding: 0.1em 0.25em;
+  background: #b8fdff;
+  border: 1px solid #e4ffff;
+  color: #091922;
+  font: inherit;
+  box-shadow: 0 0 20px #6df4f188;
+  opacity: 0;
+}
+.pilot-enhanced .ioc-value-line .pilot-shared-chip {
+  position: relative;
+  inset: auto;
+  padding: 0.28em 0.4em;
+}
+.pilot-enhanced .ioc-placeholder {
+  display: inline;
+  color: #779aaa;
+  font: 400 0.77rem var(--mono);
+}
+@media (max-width: 760px) {
+  .story-enhanced.pilot-enhanced:not(.motion-stopped) .handoff-workspace {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 1.5rem;
+  }
+  .story-enhanced.pilot-enhanced:not(.motion-stopped) .ioc-workspace {
+    top: 0;
+  }
+  .pilot-guide {
+    margin-top: 1.2rem;
+  }
+  .pilot-guide .demo-guide-steps {
+    gap: 0.4rem;
+  }
+}
+
 /* Header rows may wrap when the visitor enlarges text. The narrative rail follows. */
 .story-progress,
 .mobile-nav,

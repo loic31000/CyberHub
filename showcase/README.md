@@ -24,9 +24,11 @@ Les audits [A V2](a-v2-audit.md), [A V3](a-v3-audit.md) et [direction V3](direct
 
 ## Lire la nouvelle expérience
 
-Le terminal écrit une commande illustrative, puis deux lignes synthétiques apparaissent. Le défilement transporte la même adresse de documentation vers la fiche IOC, le nœud central de deux citations sourcées, le dossier d'investigation, la question du playbook et la vue finale de CyberHub. La consultation MITRE et l'exploration CVE, OSINT et BGP restent indépendantes de cet indicateur.
+Le terminal écrit une commande illustrative, révèle deux lignes synthétiques, puis transfère l'adresse de documentation vers une fiche IOC. Une timeline GSAP pilote cette seule séquence, à rythme propre dès son entrée dans le viewport. Les autres scènes continuent vers la corrélation, MITRE, les investigations et la vue finale.
 
-Le moteur [story-engine.js](src/story-engine.js) déclare huit états ordonnés. Un seul rendu au scroll dans [terminal-story.js](src/terminal-story.js) synchronise la position du repère, l'étape et le texte du bandeau, la navigation et la progression des graphiques. Cinq scènes ont chacune 6 ou 7 étapes : Terminal, IOC, corrélation, MITRE et investigations. Leur lecture démarre à l'arrivée dans la scène ; sortir de la scène conserve son résultat complet. Chaque scène propose « Voir le résultat complet » et « Rejouer ». Les points d'ancrage sont recalculés au redimensionnement et après changement de hauteur du contenu. Web Animations API et SVG suffisent à ce parcours, sans dépendance Motion supplémentaire.
+Le pilote [pilot-gsap.js](src/pilot-gsap.js) possède dix étapes nommées. Il anime la saisie, le curseur, la sélection, le transfert avec Flip et la validation fictive. « Voir le résultat complet » termine la scène immédiatement et « Rejouer » relance la timeline ; une sortie rapide ou une préférence de mouvement réduit révèle le résultat final. Le moteur [story-engine.js](src/story-engine.js) et les démonstrations existantes restent utilisés pour les autres scènes.
+
+[Voir la courte capture du mouvement](captures/terminal-story/gsap-pilot.webm).
 
 La consultation MITRE révèle la tactique d'une technique. Les commandes CVE ouvrent une fiche illustrative, sa provenance et les indicateurs que CyberHub sait afficher. Les commandes OSINT comparent trois provenances fictives ; celles de BGP comparent deux instantanés fictifs. La Console existante propose effectivement des fiches CVE avec NVD/KEV/EPSS, la consultation des techniques et tactiques MITRE, des tâches WhatsMyName et un Historian BGP avec comparaison de snapshots. Aucun de ces contrôles publics ne lance une requête.
 

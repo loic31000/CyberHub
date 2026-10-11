@@ -11,97 +11,22 @@ import {
   projectAnchor,
   resolveStory,
 } from "./story-engine.js";
+import { createPilot } from "./pilot-gsap.js";
 
 const $ = (selector) => document.querySelector(selector);
 const $$ = (selector) => [...document.querySelectorAll(selector)];
 const body = document.body;
 const stage = $(".handoff-track");
 const token = $(".handoff-token");
-const command = $(".typed-command");
-const results = $$(".terminal-result");
 const motionControl = $(".motion-control");
-let sequence = [];
 let scrollFrame = 0;
 let waypoints = [];
 let activeState = -1;
 let captionAnimations = [];
 
-function cancelSequence() {
-  sequence.forEach((item) =>
-    typeof item === "number" ? clearTimeout(item) : item.cancel(),
-  );
-  sequence = [];
-}
-
-function showTerminalResult() {
-  command.style.clipPath = "";
-  results.forEach((item) => {
-    item.style.opacity = "1";
-  });
-}
-
-function playTerminal() {
-  cancelSequence();
-  showTerminalResult();
-  if (!motionAllowed()) return;
-  const writing = command.animate(
-    [{ clipPath: "inset(0 100% 0 0)" }, { clipPath: "inset(0 0 0 0)" }],
-    {
-      duration: motion.type,
-      easing: `steps(${command.textContent.length}, end)`,
-    },
-  );
-  sequence.push(writing);
-  writing.onfinish = () => writing.cancel();
-}
-
 // The source data is always in the HTML. JavaScript only stages its visual
 // presentation; the complete views remain readable without scripting.
 const chapterDefinitions = [
-  {
-    id: "terminal",
-    selector: ".terminal-window",
-    guideAfter: ".terminal-chrome",
-    steps: [
-      "Le prompt attend une commande illustrative.",
-      "Une recherche locale fictive est saisie ; elle n'est jamais exécutée.",
-      "La première ligne du journal synthétique apparaît.",
-      "Une seconde mention, à une autre heure, complète le résultat.",
-      "L'adresse 198.51.100.42 est sélectionnée pour être qualifiée.",
-      "Les deux lignes et la limite de cette recherche restent visibles.",
-    ],
-    reveal: [
-      [".typed-command", 1],
-      [".result-one", 2],
-      [".result-two", 3],
-      [".source-ip", 4],
-      [".terminal-copy-note", 4],
-      [".terminal-end", 5],
-    ],
-  },
-  {
-    id: "ioc",
-    selector: ".ioc-workspace",
-    guideAfter: ".ioc-top",
-    steps: [
-      "Une fiche d'indicateur vide s'ouvre dans IOC Manager.",
-      "L'adresse du journal arrive dans le champ de valeur.",
-      "Le type IPv4 est reconnu dans cette simulation.",
-      "La valeur est enregistrée dans la fiche fictive.",
-      "La provenance et les deux mentions sont ajoutées.",
-      "Les inconnues restent écrites à côté des faits conservés.",
-    ],
-    reveal: [
-      [".ioc-target", 1],
-      [".ioc-type", 2],
-      [".ioc-facts > div:nth-child(1)", 3],
-      [".ioc-save", 3],
-      [".ioc-facts > div:nth-child(2)", 4],
-      [".ioc-facts > div:nth-child(3)", 4],
-      [".ioc-facts > div:nth-child(4)", 5],
-      [".ioc-footnote", 5],
-    ],
-  },
   {
     id: "relations",
     selector: ".relations-section",
@@ -260,7 +185,6 @@ function renderChapter(chapter, step) {
   );
   for (const { node, threshold } of chapter.reveals)
     node.classList.toggle("demo-pending", threshold > step);
-  if (chapter.id === "terminal" && step === 1) playTerminal();
   if (chapter.id === "mitre" && step === 1 && motionAllowed()) {
     const query = chapter.element.querySelector(".mitre-query");
     chapter.typing = query.animate(
@@ -277,7 +201,6 @@ function finishChapter(chapter) {
   chapter.complete = true;
   chapter.replaying = false;
   chapter.element.classList.add("demo-instant");
-  if (chapter.id === "terminal") cancelSequence();
   renderChapter(chapter, chapter.steps.length - 1);
 }
 
@@ -288,7 +211,6 @@ function playChapter(chapter, replay = false) {
   }
   if (chapter.seen && !replay) return;
   clearTimeout(chapter.timer);
-  if (chapter.id === "terminal") cancelSequence();
   chapter.seen = true;
   chapter.complete = false;
   chapter.replaying = replay;
@@ -310,26 +232,7 @@ function playChapter(chapter, replay = false) {
   chapter.timer = setTimeout(advance, 950);
 }
 
-function updateChapters(handoff) {
-  const track = stage.getBoundingClientRect();
-  if (track.top < window.innerHeight * 0.65 && track.bottom > 0) {
-    playChapter(chapters.get("terminal"));
-    if (handoff > 0.45) {
-      if (!chapters.get("terminal").complete)
-        finishChapter(chapters.get("terminal"));
-      playChapter(chapters.get("ioc"));
-    }
-    if (
-      handoff > 0.9 &&
-      !chapters.get("ioc").complete &&
-      !chapters.get("ioc").replaying
-    )
-      finishChapter(chapters.get("ioc"));
-  }
-  if (track.bottom < 0) {
-    for (const id of ["terminal", "ioc"])
-      if (!chapters.get(id).complete) finishChapter(chapters.get(id));
-  }
+function updateChapters() {
   for (const id of ["relations", "mitre", "investigation"]) {
     const chapter = chapters.get(id);
     if (!chapter.complete && chapter.element.getBoundingClientRect().bottom < 0)
@@ -393,11 +296,17 @@ function updateToken(story) {
   token.style.transform = `translate3d(${Math.round(point.x - token.offsetWidth / 2)}px, ${Math.round(point.y - token.offsetHeight / 2)}px, 0)`;
   const started = window.scrollY > waypoints[0] + 35;
   const independentReference = story.active === 3 || story.active === 6;
-  token.style.opacity = String(started && !independentReference ? 1 : 0);
+  const stageRect = stage.getBoundingClientRect();
+  const pilotVisible =
+    stageRect.top < window.innerHeight && stageRect.bottom > 0;
+  token.style.opacity = String(
+    started && !independentReference && !pilotVisible ? 1 : 0,
+  );
   const dockIndex =
     story.progress < 0.08 ? story.from : story.progress > 0.92 ? story.to : -1;
   const dockState = STORY_STATES[dockIndex];
-  body.dataset.tokenDock = started && dockState?.anchor ? dockState.id : "";
+  body.dataset.tokenDock =
+    started && !pilotVisible && dockState?.anchor ? dockState.id : "";
 }
 
 function updateStoryCopy(index) {
@@ -437,13 +346,14 @@ function updateScroll() {
   if (!waypoints.length) measureWaypoints();
   const story = resolveStory(window.scrollY, waypoints);
   updateStoryCopy(story.active);
+  pilot.syncStatus();
   const moving = motionAllowed();
   const handoff = clamp(
     -stage.getBoundingClientRect().top /
       Math.max(1, stage.offsetHeight - window.innerHeight),
   );
   stage.style.setProperty("--handoff", moving ? handoff.toFixed(3) : "1");
-  updateChapters(handoff);
+  updateChapters();
   $("#stage-label").textContent =
     handoff > 0.55 ? "02 / qualifier" : "01 / repérer";
   updateToken(story);
@@ -628,8 +538,7 @@ function setMotionState(stopped) {
     ? "Reprendre les animations"
     : "Arrêter les animations";
   if (stopped) {
-    cancelSequence();
-    showTerminalResult();
+    pilot.finish();
     captionAnimations.forEach((animation) => animation.cancel());
     for (const chapter of chapters.values()) finishChapter(chapter);
   }
@@ -637,6 +546,7 @@ function setMotionState(stopped) {
 }
 
 body.classList.add("story-enhanced");
+const pilot = createPilot({ motionAllowed });
 chapterDefinitions.forEach(createChapter);
 const chapterObserver = new IntersectionObserver(
   (entries) => {
@@ -654,19 +564,17 @@ for (const id of ["relations", "mitre", "investigation"]) {
   chapterObserver.observe(chapter.element);
 }
 selectDiscipline("cve");
-$("#replay-command").addEventListener("click", () => {
-  playChapter(chapters.get("terminal"), true);
-});
+$("#replay-command").addEventListener("click", pilot.replay);
 motionControl.addEventListener("click", () =>
   setMotionState(!body.classList.contains("motion-stopped")),
 );
 window
   .matchMedia("(prefers-reduced-motion: reduce)")
   .addEventListener("change", () => {
-    cancelSequence();
-    showTerminalResult();
-    if (prefersReducedMotion())
+    if (prefersReducedMotion()) {
+      pilot.finish();
       for (const chapter of chapters.values()) finishChapter(chapter);
+    }
     refreshLayout();
   });
 window.addEventListener("scroll", requestScroll, { passive: true });
