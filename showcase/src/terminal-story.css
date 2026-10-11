@@ -1889,6 +1889,227 @@ body[data-token-dock="cyberhub-revealed"] .final-thread-target {
   opacity: 1;
 }
 
+/* Shared tutorial language: the data and explanations remain in the document. */
+.demo-guide {
+  border-top: 1px solid #38566a;
+  border-bottom: 1px solid #38566a;
+  background: linear-gradient(100deg, #102531, #0d1b27);
+  color: #d9eff2;
+  padding: 0.7rem 1rem;
+  max-width: 1290px;
+  margin: 0 auto 1.5rem;
+}
+.terminal-window .demo-guide,
+.ioc-workspace .demo-guide {
+  margin: 0;
+  border-left: 0;
+  border-right: 0;
+  padding: 0.55rem 1rem;
+}
+.demo-guide-heading,
+.demo-guide-actions {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+}
+.demo-guide-heading {
+  font: 400 0.62rem var(--mono);
+  letter-spacing: 0.08em;
+  color: #b5dbe2;
+}
+.demo-guide-count {
+  color: #bdf8fb;
+}
+.demo-guide-steps {
+  list-style: none;
+  display: flex;
+  gap: 0.55rem;
+  padding: 0;
+  margin: 0.5rem 0 0;
+  color: #86aebe;
+  font: 400 0.58rem var(--mono);
+}
+.demo-guide-steps li.is-current {
+  color: #d3fcff;
+  text-decoration: underline;
+  text-underline-offset: 0.2rem;
+}
+.demo-guide-progress {
+  margin: 0.55rem 0;
+  height: 2px;
+  background: #355266;
+}
+.demo-guide-progress span {
+  display: block;
+  height: 100%;
+  background: var(--cyan);
+  transition: width 550ms var(--ease, ease);
+}
+.demo-guide-copy {
+  min-height: 2.1em;
+  margin: 0.2rem 0 0.55rem;
+  color: #e0f0f4;
+  font-size: 0.76rem;
+  line-height: 1.45;
+}
+.demo-guide-actions {
+  justify-content: flex-start;
+}
+.demo-guide-actions button {
+  background: transparent;
+  border: 1px solid #587e91;
+  color: #dcf7f8;
+  padding: 0.35rem 0.55rem;
+  font: 400 0.62rem var(--mono);
+  cursor: pointer;
+}
+.demo-guide-actions button:hover,
+.demo-guide-actions button:focus-visible {
+  background: #1c4855;
+  border-color: var(--cyan);
+  outline: 2px solid var(--cyan);
+  outline-offset: 2px;
+}
+.story-enhanced:not(.motion-stopped) .demo-chapter .demo-pending {
+  visibility: hidden;
+  opacity: 0;
+  transform: translateY(10px);
+  pointer-events: none;
+}
+.story-enhanced:not(.motion-stopped) .demo-chapter [data-demo-reveal] {
+  transition:
+    opacity 450ms ease,
+    transform 450ms ease,
+    visibility 450ms ease;
+}
+.story-enhanced .demo-chapter.demo-instant [data-demo-reveal],
+.story-enhanced .demo-chapter.demo-instant .relation-path {
+  transition: none !important;
+}
+.ioc-placeholder {
+  display: none;
+}
+.story-enhanced .ioc-workspace[data-demo-stage="0"] .ioc-placeholder {
+  display: inline;
+  color: #779aaa;
+  font: 400 0.77rem var(--mono);
+}
+.story-enhanced .terminal-window[data-demo-stage="4"] .source-ip,
+.story-enhanced .terminal-window[data-demo-stage="5"] .source-ip {
+  background: #b6faff;
+  color: #102633;
+  box-shadow: 0 0 0 3px #3a8799;
+}
+.terminal-copy-note,
+.ioc-save {
+  color: #aaf3f1;
+  font: 400 0.66rem var(--mono);
+  letter-spacing: 0.02em;
+}
+.terminal-copy-note {
+  width: fit-content;
+  padding: 0.25rem 0.45rem;
+  border: 1px solid #4b8791;
+  margin: 1rem 0 0;
+}
+.ioc-save {
+  margin: 0.6rem 0;
+}
+.story-enhanced .relations-section.demo-chapter .relation-path {
+  stroke-dasharray: 420;
+  stroke-dashoffset: 420;
+  transition:
+    stroke-dashoffset 900ms ease,
+    opacity 450ms ease;
+}
+.story-enhanced
+  .relations-section.demo-chapter[data-demo-stage="4"]
+  .relation-path,
+.story-enhanced
+  .relations-section.demo-chapter[data-demo-stage="5"]
+  .relation-path {
+  stroke-dashoffset: 0;
+}
+.mitre-demo {
+  background: #0b1822;
+}
+.mitre-demo .mitre-strip {
+  column-gap: clamp(2rem, 5vw, 4rem);
+  row-gap: 1.4rem;
+  padding: clamp(1.5rem, 4vw, 3rem);
+}
+.mitre-demo .mitre-search {
+  grid-column: 2;
+  align-self: end;
+  min-height: 5rem;
+  border: 1px solid #52748a;
+  padding: 0.65rem 0.85rem;
+  display: grid;
+  gap: 0.25rem;
+}
+.mitre-search span,
+.mitre-search small {
+  font: 400 0.64rem var(--mono);
+  color: #aac7d3;
+}
+.mitre-search strong {
+  min-height: 1.4rem;
+  border-bottom: 1px solid #597e8e;
+  color: #d4faff;
+  font: 400 1rem var(--mono);
+}
+.mitre-columns,
+.mitre-inspector,
+.mitre-matrix {
+  grid-column: 1 / -1;
+}
+.mitre-inspector .mitre-reference {
+  grid-column: 2;
+  border-top: 1px solid #54768a;
+  padding-top: 0.6rem;
+  color: #c4e4ea;
+}
+.mitre-matrix {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  border: 1px solid #426277;
+  color: #b6d4dc;
+  font: 400 0.68rem var(--mono);
+}
+.mitre-matrix > * {
+  padding: 0.7rem;
+  border-right: 1px solid #426277;
+  border-bottom: 1px solid #426277;
+}
+.mitre-matrix strong {
+  background: #1b5763;
+  color: #e5feff;
+  font-weight: 600;
+}
+@media (max-width: 760px) {
+  .mitre-demo .mitre-search {
+    grid-column: 1;
+  }
+  .mitre-inspector .mitre-reference {
+    grid-column: 1;
+  }
+  .demo-guide {
+    margin-bottom: 1rem;
+  }
+  .demo-guide-copy {
+    min-height: 0;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .demo-guide-progress span,
+  .story-enhanced .demo-chapter [data-demo-reveal],
+  .story-enhanced .relations-section.demo-chapter .relation-path {
+    transition: none;
+  }
+}
+
 /* Header rows may wrap when the visitor enlarges text. The narrative rail follows. */
 .story-progress,
 .mobile-nav,

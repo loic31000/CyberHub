@@ -27,16 +27,9 @@ export const STORY_STATES = Object.freeze([
   {
     id: "references-explored",
     anchor: null,
-    scene: "relations",
+    scene: "mitre",
     caption: "Un référentiel se consulte à part.",
     detail: "MITRE n'est pas déduit de l'adresse du terminal.",
-  },
-  {
-    id: "disciplines-explored",
-    anchor: null,
-    scene: "disciplines",
-    caption: "Changer de domaine, garder les limites.",
-    detail: "CVE, OSINT et BGP montrent des exemples indépendants.",
   },
   {
     id: "investigation-attached",
@@ -52,6 +45,13 @@ export const STORY_STATES = Object.freeze([
     scene: "investigation",
     caption: "Une prochaine question devient possible.",
     detail: "Le playbook organise la vérification ; rien n'est exécuté.",
+  },
+  {
+    id: "disciplines-explored",
+    anchor: null,
+    scene: "disciplines",
+    caption: "Changer de domaine, garder les limites.",
+    detail: "CVE, OSINT et BGP montrent des exemples indépendants.",
   },
   {
     id: "cyberhub-revealed",

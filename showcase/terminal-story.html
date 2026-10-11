@@ -26,8 +26,8 @@
       >
       <nav class="story-nav" aria-label="Navigation principale">
         <a href="#terminal">La commande</a><a href="#relations">Les liens</a
-        ><a href="#disciplines">Les domaines</a
-        ><a href="#investigation">La méthode</a>
+        ><a href="#mitre">MITRE</a><a href="#investigation">La méthode</a
+        ><a href="#disciplines">Les domaines</a>
       </nav>
       <div class="header-end">
         <button type="button" class="motion-control" aria-pressed="false">
@@ -49,8 +49,8 @@
       hidden
     >
       <a href="#terminal">La commande</a><a href="#relations">Les liens</a
+      ><a href="#mitre">MITRE</a><a href="#investigation">La méthode</a
       ><a href="#disciplines">Les domaines</a
-      ><a href="#investigation">La méthode</a
       ><a href="#decouvrir">Découvrir CyberHub</a>
     </nav>
     <div class="story-progress" aria-hidden="true"><span></span></div>
@@ -112,6 +112,9 @@
                     >11:32 · seconde mention · source B · 198.51.100.42</span
                   >
                 </div>
+                <p class="terminal-copy-note">
+                  Valeur sélectionnée · transfert illustratif vers IOC Manager
+                </p>
                 <p class="terminal-end">
                   2 lignes dans un fichier d'exemple · aucun réseau
                   interrogé<span aria-hidden="true">_</span>
@@ -146,9 +149,12 @@
               </div>
               <div class="ioc-value-line">
                 <span>Valeur</span
+                ><span class="ioc-placeholder" aria-hidden="true"
+                  >Adresse IPv4…</span
                 ><strong class="ioc-target">198.51.100.42</strong
                 ><span class="ioc-confirm" aria-hidden="true">↳</span>
               </div>
+              <p class="ioc-save">✓ Fiche enregistrée dans la simulation</p>
               <dl class="ioc-facts">
                 <div>
                   <dt>Type</dt>
@@ -255,11 +261,27 @@
             deux citations vérifiables dans le même fichier fictif. Il ne
             représente ni trafic, ni cause, ni confiance calculée.
           </p>
-          <a href="#disciplines">Voir les autres lectures ↓</a>
+          <a href="#mitre">Explorer le référentiel MITRE ↓</a>
         </div>
         <p class="scene-callout relation-callout">
           Deux observations. Un point commun. Pas encore une conclusion.
         </p>
+      </section>
+
+      <section
+        class="mitre-demo story-section"
+        id="mitre"
+        aria-labelledby="mitre-title"
+      >
+        <div class="section-head">
+          <p class="scene-index">04 / consulter un référentiel</p>
+          <h2>Décrire une technique,<br /><em>sans l’attribuer.</em></h2>
+          <p>
+            La recherche PowerShell ci-dessous parcourt un référentiel
+            illustratif. Elle est indépendante de l’adresse trouvée dans le
+            journal fictif.
+          </p>
+        </div>
         <div class="mitre-strip" aria-labelledby="mitre-title">
           <div>
             <p class="mini-label">Référentiel présent dans CyberHub</p>
@@ -269,6 +291,14 @@
               des layers annotés. Ces noms ne sont pas déduits des deux lignes
               du terminal.
             </p>
+          </div>
+          <div
+            class="mitre-search"
+            aria-label="Recherche illustrative dans le référentiel MITRE"
+          >
+            <span>Recherche / techniques</span
+            ><strong class="mitre-query">PowerShell</strong>
+            <small>Aucune requête envoyée · exemple local</small>
           </div>
           <div class="mitre-columns">
             <button
@@ -311,6 +341,135 @@
               consulter son contexte ; rien dans les deux lignes fictives ne
               permet de l'attribuer à l'adresse.
             </p>
+            <p class="mitre-reference">
+              Référence : MITRE ATT&amp;CK, technique T1059 · consultation
+              illustrative. L’adresse IP du récit n’est pas associée à cette
+              technique.
+            </p>
+          </div>
+          <div
+            class="mitre-matrix"
+            aria-label="Extrait illustratif de la matrice MITRE : technique T1059 dans la tactique Exécution"
+          >
+            <span>Découverte</span><span>Exécution</span
+            ><span>Persistance</span> <span>—</span
+            ><strong>T1059<br />Interpréteur de commandes et de scripts</strong
+            ><span>—</span>
+          </div>
+        </div>
+      </section>
+
+      <section
+        class="investigation-section story-section"
+        id="investigation"
+        aria-labelledby="investigation-title"
+      >
+        <div class="section-head">
+          <p class="scene-index">05 / conserver la méthode</p>
+          <h2 id="investigation-title">
+            La suite appartient<br /><em>à l'enquête.</em>
+          </h2>
+          <p>
+            CyberHub possède des investigations avec événements horodatés et des
+            playbooks de vérification. Cette scène montre une façon possible de
+            les lire ensemble, sans créer de dossier réel ni simuler une réponse
+            à incident.
+          </p>
+        </div>
+        <div class="investigation-work">
+          <div class="timeline-area">
+            <p class="mini-label">Dossier conceptuel / CH-DÉMO</p>
+            <p class="timeline-value">
+              198.51.100.42 <span>· valeur de documentation</span>
+            </p>
+            <ol class="investigation-timeline">
+              <li>
+                <span class="timeline-time">09:14</span
+                ><strong>Source A conservée</strong
+                ><small>Ligne 14 du fichier fictif.</small>
+              </li>
+              <li>
+                <span class="timeline-time">11:32</span
+                ><strong>Seconde mention reliée</strong
+                ><small>Même valeur, contexte encore inconnu.</small>
+              </li>
+              <li>
+                <span class="timeline-time">À vérifier</span
+                ><strong>Question ajoutée au dossier</strong
+                ><small>Comparer la provenance avant toute conclusion.</small>
+              </li>
+            </ol>
+            <button type="button" class="attach-source" aria-pressed="false">
+              Rattacher la source au dossier <span aria-hidden="true">↗</span>
+            </button>
+            <p id="source-status" role="status">
+              Démonstration locale · aucune donnée enregistrée.
+            </p>
+          </div>
+          <div class="case-area">
+            <div class="case-envelope">
+              <span class="case-stamp">CH / 26</span>
+              <p>Dossier d'investigation</p>
+              <p class="case-ip">
+                <span class="case-ip-value">198.51.100.42</span>
+                <span>· provenance : ./demo/events.log</span>
+              </p>
+              <h3>Une question<br />à documenter.</h3>
+              <p>
+                Deux mentions · une adresse de documentation · aucune cause
+                établie.
+              </p>
+              <p class="case-question">
+                Prochaine question : pourquoi l'adresse est-elle citée deux fois
+                ?
+              </p>
+              <div class="case-source-slip" aria-hidden="true">
+                l.14 + l.31 <span>→ CH-DÉMO</span>
+              </div>
+              <details class="case-details">
+                <summary>Ouvrir le dossier</summary>
+                <p>
+                  Le dossier fictif garde les lignes 14 et 31 comme sources,
+                  leur date illustrative et la question « pourquoi cette adresse
+                  est-elle citée ? ». Il ne contient aucune observation
+                  opérationnelle.
+                </p>
+              </details>
+            </div>
+            <div class="playbook">
+              <p class="mini-label">Playbook / consultation</p>
+              <h3>Vérifier sans présumer.</h3>
+              <p class="playbook-question">
+                Pourquoi l'adresse
+                <span class="playbook-ip">198.51.100.42</span> apparaît-elle
+                dans les deux lignes ?
+              </p>
+              <p class="playbook-context">
+                Le dossier propose une question à examiner ; aucune vérification
+                n'a été exécutée.
+              </p>
+              <details>
+                <summary><span>01</span> Confirmer la provenance</summary>
+                <p>
+                  Relire le fichier et ses métadonnées ; ne pas attribuer un
+                  événement à une adresse seule.
+                </p>
+              </details>
+              <details>
+                <summary><span>02</span> Comparer les contextes</summary>
+                <p>
+                  Examiner les deux lignes et documenter leurs différences avant
+                  toute hypothèse.
+                </p>
+              </details>
+              <details>
+                <summary><span>03</span> Noter ce qui manque</summary>
+                <p>
+                  Écrire les limites de la preuve et la prochaine source à
+                  consulter.
+                </p>
+              </details>
+            </div>
           </div>
         </div>
       </section>
@@ -520,127 +679,12 @@
       </section>
 
       <section
-        class="investigation-section story-section"
-        id="investigation"
-        aria-labelledby="investigation-title"
-      >
-        <div class="section-head">
-          <p class="scene-index">05 / conserver la méthode</p>
-          <h2 id="investigation-title">
-            La suite appartient<br /><em>à l'enquête.</em>
-          </h2>
-          <p>
-            CyberHub possède des investigations avec événements horodatés et des
-            playbooks de vérification. Cette scène montre une façon possible de
-            les lire ensemble, sans créer de dossier réel ni simuler une réponse
-            à incident.
-          </p>
-        </div>
-        <div class="investigation-work">
-          <div class="timeline-area">
-            <p class="mini-label">Dossier conceptuel / CH-DÉMO</p>
-            <p class="timeline-value">
-              198.51.100.42 <span>· valeur de documentation</span>
-            </p>
-            <ol class="investigation-timeline">
-              <li>
-                <span class="timeline-time">09:14</span
-                ><strong>Source A conservée</strong
-                ><small>Ligne 14 du fichier fictif.</small>
-              </li>
-              <li>
-                <span class="timeline-time">11:32</span
-                ><strong>Seconde mention reliée</strong
-                ><small>Même valeur, contexte encore inconnu.</small>
-              </li>
-              <li>
-                <span class="timeline-time">À vérifier</span
-                ><strong>Question ajoutée au dossier</strong
-                ><small>Comparer la provenance avant toute conclusion.</small>
-              </li>
-            </ol>
-            <button type="button" class="attach-source" aria-pressed="false">
-              Rattacher la source au dossier <span aria-hidden="true">↗</span>
-            </button>
-            <p id="source-status" role="status">
-              Démonstration locale · aucune donnée enregistrée.
-            </p>
-          </div>
-          <div class="case-area">
-            <div class="case-envelope">
-              <span class="case-stamp">CH / 26</span>
-              <p>Dossier d'investigation</p>
-              <p class="case-ip">
-                <span class="case-ip-value">198.51.100.42</span>
-                <span>· provenance : ./demo/events.log</span>
-              </p>
-              <h3>Une question<br />à documenter.</h3>
-              <p>
-                Deux mentions · une adresse de documentation · aucune cause
-                établie.
-              </p>
-              <p class="case-question">
-                Prochaine question : pourquoi l'adresse est-elle citée deux fois
-                ?
-              </p>
-              <div class="case-source-slip" aria-hidden="true">
-                l.14 + l.31 <span>→ CH-DÉMO</span>
-              </div>
-              <details class="case-details">
-                <summary>Ouvrir le dossier</summary>
-                <p>
-                  Le dossier fictif garde les lignes 14 et 31 comme sources,
-                  leur date illustrative et la question « pourquoi cette adresse
-                  est-elle citée ? ». Il ne contient aucune observation
-                  opérationnelle.
-                </p>
-              </details>
-            </div>
-            <div class="playbook">
-              <p class="mini-label">Playbook / consultation</p>
-              <h3>Vérifier sans présumer.</h3>
-              <p class="playbook-question">
-                Pourquoi l'adresse
-                <span class="playbook-ip">198.51.100.42</span> apparaît-elle
-                dans les deux lignes ?
-              </p>
-              <p class="playbook-context">
-                Le dossier propose une question à examiner ; aucune vérification
-                n'a été exécutée.
-              </p>
-              <details>
-                <summary><span>01</span> Confirmer la provenance</summary>
-                <p>
-                  Relire le fichier et ses métadonnées ; ne pas attribuer un
-                  événement à une adresse seule.
-                </p>
-              </details>
-              <details>
-                <summary><span>02</span> Comparer les contextes</summary>
-                <p>
-                  Examiner les deux lignes et documenter leurs différences avant
-                  toute hypothèse.
-                </p>
-              </details>
-              <details>
-                <summary><span>03</span> Noter ce qui manque</summary>
-                <p>
-                  Écrire les limites de la preuve et la prochaine source à
-                  consulter.
-                </p>
-              </details>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      <section
         class="final-section story-section"
         id="decouvrir"
         aria-labelledby="final-title"
       >
         <div class="final-light" aria-hidden="true"></div>
-        <p class="scene-index">06 / découvrir CyberHub</p>
+        <p class="scene-index">07 / découvrir CyberHub</p>
         <h2 id="final-title">Rendre visible<br /><em>l'invisible.</em></h2>
         <p class="final-intro">
           CyberHub est un espace personnel pour relier recherche, connaissance

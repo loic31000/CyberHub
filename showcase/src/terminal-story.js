@@ -53,27 +53,288 @@ function playTerminal() {
   );
   sequence.push(writing);
   writing.onfinish = () => writing.cancel();
-  results.forEach((item, index) => {
-    item.style.opacity = "0";
-    const timer = setTimeout(
-      () => {
-        const reveal = item.animate(
-          [
-            { opacity: 0, transform: "translateY(8px)" },
-            { opacity: 1, transform: "translateY(0)" },
-          ],
-          { duration: motion.result, easing: motion.ease, fill: "forwards" },
-        );
-        sequence.push(reveal);
-        reveal.onfinish = () => {
-          item.style.opacity = "1";
-          reveal.cancel();
-        };
-      },
-      motion.type + 100 + index * 480,
-    );
-    sequence.push(timer);
+}
+
+// The source data is always in the HTML. JavaScript only stages its visual
+// presentation; the complete views remain readable without scripting.
+const chapterDefinitions = [
+  {
+    id: "terminal",
+    selector: ".terminal-window",
+    guideAfter: ".terminal-chrome",
+    steps: [
+      "Le prompt attend une commande illustrative.",
+      "Une recherche locale fictive est saisie ; elle n'est jamais exécutée.",
+      "La première ligne du journal synthétique apparaît.",
+      "Une seconde mention, à une autre heure, complète le résultat.",
+      "L'adresse 198.51.100.42 est sélectionnée pour être qualifiée.",
+      "Les deux lignes et la limite de cette recherche restent visibles.",
+    ],
+    reveal: [
+      [".typed-command", 1],
+      [".result-one", 2],
+      [".result-two", 3],
+      [".source-ip", 4],
+      [".terminal-copy-note", 4],
+      [".terminal-end", 5],
+    ],
+  },
+  {
+    id: "ioc",
+    selector: ".ioc-workspace",
+    guideAfter: ".ioc-top",
+    steps: [
+      "Une fiche d'indicateur vide s'ouvre dans IOC Manager.",
+      "L'adresse du journal arrive dans le champ de valeur.",
+      "Le type IPv4 est reconnu dans cette simulation.",
+      "La valeur est enregistrée dans la fiche fictive.",
+      "La provenance et les deux mentions sont ajoutées.",
+      "Les inconnues restent écrites à côté des faits conservés.",
+    ],
+    reveal: [
+      [".ioc-target", 1],
+      [".ioc-type", 2],
+      [".ioc-facts > div:nth-child(1)", 3],
+      [".ioc-save", 3],
+      [".ioc-facts > div:nth-child(2)", 4],
+      [".ioc-facts > div:nth-child(3)", 4],
+      [".ioc-facts > div:nth-child(4)", 5],
+      [".ioc-footnote", 5],
+    ],
+  },
+  {
+    id: "relations",
+    selector: ".relations-section",
+    guideBefore: ".relations-canvas",
+    steps: [
+      "Le canevas de corrélation s'ouvre sans relation présumée.",
+      "La ligne 14 fournit une première mention sourcée.",
+      "La ligne 31 ajoute une seconde observation distincte.",
+      "La valeur commune est rapprochée des deux sources.",
+      "Les liens documentent seulement cette concordance.",
+      "La question ouverte et les limites restent visibles.",
+    ],
+    reveal: [
+      [".source-a", 1],
+      [".source-b", 2],
+      [".relation-center", 3],
+      [".relation-path", 4],
+      [".relation-drawing circle", 4],
+      [".relation-question", 5],
+      [".relation-explanation", 5],
+      [".relation-callout", 5],
+    ],
+  },
+  {
+    id: "mitre",
+    selector: ".mitre-demo",
+    guideBefore: ".mitre-strip",
+    steps: [
+      "La consultation du référentiel commence par une recherche vide.",
+      "Le terme « PowerShell » est saisi dans la recherche illustrative.",
+      "Le résultat T1059 apparaît ; d'autres techniques restent consultables séparément.",
+      "La fiche T1059 s'ouvre avec sa tactique et sa description.",
+      "La référence et la limite d'attribution sont explicitées.",
+      "La matrice met en valeur la technique consultée.",
+    ],
+    reveal: [
+      [".mitre-query", 1],
+      [".mitre-columns", 2],
+      [".mitre-inspector", 3],
+      [".mitre-reference", 4],
+      [".mitre-matrix", 5],
+    ],
+  },
+  {
+    id: "investigation",
+    selector: ".investigation-section",
+    guideBefore: ".investigation-work",
+    steps: [
+      "Un nouveau dossier conceptuel est ouvert.",
+      "Le dossier CH-DÉMO prend forme, sans être créé dans la Console.",
+      "L'adresse et la provenance du journal y sont reportées.",
+      "La première ligne horodatée entre dans la chronologie.",
+      "La seconde ligne et son contexte complètent la chronologie.",
+      "Une question de vérification explicite les inconnues.",
+      "Le playbook propose une méthode ; aucune action n'est exécutée.",
+    ],
+    reveal: [
+      [".case-stamp", 1],
+      [".case-envelope > p:first-of-type", 1],
+      [".timeline-value", 2],
+      [".case-ip", 2],
+      [".investigation-timeline li:nth-child(1)", 3],
+      [".investigation-timeline li:nth-child(2)", 4],
+      [".case-source-slip", 4],
+      [".attach-source", 4],
+      [".investigation-timeline li:nth-child(3)", 5],
+      [".case-envelope > h3", 5],
+      [".case-envelope > p:nth-of-type(3)", 5],
+      [".case-question", 5],
+      [".case-details", 5],
+      [".playbook", 6],
+    ],
+  },
+];
+
+const chapters = new Map();
+function createChapter(definition) {
+  const element = $(definition.selector);
+  element.classList.add("demo-chapter");
+  const guide = document.createElement("div");
+  guide.className = "demo-guide";
+  guide.setAttribute("role", "group");
+  guide.setAttribute(
+    "aria-label",
+    `Étapes de la démonstration ${definition.id}`,
+  );
+  const heading = document.createElement("div");
+  heading.className = "demo-guide-heading";
+  const name = document.createElement("strong");
+  name.textContent = `DÉMONSTRATION / ${definition.id.toUpperCase()}`;
+  const count = document.createElement("span");
+  count.className = "demo-guide-count";
+  heading.append(name, count);
+  const progress = document.createElement("div");
+  progress.className = "demo-guide-progress";
+  progress.setAttribute("aria-hidden", "true");
+  progress.append(document.createElement("span"));
+  const markers = document.createElement("ol");
+  markers.className = "demo-guide-steps";
+  markers.setAttribute("aria-hidden", "true");
+  definition.steps.forEach((_, index) => {
+    const marker = document.createElement("li");
+    marker.textContent = String(index + 1).padStart(2, "0");
+    markers.append(marker);
   });
+  const copy = document.createElement("p");
+  copy.className = "demo-guide-copy";
+  const actions = document.createElement("div");
+  actions.className = "demo-guide-actions";
+  const skip = document.createElement("button");
+  skip.type = "button";
+  skip.textContent = "Voir le résultat complet";
+  const replay = document.createElement("button");
+  replay.type = "button";
+  replay.textContent = "Rejouer ↺";
+  actions.append(skip, replay);
+  guide.append(heading, markers, progress, copy, actions);
+  const insertBefore = definition.guideBefore && $(definition.guideBefore);
+  if (insertBefore) insertBefore.before(guide);
+  else $(definition.guideAfter).after(guide);
+  const reveals = definition.reveal.flatMap(([selector, threshold]) =>
+    [...element.querySelectorAll(selector)].map((node) => ({
+      node,
+      threshold,
+    })),
+  );
+  for (const { node } of reveals) node.dataset.demoReveal = "";
+  const chapter = {
+    ...definition,
+    element,
+    count,
+    copy,
+    progress: progress.firstElementChild,
+    markers: [...markers.children],
+    reveals,
+    seen: false,
+    complete: false,
+    timer: 0,
+  };
+  skip.addEventListener("click", () => finishChapter(chapter));
+  replay.addEventListener("click", () => playChapter(chapter, true));
+  chapters.set(definition.id, chapter);
+  renderChapter(chapter, motionAllowed() ? 0 : definition.steps.length - 1);
+}
+
+function renderChapter(chapter, step) {
+  chapter.typing?.cancel();
+  chapter.typing = null;
+  chapter.step = step;
+  chapter.element.dataset.demoStage = String(step);
+  chapter.count.textContent = `${String(step + 1).padStart(2, "0")} / ${String(chapter.steps.length).padStart(2, "0")}`;
+  chapter.copy.textContent = chapter.steps[step];
+  chapter.progress.style.width = `${((step + 1) / chapter.steps.length) * 100}%`;
+  chapter.markers.forEach((marker, index) =>
+    marker.classList.toggle("is-current", index === step),
+  );
+  for (const { node, threshold } of chapter.reveals)
+    node.classList.toggle("demo-pending", threshold > step);
+  if (chapter.id === "terminal" && step === 1) playTerminal();
+  if (chapter.id === "mitre" && step === 1 && motionAllowed()) {
+    const query = chapter.element.querySelector(".mitre-query");
+    chapter.typing = query.animate(
+      [{ clipPath: "inset(0 100% 0 0)" }, { clipPath: "inset(0 0 0 0)" }],
+      { duration: 900, easing: "steps(10, end)" },
+    );
+  }
+}
+
+function finishChapter(chapter) {
+  clearTimeout(chapter.timer);
+  chapter.timer = 0;
+  chapter.seen = true;
+  chapter.complete = true;
+  chapter.replaying = false;
+  chapter.element.classList.add("demo-instant");
+  if (chapter.id === "terminal") cancelSequence();
+  renderChapter(chapter, chapter.steps.length - 1);
+}
+
+function playChapter(chapter, replay = false) {
+  if (!motionAllowed()) {
+    finishChapter(chapter);
+    return;
+  }
+  if (chapter.seen && !replay) return;
+  clearTimeout(chapter.timer);
+  if (chapter.id === "terminal") cancelSequence();
+  chapter.seen = true;
+  chapter.complete = false;
+  chapter.replaying = replay;
+  chapter.element.classList.remove("demo-instant");
+  renderChapter(chapter, 0);
+  const advance = () => {
+    if (chapter.step >= chapter.steps.length - 1) {
+      chapter.complete = true;
+      chapter.replaying = false;
+      chapter.timer = 0;
+      return;
+    }
+    renderChapter(chapter, chapter.step + 1);
+    chapter.timer = setTimeout(
+      advance,
+      chapter.id === "terminal" ? 1650 : 1200,
+    );
+  };
+  chapter.timer = setTimeout(advance, 950);
+}
+
+function updateChapters(handoff) {
+  const track = stage.getBoundingClientRect();
+  if (track.top < window.innerHeight * 0.65 && track.bottom > 0) {
+    playChapter(chapters.get("terminal"));
+    if (handoff > 0.45) {
+      if (!chapters.get("terminal").complete)
+        finishChapter(chapters.get("terminal"));
+      playChapter(chapters.get("ioc"));
+    }
+    if (
+      handoff > 0.9 &&
+      !chapters.get("ioc").complete &&
+      !chapters.get("ioc").replaying
+    )
+      finishChapter(chapters.get("ioc"));
+  }
+  if (track.bottom < 0) {
+    for (const id of ["terminal", "ioc"])
+      if (!chapters.get(id).complete) finishChapter(chapters.get(id));
+  }
+  for (const id of ["relations", "mitre", "investigation"]) {
+    const chapter = chapters.get(id);
+    if (!chapter.complete && chapter.element.getBoundingClientRect().bottom < 0)
+      finishChapter(chapter);
+  }
 }
 
 function documentTop(selector) {
@@ -87,10 +348,10 @@ function measureWaypoints() {
     0,
     documentTop(".handoff-track") + stageRange * 0.72,
     documentTop(".relations-canvas") - height * 0.52,
-    documentTop(".mitre-strip") - height * 0.52,
-    documentTop(".discipline-machine") - height * 0.52,
+    documentTop(".mitre-demo") - height * 0.52,
     documentTop(".investigation-work") - height * 0.52,
     documentTop(".playbook") - height * 0.52,
+    documentTop(".discipline-machine") - height * 0.52,
     documentTop(".final-constellation") - height * 0.52,
   ];
   const ordered = [];
@@ -127,11 +388,12 @@ function updateToken(story) {
   const from = anchorPoint(STORY_STATES[story.from]);
   const to = anchorPoint(STORY_STATES[story.to]);
   const point = interpolatePoint(from, to, story.progress);
-  const thread = story.active >= 3 && story.active <= 4;
+  const thread = story.active === 3 || story.active === 6;
   token.dataset.role = thread ? "thread" : "case";
   token.style.transform = `translate3d(${Math.round(point.x - token.offsetWidth / 2)}px, ${Math.round(point.y - token.offsetHeight / 2)}px, 0)`;
   const started = window.scrollY > waypoints[0] + 35;
-  token.style.opacity = String(started ? 1 : 0);
+  const independentReference = story.active === 3 || story.active === 6;
+  token.style.opacity = String(started && !independentReference ? 1 : 0);
   const dockIndex =
     story.progress < 0.08 ? story.from : story.progress > 0.92 ? story.to : -1;
   const dockState = STORY_STATES[dockIndex];
@@ -181,6 +443,7 @@ function updateScroll() {
       Math.max(1, stage.offsetHeight - window.innerHeight),
   );
   stage.style.setProperty("--handoff", moving ? handoff.toFixed(3) : "1");
+  updateChapters(handoff);
   $("#stage-label").textContent =
     handoff > 0.55 ? "02 / qualifier" : "01 / repérer";
   updateToken(story);
@@ -190,7 +453,12 @@ function updateScroll() {
     [".final-section", "--final-progress"],
   ]) {
     const node = $(selector);
-    const value = moving ? sectionProgress(node).toFixed(3) : "1";
+    const finished =
+      (property === "--relations-progress" &&
+        chapters.get("relations").complete) ||
+      (property === "--investigation-progress" &&
+        chapters.get("investigation").complete);
+    const value = moving && !finished ? sectionProgress(node).toFixed(3) : "1";
     node.style.setProperty(property, value);
     if (property === "--investigation-progress")
       $(".investigation-timeline").style.setProperty(property, value);
@@ -363,15 +631,31 @@ function setMotionState(stopped) {
     cancelSequence();
     showTerminalResult();
     captionAnimations.forEach((animation) => animation.cancel());
-  } else playTerminal();
+    for (const chapter of chapters.values()) finishChapter(chapter);
+  }
   refreshLayout();
 }
 
 body.classList.add("story-enhanced");
+chapterDefinitions.forEach(createChapter);
+const chapterObserver = new IntersectionObserver(
+  (entries) => {
+    for (const entry of entries) {
+      const chapter = chapters.get(entry.target.dataset.demoChapter);
+      if (entry.isIntersecting) playChapter(chapter);
+      else if (chapter.seen && !chapter.complete) finishChapter(chapter);
+    }
+  },
+  { rootMargin: "0px 0px -20% 0px" },
+);
+for (const id of ["relations", "mitre", "investigation"]) {
+  const chapter = chapters.get(id);
+  chapter.element.dataset.demoChapter = id;
+  chapterObserver.observe(chapter.element);
+}
 selectDiscipline("cve");
-if (!prefersReducedMotion()) playTerminal();
 $("#replay-command").addEventListener("click", () => {
-  if (motionAllowed()) playTerminal();
+  playChapter(chapters.get("terminal"), true);
 });
 motionControl.addEventListener("click", () =>
   setMotionState(!body.classList.contains("motion-stopped")),
@@ -381,7 +665,8 @@ window
   .addEventListener("change", () => {
     cancelSequence();
     showTerminalResult();
-    if (motionAllowed()) playTerminal();
+    if (prefersReducedMotion())
+      for (const chapter of chapters.values()) finishChapter(chapter);
     refreshLayout();
   });
 window.addEventListener("scroll", requestScroll, { passive: true });

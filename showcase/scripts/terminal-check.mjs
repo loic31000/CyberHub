@@ -78,13 +78,14 @@ try {
       waitUntil: "networkidle",
     });
     await page.evaluate(() => document.fonts.ready);
-    assert.equal(await page.locator("main > section").count(), 5); // Terminal and IOC share one semantic scene.
+    assert.equal(await page.locator("main > section").count(), 6); // Terminal and IOC share one semantic scene.
     for (const id of [
       "terminal",
       "ioc",
       "relations",
-      "disciplines",
+      "mitre",
       "investigation",
+      "disciplines",
       "decouvrir",
     ])
       assert.equal(
@@ -303,6 +304,7 @@ try {
   report.axe.correlation = await violations(page);
   assert.deepEqual(report.axe.correlation, []);
   await goTo(".mitre-strip");
+  await page.locator(".mitre-demo .demo-guide-actions button").first().click();
   await page.locator('[data-technique="t1053"]').click();
   assert.match(
     await page.locator("#mitre-detail").textContent(),
@@ -340,6 +342,10 @@ try {
   report.axe.modules = await violations(page);
   assert.deepEqual(report.axe.modules, []);
   await goTo(".investigation-work");
+  await page
+    .locator(".investigation-section .demo-guide-actions button")
+    .first()
+    .click();
   await capture("investigation", "investigation-attached");
   assert.match(
     await page.locator(".story-status-title").textContent(),

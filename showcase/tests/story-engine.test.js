@@ -17,9 +17,9 @@ test("la progression déclarative couvre chaque état dans l'ordre et revient en
       "ioc-imported",
       "correlation-linked",
       "references-explored",
-      "disciplines-explored",
       "investigation-attached",
       "playbook-reviewed",
+      "disciplines-explored",
       "cyberhub-revealed",
     ],
   );
