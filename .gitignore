@@ -28,6 +28,7 @@ backend/*.bak
 frontend/node_modules/
 frontend/dist/
 frontend/yarn.lock
+showcase/node_modules/
 
 # === Logs ===
 *.log
