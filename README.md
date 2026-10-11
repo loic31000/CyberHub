@@ -1,8 +1,8 @@
 # CYBER-HUB v1.1
 
-> Hub de ressources cybersécurité — 100% local, 100% offline
+> Hub de ressources cybersécurité local ; certains imports et flux demandent Internet.
 
-![Go](https://img.shields.io/badge/Go-1.26+-00ADD8?logo=go&logoColor=white)
+![Go](https://img.shields.io/badge/Go-1.27.2+-00ADD8?logo=go&logoColor=white)
 ![TypeScript](https://img.shields.io/badge/TypeScript-Strict-3178C6?logo=typescript&logoColor=white)
 ![React](https://img.shields.io/badge/React-18-61DAFB?logo=react&logoColor=black)
 ![SQLite](https://img.shields.io/badge/SQLite-DB-003B57?logo=sqlite&logoColor=white)
@@ -39,8 +39,8 @@ Application de bureau pour centraliser outils, writeups CTF, veille CVE, playboo
 
 ## Prérequis
 
-- **Go** ≥ 1.26 — [golang.org/dl](https://golang.org/dl/)
-- **Node.js** ≥ 18 + npm — [nodejs.org](https://nodejs.org/)
+- **Go** ≥ 1.27.2 — [golang.org/dl](https://golang.org/dl/)
+- **Node.js** 24 + npm pour le build frontend local — [nodejs.org](https://nodejs.org/)
 
 ---
 
@@ -51,25 +51,20 @@ git clone https://github.com/loic31000/CyberHub.git
 cd CyberHub
 ```
 
-**Build en une commande (recommandé) :**
+**Build Windows en une commande :**
 
 ```powershell
 # Windows
 .\build.ps1
 ```
 
-```bash
-# Linux / macOS
-./build.sh
-```
-
-> Les scripts automatisent : build React → copie dans `backend/web/` → compilation Go avec `CGO_ENABLED=0`.
+> Le build React écrit directement dans `backend/web/`, puis `build.ps1` compile Go avec `CGO_ENABLED=0`.
 
 **Build manuel :**
 
 ```bash
 # 1. Frontend
-cd frontend && npm install && npm run build && cd ..
+cd frontend && npm ci && npm run build && cd ..
 
 # 2. Backend
 cd backend
@@ -90,19 +85,13 @@ CGO_ENABLED=0 go build -ldflags="-s -w" -o ../cyber-hub.exe .   # Windows
 
 L'application démarre sur **http://localhost:7743** et ouvre le navigateur automatiquement.
 
-**Premier démarrage :** créer un compte local (mot de passe stocké localement, jamais envoyé) → les données de référence se chargent automatiquement. Le seed MITRE ATT&CK s'exécute en arrière-plan (connexion internet requise une seule fois). CLOAK est disponible immédiatement — embarqué offline.
+**Premier démarrage :** créer un compte local via le backend. Les données de référence se chargent au démarrage; MITRE ATT&CK peut nécessiter une connexion réseau. CLOAK est embarqué dans l'application.
 
 ---
 
 ## Développement
 
-```bash
-# Terminal 1 — Backend (http://localhost:7743)
-cd backend && go run main.go
-
-# Terminal 2 — Frontend hot reload (http://localhost:5173)
-cd frontend && npm run dev
-```
+Pour utiliser le backend Docker existant et le hot reload Vite, suivre [le guide Windows Docker + Vite](DEVELOPMENT.md). Le frontend de développement est sur `http://localhost:5173`; le build embarqué est sur `http://localhost:7743`.
 
 ```bash
 # Vérification TypeScript

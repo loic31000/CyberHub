@@ -1,4 +1,4 @@
-# ============================================================
+﻿# ============================================================
 # Cyber-Hub — Script de build Windows
 # Produit un seul fichier cyber-hub.exe
 # USAGE LÉGAL UNIQUEMENT
@@ -14,27 +14,24 @@ Write-Host "╚═════════════════════�
 Write-Host ""
 
 # --- 1. Build Frontend ---
-Write-Host "[1/3] Build du frontend React..." -ForegroundColor Yellow
+Write-Host "[1/2] Build du frontend React..." -ForegroundColor Yellow
 Set-Location "$ROOT\frontend"
 
 if (-not (Test-Path "node_modules")) {
     Write-Host "      Installation des dépendances npm..." -ForegroundColor Gray
-    npm install
+    npm ci
 }
 
 npm run build
 if ($LASTEXITCODE -ne 0) { Write-Error "Build frontend échoué"; exit 1 }
 Write-Host "[✓] Frontend buildé" -ForegroundColor Green
 
-# --- 2. Copier le build dans backend/web ---
-Write-Host "[2/3] Copie du build dans backend/web..." -ForegroundColor Yellow
-$webDest = "$ROOT\backend\web"
-if (Test-Path $webDest) { Remove-Item -Recurse -Force $webDest }
-Copy-Item -Recurse "$ROOT\frontend\dist" $webDest
-Write-Host "[✓] Fichiers copiés dans backend/web" -ForegroundColor Green
+# Vite écrit directement dans backend/web ; ne pas effacer ses fichiers avant l'embed Go.
+$webIndex = Join-Path $ROOT 'backend\web\index.html'
+if (-not (Test-Path -LiteralPath $webIndex)) { Write-Error "Build frontend absent : $webIndex"; exit 1 }
 
-# --- 3. Build Backend Go ---
-Write-Host "[3/3] Compilation Go → cyber-hub.exe..." -ForegroundColor Yellow
+# --- 2. Build Backend Go ---
+Write-Host "[2/2] Compilation Go → cyber-hub.exe..." -ForegroundColor Yellow
 Set-Location "$ROOT\backend"
 
 go mod download

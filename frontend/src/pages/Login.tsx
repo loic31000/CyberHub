@@ -26,6 +26,10 @@ export default function Login() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!password.trim()) return
+    if (!isSetup && password.length < 8) {
+      setError('Le mot de passe doit contenir au moins 8 caractères')
+      return
+    }
     setError('')
     setLoading(true)
     try {
@@ -79,7 +83,7 @@ export default function Login() {
                   type={showPassword ? 'text' : 'password'}
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  placeholder={isSetup ? '••••••••' : `Min. 4 caractères`}
+                  placeholder={isSetup ? '••••••••' : `Min. 8 caractères`}
                   className="input pr-10"
                   autoFocus
                   disabled={loading || statusLoading}

@@ -4,8 +4,6 @@ services:
       context: .
       dockerfile: Dockerfile
     image: cyber-hub:latest
-    container_name: cyber-hub
-
     ports:
       - "127.0.0.1:7743:7743"
 
