@@ -1,14 +1,15 @@
 # CyberHub 2026 — laboratoire de direction artistique
 
-Deux prototypes de l’[issue #7](https://github.com/loic31000/CyberHub/issues/7), dont A est désormais la direction retenue pour une itération V2. Ce dossier est un site Vite autonome. Il ne lit ni `frontend/`, ni `backend/`, ni SQLite ; il ne définit aucun proxy `/api`. Toutes les fiches et relations sont des exemples **synthétiques**, visibles comme tels dans l’interface. La Console privée reste sur ses ports et son volume actuels.
+Deux prototypes de l’[issue #7](https://github.com/loic31000/CyberHub/issues/7). Le concept A est retenu pour exploration ; sa direction artistique reste à valider après la V3. Ce dossier est un site Vite autonome. Il ne lit ni `frontend/`, ni `backend/`, ni SQLite ; il ne définit aucun proxy `/api`. Toutes les fiches et relations sont des exemples **synthétiques**, visibles comme tels dans l’interface. La Console privée reste sur ses ports et son volume actuels.
 
 ## Ouvrir les prototypes
 
-**A V2 est la direction retenue pour validation visuelle.** A V1 et B restent disponibles pour la comparaison. Lire l’[audit avant/après](a-v2-audit.md) pour les défauts constatés à six largeurs, les captures et les limites des essais d’accessibilité.
+**A V3 est une proposition à examiner, sans validation artistique acquise.** A V1, A V2 et B restent disponibles. Lire la [revue critique V2 et les preuves V3](a-v3-audit.md) ainsi que l’[audit A V1 → V2](a-v2-audit.md).
 
 | Vue supplémentaire | URL locale | Intention |
 | --- | --- | --- |
 | A V2 — Sismographe éditorial | http://127.0.0.1:5174/a-v2.html | Une même adresse fictive traverse les quatre actes, du signal à la méthode de vérification. |
+| A V3 — Instrument de lecture | http://127.0.0.1:5174/a-v3.html | Le signal devient une adresse, deux notes, une relation, puis un dossier fictif ; le tracé suit la lecture et son retour. |
 
 Dans PowerShell :
 
@@ -43,10 +44,15 @@ npm run build
 npm test
 npm run test:browser
 npm run test:v2
+npm run test:v3
+npm run test:visual
+npm run format:check
 npm audit
 ```
 
 `npm test` reconstruit puis contrôle les pages, les fixtures, le contraste des principales paires de texte et l’absence de routes, tokens ou clients privés dans le build. `test:browser` lance Vite si nécessaire, emploie Chromium installé localement, teste 1440/768/390/320 px, les interactions souris/clavier/tactile, le mouvement réduit, l’absence de débordement, de requête externe ou d’accès `/api`, puis vérifie HMR en restaurant exactement le CSS d’origine. S’il ne trouve pas Chromium, définir `PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH` vers un exécutable compatible.
+
+`test:v3` parcourt A V3 à 320/390/768/1024/1440/1920 px, vérifie les états interactifs, la progression et le retour du tracé, le mouvement réduit ou arrêté, le rendu sans JavaScript, axe-core sur plusieurs états, et enregistre captures et vidéo dans [`captures/a-v3/`](captures/a-v3/). `test:visual` compare six scènes avec des [références contrôlées](captures/a-v3/reference/) ; `visual:update` ne doit servir qu’après examen d’un changement visuel voulu. Le [rapport V3](a-v3-audit.md) présente les résultats et les limites de ces contrôles.
 
 Les contrastes mesurés des paires structurantes sont : ivoire/encre A **15,39:1**, cuivre/encre A **8,49:1**, encre/papier B **11,22:1**, rouge/papier B **5,17:1**, ardoise/papier B **5,12:1**. Ces mesures ciblées et les essais automatisés ne constituent pas une certification WCAG 2.2 AA ; une revue avec lecteur d’écran et appareils physiques reste nécessaire avant publication.
 
