@@ -94,6 +94,10 @@ test("le code public et le build ne contiennent pas de client ou route privée",
     "src/styles.css",
     "src/a-v2.css",
     "src/a-v3.css",
+    "terminal-story.html",
+    "src/terminal-story.js",
+    "src/terminal-story.css",
+    "src/motion.js",
   ];
   const built = readdirSync(join(root, "dist/assets"))
     .filter((name) => /\.(css|js)$/.test(name))
@@ -105,6 +109,7 @@ test("le code public et le build ne contiennent pas de client ou route privée",
     "dist/a.html",
     "dist/a-v2.html",
     "dist/a-v3.html",
+    "dist/terminal-story.html",
   ]) {
     assert.doesNotMatch(
       read(path),
@@ -112,7 +117,12 @@ test("le code public et le build ne contiennent pas de client ou route privée",
       path,
     );
   }
-  for (const script of ["src/main.js", "src/a-v2.js", "src/a-v3.js"])
+  for (const script of [
+    "src/main.js",
+    "src/a-v2.js",
+    "src/a-v3.js",
+    "src/terminal-story.js",
+  ])
     assert.doesNotMatch(
       read(script),
       /\bfetch\s*\(|XMLHttpRequest|WebSocket|EventSource/,
@@ -123,8 +133,34 @@ test("le code public et le build ne contiennent pas de client ou route privée",
     "src/styles.css",
     "src/a-v2.css",
     "src/a-v3.css",
+    "src/terminal-story.css",
   ])
     assert.doesNotMatch(read(css), /https?:\/\//, css);
+});
+
+test("le récit terminal conserve ses six étapes et ses alternatives textuelles", () => {
+  const html = read("terminal-story.html");
+  assert.match(read("index.html"), /href="\.\/terminal-story\.html"/);
+  for (const id of [
+    "terminal",
+    "ioc",
+    "relations",
+    "disciplines",
+    "investigation",
+    "decouvrir",
+  ])
+    assert.match(html, new RegExp(`id="${id}"`));
+  const plainText = html.replace(/<[^>]*>/g, " ").replace(/\s+/g, " ");
+  for (const text of [
+    "198.51.100.42",
+    "transcription",
+    "Simulation illustrative",
+    "aucune commande réellement exécutée",
+    "aucune API privée",
+  ])
+    assert.ok(plainText.includes(text), `mention absente: ${text}`);
+  assert.match(html, /<noscript\b/);
+  assert.match(read("src/terminal-story.css"), /prefers-reduced-motion/);
 });
 
 test("les couleurs structurantes de A V1 gardent le contraste AA", () => {

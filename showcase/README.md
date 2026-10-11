@@ -1,6 +1,6 @@
 # CyberHub 2026 — laboratoire local
 
-Ce laboratoire Vite est autonome : aucune connexion à la Console privée, à SQLite ou aux API du backend. Les données affichées sont synthétiques. La nouvelle vitrine narrative **« De la commande à la compréhension »** est en préparation ; les trois prototypes A restent comme archives de comparaison.
+Ce laboratoire Vite est autonome : aucune connexion à la Console privée, à SQLite ou aux API du backend. Les données affichées sont synthétiques. La vitrine **« De la commande à la compréhension »** raconte en six étapes le passage d'une ligne de terminal fictive à une investigation documentée. Les trois prototypes A restent comme archives de comparaison.
 
 ## Ouvrir le laboratoire
 
@@ -15,11 +15,20 @@ Vite écoute uniquement sur `127.0.0.1:5174` et refuse de changer de port silenc
 | Vue | URL locale |
 | --- | --- |
 | Accueil et archives | http://127.0.0.1:5174/ |
+| Nouvelle vitrine terminal | http://127.0.0.1:5174/terminal-story.html |
 | A V1 | http://127.0.0.1:5174/a.html |
 | A V2 | http://127.0.0.1:5174/a-v2.html |
 | A V3 | http://127.0.0.1:5174/a-v3.html |
 
 Les audits [A V2](a-v2-audit.md), [A V3](a-v3-audit.md) et [direction V3](direction-audit.md), les captures des trois versions et les six références visuelles de A V3 restent disponibles. Les anciennes explorations B, Atelier et Topologie ont été retirées du laboratoire actif.
+
+## Lire la nouvelle expérience
+
+Le terminal écrit une commande illustrative, puis deux lignes synthétiques apparaissent. Le défilement transporte visuellement l'adresse de documentation vers une fiche IOC avec provenance, contexte et inconnues. La scène suivante relie seulement deux citations du même fichier ; le référentiel MITRE est présenté séparément. Trois boutons font varier une même zone de lecture pour la veille CVE, l'OSINT et l'historique BGP. La chronologie, le dossier et le playbook montrent ensuite comment garder des questions vérifiables. Le dernier acte renvoie vers les fonctionnalités et le code du projet.
+
+Le bouton « Rejouer » relance la séquence illustrative. « Arrêter les animations » supprime les mouvements et conserve tous les résultats visibles. Le parcours suit le défilement natif et se remonte. La page contient une transcription statique, des descriptions des vues, des contrôles clavier et une version lisible sans JavaScript. Sur mobile, le terminal et la fiche restent dans le flux de lecture pour éviter un panneau bloqué dans la fenêtre.
+
+La commande n'est jamais exécutée. L'adresse `198.51.100.42`, le fichier, les lignes, les noms OSINT et les chemins BGP sont fictifs. Les données CVE et MITRE illustrent des capacités du projet et ne sont pas dérivées du terminal.
 
 ## Vérifier
 
@@ -29,10 +38,13 @@ npm run test:browser
 npm run test:v2
 npm run test:v3
 npm run test:visual
+npm run test:terminal
 npm run format:check
 npm audit --audit-level=low
 ```
 
 `npm test` construit le site puis vérifie les archives et l'isolement des routes privées. Les scripts navigateur utilisent Chromium installé localement, ou `PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH` si nécessaire. `test:visual` compare A V3 à ses références existantes ; `visual:update` ne doit être utilisé qu'après une revue explicite des changements visuels.
 
-La vitrine sera une simulation illustrative : aucune commande saisie dans le terminal ne sera exécutée et aucune observation réseau réelle ne sera produite. Le lecteur pourra vérifier le code source du projet dans son [dépôt GitHub](https://github.com/loic31000/CyberHub).
+`test:terminal` parcourt six largeurs (320 à 1920 px), teste les interactions et le défilement réversible, une augmentation du texte à 200 %, le mouvement réduit et l'absence de JavaScript. Il lance axe-core sur quatre largeurs et sur le menu mobile ouvert, surveille les erreurs JavaScript et les requêtes vers des domaines externes ou des API privées. Il produit [un rapport JSON](captures/terminal-story/report.json), des [captures desktop](captures/terminal-story/1440-full.png) et [mobile](captures/terminal-story/390-full.png), ainsi qu'une [vidéo WebM du parcours](captures/terminal-story/journey.webm). Une vérification visuelle des captures est nécessaire après modification ; axe ne remplace pas un audit humain WCAG ou un test avec lecteur d'écran.
+
+Le lecteur peut vérifier le code source du projet dans son [dépôt GitHub](https://github.com/loic31000/CyberHub).
