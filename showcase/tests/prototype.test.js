@@ -64,17 +64,31 @@ test("A V2 garde un scénario fictif cohérent sur quatre actes", () => {
   assert.match(html, /class="relation-map"/);
 });
 
+test("A V3 conserve l’enquête fictive et expose une version statique stylée", () => {
+  const html = read("a-v3.html");
+  for (const anchor of ["signal", "comprendre", "cartographier", "agir"])
+    assert.match(html, new RegExp(`id="${anchor}"`));
+  assert.match(read("index.html"), /href="\.\/a-v3\.html"/);
+  assert.match(html, /198\.51\.100\.42/g);
+  assert.match(html, /href="\/src\/a-v3\.css"/);
+  assert.match(html, /class="reading-track"/);
+  assert.match(html, /class="map-list"/);
+});
+
 test("le code public et le build ne contiennent pas de client ou route privée", () => {
   const sources = [
     "index.html",
     "a.html",
     "b.html",
     "a-v2.html",
+    "a-v3.html",
     "src/main.js",
     "src/a-v2.js",
+    "src/a-v3.js",
     "src/fixtures.js",
     "src/styles.css",
     "src/a-v2.css",
+    "src/a-v3.css",
   ];
   const built = readdirSync(join(root, "dist/assets"))
     .filter((name) => /\.(css|js)$/.test(name))
@@ -86,6 +100,7 @@ test("le code public et le build ne contiennent pas de client ou route privée",
     "dist/a.html",
     "dist/b.html",
     "dist/a-v2.html",
+    "dist/a-v3.html",
   ]) {
     const text = read(path);
     assert.doesNotMatch(
@@ -102,8 +117,13 @@ test("le code public et le build ne contiennent pas de client ou route privée",
     read("src/a-v2.js"),
     /\bfetch\s*\(|XMLHttpRequest|WebSocket|EventSource/,
   );
+  assert.doesNotMatch(
+    read("src/a-v3.js"),
+    /\bfetch\s*\(|XMLHttpRequest|WebSocket|EventSource/,
+  );
   assert.doesNotMatch(read("src/styles.css"), /https?:\/\//);
   assert.doesNotMatch(read("src/a-v2.css"), /https?:\/\//);
+  assert.doesNotMatch(read("src/a-v3.css"), /https?:\/\//);
 });
 
 test("les couleurs de texte principales atteignent le contraste AA de base", () => {

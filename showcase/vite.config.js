@@ -13,6 +13,7 @@ export default defineConfig({
         compare: fileURLToPath(new URL("./index.html", import.meta.url)),
         seismic: fileURLToPath(new URL("./a.html", import.meta.url)),
         seismicV2: fileURLToPath(new URL("./a-v2.html", import.meta.url)),
+        seismicV3: fileURLToPath(new URL("./a-v3.html", import.meta.url)),
         atlas: fileURLToPath(new URL("./b.html", import.meta.url)),
       },
     },

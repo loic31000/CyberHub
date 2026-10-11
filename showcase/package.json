@@ -10,7 +10,11 @@
     "test": "npm run build && node --test tests/*.test.js",
     "test:browser": "node scripts/browser-check.mjs",
     "test:v2": "node scripts/v2-check.mjs",
-    "format:check": "prettier --check index.html a.html a-v2.html b.html src scripts tests vite.config.js"
+    "test:v3": "node scripts/v3-check.mjs",
+    "capture:compare": "node scripts/compare-v2-v3.mjs",
+    "test:visual": "node scripts/visual-regression.mjs",
+    "visual:update": "node scripts/visual-regression.mjs --update",
+    "format:check": "prettier --check index.html a.html a-v2.html a-v3.html b.html src scripts tests vite.config.js"
   },
   "devDependencies": {
     "@axe-core/playwright": "^4.13.0",
@@ -18,6 +22,7 @@
     "@fontsource-variable/manrope": "^5.3.0",
     "@fontsource/dm-mono": "^5.3.0",
     "playwright-core": "^1.64.0",
+    "pngjs": "^7.0.0",
     "prettier": "^3.9.10",
     "vite": "^7.3.7"
   }
