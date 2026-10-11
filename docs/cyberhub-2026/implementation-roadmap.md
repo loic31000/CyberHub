@@ -7,13 +7,30 @@ Plan fondé sur les descriptions et critères d'acceptation des [issues #3 à #1
 | Phase | Issues / dépendances | Livrable et premier geste | Porte de validation |
 | --- | --- | --- | --- |
 | 0. Fondations documentées | [#3](https://github.com/loic31000/CyberHub/issues/3), [#4](https://github.com/loic31000/CyberHub/issues/4), [#5](https://github.com/loic31000/CyberHub/issues/5), [#6](https://github.com/loic31000/CyberHub/issues/6), préparation [#7](https://github.com/loic31000/CyberHub/issues/7) | Audit, deux récits, storyboard, ADR, brief et scénarios UX. | Auteur confirme promesse, direction et frontière de publication. |
-| 1. Prototypes et preuve d'isolement | #4 + #5 + #6 + #7 | Maquettes desktop/mobile de hero, acte II, acte III et dashboard; squelette Showcase statique autonome, fixture fictive, tests de bundle public. | Revue utilisateur, mobile/clavier, aucune route API privée dans preview/bundle; aucune donnée réelle. |
+| 1. Prototypes et preuve d'isolement | #4 + #5 + #6 puis [#7](https://github.com/loic31000/CyberHub/issues/7) | Deux propositions visuelles réellement différentes, chacune en desktop/mobile; en parallèle, preuve technique d'un Showcase statique autonome avec fixture fictive. | Comparaison de prototypes visibles, mobile/clavier/mouvement réduit; aucune route API privée dans preview/bundle ni donnée réelle. |
 | 2. Système visuel et mouvement | [#8](https://github.com/loic31000/CyberHub/issues/8) après #7; [#9](https://github.com/loic31000/CyberHub/issues/9) après #4/#7 | Tokens et primitives d'abord (boutons, liens, navigation, états, panneau de preuve); prototype de transitions ensuite. Conserver Tailwind 3 tant qu'une migration distincte n'est pas approuvée. | Contrastes, reflow, clavier, mouvement réduit, performance mesurée sur matériel modeste. |
 | 3. Showcase et démo | [#10](https://github.com/loic31000/CyberHub/issues/10) après #4/#5/#7/#8/#9 | Landing en quatre actes, pages indexables, démo fictive sans backend et liens code/installation. | SEO, accessibilité, bundle sans API/secret, preview sans Go, parcours desktop/mobile; revue des captures et textes. |
 | 4. Console progressive | #6 puis #8 et sous-tâches à créer/relier sous #3 | Navigation mobile, sémantique des interactions, états erreur/vide, métriques sourcées, dashboard hiérarchisé; ne supprimer aucun module. | Tests Go/React, parcours login→dashboard→investigation, persistance SQLite, comparaison fonctionnelle avant/après. |
-| 5. Réseau optionnel | [#19](https://github.com/loic31000/CyberHub/issues/19) → [#20](https://github.com/loic31000/CyberHub/issues/20) et [#22](https://github.com/loic31000/CyberHub/issues/22) → [#21](https://github.com/loic31000/CyberHub/issues/21) | Vérifier l'interface NetAlertX réelle, connecteur privé opt-in en lecture seule, provenance/horodatage/incertitude, puis étudier séparément le scan actif. | Revue sécurité et autorisation explicite du périmètre avant toute fonction active; aucun service domestique exposé. |
+| 5. Réseau optionnel | [#19](https://github.com/loic31000/CyberHub/issues/19) → [#21](https://github.com/loic31000/CyberHub/issues/21) → [#22](https://github.com/loic31000/CyberHub/issues/22) → [#20](https://github.com/loic31000/CyberHub/issues/20) | Vérifier NetAlertX et son connecteur privé en lecture seule; définir sources/modes et limites; fiabiliser identités/provenance; seulement ensuite construire inventaire, timeline et alertes. | Chaque transition de données est testée sur fixtures; aucun scan actif sans accord distinct, aucun service domestique exposé. |
 
 La phase 4 peut avancer par petits lots pendant la phase 3 si les interfaces partagées et les tests sont prêts; elle ne doit pas retarder la correction des défauts UX P0 de la console. Le chantier NetAlertX ne bloque ni le récit ni le Showcase et ne commence pas dans cette phase.
+
+**Prérequis réseau obligatoires et parallélisme :** #19 vérifie d'abord les interfaces réelles, la compatibilité et le mode lecture seule; #21 peut comparer sur papier les sources et contraintes pendant cette vérification, mais ne fige aucun mode d'import ou de découverte avant son résultat. #22 peut esquisser le modèle d'identité et ses tests de changements IP/MAC en parallèle de #21; sa normalisation effective dépend des champs/provenances établis par #19 et des modes retenus en #21. #20 peut prototyper une interface sur fixtures explicitement fictives en parallèle, mais ses écrans reliés à une source réelle, sa timeline et ses alertes attendent le modèle d'observation fiable de #22. La découverte active n'est ni un prérequis du MVP ni une fonction livrée : elle exigerait une décision distincte sur le périmètre autorisé et les garde-fous.
+
+## Cahier de passage à #7 — comparer des prototypes, pas des intentions
+
+La présente PR fournit le récit et le [brief préparatoire](art-direction-brief.md). L'issue #7 doit produire **deux prototypes haute fidélité distincts**, chacun décliné en desktop et mobile, avant de choisir une direction finale :
+
+| Livrable vérifiable, pour A **et** B | A — Sismographe éditorial | B — Carnet de laboratoire / Atlas d'indices |
+| --- | --- | --- |
+| Hero immersif | Signal isolé, typographie expressive et composition asymétrique; la preuve apparaît avec la forme. | Dossier ouvert sur une question et des indices annotés; sources et limites visibles dès l'entrée. |
+| Transition SIGNAL → COMPRENDRE | Un tracé se transforme en relations légendées, sans masquer le texte. | Un indice mène à une note sourcée puis à un recoupement explicite. |
+| Esquisse CARTOGRAPHIER | Relations fictives avec liste et panneau de provenance; aucun équipement présenté comme réel. | Atlas consultable par index, relation et fiche; incertitudes visibles. |
+| Dashboard Console | Hiérarchie éditoriale déduite du récit, avec données et états vérifiables. | Atlas d'indices : listes, relations, sources/horodatages et actions de l'opérateur. |
+| Système et interactions | Palette, typographies, composants clés, focus/hover/erreur/vide, durée et déclencheur de chaque révélation. | Mêmes éléments, plus règles d'annotation, sélection, ouverture de dossier et retour au contexte. |
+| Mobile et sans mouvement | Composition refluée, navigation tactile/clavier; état final directement lisible avec `prefers-reduced-motion`. | Index et preuves en flux vertical; relations en liste; aucune information portée par une animation seule. |
+
+Les deux propositions doivent montrer de **vrais écrans navigables ou séquences animées comparables**, pas seulement des planches de références. Fournir prototypes consultables, captures desktop/mobile, spécification des micro-interactions et de leurs alternatives, tokens provisoires, contrastes mesurés, inventaire/licences des assets et mesures de chargement sur appareil modeste. Tester au moins hero → acte II → acte III et accès au dashboard au clavier et au tactile. Objectif [WCAG 2.2 AA](https://www.w3.org/TR/WCAG22/) à mesurer; aucune conformité revendiquée sur la seule base des maquettes. La revue humaine compare compréhension du récit, distinction démo/réel, lisibilité, coût de production et performance. Elle décide de la direction finale **avant** #8/#9/#10. Aucun prototype n'est produit dans cette PR.
 
 ## Backlog UX priorisé pour la Console
 
@@ -44,11 +61,12 @@ Chaque lot doit comporter un scénario observable et un test de non-régression 
 
 ## Décisions qui exigent l'auteur
 
-1. Approuver ou corriger la promesse « Rendre visible l'invisible », la voix et les CTA; fournir toute preuve biographique qu'il souhaite publier.
-2. Choisir la direction visuelle après comparaison des maquettes 01/03 et de l'option Atlas; approuver licences et captures.
-3. Choisir l'hébergement public du Showcase et confirmer si la Console restera locale ou nécessitera plus tard un accès distant, sujet à revue de sécurité distincte.
-4. Valider ce que la démo fictive peut simuler et quels modules doivent figurer dans le premier parcours.
-5. Autoriser séparément, plus tard, toute intégration NetAlertX et surtout toute capacité de scan actif avec périmètre explicite.
+1. Approuver la signature, les textes et CTA définitifs de « Rendre visible l'invisible »; fournir toute preuve biographique destinée à être publiée.
+2. Choisir l'identité visuelle après comparaison réelle des prototypes A/B, y compris direction Showcase et adaptation Atlas pour la Console; approuver licences et captures.
+3. Choisir l'hébergement public du Showcase et ses frontières de publication.
+4. Valider le périmètre de la démo fictive, ses modules et son étiquetage.
+5. Décider séparément d'une éventuelle exposition distante de la Console, après revue de sécurité; le choix de l'hébergement Showcase ne l'autorise pas.
+6. Autoriser séparément toute découverte réseau active, avec périmètre explicite. L'intégration NetAlertX en lecture seule elle-même reste un chantier futur à cadrer.
 
 ## État réel des critères de cette phase
 
@@ -62,4 +80,4 @@ Chaque lot doit comporter un scénario observable et un test de non-régression 
 | Fonctionnalités/données existantes préservées | **Oui pour ce lot documentaire : aucun code ni donnée modifiés.** | Régression à vérifier à chaque futur lot de code. |
 | Secret/réseau privé non exposé | **Revue documentaire et pas de publication dans ce lot.** | Vérification automatisée des futurs bundles/captures et de l'hébergement. |
 
-Les DoD complètes des issues #3–#10 nécessitent une implémentation et/ou une validation humaine. Certaines descriptions d'issues antérieures à la fusion demandent une branche issue de `chore/security-ci-pilot` ou des chemins `docs/brand/story.md` et `docs/design/visual-direction.md`. La demande actuelle impose `feat/cyberhub-2026-foundations` depuis le `main` fusionné et les cinq fichiers sous `docs/cyberhub-2026/`; cette livraison suit ces instructions récentes. Les chemins historiques pourront être mis à jour dans les issues après revue, sans créer des copies divergentes maintenant.
+Les DoD complètes des issues #3–#10 nécessitent une implémentation et/ou une validation humaine. Les cinq documents de fondation ont pour emplacement canonique `docs/cyberhub-2026/` : [récit](brand-story.md), [ADR](architecture.md), [audit](frontend-audit.md), [brief préparatoire](art-direction-brief.md) et cette feuille de route. La direction graphique finale sera consignée après comparaison des prototypes #7, dans le brief mis à jour ou un document distinct sous ce même répertoire si nécessaire. La branche de cette PR vient du `main` déjà fusionné avec Security CI; les **nouveaux chantiers** devront partir de `main` après revue et fusion des fondations. Aucune issue n'est close par la seule publication de ces documents.

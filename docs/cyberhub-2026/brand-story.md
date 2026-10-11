@@ -16,7 +16,7 @@ Proposition pour [#4](https://github.com/loic31000/CyberHub/issues/4) et l'[epic
 
 ## Deux directions narratives distinctes
 
-| | A — Rendre visible l'invisible | B — Le carnet d'enquête |
+| | A — Rendre visible l'invisible | B — Carnet de laboratoire / Atlas d'indices |
 | --- | --- | --- |
 | Métaphore | Le signal brut acquiert une structure puis devient une interface utilisable. | On ouvre un carnet : hypothèse, source, note, recoupement, décision. |
 | Structure | Quatre actes progressifs : SIGNAL → COMPRENDRE → CARTOGRAPHIER → AGIR. | Une enquête non linéaire : choisir une question, suivre des preuves, revenir à la table des matières. |
@@ -26,7 +26,7 @@ Proposition pour [#4](https://github.com/loic31000/CyberHub/issues/4) et l'[epic
 | Risque | Spectacle visuel qui efface la preuve; mouvement excessif. | Esthétique de carnet qui sous-vend la console et alourdit l'accès direct aux fonctions. |
 | Force | Cohérence immédiate avec l'[epic #3](https://github.com/loic31000/CyberHub/issues/3) et récit simple en quatre actes. | Met en valeur la provenance, l'incertitude et le geste d'investigation. |
 
-**Recommandation :** prendre A pour la structure publique et emprunter à B sa discipline de preuve : chaque visualisation s'accompagne d'une source, d'un état et d'une limite. Garder B comme variante testable du hero/de l'acte II lors des prototypes de [#7](https://github.com/loic31000/CyberHub/issues/7). Ce choix reste à valider humainement après comparaison de maquettes desktop/mobile.
+**Recommandation proposée :** prendre A pour la structure publique et emprunter à B sa discipline de preuve : chaque visualisation s'accompagne d'une source, d'un état et d'une limite. B doit être prototypée comme une expérience complète et distincte en [#7](https://github.com/loic31000/CyberHub/issues/7), avec son hero, sa transition, sa cartographie et son dashboard. Ce choix reste à valider humainement après comparaison de prototypes desktop/mobile. Les textes et la signature définitifs exigent également l'accord de l'auteur.
 
 ## Storyboard de la direction A
 

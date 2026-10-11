@@ -2,19 +2,19 @@
 
 Document de préparation pour [#7](https://github.com/loic31000/CyberHub/issues/7), en lien avec le récit de [#4](https://github.com/loic31000/CyberHub/issues/4), les tokens de [#8](https://github.com/loic31000/CyberHub/issues/8) et le mouvement de [#9](https://github.com/loic31000/CyberHub/issues/9). Il définit des hypothèses de design à prototyper, pas des maquettes haute fidélité déjà validées.
 
-## Trois directions à tester
+## Deux propositions à confronter en #7
 
-| | 01 — Sismographe éditorial | 02 — Atlas d'indices | 03 — Carnet de laboratoire |
-| --- | --- | --- | --- |
-| Intention | Faire émerger un signal d'un grand silence visuel. | Organiser les relations comme une carte annotée. | Montrer le raisonnement par dossiers et annotations. |
-| Composition | Titres très grands, marges asymétriques, lignes de mesure fines, ruptures nettes de rythme. | Vues en couches, grilles topologiques sobres, légendes et tableaux précis. | Colonnes éditoriales, repères de pages, notes de marge, preuves empilées. |
-| Couleur/matière | Fond encre chaude, texte ivoire, un accent cuivre ou bleu froid réservé aux états porteurs de sens. | Fond ardoise et surfaces claires ponctuelles, accent bleu minéral, statut distinct du décor. | Papier sombre mat, gris bleutés, accent ambre limité aux repères. |
-| Typographie | Display expressive pour les titres; sans lisible pour le corps; mono seulement pour sources/identifiants. | Sans géométrique pour la structure, serif ou display expressive pour les moments narratifs; mono pour les données. | Serif éditoriale dominante, sans fonctionnelle dans la console, mono pour les traces. |
-| Icons/illustrations | Icônes fonctionnelles fines, tracés de signal fabriqués à partir de données fictives. | Symboles de relations avec légende; aucune icône sans texte en contexte critique. | Pictogrammes de dossier et marqueurs de provenance, peu d'ornement. |
-| Mouvement | Une révélation courte par acte, transition vers composants réels. | Changement d'échelle volontaire, sélection/focus de relation. | Ouverture/fermeture de notes et déplacement de fragments. |
-| Risque | Aspect trop abstrait si la preuve tarde à apparaître. | « Graphe décoratif » qui suggère une fonction non livrée. | Identité de produit moins visible et densité importante sur mobile. |
+| | A — Sismographe éditorial | B — Carnet de laboratoire / Atlas d'indices |
+| --- | --- | --- |
+| Intention | Faire émerger un signal d'un grand silence visuel, jusqu'à une structure explicable. | Montrer le raisonnement par dossier, annotations, sources et relations consultables. |
+| Composition | Titres très grands, marges asymétriques, lignes de mesure fines, ruptures nettes de rythme. | Colonnes éditoriales et index; atlas de relations légendées, fiches et preuves empilées. |
+| Couleur/matière | Fond encre chaude, texte ivoire, un accent cuivre ou bleu froid réservé aux états porteurs de sens. | Papier sombre mat et ardoise, surfaces claires ponctuelles, accent ambre ou bleu minéral pour les repères. |
+| Typographie | Display expressive pour les titres; sans lisible pour le corps; mono seulement pour sources/identifiants. | Serif éditoriale pour le récit, sans fonctionnelle pour la console, mono pour les traces. |
+| Icônes/illustrations | Icônes fonctionnelles fines, tracés de signal fabriqués à partir de données fictives. | Marqueurs de provenance, symboles de relation légendés; aucune icône seule pour une action critique. |
+| Mouvement | Une révélation courte par acte, transition vers composants réels. | Ouverture d'un dossier, sélection d'un indice, changement d'échelle volontaire dans l'atlas. |
+| Risque | Aspect trop abstrait si la preuve tarde à apparaître. | Densité importante sur mobile ou graphe qui suggère une fonction non livrée. |
 
-**Direction conseillée :** 01 pour Showcase, enrichie des légendes/provenances de 02. La Console peut reprendre la hiérarchie, les couleurs sémantiques et les composants de 02 sans reproduire les effets du Showcase. La 03 sert de contre-prototype pour vérifier si la méthode d'enquête est plus claire que le récit du signal. Les palettes ci-dessus sont des intentions, pas des couleurs finales : mesurer les contrastes avant de figer les tokens. Écarter pluie de caractères, néon généralisé, fausse télémétrie, textures qui diminuent la lisibilité et écran d'intro bloquant.
+**Directions privilégiées, encore proposées :** A pour le Showcase; l'Atlas d'indices de B pour la Console. Les deux prototypes complets serviront à vérifier si le récit du signal ou la méthode d'enquête est plus clair pour la vitrine. Les palettes ci-dessus sont des intentions, pas des couleurs finales : mesurer les contrastes avant de figer les tokens. Écarter pluie de caractères, néon généralisé, fausse télémétrie, textures qui diminuent la lisibilité et écran d'intro bloquant.
 
 ## Structures visuelles à prototyper
 
@@ -50,8 +50,10 @@ Viser [WCAG 2.2 AA](https://www.w3.org/TR/WCAG22/) : ordre DOM/focus cohérent, 
 
 Produire avant validation :
 
-1. Deux prototypes visuellement contrastés du hero + section suivante et d'un dashboard, chacun desktop **et** mobile; la troisième direction reste exploratoire si le temps est contraint.
+1. Deux prototypes visuellement contrastés A et B, chacun avec hero, transition Signal → Comprendre, esquisse Cartographier et dashboard Console, en desktop **et** mobile. Les prototypes sont visibles et comparables, pas de simples descriptions.
 2. Palette et échelle typo avec valeurs de contraste mesurées, spécification des états interactifs, focus et version sans mouvement.
-3. Une interaction de l'acte II et une de l'acte III testées sur clavier, tactile et appareil peu puissant, avec chemin de repli sans effet.
+3. Animations et micro-interactions spécifiées par déclencheur, durée, fonction narrative et état final; une interaction des actes II et III testée sur clavier, tactile et appareil peu puissant, avec chemin de repli sans effet et `prefers-reduced-motion`.
 4. Inventaire des assets, licences, poids, fallback et indication de ce qui est fictif.
 5. Revue humaine du récit et de la direction retenue avant implémentation de la landing [#10](https://github.com/loic31000/CyberHub/issues/10).
+
+Le présent fichier reste un **brief préparatoire**. Après la comparaison et l'accord de l'auteur, consigner la direction finale et ses règles du « faire/ne pas faire » ici ou dans un document distinct sous `docs/cyberhub-2026/` si le brief ne suffit pas; ne pas déduire une validation graphique de cette recommandation.
