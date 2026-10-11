@@ -1,5 +1,11 @@
 import assert from "node:assert/strict";
-import { existsSync, mkdirSync, readdirSync, writeFileSync } from "node:fs";
+import {
+  existsSync,
+  mkdirSync,
+  readdirSync,
+  statSync,
+  writeFileSync,
+} from "node:fs";
 import { join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import AxeBuilder from "@axe-core/playwright";
@@ -34,7 +40,14 @@ try {
   await server.listen();
 }
 const browser = await chromium.launch({ executablePath: browserPath() });
-const report = { widths: [], axe: {}, interaction: {}, motion: {}, errors: [] };
+const report = {
+  widths: [],
+  axe: {},
+  interaction: {},
+  motion: {},
+  story: [],
+  errors: [],
+};
 async function violations(page) {
   const result = await new AxeBuilder({ page })
     .withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa", "wcag22aa"])
@@ -101,16 +114,49 @@ try {
       await page.evaluate(() => {
         document.documentElement.style.fontSize = "200%";
       });
+      await page.waitForTimeout(120);
       const enlarged = await page.evaluate(() => ({
         viewport: innerWidth,
         document: document.documentElement.scrollWidth,
         body: document.body.scrollWidth,
+        controls: [
+          ...document.querySelectorAll(".motion-control, .menu-control"),
+        ].map((node) => {
+          const rect = node.getBoundingClientRect();
+          return { left: rect.left, right: rect.right, bottom: rect.bottom };
+        }),
+        statusTop: document
+          .querySelector(".story-status")
+          .getBoundingClientRect().top,
+        offenders: [...document.querySelectorAll("body *")]
+          .map((node) => ({
+            name: node.tagName.toLowerCase(),
+            className: String(node.getAttribute("class") ?? ""),
+            parent: String(node.parentElement?.getAttribute("class") ?? ""),
+            text: node.textContent?.trim().slice(0, 30),
+            right: Math.round(node.getBoundingClientRect().right),
+            width: Math.round(node.getBoundingClientRect().width),
+          }))
+          .filter((item) => item.right > innerWidth + 2 && item.width > 0)
+          .slice(0, 12),
       }));
       report.text200 = enlarged;
       assert.ok(
         enlarged.document <= width + 1 && enlarged.body <= width + 1,
         `200% text overflow: ${JSON.stringify(enlarged)}`,
       );
+      assert.ok(
+        enlarged.controls.every(
+          (rect) =>
+            rect.left >= 0 &&
+            rect.right <= width + 1 &&
+            rect.bottom <= enlarged.statusTop + 1,
+        ),
+        `200% controls clipped or overlapped: ${JSON.stringify(enlarged)}`,
+      );
+      report.axe.text200 = await violations(page);
+      assert.deepEqual(report.axe.text200, []);
+      await page.screenshot({ path: join(output, "320-text200.png") });
       await page.evaluate(() => {
         document.documentElement.style.fontSize = "";
       });
@@ -132,6 +178,12 @@ try {
   page.on("pageerror", (error) =>
     report.errors.push(`motion: ${error.message}`),
   );
+  page.on("request", (request) => {
+    if (!request.url().startsWith(`${base}/`))
+      report.errors.push(`motion: external ${request.url()}`);
+    if (/\/api(?:\/|\b)/.test(request.url()))
+      report.errors.push(`motion: private API ${request.url()}`);
+  });
   await page.goto(`${base}/terminal-story.html`, { waitUntil: "networkidle" });
   report.axe.motion = await violations(page);
   assert.deepEqual(report.axe.motion, []);
@@ -193,19 +245,111 @@ try {
   report.axe.stopped = await violations(page);
   assert.deepEqual(report.axe.stopped, []);
   await page.locator(".motion-control").click();
-  await page.locator("#relations").scrollIntoViewIfNeeded();
-  await page.waitForTimeout(250);
-  await page.locator("#disciplines").scrollIntoViewIfNeeded();
+  const goTo = async (selector) => {
+    await page.evaluate((query) => {
+      const element = document.querySelector(query);
+      window.scrollTo({
+        top: element.getBoundingClientRect().top + scrollY - innerHeight * 0.52,
+        behavior: "instant",
+      });
+    }, selector);
+    await page.waitForTimeout(300);
+  };
+  const capture = async (name, state) => {
+    const current = await page.locator("body").getAttribute("data-story-state");
+    assert.equal(current, state, `${name}: state ${current}`);
+    const caption = await page.locator(".story-status-title").textContent();
+    const token = await page.locator(".handoff-token").boundingBox();
+    report.story.push({
+      name,
+      state,
+      caption,
+      token: token && { x: Math.round(token.x), y: Math.round(token.y) },
+    });
+    await page.screenshot({ path: join(output, `state-${name}.png`) });
+  };
+  const dockDistance = async (selector) =>
+    page.evaluate((query) => {
+      const value = document.querySelector(query).getBoundingClientRect();
+      const token = document
+        .querySelector(".handoff-token")
+        .getBoundingClientRect();
+      return Math.hypot(
+        value.left + value.width / 2 - (token.left + token.width / 2),
+        value.top + value.height / 2 - (token.top + token.height / 2),
+      );
+    }, selector);
+
+  await handoff(0.72);
+  await page.waitForTimeout(300);
+  await capture("ioc", "ioc-imported");
+  await goTo(".relations-canvas");
+  await capture("correlation", "correlation-linked");
+  assert.equal(
+    await page.locator(".story-status").getAttribute("aria-hidden"),
+    "true",
+  );
+  assert.match(
+    await page.locator(".story-status-title").textContent(),
+    /Deux observations/,
+  );
+  report.motion.correlationDockPx = await dockDistance(
+    ".relation-center strong",
+  );
+  assert.ok(
+    report.motion.correlationDockPx < 30,
+    `correlation dock ${report.motion.correlationDockPx}`,
+  );
+  report.axe.correlation = await violations(page);
+  assert.deepEqual(report.axe.correlation, []);
+  await goTo(".mitre-strip");
+  await page.locator('[data-technique="t1053"]').click();
+  assert.match(
+    await page.locator("#mitre-detail").textContent(),
+    /Persistance/,
+  );
+  await capture("mitre", "references-explored");
+  assert.equal(
+    await page.locator(".handoff-token").getAttribute("data-role"),
+    "thread",
+  );
+  await goTo(".discipline-machine");
+  await page.locator('[data-demo-step="cve:source"]').click();
+  assert.match(
+    await page.locator('[data-demo="cve"] .demo-detail').textContent(),
+    /NVD/,
+  );
+  await capture("cve", "disciplines-explored");
   await page.locator('[data-discipline="osint"]').focus();
   await page.keyboard.press("Space");
+  await page.locator('[data-demo-step="osint:b"]').click();
   assert.match(
     await page.locator("#discipline-transcript").textContent(),
     /trois pistes/,
   );
+  await capture("osint", "disciplines-explored");
   await page.locator('[data-discipline="bgp"]').click();
+  await page.locator('[data-demo-step="bgp:t1"]').click();
   assert.equal(await page.locator(".bgp-graphic").getAttribute("hidden"), null);
-  report.interaction.bgp = true;
-  await page.locator("#investigation").scrollIntoViewIfNeeded();
+  assert.match(
+    await page.locator('[data-demo="bgp"] .demo-detail').textContent(),
+    /instantané fictif/,
+  );
+  await capture("bgp", "disciplines-explored");
+  report.interaction.modules = true;
+  report.axe.modules = await violations(page);
+  assert.deepEqual(report.axe.modules, []);
+  await goTo(".investigation-work");
+  await capture("investigation", "investigation-attached");
+  assert.match(
+    await page.locator(".story-status-title").textContent(),
+    /investigation/,
+  );
+  report.motion.caseDockPx = await dockDistance(".case-ip-value");
+  assert.ok(
+    report.motion.caseDockPx < 30,
+    `case dock ${report.motion.caseDockPx}`,
+  );
   await page.locator(".attach-source").click();
   assert.equal(
     await page.locator(".attach-source").getAttribute("aria-pressed"),
@@ -219,14 +363,80 @@ try {
     "",
   );
   report.interaction.caseAndPlaybook = true;
-  for (const id of ["relations", "disciplines", "investigation", "decouvrir"]) {
-    await page.locator(`#${id}`).scrollIntoViewIfNeeded();
-    await page.waitForTimeout(360);
-  }
+  await goTo(".playbook");
+  await capture("playbook", "playbook-reviewed");
+  await goTo(".final-constellation");
+  await capture("final", "cyberhub-revealed");
+  await goTo(".relations-canvas");
+  await capture("reverse-correlation", "correlation-linked");
+  const sampleBoundary = async (selector) => {
+    const marker = await page.evaluate((query) => {
+      const node = document.querySelector(query);
+      return node.getBoundingClientRect().top + scrollY - innerHeight * 0.52;
+    }, selector);
+    const centers = [];
+    for (const offset of [-3, 3]) {
+      await page.evaluate(
+        (top) => window.scrollTo({ top, behavior: "instant" }),
+        marker + offset,
+      );
+      await page.waitForTimeout(100);
+      centers.push(
+        await page.locator(".handoff-token").evaluate((node) => {
+          const rect = node.getBoundingClientRect();
+          return {
+            x: rect.left + rect.width / 2,
+            y: rect.top + rect.height / 2,
+            opacity: Number(getComputedStyle(node).opacity),
+          };
+        }),
+      );
+    }
+    const distance = Math.hypot(
+      centers[0].x - centers[1].x,
+      centers[0].y - centers[1].y,
+    );
+    assert.ok(
+      distance < 25 && centers.every((point) => point.opacity > 0),
+      `${selector}: discontinuity ${distance}`,
+    );
+    return Math.round(distance * 10) / 10;
+  };
+  report.motion.boundaryPx = {
+    correlation: await sampleBoundary(".relations-canvas"),
+    investigation: await sampleBoundary(".investigation-work"),
+  };
+  await page.setViewportSize({ width: 1024, height: 760 });
+  await goTo(".relations-canvas");
+  assert.equal(
+    await page.locator("body").getAttribute("data-story-state"),
+    "correlation-linked",
+  );
+  report.motion.resize = await page.locator(".handoff-token").boundingBox();
+  assert.ok(report.motion.resize.x >= 0 && report.motion.resize.x < 1024);
+  await page.setViewportSize({ width: 390, height: 844 });
+  await goTo(".relations-canvas");
+  report.motion.mobileChip = await page.locator(".handoff-token").boundingBox();
+  assert.ok(
+    report.motion.mobileChip.x >= 0 && report.motion.mobileChip.x < 390,
+  );
+  await page.screenshot({ path: join(output, "390-motion-relation.png") });
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await goTo(".relations-canvas");
+  await page.locator(".motion-control").click();
+  assert.equal(await page.locator(".handoff-token").isVisible(), false);
+  assert.equal(await page.locator(".relation-center strong").isVisible(), true);
+  await page.locator(".motion-control").click();
+  await handoff(0);
   await page.waitForTimeout(600);
   const video = page.video();
   await context.close();
   await video.saveAs(join(output, "journey.webm"));
+  report.videoBytes = statSync(join(output, "journey.webm")).size;
+  assert.ok(
+    report.videoBytes > 500_000,
+    `video too short: ${report.videoBytes} bytes`,
+  );
 
   const mobile = await browser.newContext({
     viewport: { width: 390, height: 844 },
@@ -265,6 +475,8 @@ try {
   await staticPage.goto(`${base}/terminal-story.html`);
   assert.equal(await staticPage.locator(".terminal-window").isVisible(), true);
   assert.equal(await staticPage.locator(".ioc-workspace").isVisible(), true);
+  assert.equal(await staticPage.locator(".module-demo").count(), 3);
+  assert.equal(await staticPage.locator('[data-demo="bgp"]').isVisible(), true);
   assert.equal(
     await staticPage.locator(".static-transcript").isVisible(),
     true,

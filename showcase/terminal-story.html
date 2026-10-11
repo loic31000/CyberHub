@@ -54,6 +54,12 @@
       ><a href="#decouvrir">Découvrir CyberHub</a>
     </nav>
     <div class="story-progress" aria-hidden="true"><span></span></div>
+    <div class="story-status" aria-hidden="true">
+      <span class="story-status-step">01 / 08</span>
+      <strong class="story-status-title">Une ligne a été trouvée.</strong>
+      <span class="story-status-detail">La source reste visible.</span>
+    </div>
+    <span class="handoff-token" aria-hidden="true">198.51.100.42</span>
 
     <main id="main">
       <section
@@ -166,7 +172,6 @@
               </p>
             </div>
           </div>
-          <span class="handoff-token" aria-hidden="true">198.51.100.42</span>
           <div class="handoff-controls">
             <a href="#ioc" class="handoff-next"
               >Passer à la fiche IOC <span aria-hidden="true">↓</span></a
@@ -252,6 +257,9 @@
           </p>
           <a href="#disciplines">Voir les autres lectures ↓</a>
         </div>
+        <p class="scene-callout relation-callout">
+          Deux observations. Un point commun. Pas encore une conclusion.
+        </p>
         <div class="mitre-strip" aria-labelledby="mitre-title">
           <div>
             <p class="mini-label">Référentiel présent dans CyberHub</p>
@@ -263,18 +271,46 @@
             </p>
           </div>
           <div class="mitre-columns">
-            <div>
+            <button
+              type="button"
+              class="mitre-choice"
+              data-technique="t1059"
+              aria-pressed="true"
+            >
               <span>Exécution</span><strong>T1059</strong
               ><small>Interpréteur de commandes et de scripts</small>
-            </div>
-            <div>
+            </button>
+            <button
+              type="button"
+              class="mitre-choice"
+              data-technique="t1053"
+              aria-pressed="false"
+            >
               <span>Persistance</span><strong>T1053</strong
               ><small>Tâche planifiée</small>
-            </div>
-            <div>
+            </button>
+            <button
+              type="button"
+              class="mitre-choice"
+              data-technique="t1082"
+              aria-pressed="false"
+            >
               <span>Découverte</span><strong>T1082</strong
               ><small>Informations système</small>
-            </div>
+            </button>
+          </div>
+          <div class="mitre-inspector">
+            <span class="mini-label"
+              >Technique consultée · exemple de référentiel</span
+            >
+            <strong id="mitre-detail-title"
+              >T1059 · Interpréteur de commandes et de scripts</strong
+            >
+            <p id="mitre-detail">
+              Tactique : Exécution. Une technique peut être ouverte pour
+              consulter son contexte ; rien dans les deux lignes fictives ne
+              permet de l'attribuer à l'adresse.
+            </p>
           </div>
         </div>
       </section>
@@ -325,7 +361,7 @@
               <span>03</span> BGP &amp; historique <b aria-hidden="true">↗</b>
             </button>
           </div>
-          <div class="discipline-stage" aria-live="polite">
+          <div class="discipline-stage">
             <div class="discipline-info">
               <p class="mini-label" id="discipline-overline">
                 CVE / veille documentée
@@ -383,6 +419,8 @@
                     class="bgp-line two"
                     d="M45 320C120 320 120 290 200 290S280 275 350 275 450 238 595 238"
                   />
+                  <line class="bgp-cursor" x1="45" y1="65" x2="45" y2="345" />
+                  <circle class="bgp-cursor-dot" cx="45" cy="265" r="8" />
                   <text x="45" y="381">t0</text>
                   <text x="300" y="381">t1</text>
                   <text x="540" y="381">t2</text>
@@ -393,7 +431,88 @@
             </div>
           </div>
         </div>
-        <p class="discipline-transcript" id="discipline-transcript">
+        <div class="module-demo" data-demo="cve">
+          <p class="mini-label">Geste / ouvrir une fiche de veille fictive</p>
+          <div
+            class="demo-actions"
+            role="group"
+            aria-label="Explorer la fiche CVE illustrative"
+          >
+            <button
+              type="button"
+              data-demo-step="cve:fiche"
+              aria-pressed="true"
+            >
+              01 / Fiche
+            </button>
+            <button
+              type="button"
+              data-demo-step="cve:source"
+              aria-pressed="false"
+            >
+              02 / Source
+            </button>
+            <button
+              type="button"
+              data-demo-step="cve:indicateurs"
+              aria-pressed="false"
+            >
+              03 / Indicateurs
+            </button>
+          </div>
+          <p class="demo-detail">
+            Fiche illustrative sans identifiant CVE ni score. CyberHub affiche
+            des fiches CVE détaillées ; cet exemple ne décrit aucune
+            vulnérabilité réelle.
+          </p>
+        </div>
+        <div class="module-demo" data-demo="osint">
+          <p class="mini-label">Geste / vérifier une provenance fictive</p>
+          <div
+            class="demo-actions"
+            role="group"
+            aria-label="Explorer les sources OSINT illustratives"
+          >
+            <button type="button" data-demo-step="osint:a" aria-pressed="true">
+              Source A
+            </button>
+            <button type="button" data-demo-step="osint:b" aria-pressed="false">
+              Source B
+            </button>
+            <button type="button" data-demo-step="osint:c" aria-pressed="false">
+              Source C
+            </button>
+          </div>
+          <p class="demo-detail">
+            Source A : mention fictive dans un annuaire de démonstration. Un
+            résultat de pseudonyme demande toujours une vérification de
+            provenance ; aucune recherche n'est lancée ici.
+          </p>
+        </div>
+        <div class="module-demo" data-demo="bgp">
+          <p class="mini-label">Geste / comparer deux instantanés fictifs</p>
+          <div
+            class="demo-actions"
+            role="group"
+            aria-label="Comparer les états BGP illustratifs"
+          >
+            <button type="button" data-demo-step="bgp:t0" aria-pressed="true">
+              t0 / état initial
+            </button>
+            <button type="button" data-demo-step="bgp:t1" aria-pressed="false">
+              t1 / comparaison
+            </button>
+          </div>
+          <p class="demo-detail">
+            t0 : deux chemins illustratifs sont présents pour des ASN privés.
+            Ils ne représentent aucune observation réelle.
+          </p>
+        </div>
+        <p
+          class="discipline-transcript"
+          id="discipline-transcript"
+          aria-live="polite"
+        >
           Vue CVE : trois bandes illustratives classées pour examen. CyberHub
           propose une veille locale et l'import NVD ; les valeurs ici ne
           proviennent d'aucune source réelle.
@@ -420,6 +539,9 @@
         <div class="investigation-work">
           <div class="timeline-area">
             <p class="mini-label">Dossier conceptuel / CH-DÉMO</p>
+            <p class="timeline-value">
+              198.51.100.42 <span>· valeur de documentation</span>
+            </p>
             <ol class="investigation-timeline">
               <li>
                 <span class="timeline-time">09:14</span
@@ -448,11 +570,22 @@
             <div class="case-envelope">
               <span class="case-stamp">CH / 26</span>
               <p>Dossier d'investigation</p>
+              <p class="case-ip">
+                <span class="case-ip-value">198.51.100.42</span>
+                <span>· provenance : ./demo/events.log</span>
+              </p>
               <h3>Une question<br />à documenter.</h3>
               <p>
                 Deux mentions · une adresse de documentation · aucune cause
                 établie.
               </p>
+              <p class="case-question">
+                Prochaine question : pourquoi l'adresse est-elle citée deux fois
+                ?
+              </p>
+              <div class="case-source-slip" aria-hidden="true">
+                l.14 + l.31 <span>→ CH-DÉMO</span>
+              </div>
               <details class="case-details">
                 <summary>Ouvrir le dossier</summary>
                 <p>
@@ -466,6 +599,15 @@
             <div class="playbook">
               <p class="mini-label">Playbook / consultation</p>
               <h3>Vérifier sans présumer.</h3>
+              <p class="playbook-question">
+                Pourquoi l'adresse
+                <span class="playbook-ip">198.51.100.42</span> apparaît-elle
+                dans les deux lignes ?
+              </p>
+              <p class="playbook-context">
+                Le dossier propose une question à examiner ; aucune vérification
+                n'a été exécutée.
+              </p>
               <details>
                 <summary><span>01</span> Confirmer la provenance</summary>
                 <p>
@@ -509,6 +651,15 @@
           Ce parcours est une démonstration publique fictive. La Console réelle
           reste locale et privée ; aucun résultat de ce site n'y est envoyé.
         </p>
+        <div
+          class="final-constellation"
+          aria-label="Parcours fictif dans CyberHub : un indice devient un IOC documenté, ses liens sont examinés, puis ses sources sont conservées dans un dossier."
+        >
+          <span>INDICE</span><i aria-hidden="true"></i><span>IOC MANAGER</span
+          ><i aria-hidden="true"></i><span>RELATIONS</span
+          ><i aria-hidden="true"></i><span>DOSSIER CH-DÉMO</span>
+          <strong class="final-thread-target">198.51.100.42</strong>
+        </div>
         <div class="final-actions">
           <a
             class="story-primary"

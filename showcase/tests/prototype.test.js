@@ -98,6 +98,7 @@ test("le code public et le build ne contiennent pas de client ou route privée",
     "src/terminal-story.js",
     "src/terminal-story.css",
     "src/motion.js",
+    "src/story-engine.js",
   ];
   const built = readdirSync(join(root, "dist/assets"))
     .filter((name) => /\.(css|js)$/.test(name))
