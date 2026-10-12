@@ -4,6 +4,8 @@
 
 Plan fondé sur les descriptions et critères d'acceptation des [issues #3 à #10](https://github.com/loic31000/CyberHub/issues/3) et [#19 à #22](https://github.com/loic31000/CyberHub/issues/19), lus sur GitHub pendant cette phase. Les issues restent ouvertes. Le présent lot est **documentaire** et ne constitue ni une vitrine livrée, ni une conformité sécurité/accessibilité démontrée.
 
+Les risques concrets de fusion entre branches sont documentés dans le [plan d'intégration Git](../BRANCH-INTEGRATION.md) ; une branche prototype ne doit pas être fusionnée telle quelle en supposant son interface déjà intégrée.
+
 ## Séquence recommandée
 
 | Phase | Issues / dépendances | Livrable et premier geste | Porte de validation |
