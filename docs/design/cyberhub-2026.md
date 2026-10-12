@@ -1,4 +1,6 @@
-# CyberHub 2026 — direction artistique figée
+# CyberHub 2026 - direction artistique figée
+
+> Ce document décrit une direction visuelle validée pour les prototypes, sans signifier que la landing ou le dashboard sont intégrés à `main`.
 
 Référence : `showcase/terminal-story.html` et `showcase/src/terminal-story.css` au commit `276230a`. Le Showcase est la future landing publique ; la Console React reste une application locale et privée. Les simulations du Showcase utilisent des données fictives et n'appellent pas l'API de la Console.
 
