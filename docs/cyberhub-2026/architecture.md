@@ -1,4 +1,6 @@
-# ADR proposée — séparer Showcase, démo et Console
+# ADR proposée - séparer Showcase, démo et Console
+
+> **Suivi au 12 octobre 2026 :** le Showcase et le Dashboard existent désormais comme prototypes sur des branches distinctes, mais n'ont pas été fusionnés dans `main`. Les mentions d'absence de code dans cette ADR décrivent le contexte du commit audité, pas l'ensemble du dépôt actuel. La séparation entre vitrine publique et Console privée reste à valider avant une intégration.
 
 **Statut :** proposition à valider avant implémentation de [#5](https://github.com/loic31000/CyberHub/issues/5). **Contexte vérifié :** commit `10bd7a87`; `frontend/` construit aujourd'hui dans `backend/web` via Vite, puis le binaire Go embarque ces fichiers (`backend/main.go`). Gin sert `/api` et un repli SPA depuis le même processus. `compose.yaml` publie seulement sur le loopback de l'hôte; le processus Docker écoute sur toutes les interfaces dans son réseau de conteneur pour être joignable par la publication de port. Aucune vitrine publique indépendante n'existe.
 
