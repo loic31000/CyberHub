@@ -137,7 +137,7 @@ export function installDemo({
   ScrollTrigger.create({
     trigger: shell,
     endTrigger: section,
-    start: "top 84%",
+    start: shell.dataset.demoStart || "top 84%",
     end: "bottom top",
     onEnter: start,
     onEnterBack: start,

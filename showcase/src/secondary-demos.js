@@ -485,24 +485,32 @@ function finalDemo(motionAllowed) {
     ".final-section",
     "CYBERHUB",
     [
-      "Les huit modules CyberHub entrent en scène.",
-      "Leurs noms convergent vers un même symbole.",
+      "Outils, recherche et veille entrent en scène.",
+      "Les modules d'analyse et d'investigation suivent.",
+      "Les ressources et outils pratiques complètent l'ensemble.",
+      "Les 18 noms convergent vers un même symbole.",
       "L'emblème CyberHub prend forme.",
-      "CYBERHUB les réunit dans un même espace.",
-      "Rendre visible l'invisible. Les huit modules restent à découvrir.",
+      "CYBERHUB réunit ces modules dans un même espace.",
+      "Rendre visible l'invisible. Explorer CyberHub.",
     ],
     motionAllowed,
     ({ $, $$ }) => {
       const stage = $(".final-stage");
       const names = $$(".final-name");
+      const waves = [
+        names.slice(0, 6),
+        names.slice(6, 12),
+        names.slice(12, 18),
+      ];
       const frame = $(".final-emblem-frame");
       const pulse = $(".final-pulse");
       const wordmark = $(".final-wordmark");
       const title = $("#final-title");
       const intro = $(".final-intro");
-      const moduleIndex = $(".final-module-index");
+      const signature = $(".final-signature");
       const disclaimer = $(".final-disclaimer");
       const actions = $(".final-actions");
+      const details = $(".final-module-details");
       const nodes = [
         ...names,
         frame,
@@ -510,31 +518,47 @@ function finalDemo(motionAllowed) {
         wordmark,
         title,
         intro,
-        moduleIndex,
+        signature,
         disclaimer,
         actions,
+        details,
       ];
-      const entryY = [-28, 20, 24, -18, -20, 24, 20, -24];
-      const entryRotation = [-7, 5, -4, 6, -5, 4, -6, 5];
+      const entryY = [-30, 22, 28, -24, -22, 30];
+      const entryRotation = [-7, 5, -5, 6, -4, 5];
+
+      function fitWordmark() {
+        wordmark.style.removeProperty("font-size");
+        const baseSize = Number.parseFloat(getComputedStyle(wordmark).fontSize);
+        const available =
+          stage.clientWidth - Math.max(36, stage.clientWidth * 0.08);
+        const naturalWidth = wordmark.scrollWidth;
+        if (naturalWidth > available) {
+          wordmark.style.fontSize = `${(baseSize * available) / naturalWidth}px`;
+        }
+      }
+      new ResizeObserver(fitWordmark).observe(stage);
+      document.fonts?.ready.then(fitWordmark);
 
       function prepare() {
         gsap.set(nodes, { clearProps: "all" });
+        details.open = false;
+        fitWordmark();
         gsap.set(names, {
           autoAlpha: 0,
           x: (index) =>
-            (index % 2 === 0 ? -1 : 1) * (stage.clientWidth < 600 ? 45 : 100),
-          y: (index) => entryY[index],
-          rotation: (index) => entryRotation[index],
-          scale: 0.74,
+            (index % 2 === 0 ? -1 : 1) *
+            (stage.clientWidth < 600 ? 50 : 105 + Math.floor(index / 6) * 14),
+          y: (index) => entryY[index % 6],
+          rotation: (index) => entryRotation[index % 6],
+          scale: 0.75,
         });
         gsap.set(frame, { autoAlpha: 0, scale: 0.62, rotation: -9 });
         gsap.set(wordmark, {
           autoAlpha: 0,
-          clipPath: "inset(0 50% 0 50%)",
-          y: 14,
-          scale: 0.94,
+          y: 18,
+          scale: 0.89,
         });
-        gsap.set([title, intro, moduleIndex, disclaimer, actions], {
+        gsap.set([title, intro, signature, disclaimer, actions, details], {
           autoAlpha: 0,
           y: 18,
         });
@@ -544,66 +568,83 @@ function finalDemo(motionAllowed) {
       function final() {
         gsap.set(nodes, { clearProps: "all" });
         gsap.set(names, { autoAlpha: 0 });
+        fitWordmark();
       }
 
       function build(cue) {
+        fitWordmark();
         const tl = gsap.timeline({
           paused: true,
           defaults: { ease: "power3.out" },
         });
-        tl.addLabel("arrival")
-          .call(() => cue(0))
-          .to(names, {
-            autoAlpha: 1,
-            x: 0,
-            y: 0,
-            rotation: 0,
-            scale: 1,
-            duration: 0.58,
-            stagger: 0.14,
-          })
-          .to({}, { duration: 0.85 });
-        tl.addLabel("convergence")
-          .call(() => cue(1))
-          .to(names, {
+        waves.forEach((wave, waveIndex) => {
+          tl.addLabel(`wave-${waveIndex + 1}`)
+            .call(() => cue(waveIndex))
+            .to(wave, {
+              autoAlpha: 1,
+              x: 0,
+              y: 0,
+              rotation: 0,
+              scale: 1,
+              duration: 0.45,
+              stagger: 0.08,
+            })
+            .to({}, { duration: 0.55 });
+          if (waveIndex === 2) {
+            tl.addLabel("convergence").call(() => cue(3));
+          }
+          tl.to(wave, {
             x: (index, name) =>
               stage.clientWidth / 2 - (name.offsetLeft + name.offsetWidth / 2),
             y: (index, name) =>
               stage.clientHeight * 0.42 -
               (name.offsetTop + name.offsetHeight / 2),
             rotation: 0,
-            scale: 0.1,
+            scale: 0.12,
             autoAlpha: 0,
-            stagger: 0.035,
-            duration: 1.1,
+            stagger: 0.02,
+            duration: 0.72,
             ease: "power3.inOut",
-          })
-          .to(pulse, { autoAlpha: 0.8, scale: 1.15, duration: 0.5 }, "<+0.55");
+          });
+        });
+        tl.to(
+          pulse,
+          { autoAlpha: 0.85, scale: 1.15, duration: 0.45 },
+          "<+0.36",
+        );
         tl.addLabel("emblem")
-          .call(() => cue(2))
-          .to(frame, { autoAlpha: 1, rotation: 0, scale: 1, duration: 0.75 })
-          .to(pulse, { autoAlpha: 0, scale: 1.8, duration: 0.7 }, "<");
+          .call(() => cue(4))
+          .to(frame, { autoAlpha: 1, rotation: 0, scale: 1, duration: 0.58 })
+          .to(pulse, { autoAlpha: 0, scale: 1.8, duration: 0.58 }, "<");
         tl.addLabel("name")
-          .call(() => cue(3))
+          .call(() => cue(5))
           .to(wordmark, {
             autoAlpha: 1,
-            clipPath: "inset(0 0% 0 0%)",
             y: 0,
             scale: 1,
-            duration: 0.95,
+            duration: 0.8,
             ease: "power3.inOut",
           })
-          .to({}, { duration: 0.55 });
+          .to({}, { duration: 0.3 });
         tl.addLabel("invitation")
-          .call(() => cue(4))
-          .to(title, { autoAlpha: 1, y: 0, duration: 0.75 })
+          .call(() => cue(6))
+          .to(title, { autoAlpha: 1, y: 0, duration: 0.6 })
           .to(
-            [intro, moduleIndex, disclaimer],
-            { autoAlpha: 1, y: 0, stagger: 0.13, duration: 0.55 },
-            "<+0.24",
+            [intro, signature, disclaimer],
+            { autoAlpha: 1, y: 0, stagger: 0.11, duration: 0.5 },
+            "<+0.18",
           )
-          .to(actions, { autoAlpha: 1, y: 0, duration: 0.6 }, "<+0.3")
-          .to({}, { duration: 0.5 });
+          .to(
+            [actions, details],
+            {
+              autoAlpha: 1,
+              y: 0,
+              stagger: 0.12,
+              duration: 0.5,
+            },
+            "<+0.22",
+          )
+          .to({}, { duration: 0.35 });
         return tl;
       }
       return { prepare, final, build };
