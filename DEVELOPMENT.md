@@ -38,7 +38,7 @@ Si le port 5173 est déjà utilisé, vérifier quel processus l'écoute avant de
 docker compose stop
 ```
 
-## Mode production locale : frontend embarqué
+## Exécution locale avec frontend embarqué
 
 ```powershell
 # Après une modification du backend ou pour embarquer un nouveau build React :
@@ -64,9 +64,9 @@ Les deux dernières commandes doivent rendre le même état de configuration. Un
 
 ## Prototypes 2026 isolés (non intégrés à `main`)
 
-Les prototypes 2026 sont développés sur des branches distinctes. Leurs commandes n'existent pas nécessairement sur `main` :
+Les prototypes 2026 sont développés sur des branches distinctes uniquement pour la conception et les validations visuelles. **La cible de l'application personnelle CyberHub est un seul frontend React** regroupant landing, Dashboard et modules existants, avec backend Go/SQLite local. Il n'est pas prévu de service SaaS ou d'hébergement public de la Console. Leurs commandes n'existent pas nécessairement sur `main` :
 
 - Landing / Showcase : branche `feat/cyberhub-2026-design`, dossier `showcase/`, commandes expliquées dans `showcase/README.md` de cette branche.
 - Dashboard / Terminal Overview : branche `feat/console-2026-dashboard-prototype`, dossier `frontend/prototypes/dashboard-2026/`, commandes expliquées dans le README du prototype.
 
-Pour les inspecter sans perturber un autre travail local non commité, privilégier des worktrees séparés après `git fetch origin`. Ne pas fusionner ces branches uniquement pour prévisualiser les laboratoires. Leur futur passage dans `main` dépendra des validations de compatibilité, d'accessibilité, de sécurité et de licences décrites dans [la feuille de route](docs/cyberhub-2026/implementation-roadmap.md).
+Pour les inspecter sans perturber un autre travail local non commité, privilégier des worktrees séparés après `git fetch origin`. Ne pas fusionner ces branches uniquement pour prévisualiser les laboratoires. Leur intégration future dans le frontend React de `main` dépendra des validations de compatibilité, d'accessibilité, de sécurité et de licences décrites dans [la feuille de route](docs/cyberhub-2026/implementation-roadmap.md). La landing et le Dashboard ne deviennent pas deux applications autonomes dans la cible retenue.
