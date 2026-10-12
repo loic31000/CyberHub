@@ -1,4 +1,4 @@
-# Audit du frontend existant — CyberHub 2026
+# Audit du frontend existant - CyberHub 2026
 
 État observé sur `10bd7a87` (audit statique du code, sans test navigateur). Cette note prépare [#6](https://github.com/loic31000/CyberHub/issues/6) et l'[epic #3](https://github.com/loic31000/CyberHub/issues/3). Les comportements responsive et d'assistance doivent encore être vérifiés sur appareils réels.
 
