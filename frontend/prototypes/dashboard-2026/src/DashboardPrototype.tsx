@@ -12,6 +12,7 @@ import {
   Compass,
   FileText,
   GitBranch,
+  HelpCircle,
   History,
   Layers3,
   LayoutDashboard,
@@ -47,7 +48,6 @@ type Domain = {
   role: string;
   note: string;
   modules: string[];
-  metric?: { value: string; label: string };
   icon: LucideIcon;
 };
 
@@ -103,7 +103,6 @@ const domains: Domain[] = [
     role: "Capitaliser ce qui mérite d’être retrouvé.",
     note: "Fiches, analyses et références de travail.",
     modules: ["Outils", "Writeups", "Notes", "Cheatsheets"],
-    metric: { value: "124 + 18", label: "exemples Outils et Writeups" },
     icon: BookMarked,
   },
   {
@@ -113,7 +112,6 @@ const domains: Domain[] = [
     role: "Consulter les sources et cadres de référence.",
     note: "Les indicateurs affichés sont des exemples de rendu.",
     modules: ["CVE & KEV", "MITRE ATT&CK", "Layers ATT&CK", "LOLBins"],
-    metric: { value: "06", label: "entrées CVE fictives" },
     icon: ShieldAlert,
   },
   {
@@ -123,7 +121,6 @@ const domains: Domain[] = [
     role: "Garder la provenance, les faits et les inconnues.",
     note: "Aucune corrélation ou conclusion n’est inventée.",
     modules: ["IOC Manager", "Corrélation", "OSINT Runner", "Investigations"],
-    metric: { value: "03", label: "éléments récents fictifs" },
     icon: Activity,
   },
   {
@@ -448,12 +445,14 @@ export default function DashboardPrototype() {
   const [activeDomain, setActiveDomain] = useState<DomainId>("investigation");
   const [menuOpen, setMenuOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
+  const [radarReady, setRadarReady] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
   const searchTrigger = useRef<HTMLButtonElement>(null);
   const mobileSearchTrigger = useRef<HTMLButtonElement>(null);
   const searchReturnFocus = useRef<HTMLElement | null>(null);
   const menuTrigger = useRef<HTMLButtonElement>(null);
   const selectedDomain = domains.find((domain) => domain.id === activeDomain)!;
+  const SelectedDomainIcon = selectedDomain.icon;
 
   function selectDestination(label: string) {
     setMenuOpen(false);
@@ -498,6 +497,17 @@ export default function DashboardPrototype() {
     document.body.classList.toggle("overlay-open", menuOpen || searchOpen);
     return () => document.body.classList.remove("overlay-open");
   }, [menuOpen, searchOpen]);
+
+  useEffect(() => {
+    let secondFrame = 0;
+    const firstFrame = requestAnimationFrame(() => {
+      secondFrame = requestAnimationFrame(() => setRadarReady(true));
+    });
+    return () => {
+      cancelAnimationFrame(firstFrame);
+      cancelAnimationFrame(secondFrame);
+    };
+  }, []);
 
   return (
     <div className="cockpit">
@@ -729,71 +739,101 @@ export default function DashboardPrototype() {
           >
             <div className="overview-head">
               <div>
-                <span className="eyebrow">
-                  CARTE D’ACTIVITÉ · DONNÉES FICTIVES
-                </span>
-                <h2 id="activity-map-title">Votre espace, par domaine</h2>
+                <span className="eyebrow">DÉCOUVRIR CYBERHUB</span>
+                <h2 id="activity-map-title">
+                  Choisissez votre point de départ
+                </h2>
               </div>
-              <p>
-                Sélectionnez une zone pour comprendre son rôle et rejoindre ses
-                modules.
-              </p>
+              <p>Choisissez un domaine pour découvrir ses outils.</p>
             </div>
             {state === "sample" ? (
               <div className="domain-workbench">
-                <div
-                  className="domain-map"
-                  role="group"
-                  aria-label="Domaines fonctionnels CyberHub"
-                >
-                  <span className="map-axis" aria-hidden="true">
-                    <i />
-                  </span>
-                  {domains.map((domain) => {
-                    const Icon = domain.icon;
-                    const selected = domain.id === activeDomain;
-                    return (
-                      <button
-                        type="button"
-                        className={
-                          "domain-node domain-" +
-                          domain.id +
-                          (selected ? " is-selected" : "")
-                        }
-                        aria-pressed={selected}
-                        key={domain.id}
-                        onClick={() => setActiveDomain(domain.id)}
-                      >
-                        <span className="domain-index">{domain.index}</span>
-                        <Icon size={19} aria-hidden="true" />
-                        <span className="domain-name">{domain.name}</span>
-                        <span className="domain-summary">
-                          {domain.metric ? domain.metric.value : "Rôle"}
-                        </span>
-                      </button>
-                    );
-                  })}
+                <div className="radar-column">
+                  <div
+                    className={
+                      "radar-stage" + (radarReady ? " is-revealed" : "")
+                    }
+                  >
+                    <div className="radar-grid" aria-hidden="true">
+                      <span className="radar-ring radar-ring-outer" />
+                      <span className="radar-ring radar-ring-inner" />
+                      <span className="radar-cross" />
+                    </div>
+                    <div className="radar-sweep" aria-hidden="true" />
+                    <div className="radar-core" aria-hidden="true">
+                      <img src="/mark.svg" alt="" width="40" height="40" />
+                      <strong>CYBERHUB</strong>
+                      <span>EXPLORER</span>
+                    </div>
+                    <div
+                      className="radar-domains"
+                      role="group"
+                      aria-label="Domaines fonctionnels CyberHub"
+                    >
+                      {domains.map((domain) => {
+                        const Icon = domain.icon;
+                        const selected = domain.id === activeDomain;
+                        return (
+                          <button
+                            type="button"
+                            className={
+                              "radar-domain radar-domain-" +
+                              domain.id +
+                              (selected ? " is-selected" : "")
+                            }
+                            aria-pressed={selected}
+                            key={domain.id}
+                            onClick={() => setActiveDomain(domain.id)}
+                          >
+                            <span className="radar-point" aria-hidden="true" />
+                            <Icon size={17} aria-hidden="true" />
+                            <span>{domain.name}</span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                  <div
+                    className="mobile-domain-picker"
+                    role="group"
+                    aria-label="Choisir un domaine CyberHub"
+                  >
+                    {domains.map((domain) => {
+                      const Icon = domain.icon;
+                      const selected = domain.id === activeDomain;
+                      return (
+                        <button
+                          type="button"
+                          className={selected ? "is-selected" : ""}
+                          aria-pressed={selected}
+                          key={domain.id}
+                          onClick={() => setActiveDomain(domain.id)}
+                        >
+                          <Icon size={17} aria-hidden="true" />
+                          <span>{domain.name}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
                 </div>
-                <div className="domain-detail" key={selectedDomain.id}>
+                <article
+                  className="domain-detail"
+                  key={selectedDomain.id}
+                  aria-live="polite"
+                >
                   <div className="detail-heading">
-                    <span className="detail-index">{selectedDomain.index}</span>
+                    <SelectedDomainIcon size={20} aria-hidden="true" />
                     <div>
-                      <span className="eyebrow">DOMAINE SÉLECTIONNÉ</span>
+                      <span className="eyebrow">VOUS POUVEZ ICI</span>
                       <h3>{selectedDomain.name}</h3>
                     </div>
                   </div>
                   <p className="detail-role">{selectedDomain.role}</p>
-                  {selectedDomain.metric && (
-                    <div className="domain-metric">
-                      <strong>{selectedDomain.metric.value}</strong>
-                      <span>{selectedDomain.metric.label}</span>
-                    </div>
-                  )}
                   <ul
                     className="module-chips"
                     aria-label={"Modules du domaine " + selectedDomain.name}
                   >
-                    {selectedDomain.modules.map((module) => (
+                    {selectedDomain.modules.slice(0, 3).map((module) => (
                       <li key={module}>
                         <button
                           type="button"
@@ -807,16 +847,27 @@ export default function DashboardPrototype() {
                   <p className="detail-note">{selectedDomain.note}</p>
                   <button
                     type="button"
-                    className="reset-domain"
-                    onClick={() => setActiveDomain("investigation")}
+                    className="domain-primary"
+                    onClick={() => selectDestination(selectedDomain.modules[0])}
                   >
-                    Revenir au point de départ
+                    Ouvrir {selectedDomain.modules[0]} <ArrowRight size={15} />
                   </button>
-                </div>
+                </article>
               </div>
             ) : (
               <DataState state={state} onReset={() => setState("sample")} />
             )}
+            <button
+              type="button"
+              className="domain-help"
+              onClick={() =>
+                setNotice(
+                  "Choisissez un domaine selon votre intention : documenter, consulter, enquêter, comparer le réseau ou agir.",
+                )
+              }
+            >
+              <HelpCircle size={14} /> Comment choisir ?
+            </button>
           </section>
 
           <div className="secondary-grid">
@@ -889,38 +940,8 @@ export default function DashboardPrototype() {
             </section>
           </div>
 
-          <section className="quick-actions" aria-labelledby="quick-title">
-            <div>
-              <span className="eyebrow">ACCÈS RAPIDES</span>
-              <h2 id="quick-title">Commencer une action</h2>
-            </div>
-            <div>
-              <button
-                type="button"
-                onClick={() => selectDestination("IOC Manager")}
-              >
-                <Shield size={17} />
-                Qualifier un IOC
-              </button>
-              <button
-                type="button"
-                onClick={() => selectDestination("OSINT Runner")}
-              >
-                <Search size={17} />
-                Lancer une recherche fictive
-              </button>
-              <button
-                type="button"
-                onClick={() => selectDestination("Playbooks")}
-              >
-                <BookOpen size={17} />
-                Ouvrir un playbook
-              </button>
-            </div>
-          </section>
-
           <footer className="page-foot">
-            <span>CYBERHUB / DASHBOARD V2.1</span>
+            <span>CYBERHUB / DASHBOARD V2.2</span>
             <span>Données fictives · aucune API privée</span>
           </footer>
         </div>

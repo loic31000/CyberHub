@@ -781,6 +781,9 @@ kbd {
   align-items: center;
   gap: 0.9rem;
 }
+.detail-heading > div {
+  min-width: 0;
+}
 .detail-index {
   color: #7195a6;
   font: 400 0.7rem var(--mono);
@@ -791,6 +794,7 @@ kbd {
     720 clamp(1.5rem, 2.4vw, 2.2rem)/1 Manrope,
     sans-serif;
   letter-spacing: -0.06em;
+  overflow-wrap: anywhere;
 }
 .detail-role {
   margin-top: 1.2rem;
@@ -853,6 +857,322 @@ kbd {
   background: transparent;
   color: #9ee8ec;
   font-size: 0.67rem;
+}
+
+/* Radar V2.2 */
+.activity-overview {
+  min-height: 520px;
+  padding: clamp(1.5rem, 2.6vw, 2.4rem);
+  background:
+    radial-gradient(circle at 35% 52%, #1839475c, transparent 33%),
+    linear-gradient(135deg, #111e29 0%, #0d1821 72%);
+}
+.overview-head > p {
+  max-width: 34ch;
+  font-size: 0.78rem;
+}
+.domain-workbench {
+  grid-template-columns: minmax(430px, 1.25fr) minmax(280px, 0.65fr);
+  gap: clamp(2rem, 4vw, 5rem);
+  align-items: center;
+  margin-top: 0.6rem;
+}
+.radar-column {
+  min-width: 0;
+}
+.radar-stage {
+  position: relative;
+  width: min(100%, 490px);
+  aspect-ratio: 1.18;
+  margin: auto;
+  isolation: isolate;
+}
+.radar-grid,
+.radar-domains {
+  position: absolute;
+  inset: 0;
+}
+.radar-domains {
+  z-index: 3;
+}
+.radar-grid {
+  pointer-events: none;
+}
+.radar-grid::before {
+  content: "";
+  position: absolute;
+  inset: 12% 18%;
+  border: 1px solid #42627199;
+  border-radius: 50%;
+  background: radial-gradient(circle, #17313c40 0 4%, transparent 5%);
+}
+.radar-ring {
+  position: absolute;
+  inset: 24% 28%;
+  border: 1px solid #365460a8;
+  border-radius: 50%;
+}
+.radar-ring-inner {
+  inset: 36% 38%;
+  border-color: #4b7180b8;
+}
+.radar-cross::before,
+.radar-cross::after {
+  content: "";
+  position: absolute;
+}
+.radar-cross::before {
+  inset: 50% 13% auto;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, #39596799, transparent);
+}
+.radar-cross::after {
+  top: 9%;
+  bottom: 9%;
+  left: 50%;
+  width: 1px;
+  background: linear-gradient(transparent, #39596799, transparent);
+}
+.radar-sweep {
+  position: absolute;
+  z-index: 1;
+  inset: 12% 18%;
+  border-radius: 50%;
+  overflow: hidden;
+  animation: radar-scan 2s cubic-bezier(0.3, 0.7, 0.35, 1) both;
+  pointer-events: none;
+}
+.radar-sweep::before {
+  content: "";
+  position: absolute;
+  right: 50%;
+  bottom: 50%;
+  width: 50%;
+  height: 50%;
+  transform-origin: 100% 100%;
+  background: conic-gradient(
+    from 80deg,
+    transparent 0 48deg,
+    #70e2ed30 76deg,
+    #70e2ed 79deg,
+    transparent 80deg
+  );
+}
+@keyframes radar-scan {
+  0% {
+    transform: rotate(-120deg);
+    opacity: 0;
+  }
+  12%,
+  75% {
+    opacity: 0.8;
+  }
+  100% {
+    transform: rotate(260deg);
+    opacity: 0;
+  }
+}
+.radar-core {
+  position: absolute;
+  z-index: 2;
+  top: 50%;
+  left: 50%;
+  width: 112px;
+  height: 112px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  transform: translate(-50%, -50%);
+  border: 1px solid #6bb8c2;
+  border-radius: 50%;
+  background: #0d1821e8;
+  box-shadow:
+    0 0 36px #4cc9d329,
+    inset 0 0 28px #244d5c80;
+}
+.radar-core img {
+  width: 36px;
+  height: 36px;
+}
+.radar-core strong {
+  margin-top: 0.35rem;
+  color: #edfafa;
+  font:
+    700 0.72rem Manrope,
+    sans-serif;
+  letter-spacing: 0.04em;
+}
+.radar-core > span {
+  margin-top: 0.1rem;
+  color: #76a5b0;
+  font: 400 0.46rem var(--mono);
+  letter-spacing: 0.14em;
+}
+.radar-domain {
+  position: absolute;
+  z-index: 1;
+  min-height: 42px;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0.55rem 0.72rem;
+  border: 1px solid #3a5967;
+  background: #101e28ed;
+  color: #c8dce1;
+  font:
+    650 0.75rem Manrope,
+    sans-serif;
+  white-space: nowrap;
+  transform: translateZ(0);
+  transition:
+    transform 190ms ease,
+    border-color 190ms ease,
+    background 190ms ease,
+    color 190ms ease,
+    opacity 420ms ease,
+    translate 420ms cubic-bezier(0.22, 1, 0.36, 1),
+    scale 420ms cubic-bezier(0.22, 1, 0.36, 1);
+  transition-delay:
+    0ms, 0ms, 0ms, 0ms, var(--reveal-delay), var(--reveal-delay),
+    var(--reveal-delay);
+  animation: none;
+}
+.radar-stage:not(.is-revealed) .radar-domain {
+  translate: 0 7px;
+  scale: 0.96;
+  opacity: 0;
+}
+.radar-stage.is-revealed .radar-domain {
+  translate: 0;
+  scale: 1;
+  opacity: 1;
+}
+.radar-domain::after {
+  content: "";
+  position: absolute;
+  inset: -5px;
+  border: 1px solid transparent;
+}
+.radar-domain:hover {
+  border-color: #6db4be;
+  color: #f0fbfc;
+  background: #18333e;
+}
+.radar-domain.is-selected {
+  border-color: var(--cyan);
+  background: #183e49;
+  color: #f1fbfc;
+  box-shadow:
+    0 0 0 1px #70e2ed29,
+    0 8px 24px #0005;
+}
+.radar-domain svg {
+  color: #83cbd4;
+}
+.radar-domain.is-selected svg {
+  color: var(--cyan);
+}
+.radar-point {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #6c9eaa;
+  box-shadow: 0 0 0 3px #6c9eaa1f;
+}
+.radar-domain.is-selected .radar-point {
+  background: var(--cyan);
+  box-shadow:
+    0 0 0 4px #70e2ed2b,
+    0 0 13px #70e2ed;
+}
+.radar-domain-knowledge {
+  top: 3%;
+  left: 50%;
+  transform: translateX(-50%) translateZ(0);
+  --reveal-delay: 160ms;
+}
+.radar-domain-intelligence {
+  top: 28%;
+  right: 0;
+  --reveal-delay: 300ms;
+}
+.radar-domain-investigation {
+  right: 8%;
+  bottom: 5%;
+  --reveal-delay: 440ms;
+}
+.radar-domain-network {
+  bottom: 5%;
+  left: 8%;
+  --reveal-delay: 580ms;
+}
+.radar-domain-operations {
+  top: 28%;
+  left: 0;
+  --reveal-delay: 720ms;
+}
+@keyframes radar-domain-in {
+  from {
+    transform: translateY(7px) scale(0.96);
+    opacity: 0;
+  }
+  to {
+    transform: translateZ(0);
+    opacity: 1;
+  }
+}
+@keyframes radar-domain-top-in {
+  from {
+    transform: translate(-50%, 7px) scale(0.96);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(-50%) translateZ(0);
+    opacity: 1;
+  }
+}
+.mobile-domain-picker {
+  display: none;
+}
+.domain-detail {
+  min-height: 320px;
+  padding: 1.55rem 0 1rem 1.8rem;
+}
+.detail-heading > svg {
+  color: var(--cyan);
+}
+.domain-primary {
+  align-self: flex-start;
+  min-height: 40px;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  margin-top: 0.7rem;
+  padding: 0.55rem 0.75rem;
+  border: 1px solid #64b2bc;
+  background: #173743;
+  color: #e6fbfc;
+  font-size: 0.7rem;
+}
+.domain-primary:hover {
+  border-color: var(--cyan);
+  background: #1d4652;
+}
+.domain-help {
+  min-height: 32px;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  margin-top: 0.15rem;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: #9bb5bf;
+  font-size: 0.65rem;
+}
+.domain-help:hover {
+  color: #d9eff1;
 }
 
 /* États */
@@ -1038,52 +1358,6 @@ kbd {
   min-height: 180px;
 }
 
-.quick-actions {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 2rem;
-  margin-top: 1.6rem;
-  padding: 1.3rem 0;
-  border-top: 1px solid #324b5a;
-  border-bottom: 1px solid #324b5a;
-}
-.quick-actions h2 {
-  margin-top: 0.2rem;
-  font:
-    680 1rem Manrope,
-    sans-serif;
-  letter-spacing: -0.04em;
-}
-.quick-actions > div:last-child {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: flex-end;
-  gap: 0.5rem;
-}
-.quick-actions button {
-  min-height: 42px;
-  display: inline-flex;
-  align-items: center;
-  gap: 0.55rem;
-  padding: 0.55rem 0.75rem;
-  border: 1px solid #385968;
-  background: transparent;
-  color: #c7dbdf;
-  font-size: 0.72rem;
-  transition:
-    border-color 160ms ease,
-    background 160ms ease,
-    transform 160ms ease;
-}
-.quick-actions button:hover {
-  transform: translateY(-1px);
-  border-color: #6eb7c0;
-  background: #15303b;
-}
-.quick-actions button svg {
-  color: var(--cyan);
-}
 .page-foot {
   display: flex;
   justify-content: space-between;
@@ -1183,44 +1457,49 @@ kbd {
     display: block;
     margin-top: 1.1rem;
   }
-  .domain-map {
-    min-height: auto;
-    display: flex;
-    gap: 0.45rem;
-    margin: 0 -0.2rem;
-    padding: 0.2rem 0.2rem 0.65rem;
-    overflow-x: auto;
-    scroll-snap-type: x proximity;
-  }
-  .map-axis {
+  .radar-stage {
     display: none;
   }
-  .domain-node,
-  .domain-investigation {
-    width: 145px;
-    min-width: 145px;
-    min-height: 78px;
+  .mobile-domain-picker {
     display: grid;
-    grid-template-columns: auto 1fr;
-    grid-template-rows: auto auto;
-    gap: 0.28rem 0.45rem;
-    scroll-snap-align: start;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.45rem;
   }
-  .domain-node .domain-index {
-    display: none;
+  .mobile-domain-picker button {
+    min-width: 0;
+    min-height: 48px;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.65rem 0.7rem;
+    border: 1px solid #3c5b69;
+    background: #101e28;
+    color: #c6dce1;
+    font:
+      650 0.72rem Manrope,
+      sans-serif;
+    text-align: left;
   }
-  .domain-node svg {
-    grid-row: 1 / 3;
+  .mobile-domain-picker button:last-child {
+    grid-column: 1 / -1;
   }
-  .domain-name {
-    white-space: normal;
+  .mobile-domain-picker button svg {
+    flex: 0 0 auto;
+    color: #83cbd4;
   }
-  .domain-summary {
-    font-size: 0.55rem;
+  .mobile-domain-picker button span {
+    min-width: 0;
+    overflow-wrap: anywhere;
+  }
+  .mobile-domain-picker button.is-selected {
+    border-color: var(--cyan);
+    background: #183e49;
+    color: #f2fcfd;
+    box-shadow: inset 3px 0 var(--cyan);
   }
   .domain-detail {
-    min-height: 265px;
-    margin-top: 0.55rem;
+    min-height: 0;
+    margin-top: 0.7rem;
     padding: 1rem;
     border: 1px solid #426372;
     background: #0e1b25;
@@ -1231,22 +1510,16 @@ kbd {
   .detail-note {
     margin-top: 1rem;
   }
+  .domain-primary {
+    width: 100%;
+    justify-content: space-between;
+  }
+  .domain-help {
+    margin-top: 0.7rem;
+  }
   .secondary-grid {
     grid-template-columns: 1fr;
     gap: 1.4rem;
-  }
-  .quick-actions {
-    align-items: flex-start;
-    flex-direction: column;
-    gap: 0.8rem;
-  }
-  .quick-actions > div:last-child {
-    width: 100%;
-    display: grid;
-    justify-content: stretch;
-  }
-  .quick-actions button {
-    width: 100%;
   }
   .page-foot {
     flex-direction: column;
@@ -1315,5 +1588,12 @@ kbd {
     animation-duration: 0.01ms !important;
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
+  }
+  .radar-sweep {
+    display: none;
+  }
+  .radar-domain {
+    animation: none;
+    transition-delay: 0s !important;
   }
 }
