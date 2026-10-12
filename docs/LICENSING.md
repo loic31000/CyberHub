@@ -2,11 +2,11 @@
 
 Ce document est un inventaire documentaire, pas un avis juridique ni un audit exhaustif de chaque dépendance. Il distingue le code CyberHub des données, fichiers, polices et services tiers.
 
-## Licence du code CyberHub : décision requise
+## Licence du code original CyberHub : MIT confirmée
 
-À la date de cette revue, la branche `main` ne contient **aucun fichier `LICENSE` à la racine**. Un dépôt GitHub public ne signifie pas que son code est librement réutilisable, redistribuable ou modifiable sous une licence open source. Les crédits de tiers et les licences des dépendances n'accordent pas, à eux seuls, une licence générale au code CyberHub.
+Le titulaire a expressément confirmé le choix de la **licence MIT pour le code original de CyberHub dont il détient les droits**, avec la mention `Copyright (c) 2026 loic31000`. Le texte standard figure dans le fichier [`LICENSE`](../LICENSE) à la racine de la branche documentaire `docs/2026-readme-licensing-audit`. La proposition vers `main` est portée par la pull request [#26](https://github.com/loic31000/CyberHub/pull/26) ; tant qu'elle n'est pas fusionnée, ne pas prétendre que ce fichier figure déjà sur `main`.
 
-**Décision à prendre par le titulaire des droits :** choisir la licence du code original (ou confirmer un autre régime de diffusion) après avoir vérifié les droits et contributions, puis ajouter son texte officiel en `LICENSE`. Ne pas choisir une licence rétroactivement ou affirmer « MIT », « GPL » ou « Apache » sans décision expresse. Ne pas confondre la licence du code CyberHub avec celles des jeux de données incorporés.
+Pour les copies ou parties substantielles du code original sous MIT, reproduire la notice de copyright et la permission MIT. Cette décision ne s'applique pas automatiquement à du code, des données, des polices, des images ou des fichiers provenant de tiers, ni à des contributions sur lesquelles le titulaire ne détient pas les droits requis. **Les obligations des éléments GPL et des autres ressources incorporées restent à vérifier pour toute redistribution d'une œuvre combinée ou d'un paquet logiciel.**
 
 ## Sources intégrées ou citées
 
@@ -31,11 +31,11 @@ Un simple lien dans le README ne suffit pas nécessairement à respecter les obl
 
 ## Vérifications à effectuer avant publication ou fusion des prototypes
 
-1. Choisir explicitement la licence du code original de CyberHub et ajouter un `LICENSE` adéquat après validation du titulaire des droits.
+1. **Licence du code original : décision MIT confirmée et fichier `LICENSE` ajouté sur la branche documentaire.** Vérifier le périmètre des droits, les éventuelles contributions tierces et l'inclusion correcte de la notice dans les distributions.
 2. Vérifier les versions exactes des jeux de données embarqués, avec source, provenance, date, modifications et texte de licence/NOTICE applicable.
 3. Analyser particulièrement la compatibilité des obligations GPL-2.0/GPL-3.0 des sources incorporées avec la forme de redistribution choisie. Ne pas conclure à une compatibilité juridique sans revue.
 4. Relever les conditions d'utilisation des APIs et jeux de données actualisables (abuse.ch, NVD, CISA, EPSS, BGPView, WhatsMyName).
 5. Tenir à jour les crédits des polices, données Natural Earth et images avant déploiement du Showcase ou intégration du Dashboard.
 6. Confirmer le périmètre des travaux effectivement fusionnés dans `main` ; une branche expérimentale ne représente pas une fonctionnalité livrée.
 
-**Statut : points de conformité encore ouverts.** Cette page ne prétend pas qu'une redistribution publique de tous les éléments est déjà autorisée ou conforme.
+**Statut : licence MIT du code original confirmée ; conformité des éléments tiers encore à vérifier.** Cette page ne prétend pas qu'une redistribution publique de tous les éléments est déjà autorisée ou conforme.
