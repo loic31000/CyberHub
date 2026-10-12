@@ -1,0 +1,338 @@
+/* Phase 2C: final graphite harmonisation and localized instrument light. */
+:root {
+  --finish-surface: #14181d;
+  --finish-surface-raised: #191e24;
+  --finish-line: #384149;
+  --finish-line-soft: #2d343b;
+  --finish-text: #e6edef;
+  --finish-muted: #b4bec5;
+  --finish-cyan: #82dce2;
+  --finish-amber: #e4bb78;
+  --finish-green: #91d9cd;
+}
+
+.main-content {
+  background:
+    radial-gradient(circle at 55% -12%, #4a9aa614, transparent 31%), #090b0e;
+}
+
+.dashboard-panel,
+.sync-panel {
+  border-color: var(--finish-line);
+  background: linear-gradient(145deg, #15191e, #111419 72%);
+  box-shadow:
+    0 10px 30px #0003,
+    inset 0 1px #ffffff08;
+}
+
+.panel-heading {
+  border-color: var(--finish-line-soft);
+  background: linear-gradient(180deg, #171b2099, #12161a40);
+}
+
+.panel-heading h2,
+.sync-copy strong,
+.environment-copy strong,
+.feed-copy strong,
+.quick-grid strong {
+  color: var(--finish-text);
+}
+
+.panel-heading p,
+.sync-copy span,
+.environment-copy small,
+.feed-copy small,
+.quick-grid small,
+.dashboard-board .page-foot {
+  color: var(--finish-muted);
+}
+
+.panel-action,
+.text-action,
+.range-select select {
+  border-color: #46545c;
+  background: #171c21;
+  color: #b7e3e6;
+}
+
+.panel-action:hover,
+.panel-action:focus-visible,
+.text-action:hover,
+.text-action:focus-visible {
+  border-color: #72aeb4;
+  background: #20272c;
+  box-shadow: 0 0 16px #73dce214;
+}
+
+.environment-card,
+.quick-grid > button {
+  border-color: #394249;
+  background: linear-gradient(145deg, var(--finish-surface-raised), #15191e);
+}
+
+.environment-card:hover,
+.environment-card:focus-visible,
+.quick-grid > button:hover,
+.quick-grid > button:focus-visible {
+  border-color: #60757d;
+  box-shadow: 0 8px 20px #0004;
+}
+
+.environment-icon,
+.feed-icon,
+.quick-icon,
+.sync-icon {
+  border-color: #42535b;
+  background: #10161a;
+  color: #91dce1;
+  box-shadow: inset 0 0 14px #83e4e50b;
+}
+
+.environment-arrow,
+.quick-grid > button > svg,
+.text-action {
+  color: #83dbe0;
+}
+
+.signal-ready {
+  --signal-color: var(--finish-green);
+}
+
+.signal-quiet {
+  --signal-color: #b6c6cd;
+}
+
+.signal-attention {
+  --signal-color: var(--finish-amber);
+}
+
+.signal-led {
+  box-shadow: 0 0 7px color-mix(in srgb, var(--signal-color), transparent 35%);
+}
+
+.environment-card .mini-bars,
+.sync-panel > .mini-bars {
+  opacity: 0.82;
+}
+
+.mini-bars i {
+  background: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--signal-color, #82dce2), white 16%),
+    color-mix(in srgb, var(--signal-color, #82dce2), #203038 42%)
+  );
+}
+
+.activity-list li + li {
+  border-color: #343b42;
+}
+
+.activity-list button:hover,
+.activity-list button:focus-visible {
+  background: #1b2227;
+}
+
+.activity-list time,
+.environment-meta time,
+.sync-copy b {
+  color: #9de4e7;
+}
+
+.feed-icon.is-amber {
+  border-color: #765a2c;
+  color: #e9b85e;
+  box-shadow: inset 0 0 15px #e7ac4510;
+}
+
+.feed-icon.is-red {
+  border-color: #7b3c42;
+  color: #ee7777;
+  box-shadow: inset 0 0 15px #e45d6412;
+}
+
+.feed-badge {
+  border-color: #58737c;
+  background: #151e22;
+  color: #b6e0e3;
+}
+
+.badge-critique {
+  border-color: #a34e56;
+  background: #2d1a1d;
+  color: #f2a0a4;
+}
+
+.badge-nouveau {
+  border-color: #8f7040;
+  background: #2c2418;
+  color: #efc681;
+}
+
+.sync-track {
+  background: #2d373d;
+}
+
+.sync-track i {
+  filter: saturate(0.72);
+  box-shadow: 0 0 8px #76dce044;
+}
+
+/* Compact rail and complete navigation drawer share the same graphite system. */
+.rail-item {
+  color: #adb9c1;
+}
+
+.rail-item.is-active {
+  border-color: #55757c;
+  background: #192428;
+  color: #8ee0e4;
+}
+
+.rail-item:hover,
+.rail-item:focus-visible {
+  border-color: #596a73;
+  background: #20262b;
+  color: #e6eff1;
+}
+
+.rail-item::after {
+  border-color: #414a51;
+  background: #15191e;
+  color: #e1e8eb;
+  box-shadow: 0 8px 24px #0006;
+}
+
+.drawer-scrim {
+  background: #050709c9;
+  backdrop-filter: blur(5px) saturate(0.7);
+}
+
+.module-drawer {
+  scrollbar-color: #52636b #111418;
+  border-color: #3d464e;
+  background:
+    radial-gradient(circle at 10% 0, #3b7d8512, transparent 28%),
+    linear-gradient(155deg, #15191e, #101317 64%, #0d1013);
+  box-shadow:
+    28px 0 80px #000a,
+    inset -1px 0 #ffffff05;
+}
+
+.drawer-head {
+  border-color: #343b42;
+}
+
+.drawer-head .eyebrow {
+  color: #83cdd2;
+}
+
+.drawer-head h2 {
+  color: #edf3f4;
+}
+
+.module-drawer .close-button {
+  border-color: #424d54;
+  background: #171c21;
+  color: #c8d3d8;
+}
+
+.module-drawer .close-button:hover,
+.module-drawer .close-button:focus-visible {
+  border-color: #73959c;
+  background: #232a30;
+  color: #f3f8f8;
+}
+
+.drawer-group h3 {
+  color: #929fa7;
+}
+
+.drawer-link {
+  border-color: transparent;
+  border-radius: 4px;
+  color: #c4ced3;
+}
+
+.drawer-link svg:first-child {
+  color: #8dc7cb;
+}
+
+.drawer-link:hover,
+.drawer-link:focus-visible {
+  border-color: #45545c;
+  background: #1b2126;
+  color: #f0f4f5;
+}
+
+.drawer-link.is-current {
+  border-color: #4e6c72;
+  background: linear-gradient(90deg, #1b292d, #181d21);
+  color: #edf8f8;
+  box-shadow: inset 2px 0 #7ed8dd;
+}
+
+.drawer-link.is-current svg:first-child,
+.drawer-link i {
+  color: #8edfe3;
+}
+
+.drawer-note {
+  border-color: #343b42;
+  color: #96a3aa;
+}
+
+/* Validated hero and globe: restrained light finishing only. */
+.flux-aura path {
+  opacity: 0.28;
+}
+
+.flux-line.core,
+.flux-light-runs path {
+  opacity: 1;
+}
+
+.flux-nodes circle.major {
+  filter: drop-shadow(0 0 2px #91e7ea);
+}
+
+.premium-network {
+  background: radial-gradient(ellipse at 50% 40%, #192328 0, #0a0e12 66%);
+}
+
+.premium-earth > image {
+  filter: brightness(1.08) contrast(1.05);
+}
+
+.premium-arcs path {
+  stroke: #a0e4e8;
+  stroke-width: 1.35;
+}
+
+.premium-arcs .amber {
+  stroke: #e9bd77;
+}
+
+.premium-anchor {
+  fill: #9ce9ec;
+}
+
+.premium-anchors .amber .premium-anchor {
+  fill: #f1c982;
+}
+
+.premium-halo {
+  opacity: 0.95;
+}
+
+@media (max-width: 760px) {
+  .module-drawer {
+    border-color: #3d464e;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .drawer-layer,
+  .module-drawer {
+    animation: none !important;
+  }
+}

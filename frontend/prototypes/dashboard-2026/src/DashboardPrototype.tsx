@@ -1,4 +1,5 @@
 import NetworkGlobe from "./NetworkGlobe";
+import TerminalFlux from "./TerminalFlux";
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
   Activity,
@@ -305,94 +306,6 @@ function MiniBars({ bars }: { bars: number[] }) {
         />
       ))}
     </span>
-  );
-}
-
-function HeaderFlux() {
-  const waveA = "M-40 88 C70 8 145 142 258 69 S438 28 544 91 S720 142 940 42";
-  const waveB = "M-30 113 C92 38 180 132 278 93 S452 33 558 70 S735 127 930 66";
-  const waveC = "M-20 70 C92 133 198 18 304 86 S478 130 595 49 S770 31 940 94";
-  return (
-    <svg
-      className="hero-flux"
-      viewBox="0 0 900 150"
-      preserveAspectRatio="none"
-      aria-hidden="true"
-    >
-      <defs>
-        <linearGradient id="hero-cyan" x1="0" x2="1">
-          <stop offset="0" stopColor="#00aeca" stopOpacity="0" />
-          <stop offset=".22" stopColor="#00d9ef" stopOpacity=".65" />
-          <stop offset=".58" stopColor="#92fbff" />
-          <stop offset="1" stopColor="#00b8e8" stopOpacity=".08" />
-        </linearGradient>
-        <linearGradient id="hero-blue" x1="0" x2="1">
-          <stop offset="0" stopColor="#267eff" stopOpacity="0" />
-          <stop offset=".48" stopColor="#1aa7ff" stopOpacity=".9" />
-          <stop offset="1" stopColor="#00e6ff" stopOpacity="0" />
-        </linearGradient>
-        <linearGradient id="hero-amber" x1="0" x2="1">
-          <stop offset="0" stopColor="#f6a83b" stopOpacity="0" />
-          <stop offset=".55" stopColor="#f6a83b" />
-          <stop offset="1" stopColor="#f6a83b" stopOpacity="0" />
-        </linearGradient>
-        <filter id="hero-glow" x="-20%" y="-80%" width="140%" height="260%">
-          <feGaussianBlur stdDeviation="4" result="blur" />
-          <feMerge>
-            <feMergeNode in="blur" />
-            <feMergeNode in="SourceGraphic" />
-          </feMerge>
-        </filter>
-        <filter id="hero-soft-glow" x="-20%" y="-100%" width="140%" height="300%">
-          <feGaussianBlur stdDeviation="10" />
-        </filter>
-        <radialGradient id="hero-light">
-          <stop offset="0" stopColor="#d5ffff" stopOpacity=".95" />
-          <stop offset=".22" stopColor="#26eff8" stopOpacity=".75" />
-          <stop offset="1" stopColor="#08bed4" stopOpacity="0" />
-        </radialGradient>
-      </defs>
-      <rect className="hero-haze" width="900" height="150" />
-      <g className="hero-grid-lines">
-        {Array.from({ length: 16 }, (_, index) => (
-          <line key={index} x1={index * 60} x2={index * 60} y1="8" y2="150" />
-        ))}
-      </g>
-      <g className="hero-atmosphere" filter="url(#hero-soft-glow)">
-        <path d={waveA} />
-        <path d={waveB} />
-        <path className="amber" d={waveC} />
-      </g>
-      <g className="hero-wave" filter="url(#hero-glow)">
-        <path className="primary" d={waveA} />
-        <path className="secondary" d={waveB} />
-        <path className="blue" d="M-20 101 C112 23 178 146 302 76 S492 21 608 90 S770 124 935 53" />
-        <path className="amber" d={waveC} />
-        <path className="filament" d="M0 78 C96 33 175 117 270 64 S456 52 572 101 S738 77 910 32" />
-        <path className="filament delayed" d="M0 120 C122 62 216 126 332 91 S510 47 625 83 S792 111 920 74" />
-        <path className="amber filament" d="M0 89 C123 125 207 28 326 99 S515 117 650 54 S803 43 930 105" />
-      </g>
-      <g className="hero-points" filter="url(#hero-glow)">
-        {[
-          [104, 66, 2.2, "cyan"], [183, 55, 3.1, "cyan"], [248, 83, 1.8, "cyan"],
-          [337, 61, 2.5, "cyan"], [420, 51, 2.2, "cyan"], [506, 79, 3.4, "amber"],
-          [574, 64, 2.1, "cyan"], [652, 54, 3.2, "cyan"], [727, 84, 2.4, "cyan"],
-          [801, 72, 3.1, "amber"], [858, 52, 1.8, "cyan"],
-        ].map(([cx, cy, r, tone], index) => (
-          <circle key={index} className={String(tone)} cx={Number(cx)} cy={Number(cy)} r={Number(r)} />
-        ))}
-      </g>
-      <g className="hero-particles">
-        {Array.from({ length: 34 }, (_, index) => (
-          <circle
-            key={index}
-            cx={65 + ((index * 71) % 810)}
-            cy={18 + ((index * 37) % 116)}
-            r={index % 5 === 0 ? 1.2 : 0.65}
-          />
-        ))}
-      </g>
-    </svg>
   );
 }
 
@@ -869,7 +782,7 @@ export default function DashboardPrototype() {
       <main className="main-content" id="main-content">
         <div className="workspace dashboard-board" id="overview">
           <section className="overview-hero" aria-labelledby="overview-title">
-            <HeaderFlux />
+            <TerminalFlux />
             <div className="hero-copy">
               <span className="hero-breadcrumb">/ CORE / DASHBOARD</span>
               <h1 id="overview-title">
@@ -908,7 +821,10 @@ export default function DashboardPrototype() {
             <header className="panel-heading environment-heading">
               <div>
                 <h2 id="environment-title">ÉTAT DE L’ENVIRONNEMENT</h2>
-                <p>Composants principaux et sources de données · démonstration synthétique.</p>
+                <p>
+                  Composants principaux et sources de données · démonstration
+                  synthétique.
+                </p>
               </div>
               <div className="environment-meta">
                 <span>Dernière vérification :</span>
