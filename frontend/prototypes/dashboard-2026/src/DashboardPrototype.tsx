@@ -12,7 +12,6 @@ import {
   Compass,
   FileText,
   GitBranch,
-  HelpCircle,
   History,
   Layers3,
   LayoutDashboard,
@@ -31,8 +30,7 @@ import {
 } from "lucide-react";
 
 type ViewState = "sample" | "loading" | "empty" | "error";
-type DomainId =
-  "knowledge" | "intelligence" | "investigation" | "network" | "operations";
+type SignalId = "console" | "mitre" | "sources" | "osint" | "bgp";
 type Module = { label: string; icon: LucideIcon; group: string };
 type SearchEntry = {
   id: string;
@@ -41,13 +39,15 @@ type SearchEntry = {
   category: "Modules" | "Exemples fictifs";
   icon: LucideIcon;
 };
-type Domain = {
-  id: DomainId;
-  index: string;
-  name: string;
-  role: string;
-  note: string;
-  modules: string[];
+type SignalItem = {
+  id: SignalId;
+  label: string;
+  status: string;
+  timestamp: string;
+  description: string;
+  evidence: string;
+  action: string;
+  tone: "ready" | "quiet" | "attention";
   icon: LucideIcon;
 };
 
@@ -95,51 +95,64 @@ const navigationGroups: { label: string; items: Module[] }[] = [
 
 const modules = navigationGroups.flatMap((group) => group.items);
 
-const domains: Domain[] = [
+const signalItems: SignalItem[] = [
   {
-    id: "knowledge",
-    index: "01",
-    name: "Connaissance",
-    role: "Capitaliser ce qui mérite d’être retrouvé.",
-    note: "Fiches, analyses et références de travail.",
-    modules: ["Outils", "Writeups", "Notes", "Cheatsheets"],
-    icon: BookMarked,
-  },
-  {
-    id: "intelligence",
-    index: "02",
-    name: "Renseignement",
-    role: "Consulter les sources et cadres de référence.",
-    note: "Les indicateurs affichés sont des exemples de rendu.",
-    modules: ["CVE & KEV", "MITRE ATT&CK", "Layers ATT&CK", "LOLBins"],
-    icon: ShieldAlert,
-  },
-  {
-    id: "investigation",
-    index: "03",
-    name: "Investigation",
-    role: "Garder la provenance, les faits et les inconnues.",
-    note: "Aucune corrélation ou conclusion n’est inventée.",
-    modules: ["IOC Manager", "Corrélation", "OSINT Runner", "Investigations"],
-    icon: Activity,
-  },
-  {
-    id: "network",
-    index: "04",
-    name: "Réseau",
-    role: "Comparer des observations de routage dans le temps.",
-    note: "Aucun flux BGP réel n’est interrogé.",
-    modules: ["BGP Lookup", "BGP Historian"],
-    icon: Network,
-  },
-  {
-    id: "operations",
-    index: "05",
-    name: "Opérations",
-    role: "Accéder aux méthodes et utilitaires du quotidien.",
-    note: "État non renseigné dans ce prototype.",
-    modules: ["Playbooks", "CLOAK OpSec", "Encoder/Decoder", "RevShell Gen"],
+    id: "console",
+    label: "Console",
+    status: "Disponible · exemple",
+    timestamp: "Relevé fictif 09:42",
+    description: "L’accès local est présenté comme prêt dans cet instantané.",
+    evidence: "Un point d’état d’authentification existe dans la Console.",
+    action: "Dashboard",
+    tone: "ready",
     icon: Terminal,
+  },
+  {
+    id: "mitre",
+    label: "Index MITRE",
+    status: "Prêt · exemple",
+    timestamp: "Relevé fictif 09:41",
+    description: "L’index de démonstration est disponible pour l’exploration.",
+    evidence:
+      "La Console distingue index prêt, indexation et nombre de techniques.",
+    action: "MITRE ATT&CK",
+    tone: "ready",
+    icon: Compass,
+  },
+  {
+    id: "sources",
+    label: "Sources",
+    status: "Synchronisées · exemple",
+    timestamp: "Dernière synchro fictive 09:35",
+    description: "Feodo et URLhaus sont présentées avec un relevé synthétique.",
+    evidence:
+      "La Console conserve la date et le volume de chaque synchronisation.",
+    action: "IOC Manager",
+    tone: "ready",
+    icon: Shield,
+  },
+  {
+    id: "osint",
+    label: "Jobs OSINT",
+    status: "Au repos · exemple",
+    timestamp: "Aucun job lancé",
+    description: "Aucune recherche OSINT n’est exécutée dans ce laboratoire.",
+    evidence: "Les jobs réels exposent un statut et un suivi SSE dédié.",
+    action: "OSINT Runner",
+    tone: "quiet",
+    icon: Search,
+  },
+  {
+    id: "bgp",
+    label: "Alertes BGP",
+    status: "2 à examiner · exemple",
+    timestamp: "Relevé fictif 09:40",
+    description:
+      "Deux alertes synthétiques attendent une revue dans cet exemple.",
+    evidence: "La Console permet de consulter et d’acquitter les alertes BGP.",
+    action: "BGP Historian",
+    tone: "attention",
+    icon: History,
   },
 ];
 
@@ -221,8 +234,8 @@ function DataState({
       copy: "La structure reste stable pendant la récupération des données.",
     },
     empty: {
-      title: "Aucune activité disponible",
-      copy: "Les domaines restent accessibles même lorsque l’espace est vide.",
+      title: "Aucun instantané disponible",
+      copy: "La navigation et la recherche restent accessibles.",
     },
     error: {
       title: "Vue momentanément indisponible",
@@ -442,17 +455,20 @@ function SearchPalette({
 
 export default function DashboardPrototype() {
   const [state, setState] = useState<ViewState>("sample");
-  const [activeDomain, setActiveDomain] = useState<DomainId>("investigation");
+  const [activeSignal, setActiveSignal] = useState<SignalId>("console");
   const [menuOpen, setMenuOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
-  const [radarReady, setRadarReady] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
   const searchTrigger = useRef<HTMLButtonElement>(null);
   const mobileSearchTrigger = useRef<HTMLButtonElement>(null);
   const searchReturnFocus = useRef<HTMLElement | null>(null);
   const menuTrigger = useRef<HTMLButtonElement>(null);
-  const selectedDomain = domains.find((domain) => domain.id === activeDomain)!;
-  const SelectedDomainIcon = selectedDomain.icon;
+  const menuClose = useRef<HTMLButtonElement>(null);
+  const menuReturnFocus = useRef<HTMLElement | null>(null);
+  const selectedSignal = signalItems.find(
+    (signal) => signal.id === activeSignal,
+  )!;
+  const SelectedSignalIcon = selectedSignal.icon;
 
   function selectDestination(label: string) {
     setMenuOpen(false);
@@ -464,7 +480,14 @@ export default function DashboardPrototype() {
 
   function closeMenu(restoreFocus = true) {
     setMenuOpen(false);
-    if (restoreFocus) requestAnimationFrame(() => menuTrigger.current?.focus());
+    if (restoreFocus) {
+      requestAnimationFrame(() => menuReturnFocus.current?.focus());
+    }
+  }
+
+  function openMenu(returnTarget?: HTMLElement | null) {
+    menuReturnFocus.current = returnTarget ?? menuTrigger.current;
+    setMenuOpen(true);
   }
 
   function openSearch(returnTarget?: HTMLElement | null) {
@@ -499,15 +522,8 @@ export default function DashboardPrototype() {
   }, [menuOpen, searchOpen]);
 
   useEffect(() => {
-    let secondFrame = 0;
-    const firstFrame = requestAnimationFrame(() => {
-      secondFrame = requestAnimationFrame(() => setRadarReady(true));
-    });
-    return () => {
-      cancelAnimationFrame(firstFrame);
-      cancelAnimationFrame(secondFrame);
-    };
-  }, []);
+    if (menuOpen) requestAnimationFrame(() => menuClose.current?.focus());
+  }, [menuOpen]);
 
   return (
     <div className="cockpit">
@@ -522,7 +538,7 @@ export default function DashboardPrototype() {
           aria-label="Ouvrir tous les modules"
           aria-expanded={menuOpen}
           aria-controls="module-drawer"
-          onClick={() => setMenuOpen(true)}
+          onClick={(event) => openMenu(event.currentTarget)}
         >
           <Menu size={19} />
         </button>
@@ -617,7 +633,7 @@ export default function DashboardPrototype() {
           type="button"
           className="rail-item rail-more"
           data-tooltip="Tous les modules"
-          onClick={() => setMenuOpen(true)}
+          onClick={(event) => openMenu(event.currentTarget)}
         >
           <PanelLeftOpen size={19} />
           <span className="sr-only">Tous les modules</span>
@@ -643,6 +659,7 @@ export default function DashboardPrototype() {
                 <h2>Tous les modules</h2>
               </div>
               <button
+                ref={menuClose}
                 type="button"
                 className="close-button"
                 aria-label="Fermer le menu"
@@ -706,18 +723,29 @@ export default function DashboardPrototype() {
               <h1>Vue d’ensemble</h1>
               <p>Reprenez votre travail là où vous l’avez laissé.</p>
             </div>
-            <label className="lab-state">
-              <span>État du laboratoire</span>
-              <select
-                value={state}
-                onChange={(event) => setState(event.target.value as ViewState)}
+            <div className="page-heading-actions">
+              <button
+                type="button"
+                className="module-access"
+                onClick={(event) => openMenu(event.currentTarget)}
               >
-                <option value="sample">Exemples</option>
-                <option value="loading">Chargement</option>
-                <option value="empty">Vide</option>
-                <option value="error">Erreur</option>
-              </select>
-            </label>
+                <PanelLeftOpen size={15} /> 18 modules
+              </button>
+              <label className="lab-state">
+                <span>État du laboratoire</span>
+                <select
+                  value={state}
+                  onChange={(event) =>
+                    setState(event.target.value as ViewState)
+                  }
+                >
+                  <option value="sample">Exemples</option>
+                  <option value="loading">Chargement</option>
+                  <option value="empty">Vide</option>
+                  <option value="error">Erreur</option>
+                </select>
+              </label>
+            </div>
           </div>
 
           {notice && (
@@ -733,215 +761,162 @@ export default function DashboardPrototype() {
             </div>
           )}
 
-          <section
-            className="activity-overview"
-            aria-labelledby="activity-map-title"
-          >
-            <div className="overview-head">
-              <div>
-                <span className="eyebrow">DÉCOUVRIR CYBERHUB</span>
-                <h2 id="activity-map-title">
-                  Choisissez votre point de départ
-                </h2>
-              </div>
-              <p>Choisissez un domaine pour découvrir ses outils.</p>
-            </div>
-            {state === "sample" ? (
-              <div className="domain-workbench">
-                <div className="radar-column">
-                  <div
-                    className={
-                      "radar-stage" + (radarReady ? " is-revealed" : "")
-                    }
-                  >
-                    <div className="radar-grid" aria-hidden="true">
-                      <span className="radar-ring radar-ring-outer" />
-                      <span className="radar-ring radar-ring-inner" />
-                      <span className="radar-cross" />
-                    </div>
-                    <div className="radar-sweep" aria-hidden="true" />
-                    <div className="radar-core" aria-hidden="true">
-                      <img src="/mark.svg" alt="" width="40" height="40" />
-                      <strong>CYBERHUB</strong>
-                      <span>EXPLORER</span>
-                    </div>
-                    <div
-                      className="radar-domains"
-                      role="group"
-                      aria-label="Domaines fonctionnels CyberHub"
-                    >
-                      {domains.map((domain) => {
-                        const Icon = domain.icon;
-                        const selected = domain.id === activeDomain;
-                        return (
-                          <button
-                            type="button"
-                            className={
-                              "radar-domain radar-domain-" +
-                              domain.id +
-                              (selected ? " is-selected" : "")
-                            }
-                            aria-pressed={selected}
-                            key={domain.id}
-                            onClick={() => setActiveDomain(domain.id)}
-                          >
-                            <span className="radar-point" aria-hidden="true" />
-                            <Icon size={17} aria-hidden="true" />
-                            <span>{domain.name}</span>
-                          </button>
-                        );
-                      })}
-                    </div>
+          {state === "sample" ? (
+            <>
+              <section
+                className="signal-desk"
+                aria-labelledby="signal-desk-title"
+              >
+                <div className="signal-desk-head">
+                  <div>
+                    <span className="eyebrow">ÉTAT DE L’ENVIRONNEMENT</span>
+                    <h2 id="signal-desk-title">Signal Desk</h2>
+                    <p>Un instantané personnel pour savoir où reprendre.</p>
                   </div>
-                  <div
-                    className="mobile-domain-picker"
-                    role="group"
-                    aria-label="Choisir un domaine CyberHub"
-                  >
-                    {domains.map((domain) => {
-                      const Icon = domain.icon;
-                      const selected = domain.id === activeDomain;
-                      return (
-                        <button
-                          type="button"
-                          className={selected ? "is-selected" : ""}
-                          aria-pressed={selected}
-                          key={domain.id}
-                          onClick={() => setActiveDomain(domain.id)}
-                        >
-                          <Icon size={17} aria-hidden="true" />
-                          <span>{domain.name}</span>
-                        </button>
-                      );
-                    })}
-                  </div>
+                  <span className="synthetic-badge">
+                    DONNÉES SYNTHÉTIQUES · 12 OCT. 2026
+                  </span>
                 </div>
-                <article
-                  className="domain-detail"
-                  key={selectedDomain.id}
-                  aria-live="polite"
-                >
-                  <div className="detail-heading">
-                    <SelectedDomainIcon size={20} aria-hidden="true" />
-                    <div>
-                      <span className="eyebrow">VOUS POUVEZ ICI</span>
-                      <h3>{selectedDomain.name}</h3>
-                    </div>
-                  </div>
-                  <p className="detail-role">{selectedDomain.role}</p>
-                  <ul
-                    className="module-chips"
-                    aria-label={"Modules du domaine " + selectedDomain.name}
-                  >
-                    {selectedDomain.modules.slice(0, 3).map((module) => (
-                      <li key={module}>
-                        <button
-                          type="button"
-                          onClick={() => selectDestination(module)}
-                        >
-                          {module} <ArrowUpRight size={13} />
-                        </button>
-                      </li>
-                    ))}
-                  </ul>
-                  <p className="detail-note">{selectedDomain.note}</p>
-                  <button
-                    type="button"
-                    className="domain-primary"
-                    onClick={() => selectDestination(selectedDomain.modules[0])}
-                  >
-                    Ouvrir {selectedDomain.modules[0]} <ArrowRight size={15} />
-                  </button>
-                </article>
-              </div>
-            ) : (
-              <DataState state={state} onReset={() => setState("sample")} />
-            )}
-            <button
-              type="button"
-              className="domain-help"
-              onClick={() =>
-                setNotice(
-                  "Choisissez un domaine selon votre intention : documenter, consulter, enquêter, comparer le réseau ou agir.",
-                )
-              }
-            >
-              <HelpCircle size={14} /> Comment choisir ?
-            </button>
-          </section>
 
-          <div className="secondary-grid">
-            <section className="resume-section" aria-labelledby="resume-title">
-              <div className="section-head">
-                <div>
-                  <span className="eyebrow">À REPRENDRE</span>
-                  <h2 id="resume-title">Le fil de travail</h2>
-                </div>
-                <Clock3 size={18} aria-hidden="true" />
-              </div>
-              {state === "sample" ? (
-                <ul className="resume-list">
-                  {recentItems.map(({ eyebrow, title, detail, icon: Icon }) => (
-                    <li key={title}>
+                <div
+                  className="signal-strip"
+                  role="group"
+                  aria-label="Indicateurs synthétiques de l’environnement"
+                >
+                  {signalItems.map((signal) => {
+                    const Icon = signal.icon;
+                    const selected = signal.id === activeSignal;
+                    return (
                       <button
                         type="button"
-                        onClick={() => selectDestination(title)}
+                        className={
+                          "signal-control signal-" +
+                          signal.tone +
+                          (selected ? " is-selected" : "")
+                        }
+                        aria-pressed={selected}
+                        aria-controls="signal-detail"
+                        key={signal.id}
+                        onClick={() => setActiveSignal(signal.id)}
                       >
-                        <span className="resume-icon">
-                          <Icon size={17} />
+                        <span className="signal-led" aria-hidden="true" />
+                        <Icon size={16} aria-hidden="true" />
+                        <span className="signal-copy">
+                          <strong>{signal.label}</strong>
+                          <span>{signal.status}</span>
+                          <small>{signal.timestamp}</small>
                         </span>
-                        <span>
-                          <small>{eyebrow}</small>
-                          <strong>{title}</strong>
-                          <span>{detail}</span>
-                        </span>
-                        <ChevronRight size={16} />
                       </button>
-                    </li>
-                  ))}
-                </ul>
-              ) : (
-                <DataState state={state} onReset={() => setState("sample")} />
-              )}
-            </section>
-
-            <section className="watch-section" aria-labelledby="watch-title">
-              <div className="section-head">
-                <div>
-                  <span className="eyebrow">À SURVEILLER</span>
-                  <h2 id="watch-title">Veille disponible</h2>
+                    );
+                  })}
                 </div>
-                <ShieldAlert size={18} aria-hidden="true" />
+
+                <article
+                  className="signal-detail"
+                  id="signal-detail"
+                  key={selectedSignal.id}
+                  aria-live="polite"
+                >
+                  <span className="signal-detail-icon">
+                    <SelectedSignalIcon size={19} aria-hidden="true" />
+                  </span>
+                  <div>
+                    <span className="eyebrow">INDICATEUR SÉLECTIONNÉ</span>
+                    <h3>{selectedSignal.label}</h3>
+                    <p>{selectedSignal.description}</p>
+                    <small>{selectedSignal.evidence}</small>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => selectDestination(selectedSignal.action)}
+                  >
+                    Ouvrir {selectedSignal.action} <ArrowRight size={15} />
+                  </button>
+                </article>
+
+                <p className="signal-disclaimer">
+                  Instantané de démonstration · aucun appel API · aucune
+                  surveillance continue
+                </p>
+              </section>
+
+              <div className="secondary-grid">
+                <section
+                  className="resume-section"
+                  aria-labelledby="resume-title"
+                >
+                  <div className="section-head">
+                    <div>
+                      <span className="eyebrow">REPRENDRE MON TRAVAIL</span>
+                      <h2 id="resume-title">Votre fil récent</h2>
+                    </div>
+                    <Clock3 size={18} aria-hidden="true" />
+                  </div>
+                  <ul className="resume-list">
+                    {recentItems.map(
+                      ({ eyebrow, title, detail, icon: Icon }) => (
+                        <li key={title}>
+                          <button
+                            type="button"
+                            onClick={() => selectDestination(title)}
+                          >
+                            <span className="resume-icon">
+                              <Icon size={17} />
+                            </span>
+                            <span>
+                              <small>{eyebrow}</small>
+                              <strong>{title}</strong>
+                              <span>{detail}</span>
+                            </span>
+                            <ChevronRight size={16} />
+                          </button>
+                        </li>
+                      ),
+                    )}
+                  </ul>
+                </section>
+
+                <section
+                  className="watch-section"
+                  aria-labelledby="watch-title"
+                >
+                  <div className="section-head">
+                    <div>
+                      <span className="eyebrow">À SURVEILLER</span>
+                      <h2 id="watch-title">Deux points à revoir</h2>
+                    </div>
+                    <ShieldAlert size={18} aria-hidden="true" />
+                  </div>
+                  <div className="watch-lines">
+                    <button
+                      type="button"
+                      onClick={() => selectDestination("IOC Manager")}
+                    >
+                      <span className="watch-type">SOURCES · EXEMPLE</span>
+                      <strong>Feodo et URLhaus synchronisées</strong>
+                      <span>Dernier relevé fictif à 09:35</span>
+                      <ArrowUpRight size={15} />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => selectDestination("BGP Historian")}
+                    >
+                      <span className="watch-type">BGP · EXEMPLE</span>
+                      <strong>2 alertes synthétiques à examiner</strong>
+                      <span>Instantané fictif, sans suivi continu</span>
+                      <ArrowUpRight size={15} />
+                    </button>
+                  </div>
+                </section>
               </div>
-              {state === "sample" ? (
-                <div className="watch-lines">
-                  <button
-                    type="button"
-                    onClick={() => selectDestination("CVE & KEV")}
-                  >
-                    <span className="watch-type">CVE & KEV</span>
-                    <strong>06 entrées fictives à parcourir</strong>
-                    <span>Aucun statut critique simulé</span>
-                    <ArrowUpRight size={15} />
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => selectDestination("BGP Historian")}
-                  >
-                    <span className="watch-type">BGP</span>
-                    <strong>Comparaison de documentation disponible</strong>
-                    <span>AS64512 → AS64513 · exemple</span>
-                    <ArrowUpRight size={15} />
-                  </button>
-                </div>
-              ) : (
-                <DataState state={state} onReset={() => setState("sample")} />
-              )}
+            </>
+          ) : (
+            <section className="lab-surface" aria-label="État simulé">
+              <DataState state={state} onReset={() => setState("sample")} />
             </section>
-          </div>
-
+          )}
           <footer className="page-foot">
-            <span>CYBERHUB / DASHBOARD V2.2</span>
+            <span>CYBERHUB / SIGNAL DESK V3</span>
             <span>Données fictives · aucune API privée</span>
           </footer>
         </div>
