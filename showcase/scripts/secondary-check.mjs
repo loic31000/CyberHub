@@ -90,11 +90,27 @@ try {
       true,
     );
     assert.equal(await page.locator(".bgp-diff-empty").isVisible(), true);
+    assert.equal(await page.locator(".final-name").count(), 8);
+    assert.equal(await page.locator(".final-module-index li").count(), 8);
+    assert.deepEqual(
+      await page.locator(".final-module-index li").allTextContents(),
+      [
+        "IOC Manager",
+        "Corrélation",
+        "MITRE ATT&CK",
+        "CVE & KEV",
+        "OSINT Runner",
+        "BGP Historian",
+        "Investigations",
+        "Playbooks",
+      ],
+    );
     assert.equal(
-      await page.locator(".final-emblem-slot .final-fragment").count(),
-      8,
+      await page.locator(".final-section .demo-guide-heading").isVisible(),
+      false,
     );
     assert.equal(await page.locator(".final-wordmark").isVisible(), true);
+    assert.equal(await page.locator(".final-module-index").isVisible(), true);
     await page
       .locator(".final-section .demo-guide-actions button")
       .last()
@@ -104,11 +120,13 @@ try {
       "0",
     );
     assert.equal(await page.locator(".final-wordmark").isVisible(), false);
+    assert.equal(await page.locator(".final-module-index").isVisible(), false);
     await page
       .locator(".final-section .demo-guide-actions button")
       .first()
       .click();
     assert.equal(await page.locator(".final-wordmark").isVisible(), true);
+    assert.equal(await page.locator(".final-module-index").isVisible(), true);
     await page
       .locator(".final-section .demo-guide-actions button")
       .last()
@@ -117,6 +135,36 @@ try {
       await page.locator(".final-section").getAttribute("data-product-stage"),
       "0",
     );
+    await page.waitForFunction(() =>
+      [...document.querySelectorAll(".final-name")].every(
+        (name) => Number.parseFloat(getComputedStyle(name).opacity) > 0.98,
+      ),
+    );
+    const nameMetrics = await page.locator(".final-name").evaluateAll((names) =>
+      names.map((name) => ({
+        fontSize: Number.parseFloat(getComputedStyle(name).fontSize),
+        box: name.getBoundingClientRect().toJSON(),
+      })),
+    );
+    assert.ok(
+      nameMetrics.every(
+        ({ fontSize }) => fontSize >= (width === 390 ? 16 : 24),
+      ),
+      "Les huit noms doivent être lisibles pendant leur apparition",
+    );
+    for (let i = 0; i < nameMetrics.length; i += 1) {
+      for (let j = i + 1; j < nameMetrics.length; j += 1) {
+        const a = nameMetrics[i].box;
+        const b = nameMetrics[j].box;
+        assert.ok(
+          a.right <= b.left ||
+            b.right <= a.left ||
+            a.bottom <= b.top ||
+            b.bottom <= a.top,
+          `Les noms ${i + 1} et ${j + 1} se chevauchent`,
+        );
+      }
+    }
     await page.evaluate(() =>
       document.querySelector(".motion-control").click(),
     );
@@ -125,6 +173,15 @@ try {
       "4",
     );
     assert.equal(await page.locator(".final-wordmark").isVisible(), true);
+    assert.equal(await page.locator(".final-module-index").isVisible(), true);
+    assert.ok(
+      await page
+        .locator(".final-module-index li")
+        .first()
+        .evaluate(
+          (item) => Number.parseFloat(getComputedStyle(item).fontSize) >= 14,
+        ),
+    );
     assert.ok(
       await page.evaluate(
         () => document.documentElement.scrollWidth <= innerWidth,
@@ -141,11 +198,9 @@ try {
   const reduced = await browser.newPage({ reducedMotion: "reduce" });
   await reduced.goto(base);
   assert.equal(await reduced.locator(".cve-inspector").isVisible(), true);
-  assert.equal(
-    await reduced.locator(".final-emblem-slot .final-fragment").count(),
-    8,
-  );
+  assert.equal(await reduced.locator(".final-name").count(), 8);
   assert.equal(await reduced.locator(".final-wordmark").isVisible(), true);
+  assert.equal(await reduced.locator(".final-module-index").isVisible(), true);
   await reduced.keyboard.press("Tab");
   assert.ok(
     await reduced.evaluate(() => document.activeElement !== document.body),
@@ -164,11 +219,12 @@ try {
     await staticPage.locator(".final-stage").getAttribute("aria-label"),
     /CyberHub/,
   );
-  assert.equal(
-    await staticPage.locator(".final-emblem-slot .final-fragment").count(),
-    8,
-  );
+  assert.equal(await staticPage.locator(".final-name").count(), 8);
   assert.equal(await staticPage.locator(".final-wordmark").isVisible(), true);
+  assert.equal(
+    await staticPage.locator(".final-module-index").isVisible(),
+    true,
+  );
   await staticPage.close();
   console.log("PASS contenu statique sans JavaScript");
 } finally {

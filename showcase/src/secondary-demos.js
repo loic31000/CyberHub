@@ -485,126 +485,104 @@ function finalDemo(motionAllowed) {
     ".final-section",
     "CYBERHUB",
     [
-      "Huit aperçus des modules arrivent dans la scène.",
-      "Les interfaces convergent et composent l'emblème.",
+      "Les huit modules CyberHub entrent en scène.",
+      "Leurs noms convergent vers un même symbole.",
       "L'emblème CyberHub prend forme.",
-      "CYBERHUB rassemble ces domaines dans un même espace.",
-      "Rendre visible l'invisible. Explorer le projet.",
+      "CYBERHUB les réunit dans un même espace.",
+      "Rendre visible l'invisible. Les huit modules restent à découvrir.",
     ],
     motionAllowed,
     ({ $, $$ }) => {
       const stage = $(".final-stage");
-      const slots = $$(".final-emblem-slot");
-      const fragments = $$(".final-fragment");
+      const names = $$(".final-name");
       const frame = $(".final-emblem-frame");
       const pulse = $(".final-pulse");
       const wordmark = $(".final-wordmark");
-      const light = $(".final-light");
       const title = $("#final-title");
       const intro = $(".final-intro");
+      const moduleIndex = $(".final-module-index");
       const disclaimer = $(".final-disclaimer");
       const actions = $(".final-actions");
       const nodes = [
-        ...fragments,
+        ...names,
         frame,
         pulse,
         wordmark,
-        light,
         title,
         intro,
+        moduleIndex,
         disclaimer,
         actions,
       ];
-      const widePositions = [
-        [0.12, 0.22],
-        [0.37, 0.13],
-        [0.63, 0.13],
-        [0.88, 0.22],
-        [0.88, 0.68],
-        [0.63, 0.77],
-        [0.37, 0.77],
-        [0.12, 0.68],
-      ];
-      const narrowPositions = [
-        [0.24, 0.11],
-        [0.76, 0.17],
-        [0.24, 0.34],
-        [0.76, 0.4],
-        [0.24, 0.58],
-        [0.76, 0.64],
-        [0.24, 0.82],
-        [0.76, 0.88],
-      ];
-      const angles = [-7, 5, -4, 6, -6, 4, -5, 7];
-
-      function positionFragments() {
-        const bounds = stage.getBoundingClientRect();
-        const narrow = bounds.width < 600;
-        const positions = narrow ? narrowPositions : widePositions;
-        fragments.forEach((fragment, index) => {
-          const slot = slots[index].getBoundingClientRect();
-          gsap.set(fragment, {
-            x:
-              bounds.left +
-              bounds.width * positions[index][0] -
-              (slot.left + slot.width / 2),
-            y:
-              bounds.top +
-              bounds.height * positions[index][1] -
-              (slot.top + slot.height / 2),
-            rotation: angles[index],
-            scale: narrow ? 0.82 : 1,
-            autoAlpha: 0,
-          });
-        });
-      }
+      const entryY = [-28, 20, 24, -18, -20, 24, 20, -24];
+      const entryRotation = [-7, 5, -4, 6, -5, 4, -6, 5];
 
       function prepare() {
         gsap.set(nodes, { clearProps: "all" });
-        positionFragments();
-        gsap.set(frame, { autoAlpha: 0, scale: 0.72, rotation: -12 });
+        gsap.set(names, {
+          autoAlpha: 0,
+          x: (index) =>
+            (index % 2 === 0 ? -1 : 1) * (stage.clientWidth < 600 ? 45 : 100),
+          y: (index) => entryY[index],
+          rotation: (index) => entryRotation[index],
+          scale: 0.74,
+        });
+        gsap.set(frame, { autoAlpha: 0, scale: 0.62, rotation: -9 });
         gsap.set(wordmark, {
           autoAlpha: 0,
           clipPath: "inset(0 50% 0 50%)",
           y: 14,
           scale: 0.94,
         });
-        gsap.set(light, { autoAlpha: 0.25, scale: 0.75 });
-        gsap.set([title, intro, disclaimer, actions], { autoAlpha: 0, y: 18 });
+        gsap.set([title, intro, moduleIndex, disclaimer, actions], {
+          autoAlpha: 0,
+          y: 18,
+        });
         gsap.set(pulse, { autoAlpha: 0, scale: 0.35 });
       }
 
       function final() {
         gsap.set(nodes, { clearProps: "all" });
+        gsap.set(names, { autoAlpha: 0 });
       }
 
       function build(cue) {
-        positionFragments();
         const tl = gsap.timeline({
           paused: true,
           defaults: { ease: "power3.out" },
         });
         tl.addLabel("arrival")
           .call(() => cue(0))
-          .to(fragments, { autoAlpha: 1, stagger: 0.1, duration: 0.42 })
-          .to({}, { duration: 0.3 });
-        tl.addLabel("convergence")
-          .call(() => cue(1))
-          .to(fragments, {
+          .to(names, {
+            autoAlpha: 1,
             x: 0,
             y: 0,
             rotation: 0,
-            scale: 0.31,
-            stagger: 0.045,
-            duration: 1.25,
+            scale: 1,
+            duration: 0.58,
+            stagger: 0.14,
+          })
+          .to({}, { duration: 0.85 });
+        tl.addLabel("convergence")
+          .call(() => cue(1))
+          .to(names, {
+            x: (index, name) =>
+              stage.clientWidth / 2 - (name.offsetLeft + name.offsetWidth / 2),
+            y: (index, name) =>
+              stage.clientHeight * 0.42 -
+              (name.offsetTop + name.offsetHeight / 2),
+            rotation: 0,
+            scale: 0.1,
+            autoAlpha: 0,
+            stagger: 0.035,
+            duration: 1.1,
             ease: "power3.inOut",
           })
-          .to(pulse, { autoAlpha: 0.8, scale: 1.25, duration: 0.45 }, "<+0.65");
+          .to(pulse, { autoAlpha: 0.8, scale: 1.15, duration: 0.5 }, "<+0.55");
         tl.addLabel("emblem")
           .call(() => cue(2))
           .to(frame, { autoAlpha: 1, rotation: 0, scale: 1, duration: 0.75 })
-          .to(pulse, { autoAlpha: 0, scale: 1.8, duration: 0.7 }, "<")
-          .to(light, { autoAlpha: 1, scale: 1, duration: 0.8 }, "<");
+          .to(pulse, { autoAlpha: 0, scale: 1.8, duration: 0.7 }, "<");
         tl.addLabel("name")
           .call(() => cue(3))
           .to(wordmark, {
@@ -620,7 +598,7 @@ function finalDemo(motionAllowed) {
           .call(() => cue(4))
           .to(title, { autoAlpha: 1, y: 0, duration: 0.75 })
           .to(
-            [intro, disclaimer],
+            [intro, moduleIndex, disclaimer],
             { autoAlpha: 1, y: 0, stagger: 0.13, duration: 0.55 },
             "<+0.24",
           )
