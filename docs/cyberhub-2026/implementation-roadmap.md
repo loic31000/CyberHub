@@ -1,4 +1,6 @@
-# CyberHub 2026 — ordre de réalisation et portes de validation
+# CyberHub 2026 - ordre de réalisation et portes de validation
+
+> **Point d'étape au 12 octobre 2026 :** des prototypes de landing / Showcase (`feat/cyberhub-2026-design`) et de dashboard (`feat/console-2026-dashboard-prototype`) sont présents sur GitHub. Ils ne sont pas intégrés dans `main` et ne prouvent ni la publication publique, ni la conformité finale. Les critères et étapes ci-dessous restent la feuille de route initiale, pas un rapport d'achèvement. Avant intégration, revoir la qualité, les frontières API/données, les licences tierces et la [licence du projet](../LICENSING.md).
 
 Plan fondé sur les descriptions et critères d'acceptation des [issues #3 à #10](https://github.com/loic31000/CyberHub/issues/3) et [#19 à #22](https://github.com/loic31000/CyberHub/issues/19), lus sur GitHub pendant cette phase. Les issues restent ouvertes. Le présent lot est **documentaire** et ne constitue ni une vitrine livrée, ni une conformité sécurité/accessibilité démontrée.
 
@@ -17,11 +19,11 @@ La phase 4 peut avancer par petits lots pendant la phase 3 si les interfaces par
 
 **Prérequis réseau obligatoires et parallélisme :** #19 vérifie d'abord les interfaces réelles, la compatibilité et le mode lecture seule; #21 peut comparer sur papier les sources et contraintes pendant cette vérification, mais ne fige aucun mode d'import ou de découverte avant son résultat. #22 peut esquisser le modèle d'identité et ses tests de changements IP/MAC en parallèle de #21; sa normalisation effective dépend des champs/provenances établis par #19 et des modes retenus en #21. #20 peut prototyper une interface sur fixtures explicitement fictives en parallèle, mais ses écrans reliés à une source réelle, sa timeline et ses alertes attendent le modèle d'observation fiable de #22. La découverte active n'est ni un prérequis du MVP ni une fonction livrée : elle exigerait une décision distincte sur le périmètre autorisé et les garde-fous.
 
-## Cahier de passage à #7 — comparer des prototypes, pas des intentions
+## Cahier de passage à #7 - comparer des prototypes, pas des intentions
 
 La présente PR fournit le récit et le [brief préparatoire](art-direction-brief.md). L'issue #7 doit produire **deux prototypes haute fidélité distincts**, chacun décliné en desktop et mobile, avant de choisir une direction finale :
 
-| Livrable vérifiable, pour A **et** B | A — Sismographe éditorial | B — Carnet de laboratoire / Atlas d'indices |
+| Livrable vérifiable, pour A **et** B | A - Sismographe éditorial | B - Carnet de laboratoire / Atlas d'indices |
 | --- | --- | --- |
 | Hero immersif | Signal isolé, typographie expressive et composition asymétrique; la preuve apparaît avec la forme. | Dossier ouvert sur une question et des indices annotés; sources et limites visibles dès l'entrée. |
 | Transition SIGNAL → COMPRENDRE | Un tracé se transforme en relations légendées, sans masquer le texte. | Un indice mène à une note sourcée puis à un recoupement explicite. |
