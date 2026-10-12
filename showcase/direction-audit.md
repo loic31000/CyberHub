@@ -1,4 +1,4 @@
-# CyberHub 2026 — audit de la direction A V3 avant exploration
+# CyberHub 2026 - audit de la direction A V3 avant exploration
 
 Revue de `a-v3.html`, `src/a-v3.css` (2 253 lignes), `src/a-v3.js`, des captures 320–1920 px et de `parcours-a-v3.webm`. La page a aussi été parcourue dans Chromium via les contrôles navigateur du laboratoire. Ce document précède les deux propositions suivantes ; il ne les valide pas.
 
