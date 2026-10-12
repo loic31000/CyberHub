@@ -60,3 +60,13 @@ Invoke-RestMethod http://localhost:5173/api/auth/status
 ```
 
 Les deux dernières commandes doivent rendre le même état de configuration. Une route protégée doit demander une authentification; le test de connexion complète nécessite le mot de passe du compte existant. Les sauvegardes SQLite, le WAL et les fichiers de la base restent dans le volume monté sur `/data`, pas dans le dossier `frontend/`.
+
+
+## Prototypes 2026 isolés (non intégrés à `main`)
+
+Les prototypes 2026 sont développés sur des branches distinctes. Leurs commandes n'existent pas nécessairement sur `main` :
+
+- Landing / Showcase : branche `feat/cyberhub-2026-design`, dossier `showcase/`, commandes expliquées dans `showcase/README.md` de cette branche.
+- Dashboard / Terminal Overview : branche `feat/console-2026-dashboard-prototype`, dossier `frontend/prototypes/dashboard-2026/`, commandes expliquées dans le README du prototype.
+
+Pour les inspecter sans perturber un autre travail local non commité, privilégier des worktrees séparés après `git fetch origin`. Ne pas fusionner ces branches uniquement pour prévisualiser les laboratoires. Leur futur passage dans `main` dépendra des validations de compatibilité, d'accessibilité, de sécurité et de licences décrites dans [la feuille de route](docs/cyberhub-2026/implementation-roadmap.md).
