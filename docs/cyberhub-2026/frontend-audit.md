@@ -1,5 +1,6 @@
 # Audit du frontend existant - CyberHub 2026
 
+> **Cadre de lecture (12 octobre 2026) :** cet audit est une photographie du code au commit `10bd7a87`, avant les prototypes de landing et de Dashboard 2026. Les chemins, faiblesses et scénarios sont des observations historiques à revérifier sur `main` lors de l'intégration. La cible actuelle est **une application React unifiée utilisée localement**, sans exposition Internet prévue. Les passages évoquant deux origines et l'hébergement de la vitrine appartiennent à l'ancienne hypothèse publique, non à une obligation d'architecture. Voir [l'ADR actuelle](architecture.md).
 État observé sur `10bd7a87` (audit statique du code, sans test navigateur). Cette note prépare [#6](https://github.com/loic31000/CyberHub/issues/6) et l'[epic #3](https://github.com/loic31000/CyberHub/issues/3). Les comportements responsive et d'assistance doivent encore être vérifiés sur appareils réels.
 
 ## Ce qui existe et mérite d'être préservé
@@ -67,7 +68,7 @@ Console mobile  : [barre compacte] [menu ouvrable]
 | P2 | Palette et tailles parfois codées directement dans les pages malgré Tailwind. | Incohérence et maintenance coûteuse. | Inventaire de tokens en #8, contraste mesuré, migration incrémentale sans Tailwind 4. |
 | P2 | `README.md`, `build.ps1` et `package.json` racine ne reflètent pas entièrement `frontend/package.json`/Vite actuel; `build.ps1` vise aussi `frontend/dist` alors que Vite écrit `backend/web`. | Onboarding et build local confus. | Documentation et script alignés lors du chantier de qualité; un seul chemin de build vérifié par cible. |
 
-Le JWT côté navigateur est stocké dans `localStorage` (`store/auth.ts`) et ajouté par l'intercepteur Axios (`api/client.ts`). C'est une dette à examiner avant toute exposition plus large de la console, avec une analyse XSS/session. Cette phase ne change pas l'authentification. Le CORS actuel n'est pas une barrière de publication; les routes publiques `/api/auth/status`, `/api/auth/setup` et `/api/auth/login` du serveur privé imposent une séparation d'hébergement pour la vitrine.
+Le JWT côté navigateur est stocké dans `localStorage` (`store/auth.ts`) et ajouté par l'intercepteur Axios (`api/client.ts`). C'est une dette à examiner avant toute exposition plus large de la console, avec une analyse XSS/session. Cette phase ne change pas l'authentification. Le CORS n'est pas une barrière d'accès à un serveur exposé. L'ancienne recommandation de séparer l'hébergement de la vitrine et de Go concernait un déploiement Internet public, **non retenu pour l'usage local actuel**. Les routes et actions sensibles doivent rester contrôlées côté backend, même avec une landing intégrée au frontend React.
 
 ## Scénarios de validation pour #6 et la suite
 
