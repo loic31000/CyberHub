@@ -1437,18 +1437,19 @@ kbd {
     linear-gradient(180deg, #03090e, #071018 58%, #050b11);
 }
 .workspace.dashboard-board {
-  width: min(100%, 1600px);
+  width: 100%;
+  max-width: none;
   display: grid;
   gap: 0.72rem;
-  margin: auto;
-  padding: 0.78rem clamp(0.85rem, 1.6vw, 1.6rem) 0.8rem;
+  margin: 0;
+  padding: 0.78rem clamp(0.85rem, 1.35vw, 1.65rem) 0.8rem;
 }
 .overview-hero {
   position: relative;
-  min-height: 108px;
+  min-height: 116px;
   overflow: hidden;
   display: grid;
-  grid-template-columns: minmax(460px, 0.9fr) minmax(440px, 1.1fr) auto;
+  grid-template-columns: minmax(500px, 0.8fr) minmax(420px, 1.2fr) 205px;
   align-items: center;
   border-bottom: 1px solid #087c91;
   background: linear-gradient(90deg, #041019 0 30%, transparent 65%), #02090e;
@@ -1476,7 +1477,7 @@ kbd {
 .hero-copy h1 {
   margin-top: 0.35rem;
   font:
-    760 clamp(1.8rem, 2.7vw, 2.65rem)/0.96 Manrope,
+    760 clamp(2.35rem, 2.6vw, 2.75rem)/0.96 Manrope,
     sans-serif;
   letter-spacing: -0.055em;
 }
@@ -1488,16 +1489,21 @@ kbd {
   max-width: 720px;
   margin-top: 0.45rem;
   color: #78dfe5;
-  font-size: clamp(0.68rem, 0.85vw, 0.8rem);
+  font-size: clamp(0.8rem, 0.78vw, 0.92rem);
+  line-height: 1.35;
 }
 .hero-flux {
   position: absolute;
   z-index: 1;
   top: 0;
-  right: 10%;
-  width: 64%;
+  right: 190px;
+  width: 69%;
   height: 100%;
-  opacity: 0.85;
+  opacity: 0.98;
+}
+.hero-haze {
+  fill: url(#hero-light);
+  opacity: 0.12;
 }
 .hero-grid-lines line {
   stroke: #0b8999;
@@ -1507,8 +1513,8 @@ kbd {
 .hero-wave path {
   fill: none;
   stroke: url(#hero-cyan);
-  stroke-width: 1.7;
-  stroke-dasharray: 12 8;
+  stroke-width: 2.1;
+  stroke-dasharray: 15 7;
   animation: hero-flow 8s linear infinite;
 }
 .hero-wave path:nth-child(2) {
@@ -1521,6 +1527,37 @@ kbd {
   stroke: url(#hero-amber);
   stroke-width: 1.1;
   animation-duration: 13s;
+}
+.hero-wave path.blue {
+  stroke: url(#hero-blue);
+  stroke-width: 2.4;
+  animation-duration: 9.5s;
+  animation-direction: reverse;
+}
+.hero-wave path.filament {
+  stroke-width: 0.8;
+  stroke-dasharray: 3 5;
+  opacity: 0.82;
+  animation-duration: 6.5s;
+}
+.hero-wave path.filament.delayed {
+  animation-delay: -2.4s;
+}
+.hero-atmosphere path {
+  fill: none;
+  stroke: #08deed;
+  stroke-width: 10;
+  opacity: 0.16;
+}
+.hero-atmosphere path:nth-child(2) {
+  stroke: #168dff;
+  stroke-width: 13;
+  opacity: 0.11;
+}
+.hero-atmosphere path.amber {
+  stroke: #ffad3c;
+  stroke-width: 8;
+  opacity: 0.13;
 }
 @keyframes hero-flow {
   to {
@@ -1535,16 +1572,34 @@ kbd {
   fill: #ffb64e;
   animation-delay: 0.8s;
 }
+.hero-particles circle {
+  fill: #6cecf2;
+  opacity: 0.34;
+  animation: particle-drift 5.5s ease-in-out infinite alternate;
+}
+.hero-particles circle:nth-child(3n) {
+  fill: #ffaa3d;
+  opacity: 0.28;
+  animation-delay: -2s;
+}
+@keyframes particle-drift {
+  to {
+    transform: translate3d(7px, -4px, 0);
+    opacity: 0.7;
+  }
+}
 .hero-index {
   position: relative;
   z-index: 3;
+  grid-column: 3;
   display: grid;
   gap: 0.18rem;
-  min-width: 170px;
-  padding: 0.6rem 1rem;
+  min-width: 190px;
+  padding: 0.75rem 1rem;
   border-left: 1px solid #0b6172;
-  color: #408da0;
-  font: 400 0.49rem/1.35 var(--mono);
+  background: linear-gradient(90deg, #021017d9, #031017f2);
+  color: #62c7d4;
+  font: 500 0.61rem/1.45 var(--mono);
   letter-spacing: 0.08em;
 }
 .dashboard-panel,
