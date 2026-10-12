@@ -4,7 +4,7 @@ Ce document est un inventaire documentaire, pas un avis juridique ni un audit ex
 
 ## Licence du code original CyberHub : MIT confirmée
 
-Le titulaire a expressément confirmé le choix de la **licence MIT pour le code original de CyberHub dont il détient les droits**, avec la mention `Copyright (c) 2026 loic31000`. Le texte standard figure dans le fichier [`LICENSE`](../LICENSE) à la racine de la branche documentaire `docs/2026-readme-licensing-audit`. La proposition vers `main` est portée par la pull request [#26](https://github.com/loic31000/CyberHub/pull/26) ; tant qu'elle n'est pas fusionnée, ne pas prétendre que ce fichier figure déjà sur `main`.
+Le titulaire a expressément confirmé le choix de la **licence MIT pour le code original de CyberHub dont il détient les droits**, avec la mention `Copyright (c) 2026 loic31000`. Le texte standard figure dans le fichier [`LICENSE`](../LICENSE) à la racine du projet. Son ajout a été proposé via la [PR #26](https://github.com/loic31000/CyberHub/pull/26) ; la licence ne figure sur `main` qu'après la fusion effective de cette PR.
 
 Pour les copies ou parties substantielles du code original sous MIT, reproduire la notice de copyright et la permission MIT. Cette décision ne s'applique pas automatiquement à du code, des données, des polices, des images ou des fichiers provenant de tiers, ni à des contributions sur lesquelles le titulaire ne détient pas les droits requis. **Les obligations des éléments GPL et des autres ressources incorporées restent à vérifier pour toute redistribution d'une œuvre combinée ou d'un paquet logiciel.**
 
@@ -35,7 +35,7 @@ Un simple lien dans le README ne suffit pas nécessairement à respecter les obl
 2. Vérifier les versions exactes des jeux de données embarqués, avec source, provenance, date, modifications et texte de licence/NOTICE applicable.
 3. Analyser particulièrement la compatibilité des obligations GPL-2.0/GPL-3.0 des sources incorporées avec la forme de redistribution choisie. Ne pas conclure à une compatibilité juridique sans revue.
 4. Relever les conditions d'utilisation des APIs et jeux de données actualisables (abuse.ch, NVD, CISA, EPSS, BGPView, WhatsMyName).
-5. Tenir à jour les crédits des polices, données Natural Earth et images avant déploiement du Showcase ou intégration du Dashboard.
+5. Tenir à jour les crédits des polices, données Natural Earth, visuels et autres actifs avant intégration de la landing ou du Dashboard au frontend principal et avant tout partage de distribution.
 6. Confirmer le périmètre des travaux effectivement fusionnés dans `main` ; une branche expérimentale ne représente pas une fonctionnalité livrée.
 
 **Statut : licence MIT du code original confirmée ; conformité des éléments tiers encore à vérifier.** Cette page ne prétend pas qu'une redistribution publique de tous les éléments est déjà autorisée ou conforme.
