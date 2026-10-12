@@ -1,6 +1,6 @@
 # CyberHub
 
-**Version de la Console documentée sur `main` : v1.1.**
+**Version de l'application actuelle documentée sur `main` : v1.1.**
 
 > Hub de ressources cybersécurité local ; certains imports et flux demandent Internet.
 
@@ -17,14 +17,16 @@ Application de bureau pour centraliser outils, writeups CTF, veille CVE, playboo
 
 ## État du projet au 12 octobre 2026
 
-La branche `main` contient la Console existante (React, Go, SQLite) et son frontend de production. Deux chantiers graphiques 2026 sont actuellement **en branches séparées**, et ne sont **pas intégrés à la Console de `main`** :
+La branche `main` contient l'application CyberHub existante (React, Go, SQLite), conçue principalement pour une utilisation locale. Le projet sert à développer un outil personnel, le partager en open source et le présenter en vitrine, **sans objectif actuel de service SaaS ou de déploiement Internet en production**. Deux chantiers graphiques 2026 restent en branches séparées, **non intégrés à l'application de `main`** :
 
 | Chantier | Branche | Statut |
 | --- | --- | --- |
 | Landing page / Showcase 2026 | [`feat/cyberhub-2026-design`](https://github.com/loic31000/CyberHub/tree/feat/cyberhub-2026-design) | Prototype autonome de présentation, avec scènes et données fictives. |
 | Dashboard / Terminal Overview 2026 | [`feat/console-2026-dashboard-prototype`](https://github.com/loic31000/CyberHub/tree/feat/console-2026-dashboard-prototype) | Prototype frontend indépendant, avec globe et animations de démonstration. |
 
-**Intention d'intégration future :** ces deux branches servent de base à de futurs travaux vers `main`, **après revue, tests et décision de fusion**. Leur existence et leurs commits n'impliquent ni fusion automatique, ni mise en production, ni surveillance réseau réelle. La landing publique et la Console privée devront conserver une séparation explicite des données, des API et de l'authentification (voir [architecture](docs/cyberhub-2026/architecture.md)).
+**Architecture cible souhaitée : un seul frontend React** dans `frontend/`, regroupant la landing de présentation, le futur Dashboard 2026 et les modules existants. Le backend Go/SQLite reste local et les fonctionnalités utilisant les données réelles restent authentifiées. Les laboratoires de prototype peuvent avoir temporairement leurs propres builds sans imposer plusieurs frontends dans l'application finale.
+
+**Intégration future :** ces deux branches sont destinées à alimenter progressivement `main` **après revue, tests et décision de fusion**. Elles n'impliquent ni fusion automatique, ni hébergement public, ni surveillance réseau réelle. Une démonstration fictive ne doit pas accéder aux données privées. Voir la [décision d'architecture](docs/cyberhub-2026/architecture.md).
 
 Documents de suivi : [feuille de route](docs/cyberhub-2026/implementation-roadmap.md), [développement local](DEVELOPMENT.md), [crédits/licences](docs/LICENSING.md).
 
@@ -111,7 +113,7 @@ L'application démarre sur **http://localhost:7743** et ouvre le navigateur auto
 
 Pour utiliser le backend Docker existant et le hot reload Vite, suivre [le guide Windows Docker + Vite](DEVELOPMENT.md). Le frontend de développement est sur `http://localhost:5173`; le build embarqué est sur `http://localhost:7743`. Exécuter les commandes npm dans `frontend/` après installation des dépendances (`npm ci`). Depuis la racine, `npm run dev` ne correspond pas au serveur du frontend principal.
 
-Les commandes propres aux prototypes 2026 sont décrites dans les README de leurs branches respectives, pas dans la version applicative de `main`.
+Les commandes propres aux prototypes 2026 sont décrites dans les README de leurs branches respectives. Après intégration, la landing et le Dashboard sont destinés au frontend React principal, pas à deux applications autonomes.
 
 ```bash
 # Vérification TypeScript
