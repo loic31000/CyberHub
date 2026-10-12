@@ -90,8 +90,30 @@ try {
       true,
     );
     assert.equal(await page.locator(".bgp-diff-empty").isVisible(), true);
-    assert.equal(await page.locator(".final-constellation").count(), 0);
-    assert.equal(await page.locator(".final-view").count(), 3);
+    assert.equal(
+      await page.locator(".final-module-slot .final-fragment").count(),
+      8,
+    );
+    assert.equal(
+      await page.locator(".final-fragments .final-fragment").count(),
+      0,
+    );
+    await page
+      .locator(".final-section .demo-guide-actions button")
+      .last()
+      .click();
+    assert.equal(
+      await page.locator(".final-fragments .final-fragment").count(),
+      8,
+    );
+    await page
+      .locator(".final-section .demo-guide-actions button")
+      .first()
+      .click();
+    assert.equal(
+      await page.locator(".final-module-slot .final-fragment").count(),
+      8,
+    );
     assert.ok(
       await page.evaluate(
         () => document.documentElement.scrollWidth <= innerWidth,
@@ -108,7 +130,10 @@ try {
   const reduced = await browser.newPage({ reducedMotion: "reduce" });
   await reduced.goto(base);
   assert.equal(await reduced.locator(".cve-inspector").isVisible(), true);
-  assert.equal(await reduced.locator(".final-view-main").isVisible(), true);
+  assert.equal(
+    await reduced.locator(".final-module-slot .final-fragment").count(),
+    8,
+  );
   await reduced.keyboard.press("Tab");
   assert.ok(
     await reduced.evaluate(() => document.activeElement !== document.body),
@@ -126,6 +151,10 @@ try {
   assert.match(
     await staticPage.locator(".final-stage").getAttribute("aria-label"),
     /CyberHub/,
+  );
+  assert.equal(
+    await staticPage.locator(".final-module-slot .final-fragment").count(),
+    8,
   );
   await staticPage.close();
   console.log("PASS contenu statique sans JavaScript");

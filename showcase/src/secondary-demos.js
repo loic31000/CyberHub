@@ -89,14 +89,16 @@ function cveDemo(motionAllowed) {
           .to(rows, { autoAlpha: 1, x: 0, stagger: 0.12, duration: 0.46 });
         tl.addLabel("search")
           .call(() => cue(1))
-          .to(query, { text: fullQuery, duration: 1.0, ease: "none" });
+          .to(query, { text: fullQuery, duration: 1.0, ease: "none" })
+          .to({}, { duration: 0.4 });
         tl.addLabel("severity")
           .call(() => {
             cue(2);
             filter.setAttribute("aria-pressed", "true");
             filter.firstChild.textContent = "CRITIQUE ";
           })
-          .fromTo(filter, { scale: 0.92 }, { scale: 1, duration: 0.33 });
+          .fromTo(filter, { scale: 0.92 }, { scale: 1, duration: 0.33 })
+          .to({}, { duration: 0.35 });
         tl.addLabel("reorder")
           .call(() => {
             cue(3);
@@ -119,7 +121,8 @@ function cveDemo(motionAllowed) {
           .set(secondary, { display: "none" })
           .call(() => {
             count.textContent = "1 entrée illustrative";
-          });
+          })
+          .to({}, { duration: 0.55 });
         tl.addLabel("select")
           .call(() => cue(4))
           .fromTo(primary, { x: -12 }, { x: 0, duration: 0.35 });
@@ -129,7 +132,8 @@ function cveDemo(motionAllowed) {
             clipPath: "inset(0 0 0 0%)",
             duration: 0.72,
             ease: "power3.inOut",
-          });
+          })
+          .to({}, { duration: 0.75 });
         return tl;
       }
       rows.forEach((row) =>
@@ -449,7 +453,8 @@ function investigationDemo(motionAllowed) {
           .to(indicator, { autoAlpha: 1, x: 0, duration: 0.55 })
           .to(slip, { autoAlpha: 1, x: 0, duration: 0.5 }, "<+0.15")
           .to(attach, { scale: 0.96, duration: 0.13, yoyo: true, repeat: 1 })
-          .call(() => setAttached(true));
+          .call(() => setAttached(true))
+          .to({}, { duration: 0.5 });
         tl.addLabel("events")
           .call(() => cue(2))
           .to(events.slice(0, 2), {
@@ -457,14 +462,17 @@ function investigationDemo(motionAllowed) {
             y: 0,
             stagger: 0.23,
             duration: 0.45,
-          });
+          })
+          .to({}, { duration: 0.45 });
         tl.addLabel("question")
           .call(() => cue(3))
           .to(events[2], { autoAlpha: 1, y: 0, duration: 0.42 })
-          .to(question, { autoAlpha: 1, duration: 0.38 }, "<");
+          .to(question, { autoAlpha: 1, duration: 0.38 }, "<")
+          .to({}, { duration: 0.55 });
         tl.addLabel("playbook")
           .call(() => cue(4))
-          .to(playbook, { autoAlpha: 1, x: 0, duration: 0.7 });
+          .to(playbook, { autoAlpha: 1, x: 0, duration: 0.7 })
+          .to({}, { duration: 0.75 });
         return tl;
       }
       return { prepare, final, build };
@@ -477,68 +485,145 @@ function finalDemo(motionAllowed) {
     ".final-section",
     "CYBERHUB",
     [
-      "Une première vue du produit réapparaît.",
-      "MITRE et le dossier rejoignent l'ensemble.",
-      "Le regard recule : les modules forment CyberHub.",
-      "Rendre visible l'invisible. Explorer le projet.",
+      "Huit domaines apparaissent autour d'un même espace.",
+      "Les modules se rapprochent et trouvent leur place.",
+      "CyberHub révèle l'environnement qui les réunit.",
+      "Rendre visible l'invisible.",
+      "Plusieurs outils, une plateforme. Explorer le projet.",
     ],
     motionAllowed,
     ({ $, $$ }) => {
-      const stage = $(".final-stage");
-      const camera = $(".final-camera");
-      const views = $$(".final-view");
+      const scatter = $(".final-fragments");
+      const platform = $(".final-platform");
+      const platformHead = $(".final-platform-head");
+      const rail = $(".final-module-rail");
+      const slots = $$(".final-module-slot");
+      const fragments = $$(".final-fragment");
+      const work = $(".final-platform-work");
+      const light = $(".final-light");
+      const prelude = $(".final-prelude");
       const title = $("#final-title");
       const intro = $(".final-intro");
       const disclaimer = $(".final-disclaimer");
       const actions = $(".final-actions");
       const nodes = [
-        stage,
-        camera,
-        ...views,
+        light,
+        platform,
+        platformHead,
+        rail,
+        work,
+        ...fragments,
+        prelude,
         title,
         intro,
         disclaimer,
         actions,
       ];
+      function dock() {
+        fragments.forEach((fragment, index) => {
+          slots[index].append(fragment);
+        });
+      }
       function prepare() {
+        gsap.killTweensOf(fragments);
         gsap.set(nodes, { clearProps: "all" });
-        gsap.set(camera, { scale: 1.16, rotateY: -6, x: 52, autoAlpha: 0 });
-        gsap.set(views.slice(1), { autoAlpha: 0, x: 65 });
+        fragments.forEach((fragment) => {
+          scatter.append(fragment);
+        });
+        gsap.set(fragments, { autoAlpha: 0, scale: 0.78 });
+        gsap.set(platform, {
+          backgroundColor: "transparent",
+          borderColor: "transparent",
+          boxShadow: "none",
+          scale: 1.07,
+          rotateY: -3,
+        });
+        gsap.set(rail, {
+          backgroundColor: "transparent",
+          borderColor: "transparent",
+        });
+        gsap.set(platformHead, { autoAlpha: 0, y: -12 });
+        gsap.set(work, { autoAlpha: 0, x: 18 });
+        gsap.set(light, { autoAlpha: 0.25, scale: 0.8 });
+        gsap.set(prelude, { autoAlpha: 1 });
         gsap.set(title, { clipPath: "inset(100% 0 0 0)", y: 18 });
         gsap.set([intro, disclaimer], { autoAlpha: 0, y: 10 });
         gsap.set(actions, { autoAlpha: 0, y: 12 });
       }
       function final() {
+        gsap.killTweensOf(fragments);
+        dock();
         gsap.set(nodes, { clearProps: "all" });
+        gsap.set(prelude, { autoAlpha: 0 });
       }
       function build(cue) {
         const tl = gsap.timeline({
           paused: true,
           defaults: { ease: "power3.out" },
         });
-        tl.addLabel("return")
+        tl.addLabel("arrival")
           .call(() => cue(0))
-          .to(camera, { autoAlpha: 1, x: 0, duration: 0.88 });
-        tl.addLabel("compose")
-          .call(() => cue(1))
-          .to(views.slice(1), {
+          .to(fragments, {
             autoAlpha: 1,
-            x: 0,
-            stagger: 0.26,
-            duration: 0.8,
-          });
-        tl.addLabel("reveal")
+            scale: 1,
+            stagger: 0.09,
+            duration: 0.5,
+          })
+          .to({}, { duration: 0.3 });
+        tl.addLabel("converge")
+          .call(() => cue(1))
+          .call(() => {
+            const state = Flip.getState(fragments);
+            dock();
+            Flip.from(state, {
+              absolute: true,
+              scale: true,
+              duration: 1.2,
+              stagger: 0.04,
+              ease: "power3.inOut",
+            });
+          })
+          .to({}, { duration: 1.35 });
+        tl.addLabel("environment")
           .call(() => cue(2))
-          .to(camera, { scale: 1, rotateY: 0, duration: 1.06 });
+          .to(platform, {
+            backgroundColor: "#0d1a26",
+            borderColor: "#4e788b",
+            boxShadow: "0 32px 85px #000b, inset 0 1px #93d6e41c",
+            scale: 1,
+            rotateY: 0,
+            duration: 0.85,
+          })
+          .to(
+            rail,
+            {
+              backgroundColor: "#0b1722",
+              borderColor: "#38586a",
+              duration: 0.7,
+            },
+            "<",
+          )
+          .to(platformHead, { autoAlpha: 1, y: 0, duration: 0.7 }, "<+0.1")
+          .to(work, { autoAlpha: 1, x: 0, duration: 0.7 }, "<+0.25")
+          .to(light, { autoAlpha: 1, scale: 1, duration: 1.0 }, "<");
         tl.addLabel("title")
           .call(() => cue(3))
-          .to(title, { clipPath: "inset(0% 0 0 0)", y: 0, duration: 0.82 })
+          .to(prelude, { autoAlpha: 0, y: -8, duration: 0.42 })
           .to(
-            [intro, disclaimer],
-            { autoAlpha: 1, y: 0, stagger: 0.12, duration: 0.5 },
-            "<+0.24",
-          )
-          .to(actions, { autoAlpha: 1, y: 0, duration: 0.58 }, "<+0.42");
+            title,
+            { clipPath: "inset(0% 0 0 0)", y: 0, duration: 0.9 },
+            "<+0.18",
+          );
+        tl.addLabel("invitation")
+          .call(() => cue(4))
+          .to([intro, disclaimer], {
+            autoAlpha: 1,
+            y: 0,
+            stagger: 0.15,
+            duration: 0.6,
+          })
+          .to(actions, { autoAlpha: 1, y: 0, duration: 0.65 }, "<+0.22")
+          .to({}, { duration: 0.5 });
         return tl;
       }
       return { prepare, final, build };

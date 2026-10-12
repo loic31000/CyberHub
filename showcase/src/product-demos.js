@@ -240,7 +240,8 @@ function correlationDemo(motionAllowed) {
       });
     tl.addLabel("type")
       .call(() => cue(2))
-      .to(value, { text: fullValue, duration: 1.4, ease: "none" });
+      .to(value, { text: fullValue, duration: 1.4, ease: "none" })
+      .to({}, { duration: 0.4 });
     tl.addLabel("analyze")
       .call(() => cue(3))
       .to(run, { scale: 0.96, duration: 0.13, yoyo: true, repeat: 1 })
@@ -260,7 +261,8 @@ function correlationDemo(motionAllowed) {
         rows,
         { autoAlpha: 1, x: 0, stagger: 0.28, duration: 0.55 },
         "<+=0.14",
-      );
+      )
+      .to({}, { duration: 0.55 });
     tl.addLabel("select")
       .call(() => {
         selectLine(14);
@@ -286,7 +288,8 @@ function correlationDemo(motionAllowed) {
         field,
         { borderColor: "#324e5f", backgroundColor: "#101b27", duration: 0.4 },
         "<",
-      );
+      )
+      .to({}, { duration: 0.7 });
     return tl;
   }
   const demo = installDemo({
@@ -395,7 +398,8 @@ function mitreDemo(motionAllowed) {
       });
     tl.addLabel("browse")
       .call(() => cue(1))
-      .to(cards, { autoAlpha: 1, y: 0, stagger: 0.16, duration: 0.48 });
+      .to(cards, { autoAlpha: 1, y: 0, stagger: 0.16, duration: 0.48 })
+      .to({}, { duration: 0.55 });
     tl.addLabel("focus")
       .call(() => cue(2))
       .to(search, {
@@ -420,7 +424,8 @@ function mitreDemo(motionAllowed) {
       .set(filtered, { display: "none" })
       .call(() => {
         count.textContent = "1 résultat pour PowerShell";
-      });
+      })
+      .to({}, { duration: 0.55 });
     tl.addLabel("platform")
       .call(() => {
         selectPowerShell();
@@ -446,7 +451,8 @@ function mitreDemo(motionAllowed) {
         search,
         { borderColor: "#324e5f", backgroundColor: "#101b27", duration: 0.4 },
         "<",
-      );
+      )
+      .to({}, { duration: 0.75 });
     return tl;
   }
   const demo = installDemo({
