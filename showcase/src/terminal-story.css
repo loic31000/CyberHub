@@ -2708,7 +2708,6 @@ section {
   font-size: 0.77rem !important;
 }
 .bgp-snapshot[aria-pressed="false"] {
-  opacity: 0.6;
   border-left-color: #7b98a8;
 }
 .bgp-snapshot:hover,
