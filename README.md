@@ -8,6 +8,7 @@
 ![TypeScript](https://img.shields.io/badge/TypeScript-Strict-3178C6?logo=typescript&logoColor=white)
 ![React](https://img.shields.io/badge/React-18-61DAFB?logo=react&logoColor=black)
 ![SQLite](https://img.shields.io/badge/SQLite-DB-003B57?logo=sqlite&logoColor=white)
+[![Licence MIT (code original)](https://img.shields.io/badge/Code_original-MIT-2EA44F)](LICENSE)
 ![CLOAK](https://img.shields.io/badge/CLOAK-OpSec_TTPs--GPL_v2-6B21A8)
 
 Application de bureau pour centraliser outils, writeups CTF, veille CVE, playbooks de réponse à incident, gestion d'IOC, analyse BGP/AS, OSINT et investigation. Inclut **[CLOAK OpSec](https://github.com/Mickinthemiddle/CLOAK)** (Mick Deben, Leiden University - GPL v2), les bases [LOLBAS](https://lolbas-project.github.io/) et [GTFOBins](https://gtfobins.github.io/), ainsi que les flux [Feodo Tracker](https://feodotracker.abuse.ch/) et [URLhaus](https://urlhaus.abuse.ch/) (abuse.ch).
@@ -177,9 +178,9 @@ Bind sur `127.0.0.1` uniquement - aucun accès réseau externe. JWT HS256 · bcr
 
 Cyber-Hub est destiné **exclusivement à un usage légal et éthique** : tests sur vos propres systèmes, environnements de lab, CTF, formation. L'utilisation sur des systèmes sans autorisation explicite est illégale.
 
-**Aucune licence générale du code CyberHub n'est actuellement publiée à la racine de `main`.** Le caractère public du dépôt ne constitue pas une permission de réutilisation ou de redistribution de son code. Le choix d'une licence propre au projet nécessite la décision explicite du titulaire des droits.
+**Le code original de CyberHub, pour lequel le titulaire détient les droits, est placé sous licence [MIT](LICENSE)**, avec la mention `Copyright (c) 2026 loic31000`. Conserver la notice de copyright et le texte de licence lors des copies ou redistributions du code concerné.
 
-Des données tierces sont incorporées, notamment CLOAK (GPL v2), LOLBAS et GTFOBins (GPL-3.0) ; leurs obligations de licence et d'attribution doivent être étudiées avant redistribution. Les conditions MITRE ATT&CK sont spécifiques. Voir l'[inventaire de licences et travaux de conformité restant à réaliser](docs/LICENSING.md).
+**Cette licence MIT ne remplace pas les licences ou conditions propres aux contenus tiers.** Des données tierces sont notamment incorporées : CLOAK (GPL v2), LOLBAS et GTFOBins (GPL-3.0). Les conditions de MITRE ATT&CK sont spécifiques. Les obligations de provenance, d'attribution, de licence et de redistribution restent à vérifier selon les fichiers et modes de distribution. Voir l'[inventaire des licences et des points à vérifier](docs/LICENSING.md).
 
 ---
 
