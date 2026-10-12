@@ -1,5 +1,6 @@
 # CyberHub 2026 - récit et positionnement
 
+> **Statut historique (12 octobre 2026) :** ce document conserve les recherches narratives et propositions de l'ancienne phase préparatoire. Le besoin confirmé est un outil personnel en local, partagé en open source et présenté via une landing **à intégrer dans le même frontend React**. Les expressions « vitrine publique », « démo publique » ou « console privée » décrivent ici les rôles ou les hypothèses éditoriales d'origine, **pas un déploiement sur Internet ni deux frontends imposés**. Voir [l'architecture actualisée](architecture.md).
 Proposition pour [#4](https://github.com/loic31000/CyberHub/issues/4) et l'[epic #3](https://github.com/loic31000/CyberHub/issues/3). Le récit s'adresse aux recruteurs, pairs techniques, contributeurs et personnes qui souhaitent installer la console. La vitrine raconte des capacités vérifiables du dépôt; la démo publique est explicitement fictive. Aucune expérience professionnelle, certification, métrique d'usage ou intégration future n'est attribuée à l'auteur sans preuve fournie.
 
 ## Promesse et voix
