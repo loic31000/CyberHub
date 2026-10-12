@@ -1,4 +1,4 @@
-# Dashboard CyberHub 2026 — Terminal Overview V3.1
+# Dashboard CyberHub 2026 — Référence Terminal Overview
 
 Depuis `frontend/` :
 
@@ -12,7 +12,9 @@ Ce laboratoire a sa propre entrée Vite, sans proxy, client API, authentificatio
 
 V3 utilise une navigation hybride : topbar avec recherche, rail compact sur ordinateur et menu complet à la demande. La palette locale s'ouvre avec `Ctrl+K` ou `Cmd+K`, filtre les vrais noms de modules et quelques exemples explicitement fictifs, puis indique les destinations qui ne sont pas encore prototypées.
 
-Terminal Overview reprend l’ADN technique de CyberHub dans une zone supérieure plus dense : rack de cinq instruments, LED libellées, relevés synthétiques horodatés et accès direct au dernier travail. L’animation lumineuse indique uniquement la sélection dans le prototype. La page n'appelle aucune API, ne lance aucun job et ne simule aucune surveillance continue. Les sections « Reprendre mon travail » et « À surveiller » de V3 restent intactes. Le sélecteur « État du laboratoire » permet de vérifier les rendus exemples, chargement, vide et erreur.
+Le contenu principal reproduit la composition de référence : bandeau Terminal Overview, cinq états d’environnement, aperçu réseau, opérations, veille, accès rapides et synchronisation. Toutes les données sont fictives et la visualisation réseau est explicitement présentée comme une démonstration. La page n'appelle aucune API, ne lance aucun job et ne simule aucune surveillance continue.
+
+La sidebar compacte du prototype, ses entrées, ses groupes dans le tiroir complet et son comportement sont conservés sans redesign.
 
 Les autres pages seront prototypées après validation visuelle de ce cockpit.
 

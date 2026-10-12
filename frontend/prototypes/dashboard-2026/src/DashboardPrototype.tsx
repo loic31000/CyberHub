@@ -2,12 +2,11 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import {
   Activity,
   ArrowRight,
-  ArrowUpRight,
+  Bell,
   Binary,
   BookMarked,
   BookOpen,
   ChevronRight,
-  Clock3,
   Code2,
   Compass,
   FileText,
@@ -26,11 +25,12 @@ import {
   Wrench,
   X,
   EyeOff,
+  Database,
+  Globe2,
+  Settings,
   type LucideIcon,
 } from "lucide-react";
 
-type ViewState = "sample" | "loading" | "empty" | "error";
-type SignalId = "console" | "mitre" | "sources" | "osint" | "bgp";
 type Module = { label: string; icon: LucideIcon; group: string };
 type SearchEntry = {
   id: string;
@@ -40,16 +40,22 @@ type SearchEntry = {
   icon: LucideIcon;
 };
 type SignalItem = {
-  id: SignalId;
-  code: string;
   label: string;
   status: string;
-  timestamp: string;
-  description: string;
-  evidence: string;
+  secondary: string;
   action: string;
   tone: "ready" | "quiet" | "attention";
   icon: LucideIcon;
+  bars: number[];
+};
+
+type FeedItem = {
+  title: string;
+  detail: string;
+  time: string;
+  icon: LucideIcon;
+  tone?: "cyan" | "amber" | "red";
+  badge?: "CRITIQUE" | "NOUVEAU" | "INFO";
 };
 
 const navigationGroups: { label: string; items: Module[] }[] = [
@@ -98,68 +104,150 @@ const modules = navigationGroups.flatMap((group) => group.items);
 
 const signalItems: SignalItem[] = [
   {
-    id: "console",
-    code: "SYS-01",
     label: "Console",
-    status: "Disponible · exemple",
-    timestamp: "Relevé fictif 09:42",
-    description: "L’accès local est présenté comme prêt dans cet instantané.",
-    evidence: "Un point d’état d’authentification existe dans la Console.",
+    status: "Opérationnelle",
+    secondary: "v2026.05.1 · fictif",
     action: "Dashboard",
     tone: "ready",
     icon: Terminal,
+    bars: [18, 24, 34, 46, 62, 74, 58, 82],
   },
   {
-    id: "mitre",
-    code: "IDX-02",
-    label: "Index MITRE",
-    status: "Prêt · exemple",
-    timestamp: "Relevé fictif 09:41",
-    description: "L’index de démonstration est disponible pour l’exploration.",
-    evidence:
-      "La Console distingue index prêt, indexation et nombre de techniques.",
+    label: "MITRE",
+    status: "Index prêt",
+    secondary: "ATT&CK v14.1 · fictif",
     action: "MITRE ATT&CK",
     tone: "ready",
-    icon: Compass,
+    icon: Layers3,
+    bars: [12, 22, 28, 43, 57, 70, 51, 78],
   },
   {
-    id: "sources",
-    code: "SRC-03",
     label: "Sources",
-    status: "Synchronisées · exemple",
-    timestamp: "Dernière synchro fictive 09:35",
-    description: "Feodo et URLhaus sont présentées avec un relevé synthétique.",
-    evidence:
-      "La Console conserve la date et le volume de chaque synchronisation.",
+    status: "Synchronisation",
+    secondary: "2/4 connectées · fictif",
     action: "IOC Manager",
-    tone: "ready",
-    icon: Shield,
+    tone: "attention",
+    icon: Globe2,
+    bars: [10, 17, 25, 38, 48, 64, 78, 88],
   },
   {
-    id: "osint",
-    code: "JOB-04",
-    label: "Jobs OSINT",
-    status: "Au repos · exemple",
-    timestamp: "Aucun job lancé",
-    description: "Aucune recherche OSINT n’est exécutée dans ce laboratoire.",
-    evidence: "Les jobs réels exposent un statut et un suivi SSE dédié.",
+    label: "OSINT",
+    status: "Aucun job",
+    secondary: "En attente · fictif",
     action: "OSINT Runner",
     tone: "quiet",
     icon: Search,
+    bars: [16, 22, 31, 48, 44, 61, 72, 68],
   },
   {
-    id: "bgp",
-    code: "NET-05",
-    label: "Alertes BGP",
-    status: "2 à examiner · exemple",
-    timestamp: "Relevé fictif 09:40",
-    description:
-      "Deux alertes synthétiques attendent une revue dans cet exemple.",
-    evidence: "La Console permet de consulter et d’acquitter les alertes BGP.",
+    label: "BGP",
+    status: "À surveiller",
+    secondary: "12 réseaux · fictif",
     action: "BGP Historian",
-    tone: "attention",
+    tone: "ready",
+    icon: Network,
+    bars: [15, 29, 37, 51, 59, 72, 83, 91],
+  },
+];
+
+const operations: FeedItem[] = [
+  {
+    title: "Recherche OSINT",
+    detail: "github.com",
+    time: "13:10",
+    icon: Search,
+  },
+  {
+    title: "Analyse de domaine",
+    detail: "example.com",
+    time: "13:07",
+    icon: Globe2,
+  },
+  {
+    title: "Inspection IOC",
+    detail: "185.199.110.153",
+    time: "12:58",
+    icon: Shield,
+    tone: "amber",
+  },
+  {
+    title: "Note ajoutée",
+    detail: "Investigation · APT",
+    time: "12:46",
+    icon: FileText,
+  },
+  {
+    title: "Consultation CVE",
+    detail: "CVE-2024-3094",
+    time: "12:41",
+    icon: ShieldAlert,
+  },
+  {
+    title: "Snapshot BGP",
+    detail: "AS15169 · Google",
+    time: "12:32",
     icon: History,
   },
+];
+
+const alerts: FeedItem[] = [
+  {
+    title: "CVE-2024-3094",
+    detail: "Librairie affectée",
+    time: "12:58",
+    icon: ShieldAlert,
+    tone: "red",
+    badge: "CRITIQUE",
+  },
+  {
+    title: "AS152194",
+    detail: "Annonce BGP inhabituelle",
+    time: "11:43",
+    icon: Network,
+    tone: "amber",
+    badge: "NOUVEAU",
+  },
+  {
+    title: "IOC partagé",
+    detail: "185.199.110.153",
+    time: "12:27",
+    icon: Shield,
+    badge: "INFO",
+  },
+  {
+    title: "Mise à jour MITRE",
+    detail: "Nouvelles entrées TTP",
+    time: "09:12",
+    icon: Compass,
+    badge: "INFO",
+  },
+  {
+    title: "Source OSINT",
+    detail: "Synchronisation terminée",
+    time: "08:51",
+    icon: Database,
+    badge: "INFO",
+  },
+];
+
+const quickModules = [
+  {
+    title: "IOC Manager",
+    detail: "Recherche et analyse d’indicateurs",
+    icon: Shield,
+  },
+  { title: "MITRE ATT&CK", detail: "Matrice et techniques", icon: Layers3 },
+  {
+    title: "OSINT Runner",
+    detail: "Recherche et vérification de sources",
+    icon: Search,
+  },
+  {
+    title: "BGP Historian",
+    detail: "Historique et analyse BGP",
+    icon: Network,
+  },
+  { title: "Investigations", detail: "Dossiers et preuves", icon: Activity },
 ];
 
 const demoSearchEntries: SearchEntry[] = [
@@ -195,27 +283,6 @@ const demoSearchEntries: SearchEntry[] = [
   },
 ];
 
-const recentItems = [
-  {
-    eyebrow: "INDICATEUR FICTIF",
-    title: "198.51.100.42",
-    detail: "Provenance conservée · contexte à vérifier",
-    icon: Shield,
-  },
-  {
-    eyebrow: "INVESTIGATION D’EXEMPLE",
-    title: "Triage initial",
-    detail: "Trois notes disponibles pour reprendre le fil",
-    icon: Activity,
-  },
-  {
-    eyebrow: "PLAYBOOK FICTIF",
-    title: "Première qualification",
-    detail: "Dernière étape consultée · Collecter la source",
-    icon: BookOpen,
-  },
-];
-
 function Brand() {
   return (
     <span className="brand">
@@ -227,48 +294,180 @@ function Brand() {
   );
 }
 
-function DataState({
-  state,
-  onReset,
-}: {
-  state: Exclude<ViewState, "sample">;
-  onReset: () => void;
-}) {
-  const content = {
-    loading: {
-      title: "Chargement simulé",
-      copy: "La structure reste stable pendant la récupération des données.",
-    },
-    empty: {
-      title: "Aucun instantané disponible",
-      copy: "La navigation et la recherche restent accessibles.",
-    },
-    error: {
-      title: "Vue momentanément indisponible",
-      copy: "Erreur fictive : aucune connexion privée n’a été tentée.",
-    },
-  }[state];
+function MiniBars({ bars }: { bars: number[] }) {
   return (
-    <div
-      className={"data-state data-state-" + state}
-      role={state === "error" ? "alert" : "status"}
+    <span className="mini-bars" aria-hidden="true">
+      {bars.map((height, index) => (
+        <i
+          key={index}
+          style={{ "--bar-height": `${height}%` } as React.CSSProperties}
+        />
+      ))}
+    </span>
+  );
+}
+
+function HeaderFlux() {
+  return (
+    <svg
+      className="hero-flux"
+      viewBox="0 0 760 150"
+      preserveAspectRatio="none"
+      aria-hidden="true"
     >
-      {state === "loading" ? (
-        <span className="state-loader" aria-hidden="true" />
-      ) : (
-        <span className="state-symbol" aria-hidden="true">
-          {state === "empty" ? "∅" : "!"}
+      <defs>
+        <linearGradient id="hero-cyan" x1="0" x2="1">
+          <stop offset="0" stopColor="#06dbe8" stopOpacity="0" />
+          <stop offset=".35" stopColor="#06dbe8" />
+          <stop offset="1" stopColor="#7ff7ff" stopOpacity=".15" />
+        </linearGradient>
+        <linearGradient id="hero-amber" x1="0" x2="1">
+          <stop offset="0" stopColor="#f6a83b" stopOpacity="0" />
+          <stop offset=".55" stopColor="#f6a83b" />
+          <stop offset="1" stopColor="#f6a83b" stopOpacity="0" />
+        </linearGradient>
+        <filter id="hero-glow">
+          <feGaussianBlur stdDeviation="3" result="blur" />
+          <feMerge>
+            <feMergeNode in="blur" />
+            <feMergeNode in="SourceGraphic" />
+          </feMerge>
+        </filter>
+      </defs>
+      <g className="hero-grid-lines">
+        {Array.from({ length: 13 }, (_, index) => (
+          <line key={index} x1={index * 64} x2={index * 64} y1="15" y2="145" />
+        ))}
+      </g>
+      <g className="hero-wave" filter="url(#hero-glow)">
+        <path d="M0 92 C95 15 160 138 255 72 S410 25 495 92 S650 138 760 47" />
+        <path d="M0 112 C85 42 170 123 245 96 S382 38 485 73 S632 125 760 69" />
+        <path
+          className="amber"
+          d="M0 76 C82 128 180 25 270 89 S420 125 520 55 S675 36 760 88"
+        />
+      </g>
+      <g className="hero-points">
+        <circle cx="185" cy="65" r="3" />
+        <circle cx="370" cy="54" r="2.5" />
+        <circle cx="526" cy="59" r="3" />
+        <circle className="amber" cx="625" cy="67" r="3" />
+      </g>
+    </svg>
+  );
+}
+
+function NetworkScene() {
+  return (
+    <div className="network-scene">
+      <svg
+        viewBox="0 0 800 430"
+        role="img"
+        aria-labelledby="network-scene-title"
+      >
+        <title id="network-scene-title">
+          Aperçu cartographique synthétique de connexions réseau fictives
+        </title>
+        <defs>
+          <radialGradient id="globe-fill">
+            <stop offset="0" stopColor="#063746" stopOpacity=".8" />
+            <stop offset=".72" stopColor="#03141d" stopOpacity=".75" />
+            <stop offset="1" stopColor="#02080d" stopOpacity=".2" />
+          </radialGradient>
+          <filter id="node-glow">
+            <feGaussianBlur stdDeviation="4" result="blur" />
+            <feMerge>
+              <feMergeNode in="blur" />
+              <feMergeNode in="SourceGraphic" />
+            </feMerge>
+          </filter>
+          <pattern
+            id="map-grid"
+            width="28"
+            height="28"
+            patternUnits="userSpaceOnUse"
+          >
+            <path
+              d="M28 0H0V28"
+              fill="none"
+              stroke="#0d5b70"
+              strokeOpacity=".22"
+            />
+          </pattern>
+        </defs>
+        <rect width="800" height="430" fill="url(#map-grid)" />
+        <ellipse
+          className="globe-shell"
+          cx="400"
+          cy="224"
+          rx="340"
+          ry="178"
+          fill="url(#globe-fill)"
+        />
+        <g className="globe-grid">
+          <ellipse cx="400" cy="224" rx="340" ry="178" />
+          <ellipse cx="400" cy="224" rx="340" ry="112" />
+          <ellipse cx="400" cy="224" rx="340" ry="48" />
+          <path d="M400 46 C260 92 260 356 400 402 C540 356 540 92 400 46Z" />
+          <path d="M400 46 C330 92 330 356 400 402 C470 356 470 92 400 46Z" />
+        </g>
+        <g className="continents">
+          <path d="M116 150 157 102 220 85 269 111 251 145 215 155 194 191 154 184 127 207 99 185Z" />
+          <path d="M239 208 282 231 294 278 274 333 242 373 228 319 201 271 213 232Z" />
+          <path d="M365 122 407 103 458 113 477 137 447 153 415 145 396 171 361 158Z" />
+          <path d="M397 169 451 174 474 219 455 289 421 335 388 287 374 224Z" />
+          <path d="M472 112 541 88 628 106 692 151 664 192 599 183 564 154 520 177 478 151Z" />
+          <path d="M608 274 658 260 696 289 672 325 621 317Z" />
+        </g>
+        <g className="network-routes">
+          <path d="M153 169 Q330 5 476 191" />
+          <path d="M164 178 Q375 82 637 148" />
+          <path className="amber" d="M250 253 Q391 105 552 151" />
+          <path d="M438 189 Q560 53 672 291" />
+          <path className="red" d="M476 197 Q570 146 626 276" />
+          <path className="amber" d="M271 273 Q425 347 649 290" />
+          <path d="M188 144 Q344 243 452 205" />
+        </g>
+        <g className="network-nodes" filter="url(#node-glow)">
+          {[
+            [153, 169, "cyan"],
+            [164, 178, "cyan"],
+            [250, 253, "amber"],
+            [271, 273, "cyan"],
+            [438, 189, "cyan"],
+            [476, 197, "cyan"],
+            [552, 151, "amber"],
+            [637, 148, "cyan"],
+            [626, 276, "red"],
+            [649, 290, "amber"],
+            [452, 205, "cyan"],
+            [188, 144, "cyan"],
+          ].map(([cx, cy, tone], index) => (
+            <circle
+              key={index}
+              className={String(tone)}
+              cx={Number(cx)}
+              cy={Number(cy)}
+              r={index % 3 === 0 ? 5 : 3.5}
+            />
+          ))}
+        </g>
+      </svg>
+      <div className="network-legend" aria-label="Légende des données fictives">
+        <span>
+          <i className="cyan" /> Requêtes outils <strong>148</strong>
         </span>
-      )}
-      <div>
-        <strong>{content.title}</strong>
-        <p>{content.copy}</p>
+        <span>
+          <i className="blue" /> Analyse IOC <strong>27</strong>
+        </span>
+        <span>
+          <i className="amber" /> Renseignement <strong>14</strong>
+        </span>
+        <span>
+          <i className="red" /> Autres opérations <strong>9</strong>
+        </span>
       </div>
-      {state === "error" && (
-        <button type="button" className="inline-action" onClick={onReset}>
-          Réessayer <ArrowRight size={14} />
-        </button>
-      )}
+      <span className="demo-visual-label">VISUALISATION FICTIVE</span>
     </div>
   );
 }
@@ -460,11 +659,8 @@ function SearchPalette({
 }
 
 export default function DashboardPrototype() {
-  const [state, setState] = useState<ViewState>("sample");
-  const [activeSignal, setActiveSignal] = useState<SignalId>("console");
   const [menuOpen, setMenuOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
-  const [focusDetailsOpen, setFocusDetailsOpen] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
   const searchTrigger = useRef<HTMLButtonElement>(null);
   const mobileSearchTrigger = useRef<HTMLButtonElement>(null);
@@ -472,10 +668,6 @@ export default function DashboardPrototype() {
   const menuTrigger = useRef<HTMLButtonElement>(null);
   const menuClose = useRef<HTMLButtonElement>(null);
   const menuReturnFocus = useRef<HTMLElement | null>(null);
-  const selectedSignal = signalItems.find(
-    (signal) => signal.id === activeSignal,
-  )!;
-  const SelectedSignalIcon = selectedSignal.icon;
 
   function selectDestination(label: string) {
     setMenuOpen(false);
@@ -558,7 +750,7 @@ export default function DashboardPrototype() {
           onClick={(event) => openSearch(event.currentTarget)}
         >
           <Search size={17} aria-hidden="true" />
-          <span>Rechercher dans CyberHub</span>
+          <span>Rechercher un outil, une CVE, un IOC, un domaine…</span>
           <kbd>Ctrl K</kbd>
         </button>
         <div className="topbar-actions">
@@ -571,9 +763,33 @@ export default function DashboardPrototype() {
           >
             <Search size={19} />
           </button>
-          <span className="local-status">
-            <i aria-hidden="true" /> PROTOTYPE LOCAL
+          <time className="topbar-time" dateTime="2026-10-12T13:11:00+02:00">
+            12 OCT. 2026 <i /> 13:11 CET
+          </time>
+          <span
+            className="local-status"
+            title="Statut synthétique du prototype"
+          >
+            <i aria-hidden="true" /> EN LIGNE · DÉMO
           </span>
+          <button
+            className="topbar-icon"
+            type="button"
+            aria-label="Notifications fictives"
+            onClick={() =>
+              setNotice("Aucune notification réelle dans ce prototype.")
+            }
+          >
+            <Bell size={18} />
+          </button>
+          <button
+            className="topbar-icon"
+            type="button"
+            aria-label="Réglages du prototype"
+            onClick={() => selectDestination("Paramètres")}
+          >
+            <Settings size={19} />
+          </button>
           <button
             className="avatar"
             type="button"
@@ -723,39 +939,26 @@ export default function DashboardPrototype() {
       />
 
       <main className="main-content" id="main-content">
-        <div className="workspace" id="overview">
-          <div className="page-heading terminal-heading">
-            <div>
-              <span className="eyebrow">LOCAL CONSOLE / DASHBOARD</span>
-              <h1>Terminal Overview</h1>
+        <div className="workspace dashboard-board" id="overview">
+          <section className="overview-hero" aria-labelledby="overview-title">
+            <HeaderFlux />
+            <div className="hero-copy">
+              <span className="hero-breadcrumb">/ CORE / DASHBOARD</span>
+              <h1 id="overview-title">
+                TERMINAL <span>OVERVIEW</span>
+              </h1>
               <p>
-                État synthétique et reprise rapide de votre espace de travail.
+                Votre espace de travail CyberHub, Recherche, analyse et
+                opérations depuis une interface unifiée.
               </p>
             </div>
-            <div className="page-heading-actions">
-              <button
-                type="button"
-                className="module-access"
-                onClick={(event) => openMenu(event.currentTarget)}
-              >
-                <PanelLeftOpen size={15} /> 18 modules
-              </button>
-              <label className="lab-state">
-                <span>État du laboratoire</span>
-                <select
-                  value={state}
-                  onChange={(event) =>
-                    setState(event.target.value as ViewState)
-                  }
-                >
-                  <option value="sample">Exemples</option>
-                  <option value="loading">Chargement</option>
-                  <option value="empty">Vide</option>
-                  <option value="error">Erreur</option>
-                </select>
-              </label>
+            <div className="hero-index" aria-hidden="true">
+              <span>CYBER INTELLIGENCE</span>
+              <span>OPEN SOURCE</span>
+              <span>DEFENSIVE OPERATIONS</span>
+              <span>THREAT ANALYSIS</span>
             </div>
-          </div>
+          </section>
 
           {notice && (
             <div className="notice" role="status">
@@ -770,207 +973,237 @@ export default function DashboardPrototype() {
             </div>
           )}
 
-          {state === "sample" ? (
-            <>
-              <section
-                className="terminal-overview"
-                aria-labelledby="environment-title"
-              >
-                <div className="instrument-head">
-                  <div>
-                    <span className="instrument-path">CH://ENVIRONMENT</span>
-                    <h2 id="environment-title">État de l’environnement</h2>
-                  </div>
-                  <div className="snapshot-meta">
-                    <span className="snapshot-led" aria-hidden="true" />
-                    <span>SYNTHÉTIQUE</span>
-                    <time dateTime="2026-10-12T09:42:00+02:00">
-                      12 OCT. 2026 · 09:42
-                    </time>
-                  </div>
-                </div>
-
-                <div
-                  className="instrument-rack"
-                  role="group"
-                  aria-label="Indicateurs synthétiques de l’environnement"
+          <section
+            className="dashboard-panel environment-panel"
+            aria-labelledby="environment-title"
+          >
+            <header className="panel-heading environment-heading">
+              <div>
+                <h2 id="environment-title">ÉTAT DE L’ENVIRONNEMENT</h2>
+                <p>Composants principaux et sources de données.</p>
+              </div>
+              <div className="environment-meta">
+                <span>Dernière vérification :</span>
+                <time dateTime="2026-10-12T13:11:22+02:00">
+                  12/10/2026 · 13:11:22
+                </time>
+                <button
+                  type="button"
+                  className="panel-action"
+                  onClick={(event) => openMenu(event.currentTarget)}
                 >
-                  {signalItems.map((signal) => {
-                    const Icon = signal.icon;
-                    const selected = signal.id === activeSignal;
-                    return (
+                  Tout voir <ChevronRight size={14} />
+                </button>
+              </div>
+            </header>
+            <div className="environment-grid">
+              {signalItems.map((signal) => {
+                const Icon = signal.icon;
+                return (
+                  <button
+                    type="button"
+                    className={`environment-card signal-${signal.tone}`}
+                    key={signal.label}
+                    onClick={() => selectDestination(signal.action)}
+                  >
+                    <span className="environment-icon">
+                      <Icon size={25} />
+                    </span>
+                    <span className="environment-copy">
+                      <strong>{signal.label}</strong>
+                      <span>
+                        <i className="signal-led" aria-hidden="true" />
+                        {signal.status}
+                      </span>
+                      <small>{signal.secondary}</small>
+                    </span>
+                    <ChevronRight
+                      className="environment-arrow"
+                      size={16}
+                      aria-hidden="true"
+                    />
+                    <MiniBars bars={signal.bars} />
+                  </button>
+                );
+              })}
+            </div>
+          </section>
+
+          <div className="dashboard-grid">
+            <section
+              className="dashboard-panel network-panel"
+              aria-labelledby="network-title"
+            >
+              <header className="panel-heading">
+                <div>
+                  <h2 id="network-title">ACTIVITÉ RÉSEAU (APERÇU)</h2>
+                  <p>
+                    Requêtes, analyses et opérations récentes · démonstration.
+                  </p>
+                </div>
+                <label className="range-select">
+                  <span className="sr-only">Période de démonstration</span>
+                  <select defaultValue="10">
+                    <option value="10">10 dernières minutes</option>
+                    <option value="30">30 dernières minutes</option>
+                  </select>
+                </label>
+              </header>
+              <NetworkScene />
+            </section>
+
+            <section
+              className="dashboard-panel feed-panel"
+              aria-labelledby="operations-title"
+            >
+              <header className="panel-heading">
+                <h2 id="operations-title">DERNIÈRES OPÉRATIONS</h2>
+                <button
+                  type="button"
+                  className="panel-action"
+                  onClick={() => selectDestination("Investigations")}
+                >
+                  Voir tout <ChevronRight size={14} />
+                </button>
+              </header>
+              <ul className="activity-list">
+                {operations.map(({ title, detail, time, icon: Icon, tone }) => (
+                  <li key={title}>
+                    <button
+                      type="button"
+                      onClick={() => selectDestination(title)}
+                    >
+                      <span className={`feed-icon ${tone ? `is-${tone}` : ""}`}>
+                        <Icon size={17} />
+                      </span>
+                      <span className="feed-copy">
+                        <strong>{title}</strong>
+                        <small>{detail}</small>
+                      </span>
+                      <time>{time}</time>
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            </section>
+
+            <section
+              className="dashboard-panel feed-panel alert-panel"
+              aria-labelledby="alerts-title"
+            >
+              <header className="panel-heading">
+                <div>
+                  <h2 id="alerts-title">VEILLE & ALERTES</h2>
+                  <p>Flux récents et points d’attention.</p>
+                </div>
+                <button
+                  type="button"
+                  className="panel-action"
+                  onClick={() => selectDestination("Paramètres")}
+                >
+                  Configurer <ChevronRight size={14} />
+                </button>
+              </header>
+              <ul className="activity-list alert-list">
+                {alerts.map(
+                  ({ title, detail, time, icon: Icon, tone, badge }) => (
+                    <li key={title}>
                       <button
                         type="button"
-                        className={
-                          "instrument signal-" +
-                          signal.tone +
-                          (selected ? " is-selected" : "")
-                        }
-                        aria-pressed={selected}
-                        aria-controls="instrument-readout"
-                        key={signal.id}
-                        onClick={() => setActiveSignal(signal.id)}
+                        onClick={() => selectDestination(title)}
                       >
-                        <span className="instrument-code">{signal.code}</span>
-                        <span className="instrument-line">
-                          <span className="signal-led" aria-hidden="true" />
-                          <Icon size={15} aria-hidden="true" />
-                          <strong>{signal.label}</strong>
+                        <span
+                          className={`feed-icon ${tone ? `is-${tone}` : ""}`}
+                        >
+                          <Icon size={17} />
                         </span>
-                        <span className="instrument-status">
-                          {signal.status}
+                        <span className="feed-copy">
+                          <strong>{title}</strong>
+                          <small>{detail}</small>
                         </span>
-                        <small>{signal.timestamp}</small>
+                        {badge && (
+                          <span
+                            className={`feed-badge badge-${badge.toLowerCase()}`}
+                          >
+                            {badge}
+                          </span>
+                        )}
+                        <time>{time}</time>
                       </button>
-                    );
-                  })}
-                </div>
-
-                <div className="overview-lower">
-                  <article
-                    className="instrument-readout"
-                    id="instrument-readout"
-                    key={selectedSignal.id}
-                    aria-live="polite"
-                  >
-                    <span className="readout-icon">
-                      <SelectedSignalIcon size={17} aria-hidden="true" />
-                    </span>
-                    <div>
-                      <span className="instrument-path">
-                        SÉLECTION / {selectedSignal.code}
-                      </span>
-                      <strong>{selectedSignal.label}</strong>
-                      <p>{selectedSignal.description}</p>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={() => selectDestination(selectedSignal.action)}
-                    >
-                      {selectedSignal.action} <ArrowUpRight size={14} />
-                    </button>
-                  </article>
-
-                  <article className="work-focus">
-                    <div className="focus-mark" aria-hidden="true">
-                      <Activity size={18} />
-                    </div>
-                    <div className="focus-copy">
-                      <span className="instrument-path">
-                        REPRENDRE / DERNIER ÉLÉMENT
-                      </span>
-                      <h2>Triage initial</h2>
-                      <p>Investigation d’exemple · trois notes disponibles</p>
-                      {focusDetailsOpen && (
-                        <div className="focus-detail" id="focus-detail">
-                          <span>DERNIÈRE ÉTAPE</span>
-                          <strong>Collecter et qualifier la source</strong>
-                          <button
-                            type="button"
-                            onClick={() => selectDestination("Investigations")}
-                          >
-                            Ouvrir Investigations <ArrowRight size={14} />
-                          </button>
-                        </div>
-                      )}
-                    </div>
-                    <button
-                      type="button"
-                      className="focus-toggle"
-                      aria-expanded={focusDetailsOpen}
-                      aria-controls="focus-detail"
-                      onClick={() => setFocusDetailsOpen((open) => !open)}
-                    >
-                      {focusDetailsOpen ? "Masquer" : "Voir le détail"}
-                      <ChevronRight size={15} aria-hidden="true" />
-                    </button>
-                  </article>
-                </div>
-
-                <p className="signal-disclaimer">
-                  Instantané de démonstration · aucun appel API · aucune
-                  surveillance continue
-                </p>
-              </section>
-
-              <div className="secondary-grid">
-                <section
-                  className="resume-section"
-                  aria-labelledby="resume-title"
-                >
-                  <div className="section-head">
-                    <div>
-                      <span className="eyebrow">REPRENDRE MON TRAVAIL</span>
-                      <h2 id="resume-title">Votre fil récent</h2>
-                    </div>
-                    <Clock3 size={18} aria-hidden="true" />
-                  </div>
-                  <ul className="resume-list">
-                    {recentItems.map(
-                      ({ eyebrow, title, detail, icon: Icon }) => (
-                        <li key={title}>
-                          <button
-                            type="button"
-                            onClick={() => selectDestination(title)}
-                          >
-                            <span className="resume-icon">
-                              <Icon size={17} />
-                            </span>
-                            <span>
-                              <small>{eyebrow}</small>
-                              <strong>{title}</strong>
-                              <span>{detail}</span>
-                            </span>
-                            <ChevronRight size={16} />
-                          </button>
-                        </li>
-                      ),
-                    )}
-                  </ul>
-                </section>
-
-                <section
-                  className="watch-section"
-                  aria-labelledby="watch-title"
-                >
-                  <div className="section-head">
-                    <div>
-                      <span className="eyebrow">À SURVEILLER</span>
-                      <h2 id="watch-title">Deux points à revoir</h2>
-                    </div>
-                    <ShieldAlert size={18} aria-hidden="true" />
-                  </div>
-                  <div className="watch-lines">
-                    <button
-                      type="button"
-                      onClick={() => selectDestination("IOC Manager")}
-                    >
-                      <span className="watch-type">SOURCES · EXEMPLE</span>
-                      <strong>Feodo et URLhaus synchronisées</strong>
-                      <span>Dernier relevé fictif à 09:35</span>
-                      <ArrowUpRight size={15} />
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => selectDestination("BGP Historian")}
-                    >
-                      <span className="watch-type">BGP · EXEMPLE</span>
-                      <strong>2 alertes synthétiques à examiner</strong>
-                      <span>Instantané fictif, sans suivi continu</span>
-                      <ArrowUpRight size={15} />
-                    </button>
-                  </div>
-                </section>
-              </div>
-            </>
-          ) : (
-            <section className="lab-surface" aria-label="État simulé">
-              <DataState state={state} onReset={() => setState("sample")} />
+                    </li>
+                  ),
+                )}
+              </ul>
             </section>
-          )}
+          </div>
+
+          <section
+            className="dashboard-panel quick-panel"
+            aria-labelledby="quick-title"
+          >
+            <header className="panel-heading">
+              <div>
+                <h2 id="quick-title">ACCÈS RAPIDES AUX MODULES</h2>
+                <p>Exploration des 18 modules CyberHub.</p>
+              </div>
+              <button
+                type="button"
+                className="text-action"
+                onClick={(event) => openMenu(event.currentTarget)}
+              >
+                Ouvrir l’explorateur complet <ChevronRight size={14} />
+              </button>
+            </header>
+            <div className="quick-grid">
+              {quickModules.map(({ title, detail, icon: Icon }) => (
+                <button
+                  type="button"
+                  key={title}
+                  onClick={() => selectDestination(title)}
+                >
+                  <span className="quick-icon">
+                    <Icon size={22} />
+                  </span>
+                  <span>
+                    <strong>{title}</strong>
+                    <small>{detail}</small>
+                  </span>
+                  <ArrowRight size={15} />
+                </button>
+              ))}
+            </div>
+          </section>
+
+          <section className="sync-panel" aria-labelledby="sync-title">
+            <span className="sync-icon">
+              <Database size={20} />
+            </span>
+            <div className="sync-copy">
+              <div>
+                <strong id="sync-title">SYNCHRONISATION DES DONNÉES</strong>
+                <span>Sources locales et mises à jour · démonstration</span>
+                <b>78%</b>
+              </div>
+              <span
+                className="sync-track"
+                aria-label="Progression fictive 78 %"
+              >
+                <i />
+              </span>
+            </div>
+            <MiniBars
+              bars={[
+                36, 52, 68, 43, 72, 61, 78, 56, 69, 84, 64, 74, 88, 72, 81, 92,
+              ]}
+            />
+          </section>
+
           <footer className="page-foot">
-            <span>CYBERHUB / SIGNAL DESK V3</span>
-            <span>Données fictives · aucune API privée</span>
+            <span>CYBERHUB / TERMINAL OVERVIEW</span>
+            <span>
+              Données entièrement fictives · aucune surveillance continue ·
+              aucune API privée
+            </span>
           </footer>
         </div>
       </main>
