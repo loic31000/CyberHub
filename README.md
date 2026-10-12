@@ -28,7 +28,7 @@ La branche `main` contient l'application CyberHub existante (React, Go, SQLite),
 
 **Intégration future :** ces deux branches sont destinées à alimenter progressivement `main` **après revue, tests et décision de fusion**. Elles n'impliquent ni fusion automatique, ni hébergement public, ni surveillance réseau réelle. Une démonstration fictive ne doit pas accéder aux données privées. Voir la [décision d'architecture](docs/cyberhub-2026/architecture.md).
 
-Documents de suivi : [feuille de route](docs/cyberhub-2026/implementation-roadmap.md), [développement local](DEVELOPMENT.md), [crédits/licences](docs/LICENSING.md).
+Documents de suivi : [plan d'intégration des branches](docs/BRANCH-INTEGRATION.md), [feuille de route](docs/cyberhub-2026/implementation-roadmap.md), [développement local](DEVELOPMENT.md), [crédits/licences](docs/LICENSING.md).
 
 ---
 
