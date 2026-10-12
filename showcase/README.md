@@ -1,11 +1,13 @@
-# CyberHub 2026 — laboratoire local
+# CyberHub 2026 - laboratoire local
+
+> **Statut au 12 octobre 2026 :** Showcase / landing 2026 développé sur `feat/cyberhub-2026-design`. Cette vitrine et ses scènes synthétiques ne sont pas encore intégrées à `main`, publiées comme site officiel ou connectées à la Console privée. Une intégration ultérieure nécessitera revue, tests, choix de publication et vérification des licences/attributions.
 
 Ce laboratoire Vite est autonome : aucune connexion à la Console privée, à SQLite ou aux API du backend. Les données affichées sont synthétiques. La vitrine **« De la commande à la compréhension »** raconte le passage d'une ligne de terminal fictive à une investigation documentée. Les trois prototypes A restent comme archives de comparaison.
 
 ## Ouvrir le laboratoire
 
 ```powershell
-cd C:\Users\sion\CyberHub\showcase
+cd .\showcase
 npm ci
 npm run dev
 ```
@@ -59,3 +61,8 @@ npm audit --audit-level=low
 `test:terminal` et ses [captures précédentes](captures/terminal-story/report.json) décrivent encore l'ancien déplacement global de l'IP et des sélecteurs supprimés. Cette suite longue devra être adaptée avant la validation finale ; elle n'a pas été exécutée pour cette itération. `test:secondary` reprend les assertions pertinentes pour les nouvelles scènes : contrôles, résultat statique, mouvement réduit, clavier, JavaScript, requêtes privées et débordement à 390/1440 px. Il ne remplace pas un audit humain WCAG ou un test avec lecteur d'écran.
 
 Le lecteur peut vérifier le code source du projet dans son [dépôt GitHub](https://github.com/loic31000/CyberHub).
+
+
+## Intégration future
+
+Le Showcase vise une vitrine publique indépendante de la Console privée et de ses API. Le prototype est conservé dans sa branche dédiée jusqu'à une décision de fusion dans `main`. Avant déploiement, contrôler les licences des assets et bibliothèques, les avis de tiers, l'accessibilité, la performance, les appels réseau et l'absence de données réelles dans les exemples.
