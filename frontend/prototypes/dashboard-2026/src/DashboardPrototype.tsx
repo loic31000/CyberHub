@@ -41,6 +41,7 @@ type SearchEntry = {
 };
 type SignalItem = {
   id: SignalId;
+  code: string;
   label: string;
   status: string;
   timestamp: string;
@@ -98,6 +99,7 @@ const modules = navigationGroups.flatMap((group) => group.items);
 const signalItems: SignalItem[] = [
   {
     id: "console",
+    code: "SYS-01",
     label: "Console",
     status: "Disponible · exemple",
     timestamp: "Relevé fictif 09:42",
@@ -109,6 +111,7 @@ const signalItems: SignalItem[] = [
   },
   {
     id: "mitre",
+    code: "IDX-02",
     label: "Index MITRE",
     status: "Prêt · exemple",
     timestamp: "Relevé fictif 09:41",
@@ -121,6 +124,7 @@ const signalItems: SignalItem[] = [
   },
   {
     id: "sources",
+    code: "SRC-03",
     label: "Sources",
     status: "Synchronisées · exemple",
     timestamp: "Dernière synchro fictive 09:35",
@@ -133,6 +137,7 @@ const signalItems: SignalItem[] = [
   },
   {
     id: "osint",
+    code: "JOB-04",
     label: "Jobs OSINT",
     status: "Au repos · exemple",
     timestamp: "Aucun job lancé",
@@ -144,6 +149,7 @@ const signalItems: SignalItem[] = [
   },
   {
     id: "bgp",
+    code: "NET-05",
     label: "Alertes BGP",
     status: "2 à examiner · exemple",
     timestamp: "Relevé fictif 09:40",
@@ -458,6 +464,7 @@ export default function DashboardPrototype() {
   const [activeSignal, setActiveSignal] = useState<SignalId>("console");
   const [menuOpen, setMenuOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
+  const [focusDetailsOpen, setFocusDetailsOpen] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
   const searchTrigger = useRef<HTMLButtonElement>(null);
   const mobileSearchTrigger = useRef<HTMLButtonElement>(null);
@@ -717,11 +724,13 @@ export default function DashboardPrototype() {
 
       <main className="main-content" id="main-content">
         <div className="workspace" id="overview">
-          <div className="page-heading">
+          <div className="page-heading terminal-heading">
             <div>
-              <span className="eyebrow">DASHBOARD / COCKPIT</span>
-              <h1>Vue d’ensemble</h1>
-              <p>Reprenez votre travail là où vous l’avez laissé.</p>
+              <span className="eyebrow">LOCAL CONSOLE / DASHBOARD</span>
+              <h1>Terminal Overview</h1>
+              <p>
+                État synthétique et reprise rapide de votre espace de travail.
+              </p>
             </div>
             <div className="page-heading-actions">
               <button
@@ -764,22 +773,25 @@ export default function DashboardPrototype() {
           {state === "sample" ? (
             <>
               <section
-                className="signal-desk"
-                aria-labelledby="signal-desk-title"
+                className="terminal-overview"
+                aria-labelledby="environment-title"
               >
-                <div className="signal-desk-head">
+                <div className="instrument-head">
                   <div>
-                    <span className="eyebrow">ÉTAT DE L’ENVIRONNEMENT</span>
-                    <h2 id="signal-desk-title">Signal Desk</h2>
-                    <p>Un instantané personnel pour savoir où reprendre.</p>
+                    <span className="instrument-path">CH://ENVIRONMENT</span>
+                    <h2 id="environment-title">État de l’environnement</h2>
                   </div>
-                  <span className="synthetic-badge">
-                    DONNÉES SYNTHÉTIQUES · 12 OCT. 2026
-                  </span>
+                  <div className="snapshot-meta">
+                    <span className="snapshot-led" aria-hidden="true" />
+                    <span>SYNTHÉTIQUE</span>
+                    <time dateTime="2026-10-12T09:42:00+02:00">
+                      12 OCT. 2026 · 09:42
+                    </time>
+                  </div>
                 </div>
 
                 <div
-                  className="signal-strip"
+                  className="instrument-rack"
                   role="group"
                   aria-label="Indicateurs synthétiques de l’environnement"
                 >
@@ -790,49 +802,90 @@ export default function DashboardPrototype() {
                       <button
                         type="button"
                         className={
-                          "signal-control signal-" +
+                          "instrument signal-" +
                           signal.tone +
                           (selected ? " is-selected" : "")
                         }
                         aria-pressed={selected}
-                        aria-controls="signal-detail"
+                        aria-controls="instrument-readout"
                         key={signal.id}
                         onClick={() => setActiveSignal(signal.id)}
                       >
-                        <span className="signal-led" aria-hidden="true" />
-                        <Icon size={16} aria-hidden="true" />
-                        <span className="signal-copy">
+                        <span className="instrument-code">{signal.code}</span>
+                        <span className="instrument-line">
+                          <span className="signal-led" aria-hidden="true" />
+                          <Icon size={15} aria-hidden="true" />
                           <strong>{signal.label}</strong>
-                          <span>{signal.status}</span>
-                          <small>{signal.timestamp}</small>
                         </span>
+                        <span className="instrument-status">
+                          {signal.status}
+                        </span>
+                        <small>{signal.timestamp}</small>
                       </button>
                     );
                   })}
                 </div>
 
-                <article
-                  className="signal-detail"
-                  id="signal-detail"
-                  key={selectedSignal.id}
-                  aria-live="polite"
-                >
-                  <span className="signal-detail-icon">
-                    <SelectedSignalIcon size={19} aria-hidden="true" />
-                  </span>
-                  <div>
-                    <span className="eyebrow">INDICATEUR SÉLECTIONNÉ</span>
-                    <h3>{selectedSignal.label}</h3>
-                    <p>{selectedSignal.description}</p>
-                    <small>{selectedSignal.evidence}</small>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => selectDestination(selectedSignal.action)}
+                <div className="overview-lower">
+                  <article
+                    className="instrument-readout"
+                    id="instrument-readout"
+                    key={selectedSignal.id}
+                    aria-live="polite"
                   >
-                    Ouvrir {selectedSignal.action} <ArrowRight size={15} />
-                  </button>
-                </article>
+                    <span className="readout-icon">
+                      <SelectedSignalIcon size={17} aria-hidden="true" />
+                    </span>
+                    <div>
+                      <span className="instrument-path">
+                        SÉLECTION / {selectedSignal.code}
+                      </span>
+                      <strong>{selectedSignal.label}</strong>
+                      <p>{selectedSignal.description}</p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => selectDestination(selectedSignal.action)}
+                    >
+                      {selectedSignal.action} <ArrowUpRight size={14} />
+                    </button>
+                  </article>
+
+                  <article className="work-focus">
+                    <div className="focus-mark" aria-hidden="true">
+                      <Activity size={18} />
+                    </div>
+                    <div className="focus-copy">
+                      <span className="instrument-path">
+                        REPRENDRE / DERNIER ÉLÉMENT
+                      </span>
+                      <h2>Triage initial</h2>
+                      <p>Investigation d’exemple · trois notes disponibles</p>
+                      {focusDetailsOpen && (
+                        <div className="focus-detail" id="focus-detail">
+                          <span>DERNIÈRE ÉTAPE</span>
+                          <strong>Collecter et qualifier la source</strong>
+                          <button
+                            type="button"
+                            onClick={() => selectDestination("Investigations")}
+                          >
+                            Ouvrir Investigations <ArrowRight size={14} />
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                    <button
+                      type="button"
+                      className="focus-toggle"
+                      aria-expanded={focusDetailsOpen}
+                      aria-controls="focus-detail"
+                      onClick={() => setFocusDetailsOpen((open) => !open)}
+                    >
+                      {focusDetailsOpen ? "Masquer" : "Voir le détail"}
+                      <ChevronRight size={15} aria-hidden="true" />
+                    </button>
+                  </article>
+                </div>
 
                 <p className="signal-disclaimer">
                   Instantané de démonstration · aucun appel API · aucune
