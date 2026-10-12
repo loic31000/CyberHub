@@ -485,144 +485,146 @@ function finalDemo(motionAllowed) {
     ".final-section",
     "CYBERHUB",
     [
-      "Huit domaines apparaissent autour d'un même espace.",
-      "Les modules se rapprochent et trouvent leur place.",
-      "CyberHub révèle l'environnement qui les réunit.",
-      "Rendre visible l'invisible.",
-      "Plusieurs outils, une plateforme. Explorer le projet.",
+      "Huit aperçus des modules arrivent dans la scène.",
+      "Les interfaces convergent et composent l'emblème.",
+      "L'emblème CyberHub prend forme.",
+      "CYBERHUB rassemble ces domaines dans un même espace.",
+      "Rendre visible l'invisible. Explorer le projet.",
     ],
     motionAllowed,
     ({ $, $$ }) => {
-      const scatter = $(".final-fragments");
-      const platform = $(".final-platform");
-      const platformHead = $(".final-platform-head");
-      const rail = $(".final-module-rail");
-      const slots = $$(".final-module-slot");
+      const stage = $(".final-stage");
+      const slots = $$(".final-emblem-slot");
       const fragments = $$(".final-fragment");
-      const work = $(".final-platform-work");
+      const frame = $(".final-emblem-frame");
+      const pulse = $(".final-pulse");
+      const wordmark = $(".final-wordmark");
       const light = $(".final-light");
-      const prelude = $(".final-prelude");
       const title = $("#final-title");
       const intro = $(".final-intro");
       const disclaimer = $(".final-disclaimer");
       const actions = $(".final-actions");
       const nodes = [
-        light,
-        platform,
-        platformHead,
-        rail,
-        work,
         ...fragments,
-        prelude,
+        frame,
+        pulse,
+        wordmark,
+        light,
         title,
         intro,
         disclaimer,
         actions,
       ];
-      function dock() {
+      const widePositions = [
+        [0.12, 0.22],
+        [0.37, 0.13],
+        [0.63, 0.13],
+        [0.88, 0.22],
+        [0.88, 0.68],
+        [0.63, 0.77],
+        [0.37, 0.77],
+        [0.12, 0.68],
+      ];
+      const narrowPositions = [
+        [0.24, 0.11],
+        [0.76, 0.17],
+        [0.24, 0.34],
+        [0.76, 0.4],
+        [0.24, 0.58],
+        [0.76, 0.64],
+        [0.24, 0.82],
+        [0.76, 0.88],
+      ];
+      const angles = [-7, 5, -4, 6, -6, 4, -5, 7];
+
+      function positionFragments() {
+        const bounds = stage.getBoundingClientRect();
+        const narrow = bounds.width < 600;
+        const positions = narrow ? narrowPositions : widePositions;
         fragments.forEach((fragment, index) => {
-          slots[index].append(fragment);
+          const slot = slots[index].getBoundingClientRect();
+          gsap.set(fragment, {
+            x:
+              bounds.left +
+              bounds.width * positions[index][0] -
+              (slot.left + slot.width / 2),
+            y:
+              bounds.top +
+              bounds.height * positions[index][1] -
+              (slot.top + slot.height / 2),
+            rotation: angles[index],
+            scale: narrow ? 0.82 : 1,
+            autoAlpha: 0,
+          });
         });
       }
+
       function prepare() {
-        gsap.killTweensOf(fragments);
         gsap.set(nodes, { clearProps: "all" });
-        fragments.forEach((fragment) => {
-          scatter.append(fragment);
+        positionFragments();
+        gsap.set(frame, { autoAlpha: 0, scale: 0.72, rotation: -12 });
+        gsap.set(wordmark, {
+          autoAlpha: 0,
+          clipPath: "inset(0 50% 0 50%)",
+          y: 14,
+          scale: 0.94,
         });
-        gsap.set(fragments, { autoAlpha: 0, scale: 0.78 });
-        gsap.set(platform, {
-          backgroundColor: "transparent",
-          borderColor: "transparent",
-          boxShadow: "none",
-          scale: 1.07,
-          rotateY: -3,
-        });
-        gsap.set(rail, {
-          backgroundColor: "transparent",
-          borderColor: "transparent",
-        });
-        gsap.set(platformHead, { autoAlpha: 0, y: -12 });
-        gsap.set(work, { autoAlpha: 0, x: 18 });
-        gsap.set(light, { autoAlpha: 0.25, scale: 0.8 });
-        gsap.set(prelude, { autoAlpha: 1 });
-        gsap.set(title, { clipPath: "inset(100% 0 0 0)", y: 18 });
-        gsap.set([intro, disclaimer], { autoAlpha: 0, y: 10 });
-        gsap.set(actions, { autoAlpha: 0, y: 12 });
+        gsap.set(light, { autoAlpha: 0.25, scale: 0.75 });
+        gsap.set([title, intro, disclaimer, actions], { autoAlpha: 0, y: 18 });
+        gsap.set(pulse, { autoAlpha: 0, scale: 0.35 });
       }
+
       function final() {
-        gsap.killTweensOf(fragments);
-        dock();
         gsap.set(nodes, { clearProps: "all" });
-        gsap.set(prelude, { autoAlpha: 0 });
       }
+
       function build(cue) {
+        positionFragments();
         const tl = gsap.timeline({
           paused: true,
           defaults: { ease: "power3.out" },
         });
         tl.addLabel("arrival")
           .call(() => cue(0))
-          .to(fragments, {
-            autoAlpha: 1,
-            scale: 1,
-            stagger: 0.09,
-            duration: 0.5,
-          })
+          .to(fragments, { autoAlpha: 1, stagger: 0.1, duration: 0.42 })
           .to({}, { duration: 0.3 });
-        tl.addLabel("converge")
+        tl.addLabel("convergence")
           .call(() => cue(1))
-          .call(() => {
-            const state = Flip.getState(fragments);
-            dock();
-            Flip.from(state, {
-              absolute: true,
-              scale: true,
-              duration: 1.2,
-              stagger: 0.04,
-              ease: "power3.inOut",
-            });
+          .to(fragments, {
+            x: 0,
+            y: 0,
+            rotation: 0,
+            scale: 0.31,
+            stagger: 0.045,
+            duration: 1.25,
+            ease: "power3.inOut",
           })
-          .to({}, { duration: 1.35 });
-        tl.addLabel("environment")
+          .to(pulse, { autoAlpha: 0.8, scale: 1.25, duration: 0.45 }, "<+0.65");
+        tl.addLabel("emblem")
           .call(() => cue(2))
-          .to(platform, {
-            backgroundColor: "#0d1a26",
-            borderColor: "#4e788b",
-            boxShadow: "0 32px 85px #000b, inset 0 1px #93d6e41c",
-            scale: 1,
-            rotateY: 0,
-            duration: 0.85,
-          })
-          .to(
-            rail,
-            {
-              backgroundColor: "#0b1722",
-              borderColor: "#38586a",
-              duration: 0.7,
-            },
-            "<",
-          )
-          .to(platformHead, { autoAlpha: 1, y: 0, duration: 0.7 }, "<+0.1")
-          .to(work, { autoAlpha: 1, x: 0, duration: 0.7 }, "<+0.25")
-          .to(light, { autoAlpha: 1, scale: 1, duration: 1.0 }, "<");
-        tl.addLabel("title")
+          .to(frame, { autoAlpha: 1, rotation: 0, scale: 1, duration: 0.75 })
+          .to(pulse, { autoAlpha: 0, scale: 1.8, duration: 0.7 }, "<")
+          .to(light, { autoAlpha: 1, scale: 1, duration: 0.8 }, "<");
+        tl.addLabel("name")
           .call(() => cue(3))
-          .to(prelude, { autoAlpha: 0, y: -8, duration: 0.42 })
-          .to(
-            title,
-            { clipPath: "inset(0% 0 0 0)", y: 0, duration: 0.9 },
-            "<+0.18",
-          );
+          .to(wordmark, {
+            autoAlpha: 1,
+            clipPath: "inset(0 0% 0 0%)",
+            y: 0,
+            scale: 1,
+            duration: 0.95,
+            ease: "power3.inOut",
+          })
+          .to({}, { duration: 0.55 });
         tl.addLabel("invitation")
           .call(() => cue(4))
-          .to([intro, disclaimer], {
-            autoAlpha: 1,
-            y: 0,
-            stagger: 0.15,
-            duration: 0.6,
-          })
-          .to(actions, { autoAlpha: 1, y: 0, duration: 0.65 }, "<+0.22")
+          .to(title, { autoAlpha: 1, y: 0, duration: 0.75 })
+          .to(
+            [intro, disclaimer],
+            { autoAlpha: 1, y: 0, stagger: 0.13, duration: 0.55 },
+            "<+0.24",
+          )
+          .to(actions, { autoAlpha: 1, y: 0, duration: 0.6 }, "<+0.3")
           .to({}, { duration: 0.5 });
         return tl;
       }

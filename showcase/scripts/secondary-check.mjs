@@ -91,29 +91,40 @@ try {
     );
     assert.equal(await page.locator(".bgp-diff-empty").isVisible(), true);
     assert.equal(
-      await page.locator(".final-module-slot .final-fragment").count(),
+      await page.locator(".final-emblem-slot .final-fragment").count(),
       8,
     );
-    assert.equal(
-      await page.locator(".final-fragments .final-fragment").count(),
-      0,
-    );
+    assert.equal(await page.locator(".final-wordmark").isVisible(), true);
     await page
       .locator(".final-section .demo-guide-actions button")
       .last()
       .click();
     assert.equal(
-      await page.locator(".final-fragments .final-fragment").count(),
-      8,
+      await page.locator(".final-section").getAttribute("data-product-stage"),
+      "0",
     );
+    assert.equal(await page.locator(".final-wordmark").isVisible(), false);
     await page
       .locator(".final-section .demo-guide-actions button")
       .first()
       .click();
+    assert.equal(await page.locator(".final-wordmark").isVisible(), true);
+    await page
+      .locator(".final-section .demo-guide-actions button")
+      .last()
+      .click();
     assert.equal(
-      await page.locator(".final-module-slot .final-fragment").count(),
-      8,
+      await page.locator(".final-section").getAttribute("data-product-stage"),
+      "0",
     );
+    await page.evaluate(() =>
+      document.querySelector(".motion-control").click(),
+    );
+    assert.equal(
+      await page.locator(".final-section").getAttribute("data-product-stage"),
+      "4",
+    );
+    assert.equal(await page.locator(".final-wordmark").isVisible(), true);
     assert.ok(
       await page.evaluate(
         () => document.documentElement.scrollWidth <= innerWidth,
@@ -131,9 +142,10 @@ try {
   await reduced.goto(base);
   assert.equal(await reduced.locator(".cve-inspector").isVisible(), true);
   assert.equal(
-    await reduced.locator(".final-module-slot .final-fragment").count(),
+    await reduced.locator(".final-emblem-slot .final-fragment").count(),
     8,
   );
+  assert.equal(await reduced.locator(".final-wordmark").isVisible(), true);
   await reduced.keyboard.press("Tab");
   assert.ok(
     await reduced.evaluate(() => document.activeElement !== document.body),
@@ -153,9 +165,10 @@ try {
     /CyberHub/,
   );
   assert.equal(
-    await staticPage.locator(".final-module-slot .final-fragment").count(),
+    await staticPage.locator(".final-emblem-slot .final-fragment").count(),
     8,
   );
+  assert.equal(await staticPage.locator(".final-wordmark").isVisible(), true);
   await staticPage.close();
   console.log("PASS contenu statique sans JavaScript");
 } finally {
