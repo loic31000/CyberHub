@@ -1,65 +1,79 @@
-# ADR proposée — séparer Showcase, démo et Console
+# ADR - CyberHub personnel et frontend React unifié
 
-**Statut :** proposition à valider avant implémentation de [#5](https://github.com/loic31000/CyberHub/issues/5). **Contexte vérifié :** commit `10bd7a87`; `frontend/` construit aujourd'hui dans `backend/web` via Vite, puis le binaire Go embarque ces fichiers (`backend/main.go`). Gin sert `/api` et un repli SPA depuis le même processus. `compose.yaml` publie seulement sur le loopback de l'hôte; le processus Docker écoute sur toutes les interfaces dans son réseau de conteneur pour être joignable par la publication de port. Aucune vitrine publique indépendante n'existe.
+**Décision exprimée par l'auteur le 12 octobre 2026 :** CyberHub est principalement un outil personnel de cybersécurité, développé pour un usage local, à partager en open source et à présenter dans une vitrine/portfolio. Ce projet ne vise pas actuellement une plateforme SaaS, un service commercial ni un déploiement Internet de production.
 
-## Décision recommandée
+**Cible fonctionnelle : une seule application frontend React dans `frontend/`.** La landing de présentation, le futur Dashboard 2026 et les modules existants appartiendront à cette même expérience. Le backend Go et SQLite reste le service local de l'application. La mise à disposition éventuelle d'une vitrine statique indépendante sur Internet est une **possibilité future**, pas une exigence ni une décision de déploiement.
 
-Créer **deux applications frontend dans le même dépôt, avec builds et origines séparés** :
+**Statut technique : intention d'intégration validée, pas encore implémentée dans `main`.** Cette ADR remplace l'ancienne proposition privilégiant deux applications frontend autonomes. Les branches expérimentales `feat/cyberhub-2026-design` (landing / Showcase) et `feat/console-2026-dashboard-prototype` (dashboard) sont conservées séparément jusqu'à une intégration revue et testée. Le prototype Showcase dispose aujourd'hui de son propre laboratoire Vite uniquement pour le développement ; ce n'est pas la cible produit.
+
+## Objectif et périmètre
+
+- **Usage :** CyberHub fonctionne principalement sur le poste de l'utilisateur, et reste installable, partageable et consultable sur GitHub sous licence MIT pour le code original (voir [licences](../LICENSING.md)).
+- **Présentation :** une landing soignée raconte le projet, présente les modules et peut inclure une démonstration explicitement fictive. Le partage du projet ne nécessite pas d'exposer l'API Go ni la base SQLite.
+- **Application :** le Dashboard 2026 devient à terme le tableau de bord de la Console React existante, avec les vrais modules, parcours et données autorisées. Il ne constitue pas une troisième application.
+- **Limite :** aucun hébergement public de la Console ni architecture SaaS ne sont planifiés par cette décision.
+
+## Organisation cible indicative
 
 ```text
-showcase/                  futur site statique/pré-rendu, SEO et démo fictive
-frontend/                 Console existante, routes et accès authentifiés
-backend/                  API Go, SQLite et assets embarqués de la Console
-compose.yaml               publication privée actuelle, loopback hôte
+CyberHub/
+  frontend/                application React unifiée
+    src/
+      ...                  landing et présentation du projet (à intégrer)
+      ...                  dashboard 2026 (à intégrer)
+      ...                  modules existants, recherche et paramètres
+  backend/                 API Go, authentification, SQLite, build React embarqué
+  docs/                    architecture, roadmap, licences
+  showcase/                laboratoire temporaire de la landing sur sa branche
+  frontend/prototypes/     laboratoires temporaires sur leurs branches
 ```
 
-`showcase/` n'est ici qu'un emplacement proposé : aucun code n'est créé pendant cette phase. Le Showcase sera hébergé sur une origine publique statique. La Console gardera une origine privée et une API sous `/api`, servies ensemble par Go comme aujourd'hui tant que ce contrat fonctionne. Aucun reverse proxy public ne doit acheminer `/api` vers le Go privé. L'URL publique de la vitrine et l'URL de la console privée seront deux variables de déploiement distinctes, sans valeur réelle consignée ici.
+Ces emplacements sont illustratifs : aucune migration de fichiers ou de routes n'est effectuée par la documentation.
 
-Une **démo publique** sera un parcours client pré-calculé avec fixtures synthétiques versionnées et clairement marquées. Elle doit fonctionner sans backend, sans cookie/JWT et sans requête vers `/api`; elle ne lit jamais SQLite. Les interactions de démonstration modifient uniquement un état local temporaire et peuvent être réinitialisées. Les données ne doivent pas ressembler à des hôtes ou personnes réels; aucun secret ni élément du réseau privé ne doit être copié dans les fixtures, captures ou métadonnées.
+## Intégration et navigation envisagées
 
-## Alternatives étudiées
+La landing pourrait devenir une route d'accueil telle que `/`, avec la Console sous `/app` et une route de connexion protégée, **sous réserve d'inventorier les routes React actuelles** avant de choisir les chemins définitifs. Le backend existant sert actuellement la Console en local ; les redirections, liens et URLs de développement doivent être adaptés sans casser les routes existantes.
 
-| Option | Avantages | Coûts / risques | Verdict |
-| --- | --- | --- | --- |
-| A. Une seule application Go + React sur une origine publique avec routes vitrine et console | Un seul artefact et des composants partagés directement. | Le repli SPA actuel, `/api/auth/status`, `/api/auth/setup`, `/api/auth/login` et les routes privées partageraient une surface Internet; séparation par route fragile, SEO contraint par le build SPA. | Écartée pour une vitrine publique. |
-| B. Un dépôt, deux builds/frontends et deux origines | Frontière de publication explicite, site public pré-rendu, console et données conservées, évolution indépendante. | Deux pipelines de build et vérifications d'isolement; éventuelle duplication de composants. | **Recommandée.** |
-| C. Dépôts et déploiements entièrement séparés | Permissions Git et cycles de version encore plus isolés. | Duplication de contrats/visuels, coordination et maintenance accrues dès maintenant. | À réexaminer seulement si l'organisation ou l'hébergement l'exige. |
+Les composants purement visuels (typographie, tokens, navigation, cartes) pourront être mutualisés. Les interfaces interactives du prototype ne deviennent pas automatiquement fonctionnelles : remplacer progressivement les valeurs fictives par des données applicatives vérifiées, préserver les modules, l'authentification, les erreurs et la persistance. Des tests de non-régression sont obligatoires avant chaque intégration.
 
-## Contrats techniques proposés
+Le laboratoire `showcase/` sur sa branche reste utilisable pour tester les scènes et animations indépendamment de Go, sans créer l'obligation de maintenir à terme deux applications React.
 
-### Routes et publication
+## Présentation, démonstration et données réelles
 
-- Showcase : `/`, `/fonctionnalites`, `/demo`, `/projet`, `/installer` (sitemap proposé, noms finaux à valider). HTML statique ou pré-rendu pour les pages indexables, titres et descriptions propres, canonical/sitemap/robots vérifiés. La démo peut être une île interactive chargée au besoin. Les pages de démo fictive ne doivent pas être indexées si leur contenu peut être pris pour une réalité opérationnelle.
-- Console : conserver les routes React existantes et le repli SPA **uniquement sur l'origine privée**. La route `/login` et l'initialisation du compte restent privées; le Showcase ne propose aucun formulaire de connexion à la Console.
-- Builds indépendants : une commande de build/preview du Showcase ne démarre pas Go et ne lit pas `backend/web`; le build de `frontend/` reste destiné à l'embed Go. Si des composants sont partagés, extraire un paquet *présentation seulement* (tokens, typographie, boutons), sans client API, authentification ni données métier. Ne pas importer `frontend/src/api` ou `store/auth` dans Showcase.
-- Le `Dockerfile` actuel (Node 24 pour Vite, Go pour embed, runtime non root) et Compose décrivent la Console; ils ne deviennent pas le déploiement du Showcase. Les scripts racine et `README` demandent un réalignement séparé car ils divergent du chemin Vite actuel.
+Trois notions doivent être clairement distinguées dans les écrans et la documentation :
 
-### Authentification et frontière de confiance
+1. **Présentation du projet** : description et illustrations de capacités réellement présentes.
+2. **Démonstration fictive** : fixtures synthétiques explicitement étiquetées, animations non opérationnelles, aucun appel aux données privées et aucune surveillance réseau prétendument réelle.
+3. **Console locale authentifiée** : fonctions applicatives effectives, backend et ressources locales protégées.
 
-La Console utilise un JWT HS256 (issuer `cyber-hub`, durée exigée de 24 h) et un intercepteur Axios qui le lit depuis `localStorage`; les ressources sont protégées par middleware Go. La présence d'un token dans Zustand pilote l'accès React, mais **seul le backend décide** de l'autorisation. La page publique ne reçoit pas de token. Avant tout accès distant à la Console, revoir stockage de session, XSS, durée/rotation des secrets, HTTPS, initialisation du compte et protection de l'origine; ce n'est pas une autorisation de publier Go.
+Si la démonstration est intégrée au frontend commun, ses composants ne doivent pas lire par inadvertance un état utilisateur, un token, l'API ou les données SQLite. Il faut vérifier les imports, les requêtes, les captures et les métadonnées. Le simple masquage d'une route React n'est **pas** une protection de données.
 
-Le CORS limité aux origines de développement/locales ne constitue pas une barrière d'accès Internet. L'isolement repose sur l'hébergement, le routage réseau, les contrôles d'accès et les tests de publication. Garder le bind Compose sur loopback pour le poste local. Une future configuration distante exige une revue de sécurité explicite; aucun host, adresse privée ou exemple de token réel n'est nécessaire dans la documentation.
+## Frontière de sécurité et diffusion
 
-### Menaces et contrôles à vérifier en #5
+- La publication du **code source** sur GitHub n'implique pas la publication sur Internet de la **Console en cours d'exécution**.
+- Le backend Go et SQLite reste local, accessible selon la configuration existante sur loopback, avec authentification et autorisations décidées **côté serveur**.
+- Les secrets ne doivent jamais être placés dans du JavaScript distribué, des fixtures, captures, vidéos ou fichiers de documentation. Les données utilisateurs restent stockées localement.
+- La séparation de droits se fait entre routes/actions publiques de présentation et fonctionnalités nécessitant une session, avec contrôles réels au backend.
+- CORS ne suffit pas à protéger un backend exposé au réseau. Si une version hébergée est un jour envisagée, ce sera une décision distincte nécessitant revue de l'authentification, HTTPS, stockage des secrets, contrôle des accès, réseau et modèle de menace.
+- Les licences et avis des données/actifs tiers incorporés doivent être respectés même pour un projet personnel partagé ; voir [l'inventaire](../LICENSING.md).
 
-| Menace | Mesure d'architecture | Assertion testable |
+## Autres options considérées
+
+| Option | Intérêt | Conclusion pour le besoin actuel |
 | --- | --- | --- |
-| Bundle public contenant route/API privée, JWT ou secret | Dépendances et build séparés, fixtures revues, variables publiques sur liste blanche. | Inspecter HTML/JS/manifest/sourcemaps du build public : aucun `/api`, `Authorization`, token, secret, adresse ou donnée privée; test automatisé négatif. |
-| Repli SPA Go exposé par erreur sous la vitrine | Hébergement statique distinct; aucun proxy vers Go. | Depuis l'origine publique, `/api/auth/status` et `/api/auth/setup` ne rejoignent jamais Go; test de publication avant mise en ligne. |
-| Démo trompeuse ou fuite par capture | Fixtures synthétiques, badge « données fictives », revue des captures et métadonnées. | Démarrer preview sans backend et sans réseau privé; tous les parcours démo restent fonctionnels et transparents. |
-| Dépendance aux données SQLite locales | Aucun accès à la base depuis Showcase, sauvegardes privées dans `/data`. | Construire/servir Showcase dans un environnement sans base; test d'absence d'accès à SQLite. |
-| Import involontaire de code sensible partagé | Paquet de design sans client API ni état auth, règles d'import et analyse du bundle. | Contrôle CI de dépendances interdites et revue de la taille/contenu du bundle. |
+| Un frontend React, Go/SQLite local, landing et Console intégrés | Parcours unifié, design partagé, maintenance simple et cohérence avec le souhait de l'auteur. | **Cible retenue.** |
+| Deux applications frontend autonomes, vitrine publique hébergée d'un côté et Console locale de l'autre | Intérêt pour un site indépendant, SEO ou des déploiements distincts. | **Non retenu comme obligation.** À reconsidérer uniquement si un besoin d'hébergement distinct apparaît. |
+| Console/Go publiés sur une origine Internet commune avec la landing | Accès distant possible mais surface d'exposition et exigences de sécurité plus grandes. | **Hors périmètre.** |
+| Dépôts séparés | Sépare certains cycles de vie mais complexifie le suivi. | Non nécessaire. Un dépôt GitHub suffit. |
 
-### NetAlertX et visibilité réseau future
+## Étapes avant fusion des prototypes
 
-Les [#19](https://github.com/loic31000/CyberHub/issues/19) → [#21](https://github.com/loic31000/CyberHub/issues/21) → [#22](https://github.com/loic31000/CyberHub/issues/22) → [#20](https://github.com/loic31000/CyberHub/issues/20) décrivent une intégration future, pas une fonction livrée. Si elle est validée : connecteur **côté backend privé**, activé volontairement, accès en lecture seule d'abord, authentifiants conservés côté serveur, aucune publication du service réseau ni transfert au Showcase. Vérifier l'interface/version réelle de NetAlertX avant conception du connecteur. Les vues devraient indiquer source, horodatage, fraîcheur et incertitude de l'identité d'un équipement; éviter les affirmations d'OS/vulnérabilité non établies. Un scan actif ne peut intervenir qu'après un choix explicite de périmètre et une autorisation claire; aucune analyse réseau n'est prévue ici.
+1. Relever les routes, conventions d'authentification et composants de `frontend/` sur la base réelle de `main`.
+2. Préparer un plan d'intégration de la landing dans le frontend principal sans supprimer son travail visuel validé.
+3. Préparer l'intégration progressive du Dashboard 2026 avec les données et les modules effectifs, sans présenter ses compteurs fictifs comme des mesures.
+4. Vérifier responsive, clavier, mouvement réduit, accessibilité, performances, navigation et absence de fuite de données.
+5. Vérifier l'absence de régression des endpoints, login, paramètres et de la persistance Go/SQLite.
+6. Revoir les licences et attributions de chaque ressource intégrée avant redistribution.
+7. Faire valider explicitement les changements et leurs tests, puis seulement fusionner le travail concerné dans `main`.
 
-## Conditions de sortie de l'ADR
-
-1. L'auteur valide la frontière de publication, le choix d'hébergement public et la nécessité éventuelle d'un accès distant à la Console.
-2. Un prototype prouve que Showcase se construit, se prévisualise et se parcourt sans backend, avec métadonnées SEO vérifiables.
-3. Des tests d'isolement inspectent le bundle public et refusent les appels `/api`, secrets et références privées; test anonyme/setup sur les deux origines.
-4. La Console passe ses parcours login, dashboard et investigation après tout partage de composants, avec tests backend/frontend et persistance SQLite préservée.
-5. La revue d'accessibilité et de performance est faite sur desktop, tablette et mobile avant publication.
-
-Cette décision est une cible. Aucun déploiement ni changement de route n'a été fait pour la valider dans cette phase.
+**Cette ADR décrit la cible documentaire actuelle, pas une fonctionnalité livrée. Aucun code de landing, de Dashboard ou du backend n'est modifié ici.**

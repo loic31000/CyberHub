@@ -1,10 +1,11 @@
-# Brief de direction artistique — CyberHub 2026
+# Brief de direction artistique - CyberHub 2026
 
+> **Statut historique (12 octobre 2026) :** ce brief décrit les pistes A/B et les critères d'un travail préparatoire antérieur. Les prototypes Landing et Dashboard ont depuis été créés et validés visuellement sur leurs branches dédiées. La cible produit actuellement retenue est **un frontend React unifié et local** ; la distinction « Showcase / Console » ci-dessous désigne des fonctions de l'interface, pas deux applications autonomes ni deux déploiements. Pour les choix actuellement retenus, consulter [l'architecture](architecture.md) et la [feuille de route](implementation-roadmap.md).
 Document de préparation pour [#7](https://github.com/loic31000/CyberHub/issues/7), en lien avec le récit de [#4](https://github.com/loic31000/CyberHub/issues/4), les tokens de [#8](https://github.com/loic31000/CyberHub/issues/8) et le mouvement de [#9](https://github.com/loic31000/CyberHub/issues/9). Il définit des hypothèses de design à prototyper, pas des maquettes haute fidélité déjà validées.
 
 ## Deux propositions à confronter en #7
 
-| | A — Sismographe éditorial | B — Carnet de laboratoire / Atlas d'indices |
+| | A - Sismographe éditorial | B - Carnet de laboratoire / Atlas d'indices |
 | --- | --- | --- |
 | Intention | Faire émerger un signal d'un grand silence visuel, jusqu'à une structure explicable. | Montrer le raisonnement par dossier, annotations, sources et relations consultables. |
 | Composition | Titres très grands, marges asymétriques, lignes de mesure fines, ruptures nettes de rythme. | Colonnes éditoriales et index; atlas de relations légendées, fiches et preuves empilées. |

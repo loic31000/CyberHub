@@ -1,5 +1,7 @@
 # État du pilote de sécurité
 
+> **Note de lecture (12 octobre 2026) :** les nombres précis d'avis npm et les conclusions `govulncheck` ci-dessous sont des résultats d'un examen antérieur. Ils n'ont pas été recalculés dans cette revue documentaire et ne doivent pas être présentés comme un scan à jour.
+
 ## Démarrage et données
 
 - CyberHub utilise `cyber-hub.lock` dans le répertoire de la base. Le fichier peut rester après un arrêt brutal : le verrou du système est libéré automatiquement. Une seconde instance s'arrête avec une erreur et aucun PID enregistré n'est utilisé pour tuer un processus.
