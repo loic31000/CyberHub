@@ -7,7 +7,9 @@
     "dev": "vite",
     "build": "vite build",
     "test": "vitest run",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "prototype:dashboard": "vite --config prototypes/dashboard-2026/vite.config.ts",
+    "prototype:dashboard:build": "tsc --noEmit -p prototypes/dashboard-2026/tsconfig.json && vite build --config prototypes/dashboard-2026/vite.config.ts"
   },
   "dependencies": {
     "@xterm/addon-fit": "^0.11.0",
