@@ -1,4 +1,4 @@
-# CyberHub 2026 — récit et positionnement
+# CyberHub 2026 - récit et positionnement
 
 Proposition pour [#4](https://github.com/loic31000/CyberHub/issues/4) et l'[epic #3](https://github.com/loic31000/CyberHub/issues/3). Le récit s'adresse aux recruteurs, pairs techniques, contributeurs et personnes qui souhaitent installer la console. La vitrine raconte des capacités vérifiables du dépôt; la démo publique est explicitement fictive. Aucune expérience professionnelle, certification, métrique d'usage ou intégration future n'est attribuée à l'auteur sans preuve fournie.
 
@@ -16,7 +16,7 @@ Proposition pour [#4](https://github.com/loic31000/CyberHub/issues/4) et l'[epic
 
 ## Deux directions narratives distinctes
 
-| | A — Rendre visible l'invisible | B — Carnet de laboratoire / Atlas d'indices |
+| | A - Rendre visible l'invisible | B - Carnet de laboratoire / Atlas d'indices |
 | --- | --- | --- |
 | Métaphore | Le signal brut acquiert une structure puis devient une interface utilisable. | On ouvre un carnet : hypothèse, source, note, recoupement, décision. |
 | Structure | Quatre actes progressifs : SIGNAL → COMPRENDRE → CARTOGRAPHIER → AGIR. | Une enquête non linéaire : choisir une question, suivre des preuves, revenir à la table des matières. |
@@ -30,7 +30,7 @@ Proposition pour [#4](https://github.com/loic31000/CyberHub/issues/4) et l'[epic
 
 ## Storyboard de la direction A
 
-### Acte I — SIGNAL
+### Acte I - SIGNAL
 
 - **Message / texte affiché :** « Tout commence par un signal. » Puis « Encore faut-il savoir ce qu'il raconte. » Un renvoi discret explique que les données présentées sont illustratives.
 - **Émotion :** curiosité, tension légère, désir d'examiner.
@@ -42,7 +42,7 @@ Proposition pour [#4](https://github.com/loic31000/CyberHub/issues/4) et l'[epic
 - **Mobile :** titre et signal empilés; une seule trajectoire; CTA avant la ligne de flottaison autant que possible.
 - **Sans animation :** signal déjà visible, relation avec l'acte II donnée par un titre et une courte phrase, aucun contenu caché.
 
-### Acte II — COMPRENDRE
+### Acte II - COMPRENDRE
 
 - **Message / texte affiché :** « Un indice prend du sens quand on peut le relier. » Sous-texte : « Sources, contexte et chronologie, au même endroit. »
 - **Émotion :** découverte et clarté.
@@ -54,7 +54,7 @@ Proposition pour [#4](https://github.com/loic31000/CyberHub/issues/4) et l'[epic
 - **Mobile :** fragments en colonne, relations décrites par libellés; pas de graphe minuscule à pincer.
 - **Sans animation :** les trois fragments et leurs relations sont lisibles immédiatement, dans l'ordre DOM logique.
 
-### Acte III — CARTOGRAPHIER
+### Acte III - CARTOGRAPHIER
 
 - **Message / texte affiché :** « Une carte ne vaut que par ce qu'elle peut expliquer. » Sous-texte : « Relations, incertitudes et provenance restent visibles. »
 - **Émotion :** orientation et capacité à explorer sans croire à une certitude totale.
@@ -66,7 +66,7 @@ Proposition pour [#4](https://github.com/loic31000/CyberHub/issues/4) et l'[epic
 - **Mobile :** liste relationnelle et détails par panneau; la carte devient secondaire, jamais nécessaire à la compréhension.
 - **Sans animation :** carte et liste déjà composées; descriptions textuelles de chaque relation.
 
-### Acte IV — AGIR
+### Acte IV - AGIR
 
 - **Message / texte affiché :** « Comprendre, puis décider quoi faire. » Sous-texte : « Explorez les modules, essayez un scénario fictif, consultez le code. »
 - **Émotion :** maîtrise mesurée, confiance dans une méthode vérifiable.
