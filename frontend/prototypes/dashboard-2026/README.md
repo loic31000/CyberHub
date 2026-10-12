@@ -1,4 +1,4 @@
-# Dashboard CyberHub 2026 — prototype V1
+# Dashboard CyberHub 2026 — prototype V2.1
 
 Depuis `frontend/` :
 
@@ -8,6 +8,10 @@ npm run prototype:dashboard
 
 Ouvrir **http://127.0.0.1:5175/**. Pour vérifier TypeScript et le build ciblé : `npm run prototype:dashboard:build`.
 
-Ce laboratoire a sa propre entrée Vite, sans proxy, client API, authentification ni route de la Console de production. Tous les nombres, événements et chemins BGP affichés sont fictifs. Le sélecteur « État de démonstration » montre les états avec exemples, chargement, vide et erreur. Les autres modules du menu ouvrent un message de prototype ; leurs pages viendront après validation visuelle du Dashboard.
+Ce laboratoire a sa propre entrée Vite, sans proxy, client API, authentification ni route de la Console de production. Tous les nombres, événements et chemins BGP affichés sont fictifs.
+
+V2.1 utilise une navigation hybride : topbar avec recherche, rail compact sur ordinateur et menu complet à la demande. La palette locale s'ouvre avec `Ctrl+K` ou `Cmd+K`, filtre les vrais noms de modules et quelques exemples explicitement fictifs, puis indique les destinations qui ne sont pas encore prototypées. La carte d'activité présente cinq domaines fonctionnels et leurs modules sans fabriquer de corrélations. Le sélecteur « État du laboratoire » permet de vérifier les rendus exemples, chargement, vide et erreur.
+
+Les autres pages seront prototypées après validation visuelle de ce cockpit.
 
 La direction artistique est consignée dans [docs/design/cyberhub-2026.md](../../../docs/design/cyberhub-2026.md). Les polices locales reprennent Manrope, DM Sans et DM Mono du Showcase ; leurs licences sont dans `public/fonts/`.
