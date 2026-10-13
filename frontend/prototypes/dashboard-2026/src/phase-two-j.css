@@ -1,0 +1,200 @@
+/* Phase 2J: denser, layered circuit artwork for the hero only. */
+
+.dashboard-board .overview-hero {
+  background:
+    radial-gradient(ellipse 48% 150% at 69% 54%, #00c8ed0c 0, transparent 70%),
+    radial-gradient(circle at 79% 48%, #8eeeff08 0, transparent 24%),
+    linear-gradient(90deg, #0a111cf7 0 36%, #09121de8 55%, #080f19 100%);
+}
+
+.dashboard-board .hero-circuit {
+  inset: 0 10.5rem 0 43%;
+  width: auto;
+  height: 100%;
+  opacity: 1;
+  mask-image: linear-gradient(90deg, transparent 0, #000 8%, #000 100%);
+}
+
+.circuit-ghosts path {
+  fill: none;
+  stroke: url("#circuit-ghost");
+  stroke-width: 0.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  vector-effect: non-scaling-stroke;
+}
+
+.circuit-components rect {
+  fill: #0a1724b8;
+  stroke: #4f829d66;
+  stroke-width: 0.85;
+  vector-effect: non-scaling-stroke;
+}
+
+.circuit-components line {
+  stroke: #83b3c76b;
+  stroke-width: 0.8;
+  vector-effect: non-scaling-stroke;
+}
+
+.circuit-traces path {
+  stroke: url("#circuit-steel");
+  stroke-width: 1.05;
+}
+
+.circuit-traces path:nth-child(3n) {
+  stroke-width: 0.72;
+  opacity: 0.72;
+}
+
+.circuit-pulses path {
+  stroke-width: 3.1;
+  stroke-linecap: round;
+  stroke-dasharray: 0.001 0.999;
+  stroke-dashoffset: 1;
+  animation-name: j-circuit-flow;
+  animation-duration: var(--pulse-duration);
+  animation-timing-function: cubic-bezier(0.45, 0.05, 0.25, 1);
+  animation-delay: calc(var(--pulse-order) * -1.15s);
+  animation-iteration-count: infinite;
+}
+
+.circuit-pulses path.is-secondary {
+  stroke-width: 2.4;
+  opacity: 0;
+  animation-name: j-circuit-return;
+}
+
+.circuit-nodes g {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: j-node-presence 7.2s ease-in-out infinite;
+  animation-delay: calc(var(--node-order) * -430ms);
+}
+
+.circuit-nodes .node-ring {
+  fill: transparent;
+  stroke: #5ee9ff;
+  stroke-width: 0.65;
+  opacity: 0.36;
+  vector-effect: non-scaling-stroke;
+}
+
+.circuit-nodes .node-core { fill: #7beeff; }
+.circuit-nodes .is-white .node-ring { stroke: #e8fbff; }
+.circuit-nodes .is-white .node-core { fill: #e8fbff; }
+.circuit-nodes .is-amber .node-ring { stroke: #dca94f; }
+.circuit-nodes .is-amber .node-core { fill: #edb95d; }
+
+.circuit-chip .chip-aura {
+  fill: #00c8ed05;
+  stroke: #49dff31a;
+  stroke-width: 0.8;
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: j-core-aura 14s ease-in-out infinite;
+}
+
+.circuit-chip .chip-halo {
+  fill: #0a213180;
+  stroke: #00d4ff42;
+  stroke-width: 0.9;
+  animation: j-core-charge 14s ease-in-out infinite;
+}
+
+.circuit-chip .chip-shell {
+  fill: url("#core-surface");
+  stroke: #76dff084;
+  stroke-width: 1.15;
+  filter: drop-shadow(0 0 7px #00d4ff32);
+}
+
+.circuit-chip .chip-inner {
+  fill: #09111c;
+  stroke: #294e667a;
+  stroke-width: 0.75;
+}
+
+.circuit-chip line { stroke: #6eabc3; stroke-width: 1.15; }
+.circuit-chip image { opacity: 0.92; filter: drop-shadow(0 0 4px #72eaff55); }
+
+.circuit-chip .chip-scan {
+  fill: none;
+  stroke: #bff8ff;
+  stroke-width: 0.75;
+  stroke-dasharray: 18 92;
+  opacity: 0.38;
+  animation: j-chip-scan 14s ease-in-out infinite;
+}
+
+@keyframes j-circuit-flow {
+  0%, 10% { opacity: 0; stroke-dashoffset: 1; }
+  17% { opacity: 0.88; }
+  62% { opacity: 0.92; stroke-dashoffset: 0; }
+  72%, 100% { opacity: 0; stroke-dashoffset: 0; }
+}
+
+@keyframes j-circuit-return {
+  0%, 36% { opacity: 0; stroke-dashoffset: 0; }
+  44% { opacity: 0.68; }
+  82% { opacity: 0.78; stroke-dashoffset: 1; }
+  92%, 100% { opacity: 0; stroke-dashoffset: 1; }
+}
+
+@keyframes j-node-presence {
+  0%, 100% { opacity: 0.48; transform: scale(0.84); }
+  45%, 62% { opacity: 1; transform: scale(1.15); }
+}
+
+@keyframes j-core-aura {
+  0%, 34%, 70%, 100% { opacity: 0.25; transform: scale(0.96); filter: none; }
+  48%, 58% { opacity: 1; transform: scale(1.04); filter: drop-shadow(0 0 14px #00d4ff80); }
+}
+
+@keyframes j-core-charge {
+  0%, 36%, 68%, 100% { opacity: 0.5; filter: drop-shadow(0 0 3px #00d4ff24); }
+  49%, 57% { opacity: 1; filter: drop-shadow(0 0 10px #8ef0ff8f); }
+}
+
+@keyframes j-chip-scan {
+  0%, 35% { opacity: 0; stroke-dashoffset: 110; }
+  48%, 62% { opacity: 0.72; }
+  72%, 100% { opacity: 0; stroke-dashoffset: 0; }
+}
+
+@media (max-width: 1199px) {
+  .dashboard-board .hero-circuit { inset-inline: 46% 5.5rem; opacity: 0.82; }
+  .circuit-ghosts path:nth-child(2n),
+  .circuit-components g:nth-child(even),
+  .circuit-traces path:nth-child(4n) { display: none; }
+}
+
+@media (max-width: 760px) {
+  .dashboard-board .hero-circuit {
+    display: block;
+    inset: 126px 0 0;
+    width: 100%;
+    height: 60px;
+    opacity: 0.54;
+    mask-image: linear-gradient(180deg, transparent 0, #000 32%, #000 100%);
+  }
+
+  .circuit-ghosts,
+  .circuit-components,
+  .circuit-chip .chip-aura,
+  .circuit-nodes g:nth-child(2n),
+  .circuit-traces path:nth-child(3n),
+  .circuit-pulses path:nth-child(n + 5) { display: none; }
+
+  .circuit-chip { opacity: 0.72; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .circuit-pulses { display: none; }
+  .circuit-nodes g,
+  .circuit-chip .chip-aura,
+  .circuit-chip .chip-halo,
+  .circuit-chip .chip-scan { animation: none; }
+  .circuit-nodes g { opacity: 0.78; transform: none; }
+  .circuit-chip .chip-aura { opacity: 0.55; filter: drop-shadow(0 0 7px #00d4ff45); }
+}

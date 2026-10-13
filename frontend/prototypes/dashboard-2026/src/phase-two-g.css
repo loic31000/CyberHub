@@ -1,0 +1,175 @@
+/* Phase 2G: reversible editorial treatment for Terminal Overview only. */
+.dashboard-board .overview-hero {
+  isolation: isolate;
+  overflow: hidden;
+  border-color: #21344a;
+  background:
+    radial-gradient(ellipse 38% 120% at 72% 48%, #00d4ff12 0, transparent 68%),
+    linear-gradient(108deg, #0d1522 0%, #09111c 52%, #070c14 100%);
+  box-shadow:
+    inset 0 1px #ffffff08,
+    inset 0 -1px #02040a8c,
+    0 12px 32px #02040a30;
+}
+
+/* The Phase 2B flux remains mounted and can be restored by removing this layer. */
+.dashboard-board .overview-hero .hero-flux {
+  display: none;
+}
+
+.dashboard-board .overview-hero::after {
+  content: "";
+  position: absolute;
+  z-index: 0;
+  top: 50%;
+  right: clamp(8.5rem, 13vw, 15rem);
+  width: clamp(112px, 9vw, 170px);
+  aspect-ratio: 1;
+  translate: 0 -50%;
+  background: url("/mark.svg") center / contain no-repeat;
+  opacity: 0.075;
+  filter: saturate(0.65) contrast(1.15);
+  pointer-events: none;
+}
+
+.dashboard-board .hero-copy {
+  position: relative;
+  z-index: 2;
+  width: min(68%, 880px);
+  background: none;
+  animation: hero-editorial-enter 560ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.dashboard-board .hero-copy::after {
+  content: "";
+  position: absolute;
+  left: 1.15rem;
+  bottom: 0.58rem;
+  width: clamp(42px, 4.5vw, 76px);
+  height: 1px;
+  background: linear-gradient(90deg, #00d4ffb8, transparent);
+  box-shadow: 0 0 8px #00d4ff2e;
+}
+
+.dashboard-board .hero-breadcrumb {
+  color: #7f91a8;
+  letter-spacing: 0.14em;
+}
+
+.dashboard-board .hero-copy h1 {
+  color: #eef6ff;
+  letter-spacing: -0.045em;
+  text-wrap: balance;
+  text-shadow: 0 2px 18px #02040a8c;
+}
+
+.dashboard-board .hero-copy h1 span {
+  color: #64ddf2;
+  font-weight: 650;
+  text-shadow: 0 0 22px #00d4ff24;
+}
+
+.dashboard-board .hero-copy p {
+  max-width: 720px;
+  color: #b9c8d9;
+}
+
+.dashboard-board .hero-index {
+  z-index: 2;
+  border-color: #263a50;
+  background: linear-gradient(90deg, #0a1019bf, #0a1019e8);
+  color: #7f9bb0;
+  letter-spacing: 0.08em;
+  animation: hero-editorial-enter 560ms 90ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.dashboard-board .hero-index::before {
+  content: "SYS / 2026";
+  display: block;
+  margin-bottom: 0.22rem;
+  color: #50cce3;
+  font-size: 0.9em;
+}
+
+@keyframes hero-editorial-enter {
+  from {
+    opacity: 0;
+    transform: translateY(7px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@media (min-width: 1200px) {
+  .dashboard-board .hero-copy {
+    padding: 0.72rem 1.15rem 0.9rem;
+  }
+
+  .dashboard-board .hero-copy h1 {
+    font-size: clamp(2rem, 2.45vw, 2.65rem);
+    line-height: 0.98;
+  }
+
+  .dashboard-board .hero-copy p {
+    margin-top: 0.25rem;
+  }
+}
+
+@media (max-width: 1199px) {
+  .dashboard-board .overview-hero::after {
+    right: 7.5rem;
+    width: 128px;
+    opacity: 0.06;
+  }
+
+  .dashboard-board .hero-copy {
+    width: min(72%, 760px);
+  }
+}
+
+@media (max-width: 760px) {
+  .dashboard-board .overview-hero {
+    min-height: 184px;
+    background:
+      radial-gradient(circle at 88% 82%, #00d4ff0d, transparent 38%),
+      linear-gradient(145deg, #0d1522 0%, #080e18 78%);
+  }
+
+  .dashboard-board .overview-hero::after {
+    top: auto;
+    right: -18px;
+    bottom: -32px;
+    width: 132px;
+    translate: none;
+    opacity: 0.055;
+  }
+
+  .dashboard-board .hero-copy {
+    width: 100%;
+    min-height: 184px;
+    padding: 1.2rem 1rem 1.45rem;
+    background: none;
+  }
+
+  .dashboard-board .hero-copy::after {
+    left: 1rem;
+    bottom: 1rem;
+  }
+
+  .dashboard-board .hero-copy h1 {
+    max-width: 290px;
+  }
+
+  .dashboard-board .hero-copy p {
+    max-width: min(100%, 330px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .dashboard-board .hero-copy,
+  .dashboard-board .hero-index {
+    animation: none;
+  }
+}

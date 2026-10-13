@@ -1,0 +1,449 @@
+/* Phase 2M: calm circuit, typed hero title, breathing layout, collapsible panels. */
+
+:root {
+  --m-type-start: 180ms;
+  --m-type-step: 75ms;
+}
+
+/* Circuit: few slow points with a quiet pause between passes. */
+.dashboard-circuit-motion .l-pulse {
+  animation-name: m-pulse-travel;
+}
+
+.dashboard-circuit-motion .l-pulse.is-rare {
+  animation-name: m-pulse-rare;
+}
+
+.dashboard-circuit-motion .l-nodes circle {
+  opacity: 0.4;
+  transform: none;
+  animation: m-node-glow 11s ease-in-out infinite;
+  animation-delay: calc(var(--l-node-order) * -2.7s);
+}
+
+@keyframes m-pulse-travel {
+  0% { offset-distance: 0%; opacity: 0; }
+  5% { opacity: 0.9; }
+  55% { opacity: 0.9; }
+  60% { offset-distance: 100%; opacity: 0; }
+  100% { offset-distance: 100%; opacity: 0; }
+}
+
+@keyframes m-pulse-rare {
+  0% { offset-distance: 0%; opacity: 0; }
+  3% { opacity: 0.85; }
+  31% { opacity: 0.85; }
+  34% { offset-distance: 100%; opacity: 0; }
+  100% { offset-distance: 100%; opacity: 0; }
+}
+
+@keyframes m-node-glow {
+  0%, 100% { opacity: 0.3; }
+  50% { opacity: 0.55; }
+}
+
+/* Hero title: typed once, glyph by glyph, with a cursor that follows. */
+.dashboard-board .hero-copy h1.typed-title {
+  animation: none;
+}
+
+.typed-title i {
+  font-style: normal;
+}
+
+.typed-glyph {
+  position: relative;
+  opacity: 0;
+}
+
+.typed-title.is-typing .typed-glyph {
+  animation: m-glyph-in 10ms linear forwards;
+  animation-delay: calc(var(--m-type-start) + var(--glyph) * var(--m-type-step));
+}
+
+.typed-glyph::after {
+  content: "";
+  position: absolute;
+  top: 0.14em;
+  bottom: 0.1em;
+  left: 100%;
+  width: 0.075em;
+  margin-left: 0.05em;
+  background: #00d4ff;
+  box-shadow: 0 0 8px #00d4ff80;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.typed-title.is-typing .typed-glyph::after {
+  animation: m-cursor-pass var(--m-type-step) step-end;
+  animation-delay: inherit;
+}
+
+/* The space after TERMINAL is one more keystroke for the cursor. */
+.typed-title.is-typing .typed-word .typed-glyph:last-child::after {
+  animation-duration: calc(var(--m-type-step) * 2);
+}
+
+/* After the last glyph the cursor blinks three times, then leaves. */
+.typed-title.is-typing > span:last-child .typed-glyph:last-child::after {
+  animation: m-cursor-blink 1.5s step-end;
+  animation-delay: inherit;
+}
+
+@keyframes m-glyph-in {
+  to { opacity: 1; }
+}
+
+@keyframes m-cursor-pass {
+  0%, 100% { opacity: 1; }
+}
+
+@keyframes m-cursor-blink {
+  0% { opacity: 1; }
+  16.6% { opacity: 0; }
+  33.3% { opacity: 1; }
+  50% { opacity: 0; }
+  66.6% { opacity: 1; }
+  83.3%, 100% { opacity: 0; }
+}
+
+/* Hero: the 2J circuit, centred in the free band and drawn at its own proportions. */
+.hero-session {
+  display: none;
+}
+
+@media (min-width: 1200px) {
+  .dashboard-board .hero-circuit {
+    /* Centred in the band between the copy (about 640 px) and the index. */
+    inset: 0 calc(214px + 0.75rem + max(0px, (100% - 214px - 640px - 828px) / 2)) 0 auto;
+    width: min(828px, 64%); /* 1000 x 140 viewBox at the 116 px hero height */
+    opacity: 0.92;
+    mask-image: linear-gradient(90deg, transparent 0, #000 34%, #000 94%, transparent);
+  }
+
+  .dashboard-board .overview-hero .hero-circuit .circuit-ghosts,
+  .dashboard-board .overview-hero .hero-circuit .circuit-components,
+  .dashboard-board .overview-hero .hero-circuit .circuit-nodes g:nth-child(n) {
+    display: inline;
+  }
+
+  /* A calm hero: six travelling signals at most, like the board behind it. */
+  .dashboard-board .overview-hero .hero-circuit .circuit-pulses path:nth-child(-n + 6) {
+    display: inline;
+  }
+
+  /* SYS / 2026 index keeps its lines; the demo status closes it at the bottom. */
+  .dashboard-board .hero-index {
+    grid-column: 2;
+    grid-row: 1;
+    align-content: start;
+    gap: 0.04rem;
+    padding-bottom: 1.7rem;
+  }
+
+  .dashboard-board .hero-session {
+    position: relative;
+    z-index: 4;
+    grid-column: 2;
+    grid-row: 1;
+    align-self: end;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.5rem;
+    margin: 0 0.45rem 0.42rem 0;
+    padding: 0.3rem 1rem 0;
+    font: 500 0.6rem/1.3 var(--mono);
+    letter-spacing: 0.08em;
+    white-space: nowrap;
+  }
+
+  .dashboard-board .hero-session::before {
+    content: "";
+    position: absolute;
+    inset: 0 1rem auto;
+    height: 1px;
+    background: linear-gradient(90deg, #00d4ff, #00d4ff40 60%, transparent);
+    box-shadow: 0 0 6px #00d4ff55;
+  }
+
+  .hero-session strong {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    color: #e2e8f0;
+    font-weight: 500;
+    text-transform: uppercase;
+  }
+
+  .hero-session strong i {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: #00d4ff;
+    box-shadow: 0 0 6px #00d4ff99;
+  }
+
+  .hero-session-mark {
+    color: #50cce3;
+  }
+}
+
+/* The session lines print once the title is typed; without :has() they simply show. */
+.dashboard-board .hero-session > :nth-child(2) { --line: 1; }
+
+@supports selector(:has(*)) {
+  .dashboard-board .overview-hero .hero-session > * {
+    opacity: 0;
+  }
+
+  .dashboard-board .overview-hero:has(.typed-title.is-typing) .hero-session > * {
+    animation: m-session-line 260ms ease-out forwards;
+    animation-delay: calc(var(--m-type-start) + 17 * var(--m-type-step) + var(--line, 0) * 140ms);
+  }
+}
+
+@keyframes m-session-line {
+  from { opacity: 0; transform: translateX(-4px); }
+  to { opacity: 1; transform: none; }
+}
+
+/* Spacing: 32 hero/env, 36 env/grid, 28 inside the grid, 32 grid/sync. */
+@media (min-width: 1200px) {
+  .workspace.dashboard-board {
+    grid-template-rows:
+      minmax(120px, auto) minmax(120px, auto) minmax(236px, 1fr)
+      minmax(236px, 1fr) minmax(52px, auto) auto;
+    gap: 28px 28px;
+  }
+
+  .dashboard-board .overview-hero {
+    margin-bottom: 4px;
+  }
+
+  .dashboard-board .environment-panel {
+    margin-bottom: 8px;
+  }
+
+  .dashboard-board .sync-panel {
+    margin-top: 4px;
+  }
+}
+
+@media (max-width: 1199px) {
+  .dashboard-board .environment-panel {
+    margin-bottom: 6px;
+  }
+}
+
+@media (max-width: 760px) {
+  .dashboard-board .environment-panel {
+    margin-bottom: 4px;
+  }
+}
+
+/* Collapsible panels. */
+.collapsible-body {
+  display: contents;
+}
+
+.collapsible-body[hidden] {
+  display: none;
+}
+
+.collapsible-body[data-state="opening"] > * {
+  animation: m-panel-in 200ms ease-out both;
+}
+
+.collapsible-body[data-state="closing"] > * {
+  animation: m-panel-out 160ms ease-in both;
+}
+
+@keyframes m-panel-in {
+  from { opacity: 0; transform: translateY(-4px); }
+}
+
+@keyframes m-panel-out {
+  to { opacity: 0; transform: translateY(-4px); }
+}
+
+.dashboard-board .panel-tools {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+/*
+ * Desktop: the narrow right-hand headers keep their actions on the title line.
+ * The title group may wrap its subtitle instead; the header row grows with it.
+ */
+@media (min-width: 1200px) {
+  .dashboard-board .panel-heading:has(> .panel-tools) {
+    flex-wrap: nowrap;
+    align-items: center;
+  }
+
+  .dashboard-board .panel-heading:has(> .panel-tools) > :first-child {
+    flex: 1 1 auto;
+    min-width: 0;
+  }
+
+  .dashboard-board .panel-heading:has(> .panel-tools) p {
+    white-space: normal;
+  }
+
+  .dashboard-board .feed-panel {
+    grid-template-rows: minmax(46px, auto) minmax(0, 1fr);
+  }
+
+  .dashboard-board .threat-panel {
+    grid-template-rows: minmax(44px, auto) 34px minmax(0, 1fr) 22px;
+  }
+}
+
+.dashboard-board .panel-toggle {
+  width: 28px;
+  height: 28px;
+  display: inline-grid;
+  flex: none;
+  place-items: center;
+  padding: 0;
+  border: 1px solid var(--f-border-bright);
+  border-radius: 6px;
+  background: #0b1220;
+  color: #a9bdd0;
+  cursor: pointer;
+  transition: color 150ms ease, border-color 150ms ease, background-color 150ms ease;
+}
+
+.dashboard-board .panel-toggle:hover {
+  border-color: #00d4ff66;
+  background: #0f1a2b;
+  color: #e2e8f0;
+}
+
+.dashboard-board .panel-toggle svg {
+  transition: transform 180ms ease;
+}
+
+.dashboard-board .panel-toggle[aria-expanded="false"] svg {
+  transform: rotate(-90deg);
+}
+
+.dashboard-board .panel-summary {
+  color: #8fdcec;
+}
+
+.dashboard-board .panel-summary.is-alert {
+  color: #ff9f9f;
+}
+
+.dashboard-board .dashboard-panel.is-collapsed {
+  align-self: start;
+  height: auto;
+  min-height: 0;
+  grid-template-rows: auto;
+}
+
+.dashboard-board .dashboard-panel.is-collapsed .panel-heading {
+  border-bottom-color: transparent;
+}
+
+/*
+ * Desktop: a collapsed panel keeps its slot. Only the header card remains and
+ * the empty slot is outlined, so the measured circuit, and every rail, stays put.
+ */
+@media (min-width: 1200px) {
+  .dashboard-board .dashboard-panel.is-collapsed {
+    position: relative;
+    align-self: stretch;
+    align-content: start;
+    border-color: transparent;
+    background: none;
+    box-shadow: none;
+  }
+
+  .dashboard-board .dashboard-panel.is-collapsed::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    border: 1px dashed #2a3f5880;
+    border-radius: inherit;
+    pointer-events: none;
+  }
+
+  .dashboard-board .dashboard-panel.is-collapsed > .panel-heading {
+    border: 1px solid var(--f-border);
+    border-radius: 7px;
+    background:
+      linear-gradient(145deg, #ffffff04, transparent 35%),
+      var(--f-bg-panel);
+    box-shadow: 0 10px 28px #02040a40, inset 0 1px #ffffff07;
+  }
+
+  .dashboard-board .threat-panel.is-collapsed > .threat-heading {
+    border-color: #51303a;
+    background:
+      linear-gradient(90deg, #1d1018, #0d1420 42%),
+      #111827;
+    box-shadow: inset 2px 0 #ef44443d, 0 0 22px #ef44440b, 0 10px 28px #02040a40;
+  }
+}
+
+/* Badges: AA text on their tinted surfaces, same red and amber identities. */
+.dashboard-board .badge-critique {
+  border-color: #ef444452;
+  background: #ef44441f;
+  color: #ffb8b8;
+}
+
+.dashboard-board .badge-nouveau {
+  border-color: #f59e0b52;
+  background: #f59e0b1a;
+  color: #ffd68a;
+}
+
+/* Rails redrawn after a reflow (tablet, mobile) fade in instead of jumping. */
+.dashboard-circuit-static .l-redraw {
+  animation: m-rails-in 420ms ease-out both;
+}
+
+@keyframes m-rails-in {
+  from { opacity: 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .dashboard-circuit-static .l-redraw {
+    animation: none;
+  }
+
+  .typed-glyph {
+    opacity: 1;
+    animation: none;
+  }
+
+  .typed-glyph::after {
+    display: none;
+  }
+
+  .dashboard-board .overview-hero .hero-session > *,
+  .dashboard-board .overview-hero:has(.typed-title.is-typing) .hero-session > * {
+    opacity: 1;
+    animation: none;
+  }
+
+  .dashboard-circuit-motion .l-nodes circle {
+    animation: none;
+  }
+
+  .collapsible-body[data-state] > * {
+    animation: none;
+  }
+
+  .dashboard-board .panel-toggle,
+  .dashboard-board .panel-toggle svg {
+    transition: none;
+  }
+}

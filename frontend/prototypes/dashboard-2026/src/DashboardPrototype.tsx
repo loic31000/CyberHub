@@ -1,9 +1,12 @@
 import NetworkGlobe from "./NetworkGlobe";
 import TerminalFlux from "./TerminalFlux";
+import CircuitBoard from "./CircuitBoard";
+import DashboardCircuit from "./DashboardCircuit";
+import { PanelBody, PanelToggle, useCollapsible } from "./CollapsiblePanel";
 import { useEffect, useMemo, useRef, useState } from "react";
+import type { CSSProperties } from "react";
 import {
   Activity,
-  ArrowRight,
   Bell,
   Binary,
   BookMarked,
@@ -58,6 +61,20 @@ type FeedItem = {
   icon: LucideIcon;
   tone?: "cyan" | "amber" | "red";
   badge?: "CRITIQUE" | "NOUVEAU" | "INFO";
+};
+
+type ThreatSignal = {
+  label: string;
+  value: string;
+  detail: string;
+  icon: LucideIcon;
+  tone: "cyan" | "amber" | "red" | "quiet";
+};
+
+type DetailContent = {
+  title: string;
+  description: string;
+  context: string;
 };
 
 const navigationGroups: { label: string; items: Module[] }[] = [
@@ -202,18 +219,18 @@ const alerts: FeedItem[] = [
     badge: "CRITIQUE",
   },
   {
-    title: "AS152194",
-    detail: "Annonce BGP inhabituelle",
-    time: "11:43",
-    icon: Network,
+    title: "CVE-2024-21762",
+    detail: "Entrée KEV de démonstration",
+    time: "11:18",
+    icon: ShieldAlert,
     tone: "amber",
     badge: "NOUVEAU",
   },
   {
-    title: "IOC partagé",
-    detail: "185.199.110.153",
-    time: "12:27",
-    icon: Shield,
+    title: "Bulletin CERT-FR",
+    detail: "Synthèse locale fictive",
+    time: "10:34",
+    icon: FileText,
     badge: "INFO",
   },
   {
@@ -224,32 +241,36 @@ const alerts: FeedItem[] = [
     badge: "INFO",
   },
   {
-    title: "Source OSINT",
-    detail: "Synchronisation terminée",
+    title: "Playbook actualisé",
+    detail: "Réponse à incident · exemple",
     time: "08:51",
-    icon: Database,
+    icon: BookOpen,
     badge: "INFO",
   },
 ];
 
-const quickModules = [
+const threatSignals: ThreatSignal[] = [
   {
-    title: "IOC Manager",
-    detail: "Recherche et analyse d’indicateurs",
+    label: "IOC à examiner",
+    value: "03",
+    detail: "3 indicateurs fictifs",
     icon: Shield,
-  },
-  { title: "MITRE ATT&CK", detail: "Matrice et techniques", icon: Layers3 },
-  {
-    title: "OSINT Runner",
-    detail: "Recherche et vérification de sources",
-    icon: Search,
+    tone: "red",
   },
   {
-    title: "BGP Historian",
-    detail: "Historique et analyse BGP",
+    label: "Anomalie BGP",
+    value: "01",
+    detail: "Signal synthétique",
     icon: Network,
+    tone: "amber",
   },
-  { title: "Investigations", detail: "Dossiers et preuves", icon: Activity },
+  {
+    label: "Sources dégradées",
+    value: "02",
+    detail: "Connecteurs fictifs",
+    icon: Database,
+    tone: "quiet",
+  },
 ];
 
 const demoSearchEntries: SearchEntry[] = [
@@ -499,23 +520,211 @@ function SearchPalette({
   );
 }
 
+/*
+ * The title types itself once, in CSS: one delay per glyph, no React loop.
+ * Typing starts after the first painted frames, so a busy page load cannot
+ * swallow the animation; a single state change arms it.
+ */
+function TypedTitle() {
+  const [typing, setTyping] = useState(false);
+
+  useEffect(() => {
+    let frame = requestAnimationFrame(() => {
+      frame = requestAnimationFrame(() => setTyping(true));
+    });
+    return () => cancelAnimationFrame(frame);
+  }, []);
+
+  let step = 0;
+  const glyphs = (word: string) =>
+    [...word].map((char) => {
+      const order = step++;
+      return (
+        <i
+          key={order}
+          className="typed-glyph"
+          style={{ "--glyph": order } as CSSProperties}
+        >
+          {char}
+        </i>
+      );
+    });
+  const first = glyphs("TERMINAL");
+  step += 1; // the space between the words is one keystroke
+  const second = glyphs("OVERVIEW");
+
+  return (
+    <h1
+      id="overview-title"
+      className={`typed-title${typing ? " is-typing" : ""}`}
+    >
+      <span className="sr-only">TERMINAL OVERVIEW</span>
+      <i className="typed-word" aria-hidden="true">
+        {first}
+      </i>{" "}
+      <span aria-hidden="true">{second}</span>
+    </h1>
+  );
+}
+
+function getDetailContent(label: string): DetailContent {
+  if (label === "IOC à examiner") {
+    return {
+      title: label,
+      description:
+        "Trois indicateurs fictifs attendent une qualification dans cette démonstration.",
+      context:
+        "Aucun flux réel n’est interrogé. La destination complète serait IOC Manager.",
+    };
+  }
+  if (label === "Anomalie BGP") {
+    return {
+      title: label,
+      description:
+        "Un signal BGP synthétique est présenté pour illustrer un point d’attention.",
+      context:
+        "Aucune surveillance continue n’est active. La destination complète serait BGP Historian.",
+    };
+  }
+  if (label === "Threat Monitor") {
+    return {
+      title: "Threat Monitor",
+      description:
+        "Vue synthétique de deux signaux de démonstration actuellement affichés dans le cockpit.",
+      context:
+        "La vue détaillée n’est pas prototypée et aucune donnée privée n’est chargée.",
+    };
+  }
+  return {
+    title: label,
+    description:
+      "Cette destination est disponible dans la Console CyberHub et n’est pas développée dans ce laboratoire visuel.",
+    context: "Interaction locale fictive · aucune API privée appelée.",
+  };
+}
+
+function DetailDialog({
+  detail,
+  onClose,
+  returnFocus,
+}: {
+  detail: DetailContent | null;
+  onClose: () => void;
+  returnFocus: React.RefObject<HTMLElement | null>;
+}) {
+  const dialogRef = useRef<HTMLDivElement>(null);
+  const closeRef = useRef<HTMLButtonElement>(null);
+
+  useEffect(() => {
+    if (detail) requestAnimationFrame(() => closeRef.current?.focus());
+  }, [detail]);
+
+  function close() {
+    onClose();
+    requestAnimationFrame(() => returnFocus.current?.focus());
+  }
+
+  function handleKeyDown(event: React.KeyboardEvent) {
+    if (event.key === "Escape") {
+      event.preventDefault();
+      close();
+      return;
+    }
+    if (event.key !== "Tab" || !dialogRef.current) return;
+    const focusable = [
+      ...dialogRef.current.querySelectorAll<HTMLElement>(
+        'button:not([disabled]), [href], [tabindex]:not([tabindex="-1"])',
+      ),
+    ];
+    if (!focusable.length) return;
+    const first = focusable[0];
+    const last = focusable[focusable.length - 1];
+    if (event.shiftKey && document.activeElement === first) {
+      event.preventDefault();
+      last.focus();
+    } else if (!event.shiftKey && document.activeElement === last) {
+      event.preventDefault();
+      first.focus();
+    }
+  }
+
+  if (!detail) return null;
+
+  return (
+    <div
+      className="detail-backdrop"
+      onMouseDown={(event) => event.target === event.currentTarget && close()}
+    >
+      <div
+        className="detail-dialog"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="detail-dialog-title"
+        aria-describedby="detail-dialog-description"
+        ref={dialogRef}
+        onKeyDown={handleKeyDown}
+      >
+        <header>
+          <div>
+            <span className="detail-kicker">DÉMONSTRATION LOCALE</span>
+            <h2 id="detail-dialog-title">{detail.title}</h2>
+          </div>
+          <button
+            ref={closeRef}
+            type="button"
+            className="close-button"
+            aria-label="Fermer le détail"
+            onClick={close}
+          >
+            <X size={19} />
+          </button>
+        </header>
+        <div className="detail-dialog-body">
+          <span className="detail-status" aria-hidden="true">
+            <ShieldAlert size={20} />
+          </span>
+          <p id="detail-dialog-description">{detail.description}</p>
+          <small>{detail.context}</small>
+        </div>
+        <footer>
+          <span className="demo-badge">FICTIF</span>
+          <button type="button" className="panel-action" onClick={close}>
+            Fermer
+          </button>
+        </footer>
+      </div>
+    </div>
+  );
+}
+
 export default function DashboardPrototype() {
   const [menuOpen, setMenuOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
-  const [notice, setNotice] = useState<string | null>(null);
+  const [detail, setDetail] = useState<DetailContent | null>(null);
   const searchTrigger = useRef<HTMLButtonElement>(null);
   const mobileSearchTrigger = useRef<HTMLButtonElement>(null);
   const searchReturnFocus = useRef<HTMLElement | null>(null);
   const menuTrigger = useRef<HTMLButtonElement>(null);
   const menuClose = useRef<HTMLButtonElement>(null);
   const menuReturnFocus = useRef<HTMLElement | null>(null);
+  const detailReturnFocus = useRef<HTMLElement | null>(null);
+  const operationsPanel = useCollapsible("operations-panel");
+  const threatPanel = useCollapsible("threat-panel");
+  const alertsPanel = useCollapsible("alerts-panel");
 
-  function selectDestination(label: string) {
+  function selectDestination(label: string, returnTarget?: HTMLElement | null) {
+    detailReturnFocus.current =
+      returnTarget ??
+      (menuOpen
+        ? menuReturnFocus.current
+        : searchOpen
+          ? searchReturnFocus.current
+          : document.activeElement instanceof HTMLElement
+            ? document.activeElement
+            : null);
     setMenuOpen(false);
-    setNotice(
-      label +
-        " : destination disponible dans la Console, page non prototypée dans ce laboratoire.",
-    );
+    setSearchOpen(false);
+    setDetail(getDetailContent(label));
   }
 
   function closeMenu(restoreFocus = true) {
@@ -557,9 +766,12 @@ export default function DashboardPrototype() {
   }, [menuOpen]);
 
   useEffect(() => {
-    document.body.classList.toggle("overlay-open", menuOpen || searchOpen);
+    document.body.classList.toggle(
+      "overlay-open",
+      menuOpen || searchOpen || detail !== null,
+    );
     return () => document.body.classList.remove("overlay-open");
-  }, [menuOpen, searchOpen]);
+  }, [menuOpen, searchOpen, detail]);
 
   useEffect(() => {
     if (menuOpen) requestAnimationFrame(() => menuClose.current?.focus());
@@ -587,11 +799,12 @@ export default function DashboardPrototype() {
           ref={searchTrigger}
           className="global-search"
           type="button"
+          aria-label="Ouvrir la recherche globale"
           aria-haspopup="dialog"
           onClick={(event) => openSearch(event.currentTarget)}
         >
           <Search size={17} aria-hidden="true" />
-          <span>Rechercher un outil, une CVE, un IOC, un domaine…</span>
+          <span>Rechercher…</span>
           <kbd>Ctrl K</kbd>
         </button>
         <div className="topbar-actions">
@@ -617,9 +830,7 @@ export default function DashboardPrototype() {
             className="topbar-icon"
             type="button"
             aria-label="Notifications fictives"
-            onClick={() =>
-              setNotice("Aucune notification réelle dans ce prototype.")
-            }
+            onClick={() => selectDestination("Notifications")}
           >
             <Bell size={18} />
           </button>
@@ -636,11 +847,7 @@ export default function DashboardPrototype() {
             type="button"
             aria-label="Profil fictif du laboratoire"
             title="Profil fictif du laboratoire"
-            onClick={() =>
-              setNotice(
-                "Profil de démonstration : aucune authentification n’est utilisée.",
-              )
-            }
+            onClick={() => selectDestination("Profil de démonstration")}
           >
             CH
           </button>
@@ -779,15 +986,21 @@ export default function DashboardPrototype() {
         returnFocus={searchReturnFocus}
       />
 
+      <DetailDialog
+        detail={detail}
+        onClose={() => setDetail(null)}
+        returnFocus={detailReturnFocus}
+      />
+
       <main className="main-content" id="main-content">
+        <DashboardCircuit />
         <div className="workspace dashboard-board" id="overview">
           <section className="overview-hero" aria-labelledby="overview-title">
             <TerminalFlux />
+            <CircuitBoard />
             <div className="hero-copy">
               <span className="hero-breadcrumb">/ CORE / DASHBOARD</span>
-              <h1 id="overview-title">
-                TERMINAL <span>OVERVIEW</span>
-              </h1>
+              <TypedTitle />
               <p>
                 Votre espace de travail CyberHub, Recherche, analyse et
                 opérations depuis une interface unifiée.
@@ -799,20 +1012,14 @@ export default function DashboardPrototype() {
               <span>DEFENSIVE OPERATIONS</span>
               <span>THREAT ANALYSIS</span>
             </div>
+            <p className="hero-session">
+              <strong>
+                <i aria-hidden="true" />
+                Démo locale
+              </strong>
+              <span className="hero-session-mark">CH/TTY-01</span>
+            </p>
           </section>
-
-          {notice && (
-            <div className="notice" role="status">
-              <span>{notice}</span>
-              <button
-                type="button"
-                aria-label="Fermer le message"
-                onClick={() => setNotice(null)}
-              >
-                <X size={16} />
-              </button>
-            </div>
-          )}
 
           <section
             className="dashboard-panel environment-panel"
@@ -873,7 +1080,7 @@ export default function DashboardPrototype() {
             </div>
           </section>
 
-          <div className="dashboard-grid">
+          <div className="monitor-grid">
             <section
               className="dashboard-panel network-panel"
               aria-labelledby="network-title"
@@ -897,126 +1104,191 @@ export default function DashboardPrototype() {
             </section>
 
             <section
-              className="dashboard-panel feed-panel"
+              className={`dashboard-panel threat-panel${threatPanel.open ? "" : " is-collapsed"}`}
+              aria-labelledby="threat-monitor-title"
+            >
+              <header className="panel-heading threat-heading">
+                <div className="threat-title">
+                  <span className="threat-beacon" aria-hidden="true">
+                    <ShieldAlert size={19} />
+                    <i />
+                  </span>
+                  <span>
+                    <h2 id="threat-monitor-title">THREAT MONITOR</h2>
+                    {threatPanel.expanded ? (
+                      <p>Données fictives - état figé.</p>
+                    ) : (
+                      <p className="panel-summary is-alert">
+                        2 alertes fictives · attention requise
+                      </p>
+                    )}
+                  </span>
+                </div>
+                <div className="panel-tools">
+                  <button
+                    type="button"
+                    className="text-action"
+                    onClick={() => selectDestination("Threat Monitor")}
+                  >
+                    Voir tout <ChevronRight size={14} />
+                  </button>
+                  <PanelToggle collapsible={threatPanel} label="Threat Monitor" />
+                </div>
+              </header>
+              <PanelBody collapsible={threatPanel}>
+                <div className="threat-status" aria-label="Statut : attention requise">
+                  <span className="threat-status-led" aria-hidden="true" />
+                  <span>
+                    <small>STATUT SYNTHÉTIQUE</small>
+                    <strong>ATTENTION REQUISE</strong>
+                  </span>
+                  <b>02 SIGNAUX</b>
+                </div>
+                <ul className="threat-list">
+                  {threatSignals
+                    .slice(0, 2)
+                    .map(({ label, value, detail, icon: Icon, tone }) => (
+                      <li key={label}>
+                        <button
+                          type="button"
+                          onClick={() => selectDestination(label)}
+                        >
+                          <span className={`threat-icon is-${tone}`}>
+                            <Icon size={17} />
+                          </span>
+                          <span className="threat-copy">
+                            <strong>{label}</strong>
+                            <small>{detail}</small>
+                          </span>
+                          <b>{value}</b>
+                          <ChevronRight size={15} aria-hidden="true" />
+                        </button>
+                      </li>
+                    ))}
+                </ul>
+                <div className="threat-foot">
+                  <span>Aucune surveillance continue</span>
+                  <span className="demo-badge">FICTIF</span>
+                </div>
+              </PanelBody>
+            </section>
+          </div>
+
+          <div className="dashboard-grid feed-grid">
+
+            <section
+              className={`dashboard-panel feed-panel${operationsPanel.open ? "" : " is-collapsed"}`}
               aria-labelledby="operations-title"
             >
               <header className="panel-heading">
-                <h2 id="operations-title">DERNIÈRES OPÉRATIONS</h2>
-                <button
-                  type="button"
-                  className="panel-action"
-                  onClick={() => selectDestination("Investigations")}
-                >
-                  Voir tout <ChevronRight size={14} />
-                </button>
+                <div>
+                  <h2 id="operations-title">DERNIÈRES OPÉRATIONS</h2>
+                  {!operationsPanel.expanded && (
+                    <p className="panel-summary">4 opérations récentes</p>
+                  )}
+                </div>
+                <div className="panel-tools">
+                  <button
+                    type="button"
+                    className="panel-action"
+                    onClick={() => selectDestination("Investigations")}
+                  >
+                    Voir tout <ChevronRight size={14} />
+                  </button>
+                  <PanelToggle
+                    collapsible={operationsPanel}
+                    label="Dernières opérations"
+                  />
+                </div>
               </header>
-              <ul className="activity-list">
-                {operations.map(({ title, detail, time, icon: Icon, tone }) => (
-                  <li key={title}>
-                    <button
-                      type="button"
-                      onClick={() => selectDestination(title)}
-                    >
-                      <span className={`feed-icon ${tone ? `is-${tone}` : ""}`}>
-                        <Icon size={17} />
-                      </span>
-                      <span className="feed-copy">
-                        <strong>{title}</strong>
-                        <small>{detail}</small>
-                      </span>
-                      <time>{time}</time>
-                    </button>
-                  </li>
-                ))}
-              </ul>
+              <PanelBody collapsible={operationsPanel}>
+                <ul className="activity-list">
+                  {operations
+                    .slice(0, 4)
+                    .map(({ title, detail, time, icon: Icon, tone }) => (
+                      <li key={title}>
+                        <button
+                          type="button"
+                          onClick={() => selectDestination(title)}
+                        >
+                          <span
+                            className={`feed-icon ${tone ? `is-${tone}` : ""}`}
+                          >
+                            <Icon size={17} />
+                          </span>
+                          <span className="feed-copy">
+                            <strong>{title}</strong>
+                            <small>{detail}</small>
+                          </span>
+                          <time>{time}</time>
+                        </button>
+                      </li>
+                    ))}
+                </ul>
+              </PanelBody>
             </section>
 
             <section
-              className="dashboard-panel feed-panel alert-panel"
+              className={`dashboard-panel feed-panel alert-panel${alertsPanel.open ? "" : " is-collapsed"}`}
               aria-labelledby="alerts-title"
             >
               <header className="panel-heading">
                 <div>
-                  <h2 id="alerts-title">VEILLE & ALERTES</h2>
-                  <p>Flux récents et points d’attention.</p>
+                  <h2 id="alerts-title">VEILLE CVE & SOURCES</h2>
+                  {alertsPanel.expanded ? (
+                    <p>Bulletins locaux fictifs.</p>
+                  ) : (
+                    <p className="panel-summary">2 bulletins · 1 critique</p>
+                  )}
                 </div>
-                <button
-                  type="button"
-                  className="panel-action"
-                  onClick={() => selectDestination("Paramètres")}
-                >
-                  Configurer <ChevronRight size={14} />
-                </button>
+                <div className="panel-tools">
+                  <button
+                    type="button"
+                    className="panel-action"
+                    onClick={() => selectDestination("CVE & KEV")}
+                  >
+                    Voir tout <ChevronRight size={14} />
+                  </button>
+                  <PanelToggle
+                    collapsible={alertsPanel}
+                    label="Veille CVE et sources"
+                  />
+                </div>
               </header>
-              <ul className="activity-list alert-list">
-                {alerts.map(
-                  ({ title, detail, time, icon: Icon, tone, badge }) => (
-                    <li key={title}>
-                      <button
-                        type="button"
-                        onClick={() => selectDestination(title)}
-                      >
-                        <span
-                          className={`feed-icon ${tone ? `is-${tone}` : ""}`}
+              <PanelBody collapsible={alertsPanel}>
+                <ul className="activity-list alert-list">
+                  {alerts.slice(0, 2).map(
+                    ({ title, detail, time, icon: Icon, tone, badge }) => (
+                      <li key={title}>
+                        <button
+                          type="button"
+                          onClick={() => selectDestination(title)}
                         >
-                          <Icon size={17} />
-                        </span>
-                        <span className="feed-copy">
-                          <strong>{title}</strong>
-                          <small>{detail}</small>
-                        </span>
-                        {badge && (
                           <span
-                            className={`feed-badge badge-${badge.toLowerCase()}`}
+                            className={`feed-icon ${tone ? `is-${tone}` : ""}`}
                           >
-                            {badge}
+                            <Icon size={17} />
                           </span>
-                        )}
-                        <time>{time}</time>
-                      </button>
-                    </li>
-                  ),
-                )}
-              </ul>
+                          <span className="feed-copy">
+                            <strong>{title}</strong>
+                            <small>{detail}</small>
+                          </span>
+                          {badge && (
+                            <span
+                              className={`feed-badge badge-${badge.toLowerCase()}`}
+                            >
+                              {badge}
+                            </span>
+                          )}
+                          <time>{time}</time>
+                        </button>
+                      </li>
+                    ),
+                  )}
+                </ul>
+              </PanelBody>
             </section>
           </div>
-
-          <section
-            className="dashboard-panel quick-panel"
-            aria-labelledby="quick-title"
-          >
-            <header className="panel-heading">
-              <div>
-                <h2 id="quick-title">ACCÈS RAPIDES AUX MODULES</h2>
-                <p>Exploration des 18 modules CyberHub.</p>
-              </div>
-              <button
-                type="button"
-                className="text-action"
-                onClick={(event) => openMenu(event.currentTarget)}
-              >
-                Ouvrir l’explorateur complet <ChevronRight size={14} />
-              </button>
-            </header>
-            <div className="quick-grid">
-              {quickModules.map(({ title, detail, icon: Icon }) => (
-                <button
-                  type="button"
-                  key={title}
-                  onClick={() => selectDestination(title)}
-                >
-                  <span className="quick-icon">
-                    <Icon size={22} />
-                  </span>
-                  <span>
-                    <strong>{title}</strong>
-                    <small>{detail}</small>
-                  </span>
-                  <ArrowRight size={15} />
-                </button>
-              ))}
-            </div>
-          </section>
 
           <section className="sync-panel" aria-labelledby="sync-title">
             <span className="sync-icon">
@@ -1030,7 +1302,11 @@ export default function DashboardPrototype() {
               </div>
               <span
                 className="sync-track"
-                aria-label="Progression fictive 78 %"
+                role="progressbar"
+                aria-labelledby="sync-title"
+                aria-valuemin={0}
+                aria-valuemax={100}
+                aria-valuenow={78}
               >
                 <i />
               </span>
