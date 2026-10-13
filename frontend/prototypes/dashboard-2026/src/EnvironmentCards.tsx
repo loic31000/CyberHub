@@ -1,12 +1,15 @@
 import { useEffect, useRef, useState } from "react";
 import type { CSSProperties, KeyboardEvent, RefObject } from "react";
-import { ArrowDown, ArrowUp, ChevronRight, Plus, Repeat2, RotateCcw, Trash2, X } from "lucide-react";
+import { ArrowDown, ArrowUp, ChevronRight, Plus, Repeat2, RotateCcw, Search, Trash2, X } from "lucide-react";
 import {
-  MODULE_CARDS,
-  SYSTEM_CARDS,
+  ENVIRONMENT_CARDS,
+  MODULE_CATEGORIES,
+  categoryOf,
   getEnvironmentCard,
   type EnvironmentCardDefinition,
+  type ModuleCategory,
 } from "./environmentRegistry";
+import { normalize, searchItems } from "./moduleSearch";
 
 /* Phase 3A.1: environment cards and their customisation dialog. */
 
@@ -107,7 +110,61 @@ export function EnvironmentGrid({
 
 type PendingFocus = { id: string; action: "up" | "down" | "replace" | "remove" } | "catalog" | "selected" | "reset" | null;
 
-const moduleGroups = ["Espace de travail", "Renseignement", "Opérations", "Ressources & réseau"] as const;
+/* Catalogue search: the same metadata and matching as the global search. */
+const searchableCard = (card: EnvironmentCardDefinition) => ({
+  ...card,
+  description: card.kind === "system" ? `Carte de démonstration ${card.status} ${card.secondary}` : card.description,
+});
+
+export function CatalogSearch({
+  query,
+  onQuery,
+  category,
+  onCategory,
+  label,
+  count,
+}: {
+  query: string;
+  onQuery: (value: string) => void;
+  category: ModuleCategory | "all";
+  onCategory: (value: ModuleCategory | "all") => void;
+  label: string;
+  count: number;
+}) {
+  return (
+    <div className="catalog-search">
+      <label className="catalog-field">
+        <Search size={15} aria-hidden="true" />
+        <span className="sr-only">{label}</span>
+        <input
+          type="search"
+          value={query}
+          onChange={(event) => onQuery(event.target.value)}
+          placeholder="Nom, alias ou catégorie…"
+          autoComplete="off"
+          spellCheck={false}
+        />
+      </label>
+      <div className="catalog-filters" role="group" aria-label="Filtrer par catégorie">
+        {[{ id: "all" as const, code: "Tous", label: "Toutes les catégories" }, ...MODULE_CATEGORIES].map((c) => (
+          <button
+            key={c.id}
+            type="button"
+            className="catalog-filter"
+            aria-pressed={category === c.id}
+            title={c.label}
+            onClick={() => onCategory(c.id)}
+          >
+            {c.code}
+          </button>
+        ))}
+      </div>
+      <p className="catalog-count" aria-live="polite">
+        {count} résultat{count > 1 ? "s" : ""}
+      </p>
+    </div>
+  );
+}
 
 export function CustomizeEnvironmentDialog({
   open,
@@ -132,12 +189,16 @@ export function CustomizeEnvironmentDialog({
   const [replacing, setReplacing] = useState<string | null>(null);
   const [confirmReset, setConfirmReset] = useState(false);
   const [pendingFocus, setPendingFocus] = useState<PendingFocus>(null);
+  const [query, setQuery] = useState("");
+  const [category, setCategory] = useState<ModuleCategory | "all">("all");
 
   useEffect(() => {
     if (!open) return;
     setMessage("");
     setReplacing(null);
     setConfirmReset(false);
+    setQuery("");
+    setCategory("all");
     requestAnimationFrame(() => closeRef.current?.focus());
   }, [open]);
 
@@ -246,7 +307,7 @@ export function CustomizeEnvironmentDialog({
     }
     if (event.key !== "Tab" || !dialogRef.current) return;
     const focusable = [
-      ...dialogRef.current.querySelectorAll<HTMLElement>('button:not([disabled]), [href], [tabindex]:not([tabindex="-1"])'),
+      ...dialogRef.current.querySelectorAll<HTMLElement>('button:not([disabled]), input, [href], [tabindex]:not([tabindex="-1"])'),
     ];
     if (!focusable.length) return;
     const first = focusable[0];
@@ -260,6 +321,12 @@ export function CustomizeEnvironmentDialog({
     }
   }
 
+  // Matching cards, those not on the dashboard first; the match order is kept within each part.
+  const matching = searchItems(query, ENVIRONMENT_CARDS.map(searchableCard)).filter(
+    (card) => category === "all" || card.category === category,
+  );
+  const results = [...matching.filter((card) => !envCards.includes(card.id)), ...matching.filter((card) => envCards.includes(card.id))];
+
   const catalogItem = (card: EnvironmentCardDefinition) => {
     const Icon = card.icon;
     const shown = envCards.includes(card.id);
@@ -272,7 +339,11 @@ export function CustomizeEnvironmentDialog({
           <Icon size={17} />
         </span>
         <span className="customize-copy">
-          <strong>{card.title}</strong>
+          <strong>
+            {card.title}
+            <span className="catalog-tag">{categoryOf(card.category).code}</span>
+            {shown && !isTarget && <span className="catalog-tag is-shown">Affiché</span>}
+          </strong>
           <small>{card.kind === "system" ? "Carte de démonstration · valeurs fictives" : `${card.description} · ${card.route}`}</small>
         </span>
         <button
@@ -383,14 +454,34 @@ export function CustomizeEnvironmentDialog({
                 </button>
               )}
             </div>
-            <h4>Cartes de démonstration</h4>
-            <ul className="customize-catalog">{SYSTEM_CARDS.map(catalogItem)}</ul>
-            {moduleGroups.map((group) => (
-              <div key={group}>
-                <h4>{group}</h4>
-                <ul className="customize-catalog">{MODULE_CARDS.filter((card) => card.group === group).map(catalogItem)}</ul>
+            <CatalogSearch
+              query={query}
+              onQuery={setQuery}
+              category={category}
+              onCategory={setCategory}
+              label="Rechercher un module à ajouter"
+              count={results.length}
+            />
+            {results.length ? (
+              <ul className="customize-catalog">{results.map(catalogItem)}</ul>
+            ) : (
+              <div className="catalog-empty">
+                <p>
+                  Aucun module ne correspond{normalize(query) ? ` à « ${query.trim()} »` : ""}
+                  {category !== "all" ? ` dans ${categoryOf(category).code}` : ""}.
+                </p>
+                <button
+                  type="button"
+                  className="text-action"
+                  onClick={() => {
+                    setQuery("");
+                    setCategory("all");
+                  }}
+                >
+                  Effacer la recherche
+                </button>
               </div>
-            ))}
+            )}
           </section>
         </div>
 

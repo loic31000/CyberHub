@@ -1,0 +1,336 @@
+/*
+ * Signature pass: one CyberHub design language for the rail, the environment
+ * cards, the widgets, the catalogue and the hero core.
+ *
+ * - Glyphs: a 1.6 px stroke; their single node is the board's signal point.
+ *   Idle nodes are dim, a hovered or active item lights its node.
+ * - Tiles: every icon sits in the same small instrument well (depth from a
+ *   top highlight and a dark rim, no blur).
+ * - Panels: an accent per widget type and a stronger heading.
+ * Colours stay opaque on panels; nothing here changes layout or behaviour.
+ */
+
+:root {
+  --s-node: #00d4ff;
+  --s-node-dim: #3f7d99;
+  --s-tile: #0b1622;
+  --s-tile-rim: #1f3b52;
+  --s-tile-ink: #9adff0;
+}
+
+/* ---------- glyphs ---------- */
+
+.cyber-glyph {
+  flex: none;
+}
+
+.cyber-glyph .cg-node {
+  fill: var(--glyph-node, var(--s-node));
+}
+
+/* Lucide utility icons (menu, bell, chevrons) share the glyph stroke. */
+svg.lucide {
+  stroke-width: 1.7;
+}
+
+/* ---------- icon tiles ---------- */
+
+.workspace.dashboard-board :is(.environment-icon, .feed-icon, .threat-icon, .sync-icon, .panel-glyph),
+.customize-dialog .customize-icon,
+.detail-dialog .detail-status {
+  display: grid;
+  place-items: center;
+  flex: none;
+  border: 1px solid var(--s-tile-rim);
+  border-radius: 8px;
+  color: var(--s-tile-ink);
+  background:
+    linear-gradient(180deg, rgb(255 255 255 / 0.04), transparent 60%),
+    var(--s-tile);
+  box-shadow:
+    inset 0 1px 0 rgb(255 255 255 / 0.05),
+    inset 0 -1px 0 rgb(0 0 0 / 0.45),
+    0 1px 0 rgb(2 6 12 / 0.7);
+}
+
+.workspace.dashboard-board .environment-icon svg {
+  width: 21px;
+  height: 21px;
+}
+
+/* Tones: amber and red keep their meaning, in the same well. */
+.workspace.dashboard-board :is(.feed-icon, .threat-icon).is-amber {
+  --glyph-node: #f5a524;
+  color: #f4c46d;
+  border-color: rgb(245 165 36 / 0.34);
+  background:
+    linear-gradient(180deg, rgb(245 165 36 / 0.09), transparent 70%),
+    #16130d;
+}
+
+.workspace.dashboard-board :is(.feed-icon, .threat-icon).is-red {
+  --glyph-node: #ff5c5c;
+  color: #ff9090;
+  border-color: rgb(239 68 68 / 0.38);
+  background:
+    linear-gradient(180deg, rgb(239 68 68 / 0.1), transparent 70%),
+    #1a0e13;
+}
+
+.workspace.dashboard-board .threat-icon.is-quiet {
+  --glyph-node: #7d97ab;
+  color: #93a9ba;
+}
+
+/* An environment card lights its node on hover and focus. */
+.workspace.dashboard-board .environment-card .environment-icon {
+  --glyph-node: var(--s-node-dim);
+  transition: border-color 160ms ease, color 160ms ease;
+}
+
+.workspace.dashboard-board .environment-card.signal-ready .environment-icon,
+.workspace.dashboard-board .environment-card:is(:hover, :focus-visible) .environment-icon {
+  --glyph-node: var(--s-node);
+}
+
+.workspace.dashboard-board .environment-card.signal-attention .environment-icon {
+  --glyph-node: #f5a524;
+}
+
+.workspace.dashboard-board .environment-card:is(:hover, :focus-visible) .environment-icon {
+  border-color: #2f6a88;
+  color: #c9f1fa;
+}
+
+/* ---------- panels ---------- */
+
+.workspace.dashboard-board .environment-panel,
+.workspace.dashboard-board .feed-panel {
+  --panel-accent: #00d4ff;
+}
+
+.workspace.dashboard-board .network-panel {
+  --panel-accent: #4fb8e6;
+}
+
+.workspace.dashboard-board .alert-panel {
+  --panel-accent: #f5a524;
+}
+
+.workspace.dashboard-board .threat-panel {
+  --panel-accent: #ef4444;
+}
+
+/* Panels anchor their accent marks; none of their descendants is positioned outside them. */
+.workspace.dashboard-board :is(.dashboard-panel, .sync-panel) {
+  position: relative;
+  border-color: #1f3146;
+  box-shadow:
+    0 10px 28px rgb(2 4 10 / 0.25),
+    inset 0 1px 0 rgb(255 255 255 / 0.045);
+}
+
+.workspace.dashboard-board .threat-panel {
+  border-color: rgb(81 48 58);
+}
+
+/* Headings: a clearer title, and the widget's accent under its start. */
+.workspace.dashboard-board .panel-heading {
+  position: relative;
+}
+
+/* A small accent tab on the top edge names the widget's type at a glance. */
+.workspace.dashboard-board .panel-heading::before {
+  content: "";
+  position: absolute;
+  left: 14px;
+  top: -1px;
+  width: 30px;
+  height: 2px;
+  border-radius: 0 0 2px 2px;
+  pointer-events: none;
+  background: var(--panel-accent, #00d4ff);
+  opacity: 0.85;
+}
+
+.workspace.dashboard-board .panel-heading::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  bottom: -1px;
+  width: 56px;
+  height: 1px;
+  pointer-events: none;
+  background: linear-gradient(90deg, var(--panel-accent, #00d4ff), transparent);
+  opacity: 0.75;
+}
+
+/* Same metrics as before (the narrow widgets have 5 px to spare), a firmer weight. */
+.workspace.dashboard-board .panel-heading h2 {
+  color: #eef6fb;
+  font-weight: 700;
+}
+
+.workspace.dashboard-board .panel-heading p {
+  color: #93a6b6;
+}
+
+/* Widget glyph in the heading, tinted by the widget's accent; only where the
+   heading has room: the narrow widgets keep their titles on one line. */
+.workspace.dashboard-board .feed-panel .panel-heading > .panel-glyph {
+  display: none;
+}
+
+.workspace.dashboard-board .panel-heading:has(> .panel-glyph) {
+  justify-content: flex-start;
+}
+
+.workspace.dashboard-board .panel-heading > .panel-glyph {
+  width: 30px;
+  height: 30px;
+  margin-right: -4px;
+  --glyph-node: var(--panel-accent);
+  color: color-mix(in srgb, var(--panel-accent) 55%, #d8eef6);
+  border-color: color-mix(in srgb, var(--panel-accent) 34%, #1f3b52);
+}
+
+.workspace.dashboard-board .panel-heading > .panel-glyph + div {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+/* On phones the heading stacks: the glyph would add a row, so it gives way. */
+@media (max-width: 760px) {
+  .workspace.dashboard-board .panel-heading > .panel-glyph {
+    display: none;
+  }
+}
+
+/* The sync bar is a system strip: its well matches the tiles. */
+.workspace.dashboard-board .sync-icon {
+  --glyph-node: var(--s-node);
+}
+
+/* ---------- navigation rail ---------- */
+
+.nav-rail .rail-item {
+  --glyph-node: var(--s-node-dim);
+  z-index: 1;
+  border-radius: 8px;
+  border: 1px solid #172b3d;
+  color: #8fb0c4;
+  background:
+    linear-gradient(180deg, rgb(255 255 255 / 0.025), transparent 60%),
+    #09111b;
+  box-shadow: inset 0 -1px 0 rgb(0 0 0 / 0.45);
+  transition: color 160ms ease, border-color 160ms ease, background-color 160ms ease;
+}
+
+.nav-rail .rail-item:hover {
+  --glyph-node: var(--s-node);
+  color: #d4f2fa;
+  border-color: #255069;
+}
+
+.nav-rail .rail-item.is-active {
+  --glyph-node: var(--s-node);
+  color: #eafbff;
+  border-color: rgb(0 212 255 / 0.5);
+  background:
+    linear-gradient(180deg, rgb(0 212 255 / 0.15), rgb(0 212 255 / 0.04)),
+    #0a1621;
+  box-shadow:
+    inset 0 1px 0 rgb(255 255 255 / 0.08),
+    0 0 0 3px rgb(0 212 255 / 0.06);
+}
+
+/* The active item's marker: a lit pin on the rail's edge. */
+.nav-rail .rail-item.is-active::before {
+  width: 2px;
+  height: 22px;
+  border-radius: 2px;
+  background: #00d4ff;
+  box-shadow: 0 0 8px rgb(0 212 255 / 0.65);
+}
+
+/* Drawer: the same glyphs, lit only on the current module. */
+.module-drawer .drawer-link {
+  --glyph-node: var(--s-node-dim);
+}
+
+.module-drawer .drawer-link:is(:hover, :focus-visible, .is-current) {
+  --glyph-node: var(--s-node);
+}
+
+/* ---------- hero core ---------- */
+
+.hero-board .core-window {
+  fill: #06101a;
+  stroke: #3f86a6;
+  stroke-width: 1.1;
+}
+
+.hero-board .core-bevel {
+  fill: none;
+  stroke: #9fdcef;
+  stroke-width: 1;
+  stroke-linecap: round;
+  opacity: 0.35;
+}
+
+.hero-board .core-fiducial {
+  fill: none;
+  stroke: #3a7895;
+  stroke-width: 1;
+  stroke-linecap: round;
+}
+
+.hero-board .core-prompt {
+  fill: none;
+  stroke: #7fe8f8;
+  stroke-width: 3.4;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.hero-board .core-prompt.is-small {
+  stroke-width: 1.9;
+}
+
+.hero-board .core-node {
+  fill: #00d4ff;
+}
+
+.hero-board .core-pad {
+  fill: #2f6a88;
+}
+
+.hero-board .core-ring {
+  fill: none;
+  stroke: #24506a;
+  stroke-width: 1;
+}
+
+.hero-board .core-spoke {
+  fill: none;
+  stroke: #3a7193;
+  stroke-width: 1.2;
+}
+
+.hero-board .core-cell {
+  fill: #0b1c2a;
+  stroke: #24506a;
+  stroke-width: 1;
+}
+
+.hero-board .core-cell.is-lit {
+  fill: #0b2a3a;
+  stroke: #6fdcf2;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .workspace.dashboard-board .environment-card .environment-icon,
+  .nav-rail .rail-item {
+    transition: none;
+  }
+}

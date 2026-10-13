@@ -1,0 +1,563 @@
+/*
+ * Dashboard finalisation: customisable widget grid, compact widgets, real
+ * collapse, readable type, catalogue search, sidebar clean-up.
+ *
+ * Loaded last. The widget grid replaces the fixed rows and explicit placements
+ * of Phases 2F–2M: widgets are placed in layout order by auto-placement, with
+ * the column span of their size (a custom property set inline). Rows are 4 px:
+ * useWidgetMasonry gives each widget the row span of its own height plus the
+ * vertical gap (--w-gap), so a column closes up when a widget collapses.
+ */
+
+/* ---------- workspace: hero, environment, toolbar, widgets, footer ---------- */
+
+.workspace.dashboard-board {
+  grid-template-rows: none;
+  grid-auto-rows: auto;
+  align-content: start;
+}
+
+.workspace.dashboard-board > :is(.overview-hero, .environment-panel, .widget-toolbar, .widget-grid, .page-foot) {
+  grid-column: 1 / -1;
+  grid-row: auto;
+  min-width: 0;
+}
+
+.workspace.dashboard-board > .widget-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.9rem;
+  margin-block: -0.6rem;
+  min-height: 2rem;
+}
+
+/* A small section header: the label, then the action. The board behind it is calmed. */
+.widget-toolbar p {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: 0.45rem;
+  margin: 0;
+  color: #c3d1dc;
+  font: 500 0.78rem/1.3 var(--mono, "DM Mono", monospace);
+}
+
+.widget-toolbar .widget-toolbar-code {
+  color: #7fdff3;
+  letter-spacing: 0.12em;
+}
+
+.widget-toolbar .widget-customize {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  white-space: nowrap;
+}
+
+/* ---------- widget grid ---------- */
+
+.workspace.dashboard-board .widget-grid {
+  --w-gap: 28px;
+  display: grid;
+  grid-template-columns: repeat(12, minmax(0, 1fr));
+  grid-auto-rows: 4px;
+  grid-auto-flow: row dense;
+  align-items: start;
+  column-gap: 28px;
+  row-gap: 0;
+}
+
+.workspace.dashboard-board .widget-grid > .widget {
+  grid-column: span var(--w-cols, 12);
+  grid-row-start: auto;
+  height: auto;
+  min-height: 0;
+  max-height: none;
+  margin: 0;
+  align-self: start;
+}
+
+/* The globe has a fixed, legible height per size; the other widgets follow their content. */
+.workspace.dashboard-board .widget-grid > .network-panel {
+  height: var(--network-h, 500px);
+}
+
+.workspace.dashboard-board .widget-grid > .network-panel[data-size="large"] {
+  --network-h: 560px;
+}
+
+/* Panel internals: content height, no row stretched to a former fixed size. */
+.workspace.dashboard-board .widget-grid > .widget:not(.network-panel) {
+  grid-template-rows: none;
+  grid-auto-rows: auto;
+  align-content: start;
+}
+
+.workspace.dashboard-board .widget-grid > .widget-empty {
+  grid-column: 1 / -1;
+  grid-row: span 24;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 1rem;
+  padding: 1.6rem;
+  border: 1px solid #22364c;
+  border-radius: 8px;
+  background: #0f1724;
+  color: #c3d1dc;
+}
+
+.widget-empty p {
+  margin: 0;
+}
+
+@media (max-width: 1199px) {
+  .workspace.dashboard-board .widget-grid {
+    --w-gap: 24px;
+    grid-template-columns: repeat(6, minmax(0, 1fr));
+    column-gap: 24px;
+  }
+
+  .workspace.dashboard-board .widget-grid > .widget {
+    grid-column: span var(--w-cols-tablet, 6);
+  }
+
+  /* Below 1200 px the globe sizes its panel from its own aspect ratio, as before. */
+  .workspace.dashboard-board .widget-grid > .network-panel,
+  .workspace.dashboard-board .widget-grid > .network-panel[data-size="large"] {
+    height: auto;
+  }
+}
+
+@media (max-width: 760px) {
+  .workspace.dashboard-board .widget-grid {
+    --w-gap: 20px;
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .workspace.dashboard-board .widget-grid > .widget {
+    grid-column: 1;
+  }
+
+
+  .workspace.dashboard-board > .widget-toolbar {
+    flex-wrap: wrap;
+    margin-block: -0.3rem;
+  }
+}
+
+/* ---------- collapse: only the header remains, no reserved slot ---------- */
+
+.workspace.dashboard-board .widget-grid > .dashboard-panel.is-collapsed {
+  align-self: start;
+  height: auto;
+  min-height: 0;
+  border-color: var(--f-border, #1f3146);
+  background:
+    linear-gradient(145deg, #ffffff04, transparent 35%),
+    var(--f-bg-panel, #0f1623);
+  box-shadow: 0 10px 28px #02040a40, inset 0 1px #ffffff07;
+}
+
+.workspace.dashboard-board .widget-grid > .dashboard-panel.is-collapsed::after {
+  content: none;
+}
+
+.workspace.dashboard-board .widget-grid > .dashboard-panel.is-collapsed > .panel-heading {
+  border: 0;
+  border-radius: inherit;
+  background: none;
+  box-shadow: none;
+}
+
+.workspace.dashboard-board .widget-grid > .threat-panel.is-collapsed {
+  border-color: #51303a;
+  background:
+    linear-gradient(90deg, #1d1018, #0d1420 42%),
+    #111827;
+  box-shadow: inset 2px 0 #ef44443d, 0 10px 28px #02040a40;
+}
+
+.workspace.dashboard-board .widget-grid > .threat-panel.is-collapsed > .threat-heading {
+  background: none;
+  box-shadow: none;
+}
+
+/* ---------- surfaces and headings ---------- */
+
+.workspace.dashboard-board .widget-grid > :is(.dashboard-panel, .sync-panel),
+.workspace.dashboard-board > .environment-panel {
+  border-color: #22364c;
+}
+
+.workspace.dashboard-board .widget-grid > :is(.feed-panel, .network-panel, .sync-panel) {
+  background:
+    linear-gradient(180deg, rgb(255 255 255 / 0.025), transparent 140px),
+    #101928;
+}
+
+.workspace.dashboard-board .panel-heading p,
+.workspace.dashboard-board .threat-title p {
+  font-size: 0.78rem;
+  line-height: 1.35;
+  color: #a9bac8;
+}
+
+/* ---------- Dernières opérations: compact, readable rows ---------- */
+
+.workspace.dashboard-board .widget-grid .activity-list {
+  grid-template-rows: none;
+  grid-auto-rows: auto;
+  align-content: start;
+  height: auto;
+  padding: 0.25rem 0.65rem 0.55rem;
+}
+
+.workspace.dashboard-board .widget-grid .activity-list li button {
+  min-height: 0;
+  height: auto;
+  padding: 0.62rem 0.3rem;
+  align-items: center;
+  border-radius: 6px;
+}
+
+.workspace.dashboard-board .widget-grid .activity-list li + li {
+  border-top: 1px solid #1c2c3e;
+}
+
+.workspace.dashboard-board .widget-grid .activity-list strong {
+  font-size: 0.85rem;
+  line-height: 1.3;
+  color: #edf4f9;
+}
+
+.workspace.dashboard-board .widget-grid .activity-list small {
+  font-size: 0.78rem;
+  line-height: 1.35;
+  color: #a9bac8;
+}
+
+.workspace.dashboard-board .widget-grid .activity-list time {
+  font-size: 0.75rem;
+  color: #7fdff3;
+}
+
+.workspace.dashboard-board .widget-grid .activity-list li button:hover {
+  background: rgb(0 212 255 / 0.05);
+}
+
+/* ---------- Threat Monitor: same identity, no superfluous space ---------- */
+
+.workspace.dashboard-board .widget-grid .threat-list {
+  height: auto;
+  grid-template-rows: none;
+  grid-auto-rows: auto;
+  gap: 0.45rem;
+  padding: 0.45rem 0.55rem;
+}
+
+.workspace.dashboard-board .widget-grid .threat-list li button {
+  min-height: 0;
+  height: auto;
+  padding: 0.55rem 0.5rem;
+}
+
+.workspace.dashboard-board .widget-grid .threat-copy strong {
+  font-size: 0.82rem;
+  line-height: 1.3;
+}
+
+.workspace.dashboard-board .widget-grid .threat-copy small {
+  font-size: 0.75rem;
+  line-height: 1.35;
+  color: #b4c2cf;
+}
+
+.workspace.dashboard-board .widget-grid .threat-foot {
+  font-size: 0.72rem;
+  color: #a2b2c2;
+  padding-block: 0.4rem;
+}
+
+/* ---------- Veille CVE: title, description and severity first ---------- */
+
+.workspace.dashboard-board .widget-grid .alert-list li button {
+  grid-template-rows: none;
+  grid-auto-rows: auto;
+  padding: 0.62rem 0.3rem;
+  row-gap: 0.15rem;
+}
+
+.workspace.dashboard-board .widget-grid .alert-list strong {
+  font-size: 0.85rem;
+  letter-spacing: 0.01em;
+}
+
+.workspace.dashboard-board .widget-grid .feed-badge {
+  font-size: 0.66rem;
+  font-weight: 650;
+  letter-spacing: 0.06em;
+}
+
+/* ---------- synchronisation and footer ---------- */
+
+.workspace.dashboard-board .widget-grid .sync-copy span {
+  font-size: 0.75rem;
+  color: #a9bac8;
+}
+
+.workspace.dashboard-board .page-foot {
+  font-size: 0.68rem;
+  color: #9fb0bf;
+}
+
+/* ---------- sidebar: compact, aligned, no decorative line ---------- */
+
+.nav-rail {
+  gap: 10px;
+}
+
+.nav-rail .rail-item:focus-visible {
+  outline: 2px solid #00d4ff;
+  outline-offset: 2px;
+}
+
+.nav-rail .rail-item svg {
+  width: 19px;
+  height: 19px;
+}
+
+.module-drawer .drawer-group h3 .drawer-code {
+  margin-right: 0.35rem;
+  color: #7fdff3;
+}
+
+/* ---------- catalogue search (cards and widgets) ---------- */
+
+.catalog-search {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 0.6rem 0.75rem;
+  margin: 0.4rem 0 0.75rem;
+}
+
+.catalog-field {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  min-width: 0;
+  padding: 0 0.75rem;
+  border: 1px solid #2a4560;
+  border-radius: 7px;
+  background: #0a121c;
+  color: #9fb8c8;
+}
+
+.catalog-field:focus-within {
+  border-color: #00d4ff;
+  box-shadow: 0 0 0 3px rgb(0 212 255 / 0.15);
+}
+
+.catalog-field input {
+  flex: 1;
+  min-width: 0;
+  height: 2.3rem;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  color: #e8f1f7;
+  font: inherit;
+  font-size: 0.88rem;
+}
+
+.catalog-field input::placeholder {
+  color: #8297a8;
+}
+
+.catalog-filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+}
+
+.catalog-filter {
+  min-height: 2rem;
+  padding: 0 0.6rem;
+  border: 1px solid #263d55;
+  border-radius: 6px;
+  background: #0b1520;
+  color: #b6c6d2;
+  font: 600 0.72rem/1 var(--mono, "DM Mono", monospace);
+  letter-spacing: 0.06em;
+  cursor: pointer;
+}
+
+.catalog-filter:hover {
+  border-color: #33617f;
+  color: #e3f5fb;
+}
+
+.catalog-filter[aria-pressed="true"] {
+  border-color: rgb(0 212 255 / 0.55);
+  background: rgb(0 212 255 / 0.12);
+  color: #e9fbff;
+}
+
+.catalog-filter:focus-visible,
+.widget-sizes button:focus-visible {
+  outline: 2px solid #00d4ff;
+  outline-offset: 2px;
+}
+
+.catalog-count {
+  grid-column: 1 / -1;
+  margin: 0;
+  color: #9fb0bf;
+  font-size: 0.75rem;
+}
+
+.catalog-tag {
+  display: inline-block;
+  margin-left: 0.45rem;
+  padding: 0.1rem 0.35rem;
+  border: 1px solid #2a4560;
+  border-radius: 4px;
+  color: #9fd9ea;
+  font: 600 0.62rem/1.3 var(--mono, "DM Mono", monospace);
+  letter-spacing: 0.06em;
+  vertical-align: 0.1em;
+}
+
+.catalog-tag.is-shown {
+  border-color: rgb(0 212 255 / 0.45);
+  color: #7fe8f8;
+}
+
+.catalog-tag.is-hidden {
+  border-color: #3a4a5c;
+  color: #b3c0cb;
+}
+
+.catalog-empty {
+  display: grid;
+  justify-items: start;
+  gap: 0.4rem;
+  padding: 1rem;
+  border: 1px solid #22364c;
+  border-radius: 7px;
+  color: #c3d1dc;
+}
+
+.catalog-empty p {
+  margin: 0;
+}
+
+@media (max-width: 560px) {
+  .catalog-search {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+/* ---------- dashboard customisation dialog ---------- */
+
+.widget-preview {
+  display: grid;
+  grid-template-columns: repeat(12, minmax(0, 1fr));
+  grid-auto-flow: row dense;
+  grid-auto-rows: 1.6rem;
+  gap: 0.3rem;
+  margin: 0.2rem 0 1rem;
+  padding: 0.5rem;
+  border: 1px solid #22364c;
+  border-radius: 7px;
+  background: #08111a;
+}
+
+.widget-preview span {
+  grid-column: span var(--w-cols, 12);
+  grid-row: span var(--w-rows, 1);
+  display: flex;
+  align-items: center;
+  min-width: 0;
+  padding: 0 0.45rem;
+  overflow: hidden;
+  border: 1px solid #2a4c66;
+  border-radius: 4px;
+  background: #0f2131;
+  color: #cfe6f0;
+  font-size: 0.68rem;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.widget-preview em {
+  grid-column: 1 / -1;
+  color: #9fb0bf;
+  font-size: 0.8rem;
+}
+
+.widgets-dialog .widget-rows li {
+  grid-template-columns: auto auto minmax(0, 1fr) auto auto;
+}
+
+.widget-sizes {
+  display: inline-flex;
+  border: 1px solid #263d55;
+  border-radius: 6px;
+  overflow: hidden;
+}
+
+.widget-sizes button {
+  min-height: 2.25rem;
+  padding: 0 0.55rem;
+  border: 0;
+  border-left: 1px solid #263d55;
+  background: #0b1520;
+  color: #b6c6d2;
+  font-family: inherit;
+  font-size: 0.72rem;
+  font-weight: 600;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.widget-sizes button:first-child {
+  border-left: 0;
+}
+
+.widget-sizes button[aria-pressed="true"] {
+  background: rgb(0 212 255 / 0.14);
+  color: #e9fbff;
+}
+
+.customize-choose.is-restore {
+  border-color: rgb(0 212 255 / 0.45);
+  color: #bff3fc;
+}
+
+@media (max-width: 760px) {
+  .widgets-dialog .widget-rows li {
+    grid-template-columns: auto auto minmax(0, 1fr);
+  }
+
+  .widgets-dialog .widget-rows .widget-sizes,
+  .widgets-dialog .widget-rows .customize-actions {
+    grid-column: 1 / -1;
+    justify-self: start;
+  }
+}
+
+/* Phase 2E hides the trailing chevron of threat rows on tablets with
+   `svg:last-child`, which also caught the icon inside its well: keep the icon. */
+.workspace.dashboard-board .threat-list .threat-icon svg {
+  display: block;
+}
+
+/* A narrow Threat Monitor lists its signals in one column. */
+@media (max-width: 1199px) {
+  .workspace.dashboard-board .widget-grid > .threat-panel:not([data-size="large"]) .threat-list {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}

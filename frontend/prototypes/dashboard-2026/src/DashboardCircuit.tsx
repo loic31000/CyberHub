@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { CSSProperties, RefObject } from "react";
+import { createPortal } from "react-dom";
 
 /*
  * Phase 3A.2 (lot A): the dashboard sits on a motherboard.
@@ -15,6 +16,11 @@ import type { CSSProperties, RefObject } from "react";
  * `requestCircuitRecompute()` after moving or hiding a panel.
  *
  * Each layer is a single <path>, so the static board is a few dozen elements.
+ *
+ * On desktop the hero joins the board: its CH processor sits on a small board
+ * drawn with the same primitives and feeds a link connector astride the
+ * hero's lower edge. The connector sits on board traces that already run up
+ * under the hero, and the board's journeys start from CH through it.
  */
 
 export const CIRCUIT_LAYOUT_EVENT = "cyberhub:layout-change";
@@ -35,7 +41,7 @@ const BAR = 12; // beats
 const SPEED = 80; // px per second, before snapping to the beat
 const START_BEATS = [0, 2, 5, 8, 10]; // each journey enters on its own beat
 
-type Rect = { x: number; y: number; w: number; h: number; globe?: boolean };
+type Rect = { x: number; y: number; w: number; h: number; globe?: boolean; role?: "hero" | "env" | "widget" | "foot" };
 type Point = { x: number; y: number };
 type Side = "l" | "r" | "t" | "b";
 type Part = { id?: number; x: number; y: number; w: number; h: number; ports: Record<Side, Point[]>; used: Record<Side, number> };
@@ -54,7 +60,7 @@ export type Journey = {
   period: number;
   delay: number;
   hops: (Route & { start: number; end: number })[];
-  glows: (Box & { start: number; end: number })[];
+  glows: (Box & { start: number; end: number; over?: boolean })[];
 };
 
 /* The main processor beats on the strong beats of the bar, like a kick drum. */
@@ -68,6 +74,17 @@ const LAYERS: BoardLayer[] = [
   "backbone", "trace", "bus", "shadow", "body", "die", "heat", "slot", "pin", "pad", "cap", "ball", "via", "hole", "mark",
 ];
 
+type Variant = "a" | "b";
+
+/* The hero card, its processor band, where its copy ends and its index starts, and the board's origin in the workspace. */
+type HeroAnchor = { hero: Box; band: Box; copyRight: number; indexLeft: number; board: Point; variant: Variant };
+
+/* The link connector: its body, its signal pins (x), unwired pins, and the tips of its upper and lower pins. */
+export type HeroLink = Box & { variant: Variant; pins: number[]; dummies: number[]; top: number; bottom: number };
+
+/* The hero's own small board, in board coordinates. */
+export type HeroBoard = Box & { layers: Record<BoardLayer, string>; chip: Box; link: HeroLink | null; board: Point };
+
 export type CircuitGeometry = {
   width: number;
   height: number;
@@ -75,6 +92,7 @@ export type CircuitGeometry = {
   layers: Record<BoardLayer, string>;
   journeys: Journey[];
   heartbeat: Heartbeat | null;
+  hero: HeroBoard | null;
   boardKey: string; // changes only when the static drawing changes
   revision?: number;
 };
@@ -330,7 +348,13 @@ function wireBus(b: Builder, links: Link[], from: Point[], to: Point[], axis: "h
  * `obstacles` is what actually hides the board (a collapsed panel only through
  * its header); `slots` are the full panel footprints, used for the lower layer.
  */
-export function buildBoard(width: number, height: number, obstacles: Rect[], slots: Rect[] = obstacles): Omit<CircuitGeometry, "revision"> {
+export function buildBoard(
+  width: number,
+  height: number,
+  obstacles: Rect[],
+  slots: Rect[] = obstacles,
+  anchor: HeroAnchor | null = null,
+): Omit<CircuitGeometry, "revision"> {
   const compact = width < 760;
   const S = compact ? 150 : 172;
   const k = S / 196;
@@ -476,7 +500,10 @@ export function buildBoard(width: number, height: number, obstacles: Rect[], slo
     }
   }
 
-  const journeys = planJourneys(links, parts, obstacles, compact, hub);
+  // The desktop hero drives the board through its link connector; otherwise
+  // the board keeps its own journeys towards its main processor.
+  const hero = anchor && !compact ? heroCircuit(anchor, b, parts, links, obstacles) : null;
+  const journeys = hero?.journeys ?? planJourneys(links, parts, obstacles, compact, hub);
   const layers = Object.fromEntries(LAYERS.map((l) => [l, b.layers[l].join("")])) as Record<BoardLayer, string>;
   // FNV-1a over the drawing: journeys may change (a panel collapses) without redrawing the board.
   let hash = 0x811c9dc5;
@@ -485,10 +512,19 @@ export function buildBoard(width: number, height: number, obstacles: Rect[], slo
     for (let i = 0; i < d.length; i += 1) hash = Math.imul(hash ^ d.charCodeAt(i), 0x01000193);
   }
   const heartbeat =
-    hubBox && !isHidden({ x: hubBox.x + hubBox.w / 2, y: hubBox.y + hubBox.h / 2 }, obstacles)
+    !hero?.journeys && hubBox && !isHidden({ x: hubBox.x + hubBox.w / 2, y: hubBox.y + hubBox.h / 2 }, obstacles)
       ? { ...hubBox, period: BAR * BEAT, beats: [0, 6] }
       : null;
-  return { width, height, obstacles, layers, journeys, heartbeat, boardKey: `${width}x${height}-${(hash >>> 0).toString(36)}` };
+  return {
+    width,
+    height,
+    obstacles,
+    layers,
+    journeys,
+    heartbeat,
+    hero: hero?.board ?? null,
+    boardKey: `${width}x${height}-${(hash >>> 0).toString(36)}`,
+  };
 }
 
 /* Share of a route that is not hidden behind a panel. */
@@ -600,6 +636,478 @@ function planJourneys(links: Link[], parts: Part[], obstacles: Rect[], compact: 
   return journeys;
 }
 
+/* ---------- hero processor and its link connector ---------- */
+
+const HERO_SPEED = 110; // px per second, before snapping to the beat
+const TOUR_HOPS = 14; // legs of one tour, at most: longer tours are split
+
+type TourHop = { route: Route; to: Part | null };
+
+/* Buses as a graph: each link in both directions. */
+function busGraph(links: Link[]) {
+  const adjacency = new Map<number, { to: number; route: Route }[]>();
+  const add = (from: number, to: number, route: Route) => {
+    if (!adjacency.has(from)) adjacency.set(from, []);
+    adjacency.get(from)?.push({ to, route });
+  };
+  for (const { a, b, route } of links) {
+    add(a, b, route);
+    add(b, a, reversed(route));
+  }
+  return adjacency;
+}
+
+/*
+ * A tour from `start`: each leg follows the buses to the nearest chip not
+ * visited yet (shortest path, so it may pass through visited chips, which
+ * glow again), until the network is covered or the tour is long enough.
+ */
+function tour(adjacency: Map<number, { to: number; route: Route }[]>, parts: Part[], start: number, visited: Set<number>, maxHops: number) {
+  const hops: TourHop[] = [];
+  let current = start;
+  visited.add(start);
+  while (hops.length < maxHops) {
+    const dist = new Map<number, number>([[current, 0]]);
+    const prev = new Map<number, { from: number; route: Route }>();
+    const done = new Set<number>();
+    const queue = [current];
+    let target = -1;
+    while (queue.length) {
+      queue.sort((x, y) => (dist.get(x) ?? 0) - (dist.get(y) ?? 0));
+      const node = queue.shift() as number;
+      if (done.has(node)) continue;
+      done.add(node);
+      if (!visited.has(node)) {
+        target = node;
+        break;
+      }
+      for (const edge of adjacency.get(node) ?? []) {
+        const d = (dist.get(node) ?? 0) + edge.route.length;
+        if (d < (dist.get(edge.to) ?? Infinity)) {
+          dist.set(edge.to, d);
+          prev.set(edge.to, { from: node, route: edge.route });
+          queue.push(edge.to);
+        }
+      }
+    }
+    if (target < 0) break;
+    const path: TourHop[] = [];
+    for (let node = target; node !== current; node = (prev.get(node) as { from: number }).from) {
+      path.unshift({ route: (prev.get(node) as { route: Route }).route, to: parts[node] });
+    }
+    if (hops.length && hops.length + path.length > maxHops) break;
+    for (const hop of path) {
+      hops.push(hop);
+      if (hop.to?.id !== undefined) visited.add(hop.to.id);
+    }
+    current = target;
+  }
+  return hops;
+}
+
+type Segment = [Point, Point];
+
+/* Distance from a point to a segment. */
+function distance(p: Point, a: Point, z: Point) {
+  const dx = z.x - a.x;
+  const dy = z.y - a.y;
+  const t = dx || dy ? Math.max(0, Math.min(1, ((p.x - a.x) * dx + (p.y - a.y) * dy) / (dx * dx + dy * dy))) : 0;
+  return Math.hypot(p.x - a.x - t * dx, p.y - a.y - t * dy);
+}
+
+/* Points of a path drawn by this file (M, L, H, V and l commands only). */
+function pointsOf(d: string): Point[] {
+  const points: Point[] = [];
+  let cur: Point = { x: 0, y: 0 };
+  for (const [, cmd, args] of d.matchAll(/([MLHVl])([^MLHVlZz]*)/g)) {
+    const n = args.trim().split(/[\s,]+/).filter(Boolean).map(Number);
+    if (cmd === "M" || cmd === "L") cur = { x: n[0], y: n[1] };
+    else if (cmd === "l") cur = { x: cur.x + n[0], y: cur.y + n[1] };
+    else if (cmd === "H") cur = { x: n[0], y: cur.y };
+    else cur = { x: cur.x, y: n[0] };
+    points.push(cur);
+  }
+  return points;
+}
+
+/* Where a polyline running downwards crosses the height y, and the rest of it from there. */
+function from(points: Point[], y: number): Point[] | null {
+  for (let i = 1; i < points.length; i += 1) {
+    const a = points[i - 1];
+    const z = points[i];
+    if (a.y <= y && z.y > y) {
+      const t = (y - a.y) / (z.y - a.y);
+      return [{ x: a.x + t * (z.x - a.x), y }, ...points.slice(i)];
+    }
+  }
+  return null;
+}
+
+type BoardLine = { rest: Point[]; part: Part; port: Point; fresh: boolean };
+
+/*
+ * The hero redrawn with the board's own primitives. The CH processor feeds a
+ * small link connector astride the hero's lower edge; the connector sits on
+ * board traces that already run up under the hero, so a signal leaves CH,
+ * enters the connector, and continues on the board's own copper.
+ */
+function heroCircuit(anchor: HeroAnchor, board: Builder, parts: Part[], links: Link[], obstacles: Rect[]) {
+  const { hero, band, variant } = anchor;
+  const bottom = hero.y + hero.h;
+  const zone = { l: anchor.copyRight + 40, r: anchor.indexLeft - 16 };
+  const P = (x: number, y: number) => ({ x, y });
+
+  // The connector: compact and astride the edge (A), or set into the board (B).
+  const spec =
+    variant === "b"
+      ? { inside: 9, outside: 9, pin: 4, margin: 22 }
+      : { inside: 7, outside: 7, pin: 4, margin: 12 };
+  const tip = bottom + spec.outside + spec.pin; // tips of its lower pins
+
+  // Board traces that run up under the hero and end on a chip below it.
+  const occupied = (p: Point) =>
+    LAYERS.some((layer) =>
+      board.layers[layer].some((d) => {
+        const pts = pointsOf(d);
+        const ends = [pts[0], pts[pts.length - 1]];
+        return ends.some((q) => q && Math.abs(q.x - p.x) < 0.6 && Math.abs(q.y - p.y) < 0.6);
+      }),
+    );
+  const lines: BoardLine[] = [];
+  for (const layer of ["trace", "bus"] as const) {
+    for (const d of board.layers[layer]) {
+      const pts = pointsOf(d);
+      const end = pts[pts.length - 1];
+      if (pts.length < 2 || pts[0].y >= bottom || end.y <= tip + 12) continue;
+      const rest = from(pts, tip);
+      const part = parts.find((p) => p.ports.t.some((q) => Math.abs(q.x - end.x) < 0.6 && Math.abs(q.y - end.y) < 0.6));
+      if (!rest || !part || rest[0].x < zone.l || rest[0].x > zone.r) continue;
+      lines.push({ rest, part, port: end, fresh: false });
+    }
+  }
+
+  // Bundles: lines ending on the same chip, side by side. Keep the one nearest
+  // the processor, preferring three lines.
+  const chipCentre = band.x + 0.739 * band.w;
+  const bundles = new Map<Part, BoardLine[]>();
+  lines.forEach((l) => bundles.set(l.part, [...(bundles.get(l.part) ?? []), l]));
+  const ranked = [...bundles.values()]
+    .map((ls) => ls.sort((a, z) => a.rest[0].x - z.rest[0].x))
+    .sort((a, z) => {
+      const score = (ls: BoardLine[]) => Math.abs((ls[0].rest[0].x + ls[ls.length - 1].rest[0].x) / 2 - chipCentre) + (ls.length < 3 ? 60 : 0);
+      return score(a) - score(z);
+    });
+  // Without a bundle in the free band (the narrowest desktops), the hero keeps
+  // its small board but no connector, and the board its own journeys.
+  const bundle = ranked[0]?.slice(0, 3) ?? [];
+
+  // A straight drop from the connector's lower pins to a free top pin of `part`
+  // is clear when it touches no other copper and crosses no other component.
+  const wires: Segment[] = (["trace", "bus"] as const)
+    .flatMap((layer) => board.layers[layer])
+    .flatMap((d) => {
+      const pts = pointsOf(d);
+      return pts.slice(1).map((p, i) => [pts[i], p] as Segment);
+    });
+  const clearDrop = (port: Point, part: Part) =>
+    port.x > zone.l &&
+    port.x < zone.r &&
+    !occupied(port) &&
+    !wires.some(([a, z]) => {
+      if (distance(port, a, z) < 0.6) return false;
+      for (let y = tip; y < port.y - 2; y += 2) if (distance(P(port.x, y), a, z) < 2.5) return true;
+      return false;
+    }) &&
+    !parts.some((p) => p !== part && port.x > p.x - 4 && port.x < p.x + p.w + 4 && p.y < port.y && p.y + p.h > tip);
+
+  // When no board trace runs up into the free band (the board is laid out on
+  // its own grid, so this depends on the page height), the connector gets
+  // three short straight drops to free top pins of the nearest chip below.
+  if (!bundle.length) {
+    let best: { part: Part; ports: Point[]; score: number } | null = null;
+    for (const part of parts) {
+      if (part.y < tip + 4 || part.y > tip + 170) continue;
+      // Free pins may alternate with decoupling ones: take up to three within 40 px.
+      const free = part.ports.t.filter((q) => q.y > tip + 2 && clearDrop(q, part));
+      for (let i = 0; i < free.length; i += 1) {
+        const ports = free.slice(i, i + 3).filter((q) => q.x - free[i].x <= 40);
+        if (ports.length < 2) continue;
+        const middle = (ports[0].x + ports[ports.length - 1].x) / 2;
+        const score = Math.abs(middle - chipCentre) + 0.6 * (part.y - tip) + (ports.length < 3 ? 80 : 0);
+        if (!best || score < best.score) best = { part, ports, score };
+      }
+    }
+    if (best) {
+      best.ports.forEach((port, i) => {
+        const top = P(port.x, tip);
+        board.add(i === 1 && best!.ports.length === 3 ? "bus" : "trace", polyline([top, port]).d);
+        bundle.push({ rest: [top, port], part: best!.part, port, fresh: true });
+      });
+    }
+  }
+
+  // A two-line bundle gets its third line: a short straight trace from the
+  // connector down to the next free top pin of the same chip.
+  if (bundle.length === 2) {
+    const part = bundle[0].part;
+    const ports = part.ports.t;
+    const used = bundle.map((l) => ports.findIndex((q) => q === l.port || (Math.abs(q.x - l.port.x) < 0.6 && Math.abs(q.y - l.port.y) < 0.6)));
+    for (const index of [Math.max(...used) + 1, Math.min(...used) - 1]) {
+      const port = ports[index];
+      if (!port || !clearDrop(port, part)) continue;
+      const top = P(port.x, tip);
+      board.add("trace", polyline([top, port]).d);
+      bundle.push({ rest: [top, port], part, port, fresh: true });
+      bundle.sort((a, z) => a.rest[0].x - z.rest[0].x);
+      break;
+    }
+  }
+
+  const xs = bundle.map((l) => l.rest[0].x);
+  const linkW = xs.length ? xs[xs.length - 1] - xs[0] + 2 * spec.margin : 0;
+  const link: HeroLink | null = !xs.length ? null : {
+    x: xs[0] - spec.margin,
+    y: bottom - spec.inside,
+    w: linkW,
+    h: spec.inside + spec.outside,
+    variant,
+    pins: xs,
+    dummies: [],
+    top: bottom - spec.inside - spec.pin,
+    bottom: tip,
+  };
+  if (link && variant === "b") {
+    // Unwired pins along the whole body, at the bundle's pitch.
+    const pitch = xs.length > 1 ? Math.min(7, (xs[xs.length - 1] - xs[0]) / (xs.length - 1)) : 6;
+    for (let x = link.x + 12; x < link.x + link.w - 11; x += pitch) {
+      if (!xs.some((p) => Math.abs(p - x) < pitch * 0.6)) link.dummies.push(x);
+    }
+  }
+
+  // The processor: a little larger than the 2N chip, raised so that its
+  // lower pins have room to reach the connector.
+  const b = builder();
+  const trace = (layer: BoardLayer, pts: Point[]) => b.add(layer, polyline(pts).d);
+  const w = 0.142 * band.w * 1.18;
+  const h = 64;
+  const chip = { x: chipCentre - w / 2, y: hero.y + 12, w, h };
+  const { x, y } = chip;
+  const fits = (left: number) => left > zone.l;
+
+  b.add("shadow", roundRectPath(x + 3, y + 4, w, h, 8));
+  b.add("body", roundRectPath(x, y, w, h, 8));
+  b.add("die", roundRectPath(x + 11, y + 9, w - 22, h - 18, 5));
+  for (let i = 1; i <= 3; i += 1) b.add("heat", roundRectPath(x + 11 + i * 4, y + 9 + i * 4, w - 22 - i * 8, h - 18 - i * 8, 3));
+  const pins: Record<Side, Point[]> = { l: [], r: [], t: [], b: [] };
+  for (let i = 0; i < 5; i += 1) {
+    const py = y + 10 + i * ((h - 20) / 4);
+    b.add("pin", rectPath(x - 6, py - 1, 6, 2));
+    b.add("pin", rectPath(x + w, py - 1, 6, 2));
+    pins.l.push(P(x - 6, py));
+    pins.r.push(P(x + w + 6, py));
+  }
+  for (let i = 0; i < 10; i += 1) {
+    const px = x + 13 + i * ((w - 26) / 9);
+    b.add("pin", rectPath(px - 1, y - 6, 2, 6));
+    b.add("pin", rectPath(px - 1, y + h, 2, 6));
+    pins.t.push(P(px, y - 6));
+    pins.b.push(P(px, y + h + 6));
+  }
+
+  // Processor to connector: the bottom pins nearest the connector, a short bus
+  // whose horizontal runs are stacked so the three lines never cross.
+  const linkCentre = xs.length ? (xs[0] + xs[xs.length - 1]) / 2 : chipCentre + 1;
+  const first = Math.max(
+    0,
+    Math.min(
+      pins.b.length - xs.length,
+      pins.b.reduce((best, p, i) => (Math.abs(p.x - linkCentre) < Math.abs(pins.b[best].x - linkCentre) ? i : best), 0) - Math.floor(xs.length / 2),
+    ),
+  );
+  const feeds = xs.map((cx, i) => ({ pin: pins.b[first + i], cx }));
+  const room = (link?.top ?? 0) - (y + h + 6);
+  const step = Math.min(4, (room - 8) / Math.max(1, xs.length));
+  const lefts = feeds.filter((f) => f.cx < f.pin.x - 1);
+  const rights = feeds.filter((f) => f.cx > f.pin.x + 1).reverse();
+  const level = new Map<(typeof feeds)[number], number>();
+  [lefts, rights].forEach((group) => group.forEach((f, i) => level.set(f, y + h + 6 + 4 + i * step)));
+  const heroPaths = feeds.map((f, i) => {
+    const end = P(f.cx, link?.top ?? 0);
+    const run = level.get(f);
+    const pts =
+      run === undefined
+        ? [f.pin, end]
+        : (() => {
+            const s = Math.sign(f.cx - f.pin.x);
+            const c = Math.min(3, Math.abs(f.cx - f.pin.x) / 2);
+            return [f.pin, P(f.pin.x, run - c), P(f.pin.x + s * c, run), P(f.cx - s * c, run), P(f.cx, run + c), end];
+          })();
+    trace(i === Math.floor(xs.length / 2) ? "bus" : "trace", pts);
+    return pts;
+  });
+  // The other side of the connector's row: escape stubs on two free bottom pins.
+  pins.b
+    .filter((_, i) => i < first - 1 || i > first + xs.length)
+    .filter((_, i) => i % 3 === 1)
+    .slice(0, 2)
+    .forEach((p) => {
+      trace("trace", [p, P(p.x, p.y + 5)]);
+      via(b, p.x, p.y + 7, 2);
+    });
+
+  // Left: a SOIC and a small BGA wired to the processor.
+  const left = soic(b, x - 80, pins.l[0].y, 40, 5);
+  const leftBga = bga(b, x - 116, y + 44, 26, 4);
+  trace("bus", [pins.l[0], left.ports.r[0]]);
+  const [bgaPort] = leftBga.ports.r.slice(-1);
+  trace("trace", [pins.l[4], P(pins.l[4].x - 14, pins.l[4].y), P(pins.l[4].x - 14 - (pins.l[4].y - bgaPort.y), bgaPort.y), bgaPort]);
+  for (const [i, len] of [[1, 14], [2, 22]]) {
+    trace("trace", [pins.l[i], P(pins.l[i].x - len, pins.l[i].y)]);
+    via(b, pins.l[i].x - len, pins.l[i].y, 2);
+  }
+  // Right: a SOIC, a small BGA, escape stubs and passives.
+  const right = soic(b, x + w + 64, pins.r[0].y, 36, 4);
+  const rightBga = bga(b, x + w + 70, y + 46, 24, 4);
+  trace("bus", [pins.r[0], right.ports.l[0]]);
+  const [rightBgaPort] = rightBga.ports.l;
+  trace("trace", [pins.r[3], P(rightBgaPort.x - 18 - (rightBgaPort.y - pins.r[3].y), pins.r[3].y), P(rightBgaPort.x - 18, rightBgaPort.y), rightBgaPort]);
+  for (const [i, len] of [[1, 14], [2, 22], [4, 14]]) {
+    trace("trace", [pins.r[i], P(pins.r[i].x + len, pins.r[i].y)]);
+    via(b, pins.r[i].x + len, pins.r[i].y, 2);
+  }
+  trace("trace", [right.ports.r[0], P(right.ports.r[0].x + 22, right.ports.r[0].y), P(right.ports.r[0].x + 32, right.ports.r[0].y + 10)]);
+  via(b, right.ports.r[0].x + 32, right.ports.r[0].y + 10);
+  trace("trace", [rightBga.ports.r[1], P(rightBga.ports.r[1].x + 24, rightBga.ports.r[1].y)]);
+  via(b, rightBga.ports.r[1].x + 24, rightBga.ports.r[1].y, 2.2);
+  for (let i = 0; i < 2; i += 1) smd(b, x + w + 128, y + 30 + i * 12, false);
+  // A crystal on the side away from the connector's bus.
+  const crystalX = linkCentre < chipCentre ? x + w + 96 : x - 70;
+  crystal(b, crystalX, y + h + 18);
+  // Decoupling under each BGA, wired to its lower balls.
+  for (const part of [leftBga, rightBga]) {
+    part.ports.b.slice(0, 1).forEach((p) => {
+      const capY = y + h + 16;
+      b.add("trace", `M${r1(p.x)} ${r1(p.y)}V${r1(capY - 4.5)}`);
+      smd(b, p.x, capY, true);
+    });
+  }
+  // A small via field on the right, away from the crystal.
+  const fieldX = linkCentre < chipCentre ? x + w + 124 : x + w + 100;
+  for (let i = 0; i < 3; i += 1) for (let j = 0; j < 2; j += 1) via(b, fieldX + i * 9, y + h + 12 + j * 9, 2);
+
+  // Towards the copy: the board continues into the free band, with fewer parts.
+  const farLeft = leftBga.ports.l[0];
+  if (fits(farLeft.x - 120)) {
+    // A small QFP fed by the BGA and the SOIC, with its own passives.
+    const qx = Math.max(zone.l + 40, farLeft.x - 90);
+    const q = qfp(b, qx, y + 36, 30, 4);
+    trace("bus", [farLeft, P(q.ports.r[2].x + 12, farLeft.y), P(q.ports.r[2].x + 12 - (farLeft.y - q.ports.r[2].y), q.ports.r[2].y), q.ports.r[2]]);
+    const sp = left.ports.l[0];
+    trace("trace", [sp, P(sp.x - 18, sp.y), P(sp.x - 18 - (q.ports.r[0].y - sp.y), q.ports.r[0].y), q.ports.r[0]]);
+    for (const port of [q.ports.t[1], q.ports.t[3]]) {
+      b.add("trace", `M${r1(port.x)} ${r1(port.y)}V${r1(port.y - 4)}`);
+      smd(b, port.x, port.y - 8.5, true, 8);
+    }
+    trace("trace", [q.ports.b[1], P(q.ports.b[1].x, q.ports.b[1].y + 8)]);
+    via(b, q.ports.b[1].x, q.ports.b[1].y + 10, 2);
+    trace("trace", [q.ports.l[1], P(q.ports.l[1].x - 16, q.ports.l[1].y)]);
+    via(b, q.ports.l[1].x - 16, q.ports.l[1].y, 2);
+    // Further on, only when the band is wide: a SOIC and a row of passives.
+    const far = q.ports.l[3];
+    if (fits(far.x - 110)) {
+      const s = soic(b, far.x - 62, far.y, 34, 4);
+      trace("bus", [far, s.ports.r[0]]);
+      for (let i = 0; i < 3; i += 1) smd(b, s.x - 14 - i * 11, s.y + 9, true);
+      trace("trace", [s.ports.l[0], P(s.ports.l[0].x - 40, s.ports.l[0].y), P(s.ports.l[0].x - 52, s.ports.l[0].y - 12)]);
+      via(b, s.ports.l[0].x - 52, s.ports.l[0].y - 12);
+    } else {
+      via(b, far.x - 14, far.y, 2);
+      trace("trace", [far, P(far.x - 12, far.y)]);
+    }
+  } else if (fits(farLeft.x - 32)) {
+    trace("trace", [farLeft, P(farLeft.x - 26, farLeft.y)]);
+    via(b, farLeft.x - 28, farLeft.y, 2.2);
+  }
+  if (fits(left.ports.l[0].x - 40) && !fits(farLeft.x - 120)) {
+    const sp = left.ports.l[0];
+    trace("trace", [sp, P(sp.x - 24, sp.y), P(sp.x - 34, sp.y + 10)]);
+    via(b, sp.x - 34, sp.y + 10);
+  }
+
+  // Journeys: CH glows, a signal runs to the connector and fades into it; the
+  // connector glows, a signal leaves on one of the board traces, reaches the
+  // chip below and travels on along the board's own buses.
+  // Signals: from CH through the connector, then on a tour of the board.
+  const adjacency = busGraph(links);
+  const visited = new Set<number>();
+  const chipGlow = (p: Box) => ({ x: p.x - 4, y: p.y - 4, w: p.w + 8, h: p.h + 8 });
+  const plans: { hops: TourHop[]; seed: Box; fromCh: boolean }[] = [];
+  if (link) {
+    bundle.forEach((line, k) => {
+      const hops: TourHop[] = [
+        { route: polyline(heroPaths[k]), to: null },
+        { route: polyline(line.rest), to: line.part },
+      ];
+      if (line.part.id !== undefined) hops.push(...tour(adjacency, parts, line.part.id, visited, TOUR_HOPS));
+      plans.push({ hops, seed: chipGlow(chip), fromCh: true });
+    });
+  }
+  // Chips the buses do not connect to CH's network get their own local tour.
+  for (;;) {
+    // Start where the signal is seen: a chip outside the panels first.
+    const hidden = (p: Part) => (isHidden({ x: p.x + p.w / 2, y: p.y + p.h / 2 }, obstacles) ? 1 : 0);
+    const seed = parts
+      .filter((p) => p.id !== undefined && adjacency.has(p.id) && !visited.has(p.id))
+      .sort((x, y) => hidden(x) - hidden(y))[0];
+    if (!seed || seed.id === undefined) break;
+    const hops = tour(adjacency, parts, seed.id, visited, TOUR_HOPS);
+    if (!hops.length) continue;
+    plans.push({ hops, seed: chipGlow(seed), fromCh: false });
+  }
+
+  // Beats: the source glows, the signal travels, each chip glows during a one-beat
+  // stop (a beat and a half inside the connector, where the signal disappears).
+  const scheduled = plans.map(({ hops, seed }) => {
+    let beat = 1;
+    const out: Journey["hops"] = [];
+    const glows: Journey["glows"] = [{ ...seed, start: 0, end: BEAT }];
+    hops.forEach(({ route, to }, i) => {
+      const travel = Math.max(1, Math.round(route.length / HERO_SPEED / BEAT));
+      out.push({ ...route, start: beat * BEAT, end: (beat + travel) * BEAT });
+      beat += travel;
+      const box = to || !link ? chipGlow(to ?? chip) : { x: link.x - 3, y: link.y - 3, w: link.w + 6, h: link.h + 6, over: true };
+      const rest = to ? 1 : 1.5;
+      glows.push({ ...box, start: beat * BEAT, end: (beat + rest) * BEAT });
+      if (i < hops.length - 1) beat += rest;
+    });
+    return { hops: out, glows, beats: beat + 1 };
+  });
+
+  // Three lanes: tours follow each other, so three signals travel at once at
+  // most and every connected chip is visited once per period (about a minute).
+  const lanes = [0, 0, 0];
+  const starts = scheduled.map((s) => {
+    const lane = lanes.indexOf(Math.min(...lanes));
+    const start = lanes[lane];
+    lanes[lane] += s.beats + 1;
+    return start;
+  });
+  const beats = Math.max(...lanes, 1);
+  const period = beats * BEAT;
+  const tones: Tone[] = ["cyan", "blue", "white"];
+  const journeys: Journey[] = scheduled.map((s, k) => ({
+    tone: plans[k].fromCh ? tones[k % 3] : (["cyan", "blue", "white", "amber"] as Tone[])[k % 4],
+    rare: false,
+    period,
+    delay: starts[k] * BEAT - period,
+    hops: s.hops,
+    glows: s.glows,
+  }));
+
+  const layers = Object.fromEntries(LAYERS.map((l) => [l, b.layers[l].join("")])) as Record<BoardLayer, string>;
+  return { board: { ...hero, layers, chip, link, board: anchor.board } as HeroBoard, journeys: journeys.length ? journeys : null };
+}
+
 /* ---------- measurement ---------- */
 
 function measure(host: HTMLElement) {
@@ -613,13 +1121,47 @@ function measure(host: HTMLElement) {
     ...(globe ? { globe: true } : {}),
   });
   const shown = elements.filter((element) => element.getBoundingClientRect().height > 0);
-  // A collapsed panel keeps its slot but only its header card hides the board.
+  const roleOf = (element: Element): Rect["role"] =>
+    element.classList.contains("overview-hero")
+      ? "hero"
+      : element.classList.contains("environment-panel")
+        ? "env"
+        : element.classList.contains("page-foot")
+          ? "foot"
+          : "widget";
+  // A collapsed panel shows only its header card.
   const obstacles = shown.map((element) => {
     const visible = element.classList.contains("is-collapsed") ? element.querySelector(".panel-heading") ?? element : element;
-    return toRect(visible.getBoundingClientRect(), element.classList.contains("network-panel"));
+    return { ...toRect(visible.getBoundingClientRect(), element.classList.contains("network-panel")), role: roleOf(element) };
   });
   const slots = shown.map((element) => toRect(element.getBoundingClientRect(), element.classList.contains("network-panel")));
-  return { elements, width: Math.round(box.width), height: Math.round(box.height), obstacles, slots };
+  return { elements, width: Math.round(box.width), height: Math.round(box.height), obstacles, slots, anchor: heroAnchor(host, box) };
+}
+
+/* The desktop hero lends its processor band (the 2N circuit's box) to the board. */
+function heroAnchor(host: HTMLElement, box: DOMRect): HeroAnchor | null {
+  const hero = host.parentElement?.querySelector<HTMLElement>(".dashboard-board .overview-hero");
+  const band = hero?.querySelector(".hero-circuit")?.getBoundingClientRect();
+  const index = hero?.querySelector(".hero-index")?.getBoundingClientRect();
+  const workspace = hero?.parentElement?.getBoundingClientRect();
+  if (!hero || !band || !index || !workspace || band.width === 0 || !window.matchMedia("(min-width: 1200px)").matches) return null;
+  // The copy ends where its text ends, not where its box does.
+  const copyRight = Math.max(
+    ...[...hero.querySelectorAll(".hero-copy h1, .hero-copy p, .hero-breadcrumb")].map((element) => {
+      const range = document.createRange();
+      range.selectNodeContents(element);
+      return range.getBoundingClientRect().right;
+    }),
+  );
+  const rect = (r: DOMRect) => ({ x: Math.round(r.left - box.left), y: Math.round(r.top - box.top), w: Math.round(r.width), h: Math.round(r.height) });
+  return {
+    hero: rect(hero.getBoundingClientRect()),
+    band: rect(band),
+    copyRight: Math.round(copyRight - box.left),
+    indexLeft: Math.round(index.left - box.left),
+    board: { x: Math.round(workspace.left - box.left), y: Math.round(workspace.top - box.top) },
+    variant: document.documentElement.dataset.link === "b" ? "b" : "a",
+  };
 }
 
 /*
@@ -643,7 +1185,7 @@ export function useCircuitGeometry(hostRef: RefObject<HTMLElement | null>) {
     frame.current = requestAnimationFrame(() => {
       const host = hostRef.current;
       if (!host) return;
-      const { elements, width, height, obstacles, slots } = measure(host);
+      const { elements, width, height, obstacles, slots, anchor } = measure(host);
 
       const sameElements =
         elements.length === observed.current.length &&
@@ -655,10 +1197,10 @@ export function useCircuitGeometry(hostRef: RefObject<HTMLElement | null>) {
         observed.current = elements;
       }
 
-      const next = JSON.stringify([width, height, obstacles, slots]);
+      const next = JSON.stringify([width, height, obstacles, slots, anchor]);
       if (next === signature.current || width === 0 || height === 0) return;
       signature.current = next;
-      const board = buildBoard(width, height, obstacles, slots);
+      const board = buildBoard(width, height, obstacles, slots, anchor);
       if (board.boardKey !== lastBoard.current) {
         lastBoard.current = board.boardKey;
         drawings.current += 1;
@@ -743,6 +1285,254 @@ function heartbeatKeyframes(h: Heartbeat | null) {
 
 const animation = (name: string, j: Journey) => `${name} ${j.period.toFixed(2)}s linear ${j.delay.toFixed(2)}s infinite`;
 
+/*
+ * Calm ramp: one smooth vertical fade instead of bands with visible edges. The
+ * board is quiet above the hero and between the hero, the environment cards
+ * and the widgets, then comes back to full strength progressively behind the
+ * widgets. Under the hero, the bundle feeding the link connector stays bright,
+ * its column fading out sideways.
+ */
+function calmRamp(g: CircuitGeometry) {
+  const hero = g.obstacles.find((o) => o.role === "hero");
+  const env = g.obstacles.find((o) => o.role === "env");
+  const widgets = g.obstacles.filter((o) => o.role === "widget");
+  if (!hero || !env) return null;
+  const top = widgets.length ? Math.min(...widgets.map((w) => w.y)) : env.y + env.h + 40;
+  const stops = [
+    { y: 0, level: 0.34 },
+    { y: hero.y + hero.h, level: 0.34 },
+    { y: env.y + env.h, level: 0.4 },
+    { y: top + 40, level: 0.5 },
+    { y: top + 360, level: 1 },
+  ].map(({ y, level }) => ({ offset: Math.min(1, Math.max(0, y / g.height)), level }));
+  const link = g.hero?.link;
+  const keep = link ? { x: link.x - 24, w: link.w + 48, y: hero.y + hero.h - 2, h: env.y - hero.y - hero.h + 4 } : null;
+  return { stops, keep };
+}
+
+/*
+ * The LEDs, tails and chip glows of every journey, in board coordinates.
+ * "under" draws them below the panels and in the hero; "over" draws only the
+ * glows that sit on the link connector, above its body.
+ */
+const overlaps = (a: Box, b: Box) => a.x < b.x + b.w && a.x + a.w > b.x && a.y < b.y + b.h && a.y + a.h > b.y;
+const boundsOf = (points: Point[]) => {
+  const xs = points.map((p) => p.x);
+  const ys = points.map((p) => p.y);
+  return { x: Math.min(...xs) - 4, y: Math.min(...ys) - 4, w: Math.max(...xs) - Math.min(...xs) + 8, h: Math.max(...ys) - Math.min(...ys) + 8 };
+};
+
+/* `clip` keeps only the hops and glows that cross a box (the hero layer draws its own part only). */
+function JourneyLayer({ journeys, mode, clip }: { journeys: Journey[]; mode: "under" | "over"; clip?: Box }) {
+  return (
+    <>
+      {journeys.map((j, ji) => (
+        <g key={ji} className={`b-journey is-${j.tone}`}>
+          {j.glows.map((g, gi) =>
+            !!g.over === (mode === "over") && (!clip || overlaps(g, clip)) ? (
+              <g key={`g${gi}`} className="b-glow" style={{ animation: animation(`cbg${ji}-${gi}`, j) }}>
+                <rect className="b-glow-halo" x={g.x - 5} y={g.y - 5} width={g.w + 10} height={g.h + 10} rx="9" />
+                <rect className="b-glow-edge" x={g.x} y={g.y} width={g.w} height={g.h} rx="6" />
+              </g>
+            ) : null,
+          )}
+          {mode === "under" &&
+            j.hops.map((h, hi) => (clip && !overlaps(boundsOf(h.points), clip) ? null : (
+              <g key={`h${hi}`}>
+                {TAILS.map(({ px, cls }, ti) => (
+                  <path
+                    key={cls}
+                    className={`b-tail ${cls}`}
+                    d={h.d}
+                    pathLength={1}
+                    style={{
+                      strokeDasharray: `${fx(Math.min(0.5, px / h.length))} 2`,
+                      animation: animation(`cbt${ji}-${hi}-${ti}`, j),
+                    }}
+                  />
+                ))}
+                <g className="b-led" style={{ offsetPath: `path("${h.d}")`, animation: animation(`cbd${ji}-${hi}`, j) } as CSSProperties}>
+                  <circle className="b-led-soft" r="3" />
+                  <circle className="b-led-core" r="1.7" />
+                </g>
+              </g>
+            )))}
+        </g>
+      ))}
+    </>
+  );
+}
+
+/*
+ * The hero's own small board, portalled into the hero card under its copy. Its
+ * viewBox is the hero's box on the board, so it shares the board's journeys and
+ * keyframes: a signal crosses the hero's edge at the same place and instant.
+ */
+/*
+ * The CH core symbol, engraved into the processor's die rather than floating
+ * on it. Three studies, chosen with `?core=1|2|3` in the prototype:
+ * 1 the CyberHub prompt etched in a die window, with fiducials and bond pads;
+ * 2 a hexagonal core around the prompt, its spokes ending on signal nodes;
+ * 3 a grid of compute cores whose centre one carries the prompt.
+ */
+function CoreSymbol({ chip }: { chip: Box }) {
+  const cx = chip.x + chip.w / 2;
+  const cy = chip.y + chip.h / 2;
+  const variant = document.documentElement.dataset.core ?? "1";
+  const prompt = (k: number, ox = 0) =>
+    `M${r1(cx + ox - 8.5 * k)} ${r1(cy - 6 * k)}L${r1(cx + ox - 2 * k)} ${r1(cy)}L${r1(cx + ox - 8.5 * k)} ${r1(cy + 6 * k)}M${r1(cx + ox + 1 * k)} ${r1(cy + 6 * k)}H${r1(cx + ox + 10 * k)}`;
+  // Bond pads on both sides of the window, where the die is wide.
+  const pads = [-2, -1, 0, 1, 2].flatMap((i) => [
+    <rect key={`l${i}`} className="core-pad" x={cx - 28.5} y={cy + i * 7 - 1.2} width="2.6" height="2.4" rx="0.4" />,
+    <rect key={`r${i}`} className="core-pad" x={cx + 25.9} y={cy + i * 7 - 1.2} width="2.6" height="2.4" rx="0.4" />,
+  ]);
+  if (variant === "2") {
+    const hex = (r: number) =>
+      [0, 1, 2, 3, 4, 5].map((i) => {
+        const a = (Math.PI / 3) * i - Math.PI / 2;
+        return `${i ? "L" : "M"}${r1(cx + r * Math.cos(a))} ${r1(cy + r * Math.sin(a))}`;
+      }).join("") + "Z";
+    return (
+      <g className="core is-hex">
+        {[0, 1, 2, 3, 4, 5].map((i) => {
+          const a = (Math.PI / 3) * i - Math.PI / 2;
+          const x1 = cx + 22 * Math.cos(a);
+          const y1 = cy + 22 * Math.sin(a);
+          const x2 = cx + 28 * Math.cos(a);
+          const y2 = cy + 28 * Math.sin(a);
+          return (
+            <g key={i}>
+              <path className="core-spoke" d={`M${r1(x1)} ${r1(y1)}L${r1(x2)} ${r1(y2)}`} />
+              <circle className="core-node" cx={x2} cy={y2} r="1.3" />
+            </g>
+          );
+        })}
+        <path className="core-window" d={hex(22)} />
+        <path className="core-ring" d={hex(16.5)} />
+        <path className="core-prompt" d={prompt(1, 0.5)} />
+      </g>
+    );
+  }
+  if (variant === "3") {
+    const cell = 12.4;
+    const gap = 2.2;
+    const start = -(cell * 1.5 + gap);
+    return (
+      <g className="core is-grid">
+        <rect className="core-window" x={cx - 22} y={cy - 22} width="44" height="44" rx="6" />
+        {[0, 1, 2].flatMap((i) =>
+          [0, 1, 2].map((j) => {
+            const x = cx + start + i * (cell + gap);
+            const y = cy + start + j * (cell + gap);
+            const centre = i === 1 && j === 1;
+            return <rect key={`${i}${j}`} className={centre ? "core-cell is-lit" : "core-cell"} x={x} y={y} width={cell} height={cell} rx="1.6" />;
+          }),
+        )}
+        <path className="core-prompt is-small" d={`M${r1(cx - 4)} ${r1(cy - 3.2)}L${r1(cx - 0.6)} ${r1(cy)}L${r1(cx - 4)} ${r1(cy + 3.2)}M${r1(cx + 0.6)} ${r1(cy + 3.4)}H${r1(cx + 4.4)}`} />
+        {pads}
+      </g>
+    );
+  }
+  const f = 4; // fiducial arm
+  const w = 22;
+  const fid = [[-1, -1], [1, -1], [-1, 1], [1, 1]]
+    .map(([sx, sy]) => `M${r1(cx + sx * (w - 3))} ${r1(cy + sy * (w - 3 - f))}V${r1(cy + sy * (w - 3))}H${r1(cx + sx * (w - 3 - f))}`)
+    .join("");
+  return (
+    <g className="core is-die">
+      <rect className="core-window" x={cx - w} y={cy - w} width={2 * w} height={2 * w} rx="7" />
+      <path className="core-bevel" d={`M${r1(cx - w + 6)} ${r1(cy - w + 0.9)}H${r1(cx + w - 6)}`} />
+      <path className="core-fiducial" d={fid} />
+      <path className="core-prompt" d={prompt(1.25, 0.5)} />
+      <circle className="core-node" cx={cx + 14} cy={cy - 14} r="1.6" />
+      {pads}
+    </g>
+  );
+}
+
+function HeroLayer({ hero, journeys, target }: { hero: HeroBoard; journeys: Journey[]; target: Element }) {
+  const { chip } = hero;
+  return createPortal(
+    <svg
+      className="hero-board board-layer"
+      width={hero.w}
+      height={hero.h}
+      viewBox={`${hero.x} ${hero.y} ${hero.w} ${hero.h}`}
+      aria-hidden="true"
+      focusable="false"
+    >
+      {LAYERS.map((layer) => (hero.layers[layer] ? <path key={layer} className={`b-${layer}`} d={hero.layers[layer]} /> : null))}
+      <rect className="hero-chip-aura" x={chip.x - 16} y={chip.y - 10} width={chip.w + 32} height={chip.h + 20} rx="16" />
+      <rect className="hero-chip-halo" x={chip.x - 8} y={chip.y - 5} width={chip.w + 16} height={chip.h + 10} rx="12" />
+      <rect className="hero-chip-shell" x={chip.x} y={chip.y} width={chip.w} height={chip.h} rx="8" />
+      <CoreSymbol chip={chip} />
+      <g className="b-journeys">
+        <JourneyLayer journeys={journeys} mode="under" clip={hero} />
+      </g>
+    </svg>,
+    target,
+  );
+}
+
+/*
+ * The link connector, astride the hero's lower edge and above it: an offset
+ * shadow, a side face for its thickness, a lit top face, a bevel line and
+ * real pins. It hides the hero's border locally; its glow sits on top.
+ */
+function LinkLayer({ hero, link, journeys, target }: { hero: HeroBoard; link: HeroLink; journeys: Journey[]; target: Element }) {
+  const pad = 14;
+  const box = { x: link.x - pad, y: link.top - pad, w: link.w + 2 * pad, h: link.bottom - link.top + 2 * pad };
+  const pinTop = link.y - link.top;
+  const pinBottom = link.bottom - (link.y + link.h);
+  const b = link.variant === "b";
+  const r = b ? 3 : 2.5;
+  return createPortal(
+    <svg
+      className={`hero-link is-${link.variant}`}
+      width={box.w}
+      height={box.h}
+      viewBox={`${box.x} ${box.y} ${box.w} ${box.h}`}
+      // Inline as well: out of the layout even before the stylesheet applies.
+      style={{ position: "absolute", left: box.x - hero.board.x, top: box.y - hero.board.y }}
+      aria-hidden="true"
+      focusable="false"
+    >
+      <defs>
+        <linearGradient id={`hero-link-face-${link.variant}`} x1="0" x2="0" y1="0" y2="1">
+          <stop offset="0" stopColor={b ? "#1d3a52" : "#183247"} />
+          <stop offset="0.55" stopColor="#0f2133" />
+          <stop offset="1" stopColor="#0a1622" />
+        </linearGradient>
+      </defs>
+      {b && <rect className="hl-notch" x={link.x - 7} y={link.y - 3} width={link.w + 14} height={link.h + 7} rx="4" />}
+      <rect className="hl-shadow" x={link.x + 2} y={link.y + 4} width={link.w} height={link.h} rx={r} />
+      {[...link.pins, ...link.dummies].map((px) => (
+        <g key={px} className={link.pins.includes(px) ? "hl-pin" : "hl-pin is-dummy"}>
+          <rect x={px - 1} y={link.top} width="2" height={pinTop + 1} />
+          <rect x={px - 1} y={link.y + link.h - 1} width="2" height={pinBottom + 1} />
+        </g>
+      ))}
+      <rect className="hl-side" x={link.x} y={link.y + 2} width={link.w} height={link.h} rx={r} />
+      <rect className="hl-face" x={link.x} y={link.y} width={link.w} height={link.h - 1} rx={r} fill={`url(#hero-link-face-${link.variant})`} />
+      <path className="hl-bevel" d={`M${r1(link.x + r)} ${r1(link.y + 0.7)}H${r1(link.x + link.w - r)}`} />
+      {b && <path className="hl-bevel is-soft" d={`M${r1(link.x + 0.7)} ${r1(link.y + r)}V${r1(link.y + link.h - r - 1)}`} />}
+      <path className="hl-groove" d={`M${r1(link.x + (b ? 14 : 6))} ${r1(link.y + link.h / 2)}H${r1(link.x + link.w - (b ? 14 : 6))}`} />
+      <circle className="hl-mark" cx={link.x + (b ? 14 : 4.5)} cy={link.y + 3.6} r="1.1" />
+      {b &&
+        [link.x + 6.5, link.x + link.w - 6.5].map((cx) => (
+          <g key={cx}>
+            <circle className="hl-pad" cx={cx} cy={link.y + link.h / 2} r="3.4" />
+            <circle className="hl-hole" cx={cx} cy={link.y + link.h / 2} r="1.4" />
+          </g>
+        ))}
+      <g className="b-journeys">
+        <JourneyLayer journeys={journeys} mode="over" clip={link} />
+      </g>
+    </svg>,
+    target,
+  );
+}
+
 export default function DashboardCircuit() {
   const hostRef = useRef<HTMLDivElement>(null);
   const { geometry } = useCircuitGeometry(hostRef);
@@ -750,6 +1540,27 @@ export default function DashboardCircuit() {
     () => (geometry ? journeyKeyframes(geometry.journeys) + heartbeatKeyframes(geometry.heartbeat) : ""),
     [geometry],
   );
+  const heroElement = geometry?.hero ? hostRef.current?.parentElement?.querySelector(".dashboard-board .overview-hero") : null;
+
+  // The board, hero and connector layers mount their journeys separately: give
+  // every journey animation the same start time, so a signal crossing from one
+  // layer to the next is at the same place at the same instant.
+  useEffect(() => {
+    if (!geometry) return;
+    const frame = requestAnimationFrame(() => {
+      const animations = document
+        .getAnimations()
+        .filter((a): a is CSSAnimation => a instanceof CSSAnimation && /^cb[dtg]/.test(a.animationName));
+      const starts = animations.map((a) => Number(a.startTime)).filter((t) => Number.isFinite(t));
+      if (!starts.length) return;
+      const origin = Math.min(...starts);
+      animations.forEach((a) => {
+        if (a.startTime !== origin) a.startTime = origin;
+      });
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [geometry]);
+  const boardElement = heroElement?.parentElement ?? null;
 
   return (
     <div className="dashboard-circuit-bg" ref={hostRef} aria-hidden="true">
@@ -762,7 +1573,41 @@ export default function DashboardCircuit() {
             viewBox={`0 0 ${geometry.width} ${geometry.height}`}
             focusable="false"
           >
-            <g key={geometry.revision} className={geometry.revision && geometry.revision > 1 ? "l-redraw" : undefined}>
+            <defs>
+              {(() => {
+                const ramp = calmRamp(geometry);
+                const grey = (level: number) => {
+                  const v = Math.round(level * 255);
+                  return `rgb(${v} ${v} ${v})`;
+                };
+                return (
+                  <>
+                    <linearGradient id="board-calm-ramp" x1="0" x2="0" y1="0" y2="1">
+                      {ramp ? (
+                        ramp.stops.map((stop, i) => <stop key={i} offset={stop.offset} stopColor={grey(stop.level)} />)
+                      ) : (
+                        <stop offset="0" stopColor="#fff" />
+                      )}
+                    </linearGradient>
+                    {ramp?.keep && (
+                      <linearGradient id="board-calm-keep" gradientUnits="userSpaceOnUse" x1={ramp.keep.x} x2={ramp.keep.x + ramp.keep.w} y1="0" y2="0">
+                        <stop offset="0" stopColor="#fff" stopOpacity="0" />
+                        <stop offset="0.3" stopColor="#fff" stopOpacity="1" />
+                        <stop offset="0.7" stopColor="#fff" stopOpacity="1" />
+                        <stop offset="1" stopColor="#fff" stopOpacity="0" />
+                      </linearGradient>
+                    )}
+                    <mask id="board-calm" maskUnits="userSpaceOnUse" x="0" y="0" width={geometry.width} height={geometry.height}>
+                      <rect width={geometry.width} height={geometry.height} fill="url(#board-calm-ramp)" />
+                      {ramp?.keep && (
+                        <rect x={ramp.keep.x} y={ramp.keep.y} width={ramp.keep.w} height={ramp.keep.h} fill="url(#board-calm-keep)" />
+                      )}
+                    </mask>
+                  </>
+                );
+              })()}
+            </defs>
+            <g key={geometry.revision} mask="url(#board-calm)" className={geometry.revision && geometry.revision > 1 ? "l-redraw" : undefined}>
               {LAYERS.map((layer) =>
                 geometry.layers[layer] ? <path key={layer} className={`b-${layer}`} d={geometry.layers[layer]} /> : null,
               )}
@@ -786,38 +1631,11 @@ export default function DashboardCircuit() {
                   </g>
                 </g>
               )}
-              {geometry.journeys.map((j, ji) => (
-                <g key={ji} className={`b-journey is-${j.tone}`}>
-                  {j.glows.map((g, gi) => (
-                    <g key={`g${gi}`} className="b-glow" style={{ animation: animation(`cbg${ji}-${gi}`, j) }}>
-                      <rect className="b-glow-halo" x={g.x - 5} y={g.y - 5} width={g.w + 10} height={g.h + 10} rx="9" />
-                      <rect className="b-glow-edge" x={g.x} y={g.y} width={g.w} height={g.h} rx="6" />
-                    </g>
-                  ))}
-                  {j.hops.map((h, hi) => (
-                    <g key={`h${hi}`}>
-                      {TAILS.map(({ px, cls }, ti) => (
-                        <path
-                          key={cls}
-                          className={`b-tail ${cls}`}
-                          d={h.d}
-                          pathLength={1}
-                          style={{
-                            strokeDasharray: `${fx(Math.min(0.5, px / h.length))} 2`,
-                            animation: animation(`cbt${ji}-${hi}-${ti}`, j),
-                          }}
-                        />
-                      ))}
-                      <g className="b-led" style={{ offsetPath: `path("${h.d}")`, animation: animation(`cbd${ji}-${hi}`, j) } as CSSProperties}>
-                        <circle className="b-led-soft" r="3" />
-                        <circle className="b-led-core" r="1.7" />
-                      </g>
-                    </g>
-                  ))}
-                </g>
-              ))}
+              <JourneyLayer journeys={geometry.journeys} mode="under" />
             </g>
           </svg>
+          {geometry.hero && heroElement && <HeroLayer hero={geometry.hero} journeys={geometry.journeys} target={heroElement} />}
+          {geometry.hero?.link && boardElement && <LinkLayer hero={geometry.hero} link={geometry.hero.link} journeys={geometry.journeys} target={boardElement} />}
         </>
       )}
     </div>

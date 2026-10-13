@@ -175,3 +175,124 @@
     display: none;
   }
 }
+
+/* Unified hero: the CH processor sits on its own small board, drawn with the
+   board's primitives, under the copy and the SYS / 2026 index. */
+.dashboard-board .overview-hero > .hero-board {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  display: block;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+/* On desktop the 2N drawing gives way to it from the first frame, so a reload
+   never flashes the old circuit (four classes: Phase 2M shows its parts with
+   four); its box stays and places the processor. */
+@media (min-width: 1200px) {
+  .workspace.dashboard-board .overview-hero .hero-circuit > * {
+    display: none;
+  }
+}
+
+.hero-board .b-trace { stroke: #2b5674; }
+.hero-board .b-bus { stroke: #3a7193; }
+.hero-board .b-pin { fill: #5f9ab8; }
+.hero-board .b-via { stroke: #5590ae; }
+
+.hero-board .hero-chip-aura {
+  fill: #00d4ff06;
+  stroke: #00d4ff22;
+  stroke-width: 1;
+}
+
+.hero-board .hero-chip-halo {
+  fill: none;
+  stroke: #00d4ff55;
+  stroke-width: 1.2;
+}
+
+.hero-board .hero-chip-shell {
+  fill: none;
+  stroke: #76dff0;
+  stroke-width: 1.2;
+  filter: drop-shadow(0 0 6px #00d4ff55);
+}
+
+/* Link connector astride the hero's lower edge: above the hero card, below
+   its copy, out of the layout and of the pointer's way. */
+.dashboard-board > .hero-link {
+  position: absolute;
+  z-index: 3;
+  display: block;
+  overflow: visible;
+  pointer-events: none;
+}
+
+.hero-link .hl-shadow {
+  fill: #02060c;
+  opacity: 0.7;
+}
+
+.hero-link .hl-side {
+  fill: #050b13;
+  stroke: #1d3a52;
+  stroke-width: 1;
+}
+
+.hero-link .hl-face {
+  stroke: #3a6a88;
+  stroke-width: 1;
+}
+
+.hero-link .hl-bevel {
+  fill: none;
+  stroke: #7fb6d2;
+  stroke-width: 1;
+  stroke-linecap: round;
+  opacity: 0.55;
+}
+
+.hero-link .hl-bevel.is-soft {
+  opacity: 0.25;
+}
+
+.hero-link .hl-groove {
+  fill: none;
+  stroke: #04090f;
+  stroke-width: 1.4;
+  stroke-linecap: round;
+  opacity: 0.8;
+}
+
+.hero-link .hl-mark {
+  fill: #5b9aba;
+  opacity: 0.8;
+}
+
+.hero-link .hl-pin rect {
+  fill: #8cc3dc;
+}
+
+.hero-link .hl-pin.is-dummy rect {
+  fill: #4f86a3;
+  opacity: 0.75;
+}
+
+/* Variant B sits in a dark cut-out of the board, with mounting pads. */
+.hero-link .hl-notch {
+  fill: #060c14;
+  stroke: #142a3d;
+  stroke-width: 1;
+}
+
+.hero-link .hl-pad {
+  fill: #0b1824;
+  stroke: #5590ae;
+  stroke-width: 1;
+}
+
+.hero-link .hl-hole {
+  fill: #03070c;
+}

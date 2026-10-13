@@ -4,54 +4,58 @@ import CircuitBoard from "./CircuitBoard";
 import DashboardCircuit, { requestCircuitRecompute } from "./DashboardCircuit";
 import { CustomizeEnvironmentDialog, EnvironmentGrid, MiniBars } from "./EnvironmentCards";
 import { useDashboardLayout } from "./useDashboardLayout";
+import { MODULE_CATEGORIES, MODULES, NAVIGATION_MODULES, categoryOf } from "./environmentRegistry";
+import { normalize, searchItems, type Searchable } from "./moduleSearch";
+import {
+  BgpGlyph,
+  CheatsheetGlyph,
+  CveGlyph,
+  HistorianGlyph,
+  InvestigationGlyph,
+  IocGlyph,
+  MitreGlyph,
+  NetworkGlyph,
+  NotesGlyph,
+  OsintGlyph,
+  OverviewGlyph,
+  PlaybookGlyph,
+  PulseGlyph,
+  RadarGlyph,
+  SearchGlyph,
+  SourcesGlyph,
+  WatchGlyph,
+  type IconComponent,
+} from "./CyberGlyphs";
 import { PanelBody, PanelToggle, useCollapsible } from "./CollapsiblePanel";
 import { useEffect, useMemo, useRef, useState } from "react";
-import type { CSSProperties } from "react";
+import type { CSSProperties, ReactElement } from "react";
+import { CustomizeDashboardDialog } from "./CustomizeDashboardDialog";
+import { useWidgetMasonry } from "./useWidgetMasonry";
+import { spanOf, type WidgetId, type WidgetPlacement } from "./widgetRegistry";
 import {
-  Activity,
   Bell,
-  Binary,
-  BookMarked,
-  BookOpen,
   ChevronRight,
-  Code2,
-  Compass,
-  FileText,
-  GitBranch,
-  History,
-  Layers3,
-  LayoutDashboard,
   Menu,
-  Network,
   PanelLeftOpen,
   Search,
-  Shield,
-  ShieldAlert,
-  StickyNote,
-  Terminal,
-  Wrench,
-  X,
-  EyeOff,
-  Database,
-  Globe2,
   Settings,
   SlidersHorizontal,
-  type LucideIcon,
+  X,
 } from "lucide-react";
 
-type Module = { label: string; icon: LucideIcon; group: string };
-type SearchEntry = {
+type Module = { label: string; icon: IconComponent; group: string };
+type SearchEntry = Searchable & {
   id: string;
   title: string;
   detail: string;
-  category: "Modules" | "Exemples fictifs";
-  icon: LucideIcon;
+  kind: "Modules" | "Exemples fictifs";
+  icon: IconComponent;
 };
 type FeedItem = {
   title: string;
   detail: string;
   time: string;
-  icon: LucideIcon;
+  icon: IconComponent;
   tone?: "cyan" | "amber" | "red";
   badge?: "CRITIQUE" | "NOUVEAU" | "INFO";
 };
@@ -60,7 +64,7 @@ type ThreatSignal = {
   label: string;
   value: string;
   detail: string;
-  icon: LucideIcon;
+  icon: IconComponent;
   tone: "cyan" | "amber" | "red" | "quiet";
 };
 
@@ -70,87 +74,54 @@ type DetailContent = {
   context: string;
 };
 
-const navigationGroups: { label: string; items: Module[] }[] = [
-  {
-    label: "ESPACE DE TRAVAIL",
-    items: [
-      { label: "Dashboard", icon: LayoutDashboard, group: "Espace de travail" },
-      { label: "Outils", icon: Wrench, group: "Espace de travail" },
-      { label: "Writeups", icon: FileText, group: "Espace de travail" },
-    ],
-  },
-  {
-    label: "RENSEIGNEMENT",
-    items: [
-      { label: "CVE & KEV", icon: ShieldAlert, group: "Renseignement" },
-      { label: "Playbooks", icon: BookOpen, group: "Renseignement" },
-      { label: "MITRE ATT&CK", icon: Compass, group: "Renseignement" },
-      { label: "Layers ATT&CK", icon: Layers3, group: "Renseignement" },
-      { label: "LOLBins", icon: Terminal, group: "Renseignement" },
-    ],
-  },
-  {
-    label: "OPÉRATIONS",
-    items: [
-      { label: "CLOAK OpSec", icon: EyeOff, group: "Opérations" },
-      { label: "IOC Manager", icon: Shield, group: "Opérations" },
-      { label: "Corrélation", icon: GitBranch, group: "Opérations" },
-      { label: "OSINT Runner", icon: Search, group: "Opérations" },
-      { label: "Investigations", icon: Activity, group: "Opérations" },
-    ],
-  },
-  {
-    label: "RESSOURCES & RÉSEAU",
-    items: [
-      { label: "Notes", icon: StickyNote, group: "Ressources & réseau" },
-      { label: "Cheatsheets", icon: BookMarked, group: "Ressources & réseau" },
-      { label: "Encoder/Decoder", icon: Binary, group: "Ressources & réseau" },
-      { label: "RevShell Gen", icon: Code2, group: "Ressources & réseau" },
-      { label: "BGP Lookup", icon: Network, group: "Ressources & réseau" },
-      { label: "BGP Historian", icon: History, group: "Ressources & réseau" },
-    ],
-  },
-];
-
-const modules = navigationGroups.flatMap((group) => group.items);
+// Drawer sections and entries come from the shared module registry.
+const navigationGroups: { code: string; label: string; items: Module[] }[] = MODULE_CATEGORIES.map((category) => ({
+  code: category.code,
+  label: category.label,
+  items: NAVIGATION_MODULES.filter((module) => module.category === category.id).map((module) => ({
+    label: module.title,
+    icon: module.icon,
+    group: category.label,
+  })),
+}));
 
 const operations: FeedItem[] = [
   {
     title: "Recherche OSINT",
     detail: "github.com",
     time: "13:10",
-    icon: Search,
+    icon: OsintGlyph,
   },
   {
     title: "Analyse de domaine",
     detail: "example.com",
     time: "13:07",
-    icon: Globe2,
+    icon: NetworkGlyph,
   },
   {
     title: "Inspection IOC",
     detail: "185.199.110.153",
     time: "12:58",
-    icon: Shield,
+    icon: IocGlyph,
     tone: "amber",
   },
   {
     title: "Note ajoutée",
     detail: "Investigation · APT",
     time: "12:46",
-    icon: FileText,
+    icon: NotesGlyph,
   },
   {
     title: "Consultation CVE",
     detail: "CVE-2024-3094",
     time: "12:41",
-    icon: ShieldAlert,
+    icon: CveGlyph,
   },
   {
     title: "Snapshot BGP",
     detail: "AS15169 · Google",
     time: "12:32",
-    icon: History,
+    icon: HistorianGlyph,
   },
 ];
 
@@ -159,7 +130,7 @@ const alerts: FeedItem[] = [
     title: "CVE-2024-3094",
     detail: "Librairie affectée",
     time: "12:58",
-    icon: ShieldAlert,
+    icon: CveGlyph,
     tone: "red",
     badge: "CRITIQUE",
   },
@@ -167,7 +138,7 @@ const alerts: FeedItem[] = [
     title: "CVE-2024-21762",
     detail: "Entrée KEV de démonstration",
     time: "11:18",
-    icon: ShieldAlert,
+    icon: CveGlyph,
     tone: "amber",
     badge: "NOUVEAU",
   },
@@ -175,21 +146,21 @@ const alerts: FeedItem[] = [
     title: "Bulletin CERT-FR",
     detail: "Synthèse locale fictive",
     time: "10:34",
-    icon: FileText,
+    icon: CheatsheetGlyph,
     badge: "INFO",
   },
   {
     title: "Mise à jour MITRE",
     detail: "Nouvelles entrées TTP",
     time: "09:12",
-    icon: Compass,
+    icon: MitreGlyph,
     badge: "INFO",
   },
   {
     title: "Playbook actualisé",
     detail: "Réponse à incident · exemple",
     time: "08:51",
-    icon: BookOpen,
+    icon: PlaybookGlyph,
     badge: "INFO",
   },
 ];
@@ -199,55 +170,59 @@ const threatSignals: ThreatSignal[] = [
     label: "IOC à examiner",
     value: "03",
     detail: "3 indicateurs fictifs",
-    icon: Shield,
+    icon: IocGlyph,
     tone: "red",
   },
   {
     label: "Anomalie BGP",
     value: "01",
     detail: "Signal synthétique",
-    icon: Network,
+    icon: BgpGlyph,
     tone: "amber",
   },
   {
     label: "Sources dégradées",
     value: "02",
     detail: "Connecteurs fictifs",
-    icon: Database,
+    icon: SourcesGlyph,
     tone: "quiet",
   },
 ];
 
 const demoSearchEntries: SearchEntry[] = [
-  ...modules
-    .filter(({ label }) => label !== "Dashboard")
-    .map(({ label, icon, group }) => ({
-      id: "module-" + label,
-      title: label,
-      detail: group,
-      category: "Modules" as const,
-      icon,
-    })),
+  ...MODULES.map((module) => ({
+    id: "module-" + module.id,
+    title: module.title,
+    detail: `${categoryOf(module.category).code} · ${module.description}`,
+    description: module.description,
+    category: module.category,
+    keywords: module.keywords,
+    kind: "Modules" as const,
+    icon: module.icon,
+  })),
   {
     id: "demo-ioc",
     title: "198.51.100.42",
     detail: "Indicateur de documentation · exemple fictif",
-    category: "Exemples fictifs",
-    icon: Shield,
+    kind: "Exemples fictifs",
+    keywords: ["ip", "ioc", "indicateur", "adresse"],
+    icon: IocGlyph,
   },
   {
     id: "demo-playbook",
     title: "Première qualification",
     detail: "Playbook de démonstration",
-    category: "Exemples fictifs",
-    icon: BookOpen,
+    kind: "Exemples fictifs",
+    keywords: ["playbook", "qualification", "incident"],
+    icon: PlaybookGlyph,
   },
   {
     id: "demo-bgp",
     title: "AS64512 → AS64513",
     detail: "Instantané BGP de documentation",
-    category: "Exemples fictifs",
-    icon: Network,
+    kind: "Exemples fictifs",
+    keywords: ["bgp", "asn", "as", "snapshot", "instantané"],
+    icon: BgpGlyph,
   },
 ];
 
@@ -283,11 +258,12 @@ function SearchPalette({
   const dialogRef = useRef<HTMLDivElement>(null);
 
   const results = useMemo(() => {
-    const term = query.trim().toLocaleLowerCase("fr");
-    if (!term) return demoSearchEntries.slice(0, 8);
-    return demoSearchEntries.filter((entry) =>
-      (entry.title + " " + entry.detail).toLocaleLowerCase("fr").includes(term),
-    );
+    if (!normalize(query)) return demoSearchEntries.slice(0, 8);
+    // Same matching as the catalogues: name, aliases, description, category.
+    // Grouped as displayed (modules, then examples) so the arrows and Enter
+    // follow the visible order.
+    const found = searchItems(query, demoSearchEntries);
+    return [...found.filter((entry) => entry.kind === "Modules"), ...found.filter((entry) => entry.kind !== "Modules")];
   }, [query]);
 
   useEffect(() => {
@@ -385,7 +361,8 @@ function SearchPalette({
           />
           <kbd>Échap</kbd>
         </div>
-        <div className="palette-results" id="search-results" role="listbox">
+        {/* listbox only while it holds options; group titles are visual (each group has its aria-label). */}
+        <div className="palette-results" id="search-results" role={results.length ? "listbox" : undefined}>
           {results.length === 0 ? (
             <div className="search-empty">
               <Search size={24} aria-hidden="true" />
@@ -395,7 +372,7 @@ function SearchPalette({
           ) : (
             categories.map((category) => {
               const entries = results.filter(
-                (entry) => entry.category === category,
+                (entry) => entry.kind === category,
               );
               if (!entries.length) return null;
               return (
@@ -405,7 +382,7 @@ function SearchPalette({
                   role="group"
                   aria-label={category}
                 >
-                  <h3>{category}</h3>
+                  <h3 aria-hidden="true">{category}</h3>
                   {entries.map((entry) => {
                     const index = resultIndex++;
                     const Icon = entry.icon;
@@ -613,7 +590,7 @@ function DetailDialog({
         </header>
         <div className="detail-dialog-body">
           <span className="detail-status" aria-hidden="true">
-            <ShieldAlert size={20} />
+            <RadarGlyph size={20} />
           </span>
           <p id="detail-dialog-description">{detail.description}</p>
           <small>{detail.context}</small>
@@ -652,10 +629,24 @@ export default function DashboardPrototype() {
     setCustomizeOpen(true);
   }
 
+  const [widgetsOpen, setWidgetsOpen] = useState(false);
+  const widgetsReturnFocus = useRef<HTMLElement | null>(null);
+
+  function openWidgets(trigger: HTMLElement) {
+    widgetsReturnFocus.current = trigger;
+    setWidgetsOpen(true);
+  }
+
   // The environment panel can change height: let the circuit measure it again.
+  // Moving, hiding or resizing a widget can move a panel at constant size,
+  // which no ResizeObserver sees: ask the circuit to measure again.
+  const widgetSignature = JSON.stringify(environmentLayout.widgets);
   useEffect(() => {
     requestCircuitRecompute();
-  }, [environmentLayout.envCards]);
+  }, [environmentLayout.envCards, widgetSignature]);
+
+  const widgetGridRef = useRef<HTMLDivElement>(null);
+  useWidgetMasonry(widgetGridRef, widgetSignature);
 
   function selectDestination(label: string, returnTarget?: HTMLElement | null) {
     detailReturnFocus.current =
@@ -713,14 +704,291 @@ export default function DashboardPrototype() {
   useEffect(() => {
     document.body.classList.toggle(
       "overlay-open",
-      menuOpen || searchOpen || detail !== null || customizeOpen,
+      menuOpen || searchOpen || detail !== null || customizeOpen || widgetsOpen,
     );
     return () => document.body.classList.remove("overlay-open");
-  }, [menuOpen, searchOpen, detail, customizeOpen]);
+  }, [menuOpen, searchOpen, detail, customizeOpen, widgetsOpen]);
 
   useEffect(() => {
     if (menuOpen) requestAnimationFrame(() => menuClose.current?.focus());
   }, [menuOpen]);
+
+  /*
+   * The large widgets, rendered from the stored layout: same panels as before,
+   * placed in order by the widget grid with the span of their size.
+   */
+  const widgetFrame = (placement: WidgetPlacement) => {
+    const span = spanOf(placement);
+    return {
+      "data-widget": placement.id,
+      "data-size": placement.size,
+      style: { "--w-cols": span.cols, "--w-rows": span.rows, "--w-cols-tablet": span.colsTablet } as CSSProperties,
+    };
+  };
+  const widgetViews: Record<WidgetId, (placement: WidgetPlacement) => ReactElement> = {
+    network: (placement) => (
+      <section
+            key="network"
+            className="dashboard-panel network-panel widget"
+            {...widgetFrame(placement)}
+            aria-labelledby="network-title"
+          >
+            <header className="panel-heading">
+              <span className="panel-glyph is-network" aria-hidden="true">
+                <NetworkGlyph size={18} />
+              </span>
+              <div>
+                <h2 id="network-title">ACTIVITÉ RÉSEAU (APERÇU)</h2>
+                <p>
+                  Requêtes, analyses et opérations récentes · démonstration.
+                </p>
+              </div>
+              <label className="range-select">
+                <span className="sr-only">Période de démonstration</span>
+                <select defaultValue="10">
+                  <option value="10">10 dernières minutes</option>
+                  <option value="30">30 dernières minutes</option>
+                </select>
+              </label>
+            </header>
+            <NetworkScene />
+          </section>
+    ),
+    threat: (placement) => (
+    <section
+            key="threat"
+            className={`dashboard-panel threat-panel widget${threatPanel.open ? "" : " is-collapsed"}`}
+            {...widgetFrame(placement)}
+            aria-labelledby="threat-monitor-title"
+          >
+            <header className="panel-heading threat-heading">
+              <div className="threat-title">
+                <span className="threat-beacon" aria-hidden="true">
+                  <RadarGlyph size={19} />
+                  <i />
+                </span>
+                <span>
+                  <h2 id="threat-monitor-title">THREAT MONITOR</h2>
+                  {threatPanel.expanded ? (
+                    <p>Données fictives - état figé.</p>
+                  ) : (
+                    <p className="panel-summary is-alert">
+                      2 alertes fictives · attention requise
+                    </p>
+                  )}
+                </span>
+              </div>
+              <div className="panel-tools">
+                <button
+                  type="button"
+                  className="text-action"
+                  onClick={() => selectDestination("Threat Monitor")}
+                >
+                  Voir tout <ChevronRight size={14} />
+                </button>
+                <PanelToggle collapsible={threatPanel} label="Threat Monitor" />
+              </div>
+            </header>
+            <PanelBody collapsible={threatPanel}>
+              <div className="threat-status" aria-label="Statut : attention requise">
+                <span className="threat-status-led" aria-hidden="true" />
+                <span>
+                  <small>STATUT SYNTHÉTIQUE</small>
+                  <strong>ATTENTION REQUISE</strong>
+                </span>
+                <b>02 SIGNAUX</b>
+              </div>
+              <ul className="threat-list">
+                {threatSignals
+                  .slice(0, 2)
+                  .map(({ label, value, detail, icon: Icon, tone }) => (
+                    <li key={label}>
+                      <button
+                        type="button"
+                        onClick={() => selectDestination(label)}
+                      >
+                        <span className={`threat-icon is-${tone}`}>
+                          <Icon size={17} />
+                        </span>
+                        <span className="threat-copy">
+                          <strong>{label}</strong>
+                          <small>{detail}</small>
+                        </span>
+                        <b>{value}</b>
+                        <ChevronRight size={15} aria-hidden="true" />
+                      </button>
+                    </li>
+                  ))}
+              </ul>
+              <div className="threat-foot">
+                <span>Aucune surveillance continue</span>
+                <span className="demo-badge">FICTIF</span>
+              </div>
+            </PanelBody>
+          </section>
+    ),
+    operations: (placement) => (
+    <section
+            key="operations"
+            className={`dashboard-panel feed-panel widget${operationsPanel.open ? "" : " is-collapsed"}`}
+            {...widgetFrame(placement)}
+            aria-labelledby="operations-title"
+          >
+            <header className="panel-heading">
+              <span className="panel-glyph is-ops" aria-hidden="true">
+                <PulseGlyph size={18} />
+              </span>
+              <div>
+                <h2 id="operations-title">DERNIÈRES OPÉRATIONS</h2>
+                {!operationsPanel.expanded && (
+                  <p className="panel-summary">4 opérations récentes</p>
+                )}
+              </div>
+              <div className="panel-tools">
+                <button
+                  type="button"
+                  className="panel-action"
+                  onClick={() => selectDestination("Investigations")}
+                >
+                  Voir tout <ChevronRight size={14} />
+                </button>
+                <PanelToggle
+                  collapsible={operationsPanel}
+                  label="Dernières opérations"
+                />
+              </div>
+            </header>
+            <PanelBody collapsible={operationsPanel}>
+              <ul className="activity-list">
+                {operations
+                  .slice(0, 4)
+                  .map(({ title, detail, time, icon: Icon, tone }) => (
+                    <li key={title}>
+                      <button
+                        type="button"
+                        onClick={() => selectDestination(title)}
+                      >
+                        <span
+                          className={`feed-icon ${tone ? `is-${tone}` : ""}`}
+                        >
+                          <Icon size={17} />
+                        </span>
+                        <span className="feed-copy">
+                          <strong>{title}</strong>
+                          <small>{detail}</small>
+                        </span>
+                        <time>{time}</time>
+                      </button>
+                    </li>
+                  ))}
+              </ul>
+            </PanelBody>
+          </section>
+    ),
+    watch: (placement) => (
+    <section
+            key="watch"
+            className={`dashboard-panel feed-panel alert-panel widget${alertsPanel.open ? "" : " is-collapsed"}`}
+            {...widgetFrame(placement)}
+            aria-labelledby="alerts-title"
+          >
+            <header className="panel-heading">
+              <span className="panel-glyph is-watch" aria-hidden="true">
+                <WatchGlyph size={18} />
+              </span>
+              <div>
+                <h2 id="alerts-title">VEILLE CVE & SOURCES</h2>
+                {alertsPanel.expanded ? (
+                  <p>Bulletins locaux fictifs.</p>
+                ) : (
+                  <p className="panel-summary">2 bulletins · 1 critique</p>
+                )}
+              </div>
+              <div className="panel-tools">
+                <button
+                  type="button"
+                  className="panel-action"
+                  onClick={() => selectDestination("CVE & KEV")}
+                >
+                  Voir tout <ChevronRight size={14} />
+                </button>
+                <PanelToggle
+                  collapsible={alertsPanel}
+                  label="Veille CVE et sources"
+                />
+              </div>
+            </header>
+            <PanelBody collapsible={alertsPanel}>
+              <ul className="activity-list alert-list">
+                {alerts.slice(0, 2).map(
+                  ({ title, detail, time, icon: Icon, tone, badge }) => (
+                    <li key={title}>
+                      <button
+                        type="button"
+                        onClick={() => selectDestination(title)}
+                      >
+                        <span
+                          className={`feed-icon ${tone ? `is-${tone}` : ""}`}
+                        >
+                          <Icon size={17} />
+                        </span>
+                        <span className="feed-copy">
+                          <strong>{title}</strong>
+                          <small>{detail}</small>
+                        </span>
+                        {badge && (
+                          <span
+                            className={`feed-badge badge-${badge.toLowerCase()}`}
+                          >
+                            {badge}
+                          </span>
+                        )}
+                        <time>{time}</time>
+                      </button>
+                    </li>
+                  ),
+                )}
+              </ul>
+            </PanelBody>
+          </section>
+    ),
+    sync: (placement) => (
+    <section
+            key="sync"
+            className="sync-panel widget"
+            aria-labelledby="sync-title"
+            {...widgetFrame(placement)}
+          >
+            <span className="sync-icon">
+              <SourcesGlyph size={19} />
+            </span>
+            <div className="sync-copy">
+              <div>
+                <strong id="sync-title">SYNCHRONISATION DES DONNÉES</strong>
+                <span>Sources locales et mises à jour · démonstration</span>
+                <b>78%</b>
+              </div>
+              <span
+                className="sync-track"
+                role="progressbar"
+                aria-labelledby="sync-title"
+                aria-valuemin={0}
+                aria-valuemax={100}
+                aria-valuenow={78}
+              >
+                <i />
+              </span>
+            </div>
+            <MiniBars
+              bars={[
+                36, 52, 68, 43, 72, 61, 78, 56, 69, 84, 64, 74, 88, 72, 81, 92,
+              ]}
+            />
+          </section>
+    ),
+  };
+  const shownWidgets = environmentLayout.widgets.filter((placement) => placement.visible);
+  const hiddenWidgets = environmentLayout.widgets.length - shownWidgets.length;
 
   return (
     <div className="cockpit">
@@ -806,7 +1074,7 @@ export default function DashboardPrototype() {
           aria-current="page"
           data-tooltip="Vue d’ensemble"
         >
-          <LayoutDashboard size={19} />
+          <OverviewGlyph size={20} />
           <span className="sr-only">Vue d’ensemble</span>
         </a>
         <button
@@ -815,7 +1083,7 @@ export default function DashboardPrototype() {
           data-tooltip="Rechercher"
           onClick={(event) => openSearch(event.currentTarget)}
         >
-          <Search size={19} />
+          <SearchGlyph size={20} />
           <span className="sr-only">Rechercher</span>
         </button>
         <button
@@ -824,7 +1092,7 @@ export default function DashboardPrototype() {
           data-tooltip="Investigations"
           onClick={() => selectDestination("Investigations")}
         >
-          <Activity size={19} />
+          <InvestigationGlyph size={20} />
           <span className="sr-only">Investigations</span>
         </button>
         <button
@@ -833,7 +1101,7 @@ export default function DashboardPrototype() {
           data-tooltip="CVE & KEV"
           onClick={() => selectDestination("CVE & KEV")}
         >
-          <ShieldAlert size={19} />
+          <CveGlyph size={20} />
           <span className="sr-only">CVE & KEV</span>
         </button>
         <button
@@ -842,7 +1110,7 @@ export default function DashboardPrototype() {
           data-tooltip="BGP Historian"
           onClick={() => selectDestination("BGP Historian")}
         >
-          <Network size={19} />
+          <HistorianGlyph size={20} />
           <span className="sr-only">BGP Historian</span>
         </button>
         <button
@@ -886,8 +1154,10 @@ export default function DashboardPrototype() {
             </div>
             <nav aria-label="Navigation complète">
               {navigationGroups.map((group) => (
-                <section className="drawer-group" key={group.label}>
-                  <h3>{group.label}</h3>
+                <section className="drawer-group" key={group.code}>
+                  <h3>
+                    <span className="drawer-code">{group.code}</span> {group.label}
+                  </h3>
                   <div>
                     {group.items.map(({ label, icon: Icon }) => (
                       <button
@@ -944,6 +1214,16 @@ export default function DashboardPrototype() {
         onReset={environmentLayout.reset}
         onClose={() => setCustomizeOpen(false)}
         returnFocus={customizeReturnFocus}
+        persisted={environmentLayout.persisted}
+      />
+
+      <CustomizeDashboardDialog
+        open={widgetsOpen}
+        widgets={environmentLayout.widgets}
+        onChange={environmentLayout.updateWidgets}
+        onReset={environmentLayout.resetWidgets}
+        onClose={() => setWidgetsOpen(false)}
+        returnFocus={widgetsReturnFocus}
         persisted={environmentLayout.persisted}
       />
 
@@ -1018,243 +1298,38 @@ export default function DashboardPrototype() {
             />
           </section>
 
-          <div className="monitor-grid">
-            <section
-              className="dashboard-panel network-panel"
-              aria-labelledby="network-title"
-            >
-              <header className="panel-heading">
-                <div>
-                  <h2 id="network-title">ACTIVITÉ RÉSEAU (APERÇU)</h2>
-                  <p>
-                    Requêtes, analyses et opérations récentes · démonstration.
-                  </p>
-                </div>
-                <label className="range-select">
-                  <span className="sr-only">Période de démonstration</span>
-                  <select defaultValue="10">
-                    <option value="10">10 dernières minutes</option>
-                    <option value="30">30 dernières minutes</option>
-                  </select>
-                </label>
-              </header>
-              <NetworkScene />
-            </section>
-
-            <section
-              className={`dashboard-panel threat-panel${threatPanel.open ? "" : " is-collapsed"}`}
-              aria-labelledby="threat-monitor-title"
-            >
-              <header className="panel-heading threat-heading">
-                <div className="threat-title">
-                  <span className="threat-beacon" aria-hidden="true">
-                    <ShieldAlert size={19} />
-                    <i />
-                  </span>
-                  <span>
-                    <h2 id="threat-monitor-title">THREAT MONITOR</h2>
-                    {threatPanel.expanded ? (
-                      <p>Données fictives - état figé.</p>
-                    ) : (
-                      <p className="panel-summary is-alert">
-                        2 alertes fictives · attention requise
-                      </p>
-                    )}
-                  </span>
-                </div>
-                <div className="panel-tools">
-                  <button
-                    type="button"
-                    className="text-action"
-                    onClick={() => selectDestination("Threat Monitor")}
-                  >
-                    Voir tout <ChevronRight size={14} />
-                  </button>
-                  <PanelToggle collapsible={threatPanel} label="Threat Monitor" />
-                </div>
-              </header>
-              <PanelBody collapsible={threatPanel}>
-                <div className="threat-status" aria-label="Statut : attention requise">
-                  <span className="threat-status-led" aria-hidden="true" />
-                  <span>
-                    <small>STATUT SYNTHÉTIQUE</small>
-                    <strong>ATTENTION REQUISE</strong>
-                  </span>
-                  <b>02 SIGNAUX</b>
-                </div>
-                <ul className="threat-list">
-                  {threatSignals
-                    .slice(0, 2)
-                    .map(({ label, value, detail, icon: Icon, tone }) => (
-                      <li key={label}>
-                        <button
-                          type="button"
-                          onClick={() => selectDestination(label)}
-                        >
-                          <span className={`threat-icon is-${tone}`}>
-                            <Icon size={17} />
-                          </span>
-                          <span className="threat-copy">
-                            <strong>{label}</strong>
-                            <small>{detail}</small>
-                          </span>
-                          <b>{value}</b>
-                          <ChevronRight size={15} aria-hidden="true" />
-                        </button>
-                      </li>
-                    ))}
-                </ul>
-                <div className="threat-foot">
-                  <span>Aucune surveillance continue</span>
-                  <span className="demo-badge">FICTIF</span>
-                </div>
-              </PanelBody>
-            </section>
-          </div>
-
-          <div className="dashboard-grid feed-grid">
-
-            <section
-              className={`dashboard-panel feed-panel${operationsPanel.open ? "" : " is-collapsed"}`}
-              aria-labelledby="operations-title"
-            >
-              <header className="panel-heading">
-                <div>
-                  <h2 id="operations-title">DERNIÈRES OPÉRATIONS</h2>
-                  {!operationsPanel.expanded && (
-                    <p className="panel-summary">4 opérations récentes</p>
-                  )}
-                </div>
-                <div className="panel-tools">
-                  <button
-                    type="button"
-                    className="panel-action"
-                    onClick={() => selectDestination("Investigations")}
-                  >
-                    Voir tout <ChevronRight size={14} />
-                  </button>
-                  <PanelToggle
-                    collapsible={operationsPanel}
-                    label="Dernières opérations"
-                  />
-                </div>
-              </header>
-              <PanelBody collapsible={operationsPanel}>
-                <ul className="activity-list">
-                  {operations
-                    .slice(0, 4)
-                    .map(({ title, detail, time, icon: Icon, tone }) => (
-                      <li key={title}>
-                        <button
-                          type="button"
-                          onClick={() => selectDestination(title)}
-                        >
-                          <span
-                            className={`feed-icon ${tone ? `is-${tone}` : ""}`}
-                          >
-                            <Icon size={17} />
-                          </span>
-                          <span className="feed-copy">
-                            <strong>{title}</strong>
-                            <small>{detail}</small>
-                          </span>
-                          <time>{time}</time>
-                        </button>
-                      </li>
-                    ))}
-                </ul>
-              </PanelBody>
-            </section>
-
-            <section
-              className={`dashboard-panel feed-panel alert-panel${alertsPanel.open ? "" : " is-collapsed"}`}
-              aria-labelledby="alerts-title"
-            >
-              <header className="panel-heading">
-                <div>
-                  <h2 id="alerts-title">VEILLE CVE & SOURCES</h2>
-                  {alertsPanel.expanded ? (
-                    <p>Bulletins locaux fictifs.</p>
-                  ) : (
-                    <p className="panel-summary">2 bulletins · 1 critique</p>
-                  )}
-                </div>
-                <div className="panel-tools">
-                  <button
-                    type="button"
-                    className="panel-action"
-                    onClick={() => selectDestination("CVE & KEV")}
-                  >
-                    Voir tout <ChevronRight size={14} />
-                  </button>
-                  <PanelToggle
-                    collapsible={alertsPanel}
-                    label="Veille CVE et sources"
-                  />
-                </div>
-              </header>
-              <PanelBody collapsible={alertsPanel}>
-                <ul className="activity-list alert-list">
-                  {alerts.slice(0, 2).map(
-                    ({ title, detail, time, icon: Icon, tone, badge }) => (
-                      <li key={title}>
-                        <button
-                          type="button"
-                          onClick={() => selectDestination(title)}
-                        >
-                          <span
-                            className={`feed-icon ${tone ? `is-${tone}` : ""}`}
-                          >
-                            <Icon size={17} />
-                          </span>
-                          <span className="feed-copy">
-                            <strong>{title}</strong>
-                            <small>{detail}</small>
-                          </span>
-                          {badge && (
-                            <span
-                              className={`feed-badge badge-${badge.toLowerCase()}`}
-                            >
-                              {badge}
-                            </span>
-                          )}
-                          <time>{time}</time>
-                        </button>
-                      </li>
-                    ),
-                  )}
-                </ul>
-              </PanelBody>
-            </section>
-          </div>
-
-          <section className="sync-panel" aria-labelledby="sync-title">
-            <span className="sync-icon">
-              <Database size={20} />
-            </span>
-            <div className="sync-copy">
-              <div>
-                <strong id="sync-title">SYNCHRONISATION DES DONNÉES</strong>
-                <span>Sources locales et mises à jour · démonstration</span>
-                <b>78%</b>
-              </div>
-              <span
-                className="sync-track"
-                role="progressbar"
-                aria-labelledby="sync-title"
-                aria-valuemin={0}
-                aria-valuemax={100}
-                aria-valuenow={78}
-              >
-                <i />
+          <div className="widget-toolbar">
+            <p>
+              <span className="widget-toolbar-code">WIDGETS</span>
+              <span aria-hidden="true">·</span>
+              <span>
+                {shownWidgets.length} affiché{shownWidgets.length > 1 ? "s" : ""}
+                {hiddenWidgets ? ` · ${hiddenWidgets} masqué${hiddenWidgets > 1 ? "s" : ""}` : ""}
               </span>
-            </div>
-            <MiniBars
-              bars={[
-                36, 52, 68, 43, 72, 61, 78, 56, 69, 84, 64, 74, 88, 72, 81, 92,
-              ]}
-            />
-          </section>
+            </p>
+            <button
+              type="button"
+              className="panel-action widget-customize"
+              aria-haspopup="dialog"
+              onClick={(event) => openWidgets(event.currentTarget)}
+            >
+              <SlidersHorizontal size={14} aria-hidden="true" />
+              Personnaliser le Dashboard
+            </button>
+          </div>
+
+          <div className="widget-grid" ref={widgetGridRef}>
+            {shownWidgets.length ? (
+              shownWidgets.map((placement) => widgetViews[placement.id](placement))
+            ) : (
+              <div className="widget-empty">
+                <p>Tous les widgets sont masqués.</p>
+                <button type="button" className="panel-action" onClick={(event) => openWidgets(event.currentTarget)}>
+                  Afficher des widgets
+                </button>
+              </div>
+            )}
+          </div>
 
           <footer className="page-foot">
             <span>CYBERHUB / TERMINAL OVERVIEW</span>
