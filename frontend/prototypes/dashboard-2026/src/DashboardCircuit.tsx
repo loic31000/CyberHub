@@ -23,8 +23,9 @@ const CHAMFER = 10;
 
 type Tone = "cyan" | "blue" | "white" | "amber";
 const TONES: Tone[] = ["cyan", "blue", "white", "amber"];
-// Phase 2M: a calm board. At most five travelling points, amber only now and then.
-const PULSE_TONES: Tone[] = ["cyan", "blue", "cyan", "white", "amber"];
+// Phase 2N: seven routes, never all lit together; amber and the last cyan are occasional.
+const PULSE_TONES: Tone[] = ["cyan", "blue", "cyan", "blue", "white", "amber", "cyan"];
+const RARE_ROUTES = new Set([5, 6]);
 const NODE_TONES: Tone[] = ["cyan", "white", "blue"];
 const PULSE_SPEED = 72; // px per second
 const TRAVEL_SHARE = 0.6; // the rest of each cycle is a quiet pause
@@ -203,7 +204,7 @@ export function buildCircuit(width: number, height: number, obstacles: Rect[]): 
 
   // Spread the few routes apart: each pick is the farthest from those already chosen.
   const chosen: Route[] = [];
-  const maxPulses = compact ? 3 : PULSE_TONES.length;
+  const maxPulses = compact ? 4 : PULSE_TONES.length;
   const longest = [...candidates].sort((a, b) => b.length - a.length)[0];
   if (longest) chosen.push(longest);
   while (chosen.length < Math.min(maxPulses, candidates.length)) {
@@ -225,7 +226,7 @@ export function buildCircuit(width: number, height: number, obstacles: Rect[]): 
 
   const pulses: Pulse[] = chosen.map((route, index) => {
     const tone = PULSE_TONES[index];
-    const rare = tone === "amber";
+    const rare = RARE_ROUTES.has(index);
     const travel = route.length / (PULSE_SPEED + (index % 3) * 8);
     const duration = Math.min(30, Math.max(7, travel / (rare ? RARE_TRAVEL_SHARE : TRAVEL_SHARE)));
     // Staggered phases so the points never start together.

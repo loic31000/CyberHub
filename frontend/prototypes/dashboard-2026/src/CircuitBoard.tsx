@@ -1,60 +1,72 @@
 import type { CSSProperties } from "react";
 
+/*
+ * Phase 2N: hero processor wiring. Every active trace is drawn from its outer
+ * end to a real pin tip of the chip (left/right pins at x 654 and 824, top and
+ * bottom pins at y 26 and 114), fanning out over the full decorative height
+ * with 45° bends so parallel runs never cross.
+ */
+
 const ghostTraces = [
-  "M0 12 H130 L158 40 H360 L390 70 H662",
-  "M0 30 H92 L120 58 H284 L314 88 H662",
-  "M24 132 H152 L180 104 H410 L438 76 H662",
-  "M116 140 V118 L150 84 H330 L360 54 H662",
-  "M252 0 V20 L282 50 H482 L512 80 H662",
-  "M354 0 V16 L382 44 H554 L580 70 H662",
-  "M1000 10 H934 L908 36 H838 L814 60",
-  "M1000 34 H958 L930 62 H814",
-  "M984 128 H920 L892 100 H842 L814 72",
-  "M902 140 V116 L872 86 H814",
-  "M526 140 V118 L554 90 H662",
-  "M470 0 V18 L498 46 H662",
+  "M150 22 H250 L266 38 H320",
+  "M190 66 H330 L344 80 H392",
+  "M170 104 H236 L252 120 H300",
+  "M954 46 V64 L970 80 H1000",
 ];
 
-const signalTraces = [
-  "M0 20 H176 L202 46 H414 L440 72 H662",
-  "M0 44 H116 L144 72 H324 L350 46 H526 L552 72 H662",
-  "M16 66 H198 L224 92 H448 L470 70 H662",
-  "M0 94 H118 L146 66 H268 L300 98 H486 L514 70 H662",
-  "M28 122 H190 L218 94 H382 L410 66 H662",
-  "M86 140 V116 L112 90 H244 L270 64 H662",
-  "M202 140 V120 L232 90 H356 L384 62 H662",
-  "M304 140 V116 L332 88 H502 L522 68 H662",
-  "M414 140 V118 L442 90 H560 L582 68 H662",
-  "M174 0 V22 L204 52 H366 L394 78 H662",
-  "M322 0 V18 L350 46 H500 L526 72 H662",
-  "M452 0 V20 L480 48 H572 L596 72 H662",
-  "M662 50 H604 L578 24 H520",
-  "M662 90 H592 L566 116 H486",
-  "M814 48 H858 L884 22 H1000",
-  "M814 62 H904 L932 34 H1000",
-  "M814 78 H876 L906 108 H1000",
-  "M814 92 H850 L878 120 H1000",
-  "M748 34 V12 H710 L688 34",
-  "M730 106 V126 H688 L666 104",
-  "M832 0 V18 L806 44",
-  "M920 140 V118 L890 88 H814",
+type Tone = "cyan" | "blue" | "white" | "amber";
+
+// Outer end first, pin last: the pulses travel towards the processor.
+const signalTraces: { d: string; tone?: Tone }[] = [
+  // Left fan: six pins, upper three rise, lower three fall.
+  { d: "M300 10 H582 L616 44 H654" },
+  { d: "M360 28 H578 L604 54 H654", tone: "blue" },
+  { d: "M430 50 H578 L592 64 H654" },
+  { d: "M410 90 H576 L592 74 H654", tone: "white" },
+  { d: "M340 112 H576 L604 84 H654", tone: "blue" },
+  { d: "M280 132 H578 L616 94 H654", tone: "amber" },
+  // Right fan: the edge of the band feeds the right-hand pins.
+  { d: "M1000 12 H878 L846 44 H824" },
+  { d: "M1000 30 H882 L858 54 H824", tone: "blue" },
+  { d: "M930 64 H824", tone: "white" },
+  { d: "M1000 90 H916 L900 74 H824" },
+  { d: "M1000 110 H892 L866 84 H824", tone: "blue" },
+  { d: "M1000 128 H890 L856 94 H824" },
+  // Top and bottom pins.
+  { d: "M610 6 H694 L706 18 V26" },
+  { d: "M870 6 H784 L772 18 V26", tone: "white" },
+  { d: "M610 134 H694 L706 122 V114", tone: "blue" },
+  { d: "M870 134 H784 L772 122 V114" },
+  // Short branches ending on vias, between the two fans.
+  { d: "M500 50 L516 66 H540" },
+  { d: "M450 90 L466 74 H486" },
+  { d: "M440 28 L452 40 H470" },
 ];
 
-const pulseIndexes = [0, 1, 3, 4, 6, 8, 10, 14, 16, 17];
+// [trace index, secondary]: secondary pulses run back out from the chip.
+// Only the first six are shown on desktop (four inbound, two outbound).
+const pulses: [number, boolean][] = [
+  [0, false], [10, false], [4, false], [12, false], [11, true], [15, true],
+  [7, false], [2, false],
+];
 
 const nodes = [
-  [176, 20, "cyan"], [144, 72, "white"], [198, 66, "cyan"],
-  [190, 122, "amber"], [244, 90, "white"], [270, 64, "cyan"],
-  [350, 46, "white"], [382, 94, "cyan"], [410, 66, "amber"],
-  [480, 48, "cyan"], [526, 72, "white"], [582, 68, "cyan"],
-  [884, 22, "amber"], [904, 62, "cyan"], [906, 108, "white"],
-  [878, 120, "cyan"], [520, 24, "cyan"], [486, 116, "amber"],
+  [300, 10, "cyan"], [360, 28, "white"], [430, 50, "cyan"],
+  [410, 90, "cyan"], [340, 112, "white"], [280, 132, "amber"],
+  [930, 64, "cyan"], [610, 6, "cyan"], [870, 6, "white"],
+  [610, 134, "cyan"], [870, 134, "amber"], [540, 66, "cyan"],
+  [486, 74, "white"], [470, 40, "cyan"], [500, 50, "cyan"],
+  [450, 90, "white"], [440, 28, "cyan"],
 ] as const;
 
+// Small surface-mount parts sitting on the traces.
 const components = [
-  [70, 36, 54, 16], [286, 18, 42, 14], [370, 104, 58, 16],
-  [494, 86, 48, 15], [842, 30, 42, 14], [922, 82, 52, 16],
+  [452, 6, 30, 8], [506, 108, 30, 8], [930, 26, 26, 8],
+  [944, 106, 26, 8], [630, 130, 24, 8], [890, 60, 22, 8],
 ] as const;
+
+const sidePins = Array.from({ length: 6 }, (_, index) => 44 + index * 10);
+const edgePins = [706, 772];
 
 export default function CircuitBoard() {
   return (
@@ -105,15 +117,15 @@ export default function CircuitBoard() {
       </g>
 
       <g className="circuit-traces">
-        {signalTraces.map((path, index) => <path key={index} d={path} pathLength="1" />)}
+        {signalTraces.map(({ d }, index) => <path key={index} d={d} pathLength="1" />)}
       </g>
 
       <g className="circuit-pulses" filter="url(#circuit-glow)">
-        {pulseIndexes.map((traceIndex, index) => (
+        {pulses.map(([traceIndex, secondary], index) => (
           <path
             key={traceIndex}
-            className={index > 6 ? "is-secondary" : undefined}
-            d={signalTraces[traceIndex]}
+            className={`is-${signalTraces[traceIndex].tone ?? "cyan"}${secondary ? " is-secondary" : ""}`}
+            d={signalTraces[traceIndex].d}
             pathLength="1"
             style={{ "--pulse-order": index, "--pulse-duration": `${13.2 + (index % 3) * 0.9}s` } as CSSProperties}
           />
@@ -134,10 +146,16 @@ export default function CircuitBoard() {
         <rect className="chip-halo" x="658" y="28" width="162" height="84" rx="13" />
         <rect className="chip-shell" x="668" y="34" width="142" height="72" rx="9" />
         <rect className="chip-inner" x="677" y="42" width="124" height="56" rx="6" />
-        {Array.from({ length: 6 }, (_, index) => (
-          <g key={index}>
-            <line x1="654" x2="668" y1={44 + index * 10} y2={44 + index * 10} />
-            <line x1="810" x2="824" y1={44 + index * 10} y2={44 + index * 10} />
+        {sidePins.map((y) => (
+          <g key={y}>
+            <line x1="654" x2="668" y1={y} y2={y} />
+            <line x1="810" x2="824" y1={y} y2={y} />
+          </g>
+        ))}
+        {edgePins.map((x) => (
+          <g key={x}>
+            <line x1={x} x2={x} y1="26" y2="34" />
+            <line x1={x} x2={x} y1="106" y2="114" />
           </g>
         ))}
         <path className="chip-scan" d="M684 88 H794" />

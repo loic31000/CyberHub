@@ -14,6 +14,7 @@ import "./phase-two-j.css";
 import "./phase-two-k.css";
 import "./phase-two-l.css";
 import "./phase-two-m.css";
+import "./phase-two-n.css";
 
 const searchParams = new URLSearchParams(window.location.search);
 const requestedPalette = searchParams.get("palette");

@@ -1,0 +1,62 @@
+/* Phase 2N: processor wiring in the hero, a little more colour on the board. */
+
+@media (min-width: 1200px) {
+  /* The hero circuit keeps the 1000 x 140 proportions of its drawing, so its
+     vias stay round at every desktop width; it is centred vertically. */
+  .dashboard-board .hero-circuit {
+    top: 50%;
+    bottom: auto;
+    height: auto;
+    aspect-ratio: 1000 / 140;
+    transform: translateY(-50%);
+    mask-image: linear-gradient(90deg, transparent 0, #000 22%, #000 94%, transparent);
+  }
+
+  /* A quiet backdrop under the copy: no trace ever runs behind the title or text. */
+  .dashboard-board .hero-copy {
+    background: linear-gradient(
+      90deg,
+      transparent 0 4px,
+      rgb(10 17 28 / 0.97) 4px 600px,
+      transparent 690px
+    );
+  }
+
+  /* Six hero signals at most, like Phase 2M: four towards the chip, two leaving it. */
+  .dashboard-board .overview-hero .hero-circuit .circuit-pulses path:nth-child(n + 7) {
+    display: none;
+  }
+}
+
+/* Hero pulses: solid tones, so a point stays bright until it reaches its pin. */
+.dashboard-board .hero-circuit .circuit-pulses path {
+  stroke: #9ff3ff;
+}
+
+.dashboard-board .hero-circuit .circuit-pulses path.is-blue {
+  stroke: #8cbcff;
+}
+
+.dashboard-board .hero-circuit .circuit-pulses path.is-white {
+  stroke: #eef9ff;
+}
+
+.dashboard-board .hero-circuit .circuit-pulses path.is-amber {
+  stroke: #f7b84a;
+}
+
+/* Solid traces: a gradient per path faded each run right where it meets its pin. */
+.dashboard-board .hero-circuit .circuit-traces path {
+  stroke: #477c99;
+  stroke-width: 1.1;
+  opacity: 0.9;
+}
+
+.dashboard-board .hero-circuit .circuit-traces path:nth-child(n + 17) {
+  stroke: #3a6680;
+  stroke-width: 0.9;
+}
+
+.dashboard-board .hero-circuit .circuit-chip line {
+  stroke: #7fc3da;
+}
