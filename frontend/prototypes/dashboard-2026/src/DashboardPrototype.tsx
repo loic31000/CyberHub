@@ -270,19 +270,19 @@ function SearchPalette({
     if (!open) return;
     setQuery("");
     setActiveIndex(0);
-    requestAnimationFrame(() => inputRef.current?.focus());
+    inputRef.current?.focus();
   }, [open]);
 
   useEffect(() => setActiveIndex(0), [query]);
 
   function close() {
+    const target = returnFocus.current;
     onClose();
-    requestAnimationFrame(() => returnFocus.current?.focus());
+    window.setTimeout(() => target?.focus(), 0);
   }
 
   function select(entry: SearchEntry) {
     onSelect(entry.title);
-    close();
   }
 
   function handleKeyDown(event: React.KeyboardEvent) {
@@ -525,12 +525,13 @@ function DetailDialog({
   const closeRef = useRef<HTMLButtonElement>(null);
 
   useEffect(() => {
-    if (detail) requestAnimationFrame(() => closeRef.current?.focus());
+    if (detail) closeRef.current?.focus();
   }, [detail]);
 
   function close() {
+    const target = returnFocus.current;
     onClose();
-    requestAnimationFrame(() => returnFocus.current?.focus());
+    window.setTimeout(() => target?.focus(), 0);
   }
 
   function handleKeyDown(event: React.KeyboardEvent) {
@@ -664,9 +665,10 @@ export default function DashboardPrototype() {
   }
 
   function closeMenu(restoreFocus = true) {
+    const target = menuReturnFocus.current;
     setMenuOpen(false);
     if (restoreFocus) {
-      requestAnimationFrame(() => menuReturnFocus.current?.focus());
+      window.setTimeout(() => target?.focus(), 0);
     }
   }
 
@@ -690,7 +692,8 @@ export default function DashboardPrototype() {
         event.preventDefault();
         openSearch(
           document.activeElement instanceof HTMLElement &&
-            document.activeElement !== document.body
+            document.activeElement !== document.body &&
+            document.activeElement !== document.documentElement
             ? document.activeElement
             : null,
         );
@@ -710,7 +713,7 @@ export default function DashboardPrototype() {
   }, [menuOpen, searchOpen, detail, customizeOpen, widgetsOpen]);
 
   useEffect(() => {
-    if (menuOpen) requestAnimationFrame(() => menuClose.current?.focus());
+    if (menuOpen) menuClose.current?.focus();
   }, [menuOpen]);
 
   /*
@@ -1174,7 +1177,9 @@ export default function DashboardPrototype() {
                             : selectDestination(label)
                         }
                       >
-                        <Icon size={17} />
+                        <span className="drawer-icon" aria-hidden="true">
+                          <Icon size={17} />
+                        </span>
                         <span>{label}</span>
                         {label === "Dashboard" ? (
                           <i>actuel</i>

@@ -351,47 +351,6 @@
   border-bottom-color: transparent;
 }
 
-/*
- * Desktop: a collapsed panel keeps its slot. Only the header card remains and
- * the empty slot is outlined, so the measured circuit, and every rail, stays put.
- */
-@media (min-width: 1200px) {
-  .dashboard-board .dashboard-panel.is-collapsed {
-    position: relative;
-    align-self: stretch;
-    align-content: start;
-    border-color: transparent;
-    background: none;
-    box-shadow: none;
-  }
-
-  .dashboard-board .dashboard-panel.is-collapsed::after {
-    content: "";
-    position: absolute;
-    inset: 0;
-    border: 1px dashed #2a3f5880;
-    border-radius: inherit;
-    pointer-events: none;
-  }
-
-  .dashboard-board .dashboard-panel.is-collapsed > .panel-heading {
-    border: 1px solid var(--f-border);
-    border-radius: 7px;
-    background:
-      linear-gradient(145deg, #ffffff04, transparent 35%),
-      var(--f-bg-panel);
-    box-shadow: 0 10px 28px #02040a40, inset 0 1px #ffffff07;
-  }
-
-  .dashboard-board .threat-panel.is-collapsed > .threat-heading {
-    border-color: #51303a;
-    background:
-      linear-gradient(90deg, #1d1018, #0d1420 42%),
-      #111827;
-    box-shadow: inset 2px 0 #ef44443d, 0 0 22px #ef44440b, 0 10px 28px #02040a40;
-  }
-}
-
 /* Badges: AA text on their tinted surfaces, same red and amber identities. */
 .dashboard-board .badge-critique {
   border-color: #ef444452;

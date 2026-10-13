@@ -296,3 +296,38 @@
 .hero-link .hl-hole {
   fill: #03070c;
 }
+
+/* A second raised connector exposes the three live feeds below Environment. */
+.environment-link .el-shadow {
+  fill: #02060c;
+  opacity: 0.72;
+}
+
+.environment-link .el-pin rect {
+  fill: #79b4d0;
+}
+
+.environment-link .el-side {
+  fill: #06111d;
+  stroke: #26475e;
+  stroke-width: 1;
+}
+
+.environment-link .el-face {
+  fill: #10283b;
+  stroke: #588ba8;
+  stroke-width: 1;
+}
+
+.environment-link .el-bevel {
+  fill: none;
+  stroke: #a1d7e9;
+  stroke-width: 1;
+  opacity: 0.55;
+}
+
+.environment-link .el-groove {
+  fill: none;
+  stroke: #040b13;
+  stroke-width: 1.5;
+}
