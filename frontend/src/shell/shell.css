@@ -1,0 +1,832 @@
+/*
+ * CyberHub 2026 shared shell: topbar, navigation rail, "Tous les modules"
+ * drawer and global search. Every rule is scoped to a `ch-` class, so module
+ * pages and the Dashboard keep their own styles. The Dashboard's motherboard
+ * and hero stay in src/dashboard2026.
+ */
+
+@font-face {
+  font-family: Manrope;
+  src: url("/dashboard-2026/fonts/manrope-latin.woff2") format("woff2");
+  font-weight: 200 800;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "DM Sans";
+  src: url("/dashboard-2026/fonts/dm-sans-latin.woff2") format("woff2");
+  font-weight: 100 1000;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "DM Mono";
+  src: url("/dashboard-2026/fonts/dm-mono-latin.woff2") format("woff2");
+  font-weight: 300 500;
+  font-display: swap;
+}
+
+/* ---------- tokens ---------- */
+
+.ch-shell {
+  --ch-bg: #06080f;
+  --ch-surface: #080d16;
+  --ch-surface-2: #0b1320;
+  --ch-tile: #0b1622;
+  --ch-line: #18293b;
+  --ch-line-strong: #24405a;
+  --ch-ink: #e8f1f7;
+  --ch-copy: #c3d1dc;
+  --ch-muted: #9fb3c3;
+  --ch-cyan: #00d4ff;
+  --ch-cyan-soft: rgb(0 212 255 / 0.14);
+  --ch-red: #ff6b6b;
+  --ch-focus: #a9f4fa;
+  --ch-sans: "DM Sans", system-ui, sans-serif;
+  --ch-display: Manrope, "DM Sans", system-ui, sans-serif;
+  --ch-mono: "DM Mono", ui-monospace, monospace;
+  --ch-topbar-h: 60px;
+  --ch-rail-w: 72px;
+}
+
+/* Shared focus ring for every shell control. */
+.ch-shell :is(.ch-topbar, .ch-rail, .ch-drawer, .ch-palette, .ch-tooltip) :is(a, button, input):focus-visible {
+  outline: 2px solid var(--ch-focus);
+  outline-offset: 2px;
+}
+
+.ch-skip {
+  position: fixed;
+  z-index: 80;
+  top: 6px;
+  left: 6px;
+  padding: 0.5rem 0.8rem;
+  border-radius: 6px;
+  background: var(--ch-cyan);
+  color: #031018;
+  font: 700 0.8rem var(--ch-sans);
+  transform: translateY(-160%);
+}
+
+.ch-skip:focus {
+  transform: none;
+}
+
+.ch-sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+
+/* ---------- shared controls ---------- */
+
+.ch-icon-button {
+  display: inline-grid;
+  place-items: center;
+  flex: none;
+  width: 40px;
+  height: 40px;
+  border: 1px solid #3a5871;
+  border-radius: 7px;
+  background: #0c1826;
+  color: #e2e8f0;
+  cursor: pointer;
+  transition: border-color 140ms ease, color 140ms ease, background-color 140ms ease;
+}
+
+.ch-icon-button:hover {
+  border-color: #33617f;
+  color: var(--ch-ink);
+}
+
+.ch-icon-button[aria-expanded="true"] {
+  border-color: rgb(0 212 255 / 0.55);
+  color: var(--ch-ink);
+  background: var(--ch-cyan-soft);
+}
+
+.ch-kbd {
+  padding: 0.18rem 0.42rem;
+  border: 1px solid #4c6575;
+  border-radius: 3px;
+  background: #0a131c;
+  color: #a9c0cc;
+  font: 400 0.65rem/1.3 var(--ch-mono);
+  letter-spacing: 0.04em;
+  white-space: nowrap;
+}
+
+.ch-glyph-tile {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 32px;
+  height: 32px;
+  border: 1px solid #1f3b52;
+  border-radius: 8px;
+  color: #9adff0;
+  background:
+    linear-gradient(180deg, rgb(255 255 255 / 0.04), transparent 60%),
+    var(--ch-tile);
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.05), inset 0 -1px 0 rgb(0 0 0 / 0.45);
+}
+
+/* Glyph nodes of the shell only: the Dashboard colours its own. */
+.ch-shell :is(.ch-topbar, .ch-rail, .ch-drawer, .ch-palette) .cyber-glyph .cg-node {
+  fill: var(--glyph-node, var(--ch-cyan));
+}
+
+/* ---------- topbar ---------- */
+
+.ch-topbar {
+  position: relative;
+  z-index: 30;
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: 0.85rem;
+  height: var(--ch-topbar-h);
+  padding: 0 0.9rem 0 calc((var(--ch-rail-w) - 40px) / 2);
+  border-bottom: 1px solid #1e2d40;
+  background: rgb(10 14 23 / 0.96);
+  color: var(--ch-copy);
+  font-family: var(--ch-sans);
+  box-shadow: 0 8px 24px rgb(2 4 10 / 0.32);
+}
+
+.ch-brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.6rem;
+  flex: none;
+  color: #e2e8f0;
+  text-decoration: none;
+  font: 800 0.98rem/1 var(--ch-display);
+  letter-spacing: -0.06em;
+}
+
+/* The mark in its bordered tile, as in the prototype. */
+.ch-brand img {
+  width: 34px;
+  height: 34px;
+  border: 1px solid #496979;
+  border-radius: 8px;
+}
+
+.ch-brand b {
+  color: var(--ch-cyan);
+  font-weight: 800;
+}
+
+.ch-search-trigger {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.55rem;
+  flex: 0 1 320px;
+  min-width: 0;
+  height: 38px;
+  margin-left: 0.6rem;
+  padding: 0 0.5rem 0 0.8rem;
+  border: 1px solid #3a5871;
+  border-radius: 5px;
+  background: #0c1826;
+  color: #aab8c9;
+  font: 400 0.875rem var(--ch-sans);
+  cursor: pointer;
+  transition: border-color 140ms ease, color 140ms ease;
+}
+
+.ch-search-trigger:hover {
+  border-color: #33617f;
+  color: var(--ch-ink);
+}
+
+.ch-search-trigger > span {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-align: left;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ch-breadcrumb {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  min-width: 0;
+  overflow: hidden;
+  color: var(--ch-muted);
+  font: 500 0.74rem var(--ch-mono);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.ch-breadcrumb [aria-current] {
+  overflow: hidden;
+  color: var(--ch-ink);
+  text-overflow: ellipsis;
+}
+
+.ch-status {
+  display: flex;
+  align-items: center;
+  gap: 0.9rem;
+  flex: none;
+  margin-left: auto;
+  color: var(--ch-muted);
+  font: 500 0.72rem var(--ch-mono);
+  letter-spacing: 0.05em;
+  white-space: nowrap;
+}
+
+.ch-topbar-icon {
+  display: inline-grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  border: 1px solid transparent;
+  border-radius: 7px;
+  color: #a9c0d1;
+}
+
+.ch-topbar-icon:hover {
+  border-color: #3a5871;
+  color: #e2e8f0;
+  background: #0c1826;
+}
+
+.ch-topbar-icon.is-active {
+  border-color: rgb(0 212 255 / 0.5);
+  color: #eafbff;
+}
+
+.ch-alert-pill {
+  padding: 0.25rem 0.5rem;
+  border: 1px solid rgb(239 68 68 / 0.45);
+  border-radius: 5px;
+  background: rgb(239 68 68 / 0.12);
+  color: #ffb4b4;
+  text-decoration: none;
+}
+
+.ch-alert-pill:hover {
+  border-color: rgb(239 68 68 / 0.75);
+  color: #ffd0d0;
+}
+
+.ch-session {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+}
+
+.ch-session i {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--ch-cyan);
+}
+
+/* ---------- body and rail ---------- */
+
+.ch-body {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.ch-rail {
+  display: flex;
+  flex: none;
+  flex-direction: column;
+  width: var(--ch-rail-w);
+  border-right: 1px solid var(--ch-line);
+  background:
+    linear-gradient(180deg, rgb(255 255 255 / 0.02), transparent 30%),
+    rgb(8 12 20 / 0.98);
+  font-family: var(--ch-sans);
+}
+
+/* Scrolls when the window is short (20 entries); no bar, so the buttons stay
+   centred; keyboard focus scrolls the focused button into view. */
+.ch-rail-nav {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  min-height: 0;
+  padding: 11px 0 9px;
+  overflow-x: hidden;
+  overflow-y: auto;
+  scrollbar-width: none;
+}
+
+.ch-rail-nav::-webkit-scrollbar {
+  display: none;
+}
+
+.ch-rail-group {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+}
+
+/* Discreet category separators, inset from the rail's edges. */
+.ch-rail-group + .ch-rail-group {
+  margin-top: 5px;
+  padding-top: 9px;
+  border-top: 1px solid var(--ch-line);
+  width: 44px;
+}
+
+.ch-rail-item {
+  --glyph-node: #3f7d99;
+  position: relative;
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 44px;
+  height: 44px;
+  border: 1px solid #274157;
+  border-radius: 8px;
+  background:
+    linear-gradient(180deg, rgb(255 255 255 / 0.024), transparent 60%),
+    #0c1724;
+  box-shadow: inset 0 -1px 0 rgb(0 0 0 / 0.45);
+  color: #8fb0c4;
+  cursor: pointer;
+  text-decoration: none;
+  transition: color 140ms ease, border-color 140ms ease, background-color 140ms ease;
+}
+
+.ch-rail-item:hover {
+  --glyph-node: var(--ch-cyan);
+  border-color: #33617f;
+  color: var(--ch-ink);
+}
+
+.ch-rail-item.is-active {
+  --glyph-node: var(--ch-cyan);
+  border-color: rgb(0 212 255 / 0.5);
+  color: #eafbff;
+  background:
+    linear-gradient(180deg, rgb(0 212 255 / 0.15), rgb(0 212 255 / 0.04)),
+    #0a1621;
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.08);
+}
+
+/* The active item's marker: a lit pin on the rail's edge. */
+.ch-rail-item.is-active::before {
+  content: "";
+  position: absolute;
+  left: -14px;
+  top: 10px;
+  bottom: 10px;
+  width: 2px;
+  border-radius: 2px;
+  background: var(--ch-cyan);
+  box-shadow: 0 0 8px rgb(0 212 255 / 0.65);
+}
+
+.ch-rail-badge {
+  position: absolute;
+  top: 1px;
+  right: 1px;
+  min-width: 15px;
+  height: 15px;
+  padding: 0 3px;
+  border-radius: 8px;
+  background: #e5484d;
+  color: #fff;
+  font: 700 0.58rem/15px var(--ch-sans);
+  text-align: center;
+}
+
+.ch-rail-foot {
+  display: flex;
+  flex: none;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 8px 0 9px;
+  border-top: 1px solid var(--ch-line);
+}
+
+.ch-rail-item.is-danger {
+  color: #ff9a9a;
+}
+
+.ch-rail-item.is-danger:hover {
+  border-color: rgb(239 68 68 / 0.45);
+  background: rgb(239 68 68 / 0.1);
+  color: #ffc2c2;
+}
+
+/* Tooltip shown next to the hovered or focused rail item (positioned in JS). */
+.ch-tooltip {
+  position: fixed;
+  z-index: 70;
+  padding: 0.32rem 0.55rem;
+  border: 1px solid var(--ch-line-strong);
+  border-radius: 6px;
+  background: #0b1520;
+  color: var(--ch-ink);
+  font: 600 0.75rem/1.2 var(--ch-sans);
+  white-space: nowrap;
+  pointer-events: none;
+  transform: translateY(-50%);
+  box-shadow: 0 8px 22px rgb(0 0 0 / 0.4);
+}
+
+/* ---------- drawer: all modules ---------- */
+
+.ch-drawer-layer {
+  position: fixed;
+  z-index: 60;
+  inset: 0;
+}
+
+.ch-drawer-scrim {
+  position: absolute;
+  inset: 0;
+  border: 0;
+  background: rgb(1 4 9 / 0.62);
+  cursor: default;
+}
+
+.ch-drawer {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  display: flex;
+  flex-direction: column;
+  width: min(380px, 92vw);
+  border-right: 1px solid var(--ch-line-strong);
+  background:
+    linear-gradient(180deg, rgb(0 212 255 / 0.05), transparent 220px),
+    #080e18;
+  color: var(--ch-copy);
+  font-family: var(--ch-sans);
+  box-shadow: 18px 0 48px rgb(0 0 0 / 0.45);
+}
+
+.ch-drawer-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 1.15rem 1.15rem 1rem;
+  border-bottom: 1px solid var(--ch-line);
+}
+
+.ch-drawer-head span {
+  color: #7fdff3;
+  font: 500 0.7rem var(--ch-mono);
+  letter-spacing: 0.14em;
+}
+
+.ch-drawer-head h2 {
+  margin: 0.3rem 0 0;
+  color: var(--ch-ink);
+  font: 800 1.35rem/1.15 var(--ch-display);
+  letter-spacing: -0.02em;
+}
+
+.ch-drawer-body {
+  flex: 1;
+  min-height: 0;
+  padding: 0.6rem 0.75rem 1rem;
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: #24405a transparent;
+}
+
+.ch-drawer-group h3 {
+  margin: 0.9rem 0.4rem 0.4rem;
+  color: var(--ch-muted);
+  font: 500 0.7rem var(--ch-mono);
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.ch-drawer-group h3 b {
+  margin-right: 0.4rem;
+  color: #7fdff3;
+  font-weight: 500;
+}
+
+.ch-drawer-group ul {
+  display: grid;
+  gap: 2px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.ch-drawer-link {
+  --glyph-node: #3f7d99;
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+  padding: 0.45rem 0.5rem;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  color: var(--ch-copy);
+  text-decoration: none;
+}
+
+.ch-drawer-link:hover,
+.ch-drawer-link:focus-visible {
+  --glyph-node: var(--ch-cyan);
+  border-color: var(--ch-line-strong);
+  background: var(--ch-surface-2);
+  color: var(--ch-ink);
+}
+
+.ch-drawer-link.is-active {
+  --glyph-node: var(--ch-cyan);
+  border-color: rgb(0 212 255 / 0.45);
+  background: rgb(0 212 255 / 0.08);
+}
+
+/* Text column: takes the remaining width (the icon tile keeps its 32 px). */
+.ch-drawer-link > span:not(.ch-glyph-tile) {
+  display: grid;
+  flex: 1 1 auto;
+  gap: 0.1rem;
+  min-width: 0;
+}
+
+.ch-drawer-link strong {
+  color: var(--ch-ink);
+  font: 600 0.88rem/1.25 var(--ch-sans);
+}
+
+/* Descriptions wrap instead of being cut. */
+.ch-drawer-link small {
+  color: var(--ch-muted);
+  font-size: 0.76rem;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+}
+
+.ch-drawer-link > svg,
+.ch-drawer-link > em {
+  flex: none;
+}
+
+.ch-drawer-link em {
+  color: #7fe8f8;
+  font: 500 0.66rem var(--ch-mono);
+  font-style: normal;
+  letter-spacing: 0.08em;
+}
+
+.ch-drawer-foot {
+  padding: 0.75rem;
+  border-top: 1px solid var(--ch-line);
+}
+
+.ch-drawer-logout {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.55rem;
+  padding: 0.5rem 0.75rem;
+  border: 1px solid rgb(239 68 68 / 0.4);
+  border-radius: 7px;
+  background: rgb(239 68 68 / 0.08);
+  color: #ffb4b4;
+  font: 600 0.82rem var(--ch-sans);
+  cursor: pointer;
+}
+
+.ch-drawer-logout:hover {
+  border-color: rgb(239 68 68 / 0.7);
+  color: #ffd0d0;
+}
+
+/* ---------- global search palette ---------- */
+
+.ch-palette-layer {
+  position: fixed;
+  z-index: 65;
+  inset: 0;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding: min(12vh, 110px) 1rem 1rem;
+  background: rgb(1 4 9 / 0.66);
+}
+
+.ch-palette {
+  display: flex;
+  flex-direction: column;
+  width: min(680px, 100%);
+  max-height: min(620px, calc(100vh - 2rem));
+  border: 1px solid var(--ch-line-strong);
+  border-radius: 12px;
+  overflow: hidden;
+  background:
+    linear-gradient(180deg, rgb(0 212 255 / 0.05), transparent 160px),
+    #080e18;
+  color: var(--ch-copy);
+  font-family: var(--ch-sans);
+  box-shadow: 0 28px 70px rgb(0 0 0 / 0.55);
+}
+
+.ch-palette-field {
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+  padding: 0.85rem 1rem;
+  border-bottom: 1px solid var(--ch-line);
+  color: var(--ch-muted);
+}
+
+.ch-palette-field:focus-within {
+  color: var(--ch-cyan);
+}
+
+.ch-palette-field input {
+  flex: 1;
+  min-width: 0;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  color: var(--ch-ink);
+  font: 400 1rem var(--ch-sans);
+}
+
+.ch-palette-field input::placeholder {
+  color: #8297a8;
+}
+
+.ch-palette-results {
+  flex: 1;
+  min-height: 0;
+  padding: 0.35rem 0.5rem 0.6rem;
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: #24405a transparent;
+}
+
+.ch-palette-group-title {
+  margin: 0.7rem 0.5rem 0.35rem;
+  color: var(--ch-muted);
+  font: 500 0.68rem var(--ch-mono);
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.ch-palette-option {
+  --glyph-node: #3f7d99;
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+  width: 100%;
+  padding: 0.45rem 0.55rem;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  background: none;
+  color: var(--ch-copy);
+  text-align: left;
+  cursor: pointer;
+}
+
+.ch-palette-option[aria-selected="true"] {
+  --glyph-node: var(--ch-cyan);
+  border-color: rgb(0 212 255 / 0.45);
+  background: rgb(0 212 255 / 0.08);
+  color: var(--ch-ink);
+}
+
+.ch-palette-option > span:not(.ch-glyph-tile) {
+  display: grid;
+  flex: 1;
+  min-width: 0;
+}
+
+.ch-palette-option strong {
+  overflow: hidden;
+  color: var(--ch-ink);
+  font: 600 0.88rem/1.25 var(--ch-sans);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ch-palette-option small {
+  overflow: hidden;
+  color: var(--ch-muted);
+  font-size: 0.76rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ch-palette-option em {
+  color: #7fe8f8;
+  font: 500 0.66rem var(--ch-mono);
+  font-style: normal;
+  letter-spacing: 0.06em;
+  white-space: nowrap;
+}
+
+.ch-palette-empty {
+  margin: 0;
+  padding: 2rem 1rem;
+  color: var(--ch-muted);
+  font-size: 0.86rem;
+  text-align: center;
+}
+
+.ch-palette-foot {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.9rem;
+  padding: 0.55rem 1rem;
+  border-top: 1px solid var(--ch-line);
+  color: var(--ch-muted);
+  font-size: 0.74rem;
+}
+
+.ch-palette-foot span {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.ch-palette-foot output {
+  margin-left: auto;
+}
+
+/* ---------- responsive ---------- */
+
+@media (max-width: 1100px) {
+  .ch-session span,
+  .ch-clock {
+    display: none;
+  }
+}
+
+@media (max-width: 760px) {
+  .ch-shell {
+    --ch-topbar-h: 56px;
+  }
+
+  .ch-topbar-icon {
+    display: none;
+  }
+
+  .ch-topbar {
+    gap: 0.55rem;
+    padding: 0 0.6rem;
+  }
+
+  .ch-brand span,
+  .ch-breadcrumb,
+  .ch-search-trigger > span,
+  .ch-search-trigger .ch-kbd {
+    display: none;
+  }
+
+  .ch-search-trigger {
+    flex: none;
+    width: 38px;
+    height: 38px;
+    margin-left: auto;
+    padding: 0;
+    justify-content: center;
+  }
+
+  .ch-status {
+    margin-left: 0;
+  }
+
+  .ch-alert-pill {
+    padding: 0.2rem 0.4rem;
+  }
+
+  /* Phones: the drawer is the navigation, the rail gives its width back. */
+  .ch-rail {
+    display: none;
+  }
+
+  .ch-palette-layer {
+    padding-top: 0.75rem;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ch-shell :is(.ch-icon-button, .ch-search-trigger, .ch-rail-item) {
+    transition: none;
+  }
+}

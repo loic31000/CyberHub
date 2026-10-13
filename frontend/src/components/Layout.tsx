@@ -1,33 +1,23 @@
-import { useEffect, useState } from 'react'
-import { Outlet, useLocation } from 'react-router-dom'
+import { useEffect, useRef, useState } from 'react'
+import { Link, NavLink, Outlet, useLocation } from 'react-router-dom'
+import { Menu, Search, Settings } from 'lucide-react'
 import Sidebar from './Sidebar'
 import ToastContainer from './Toast'
 import SearchModal from './SearchModal'
+import ModuleDrawer from '@/shell/ModuleDrawer'
+import { breadcrumbFor } from '@/shell/navigation'
 import { bgpApi } from '@/api/client'
 import { useAuthStore } from '@/store/auth'
-import { ChevronLeft, Search } from 'lucide-react'
+import '@/shell/shell.css'
 
-const ROUTE_META: Record<string, { section: string; label: string }> = {
-  '/dashboard':     { section: 'CORE',  label: 'DASHBOARD' },
-  '/tools':         { section: 'CORE',  label: 'OUTILS' },
-  '/ctf':           { section: 'CORE',  label: 'WRITEUPS CTF' },
-  '/cve':           { section: 'INTEL', label: 'VEILLE CVE & KEV' },
-  '/playbooks':     { section: 'INTEL', label: 'PLAYBOOKS IR' },
-  '/mitre':         { section: 'INTEL', label: 'MITRE ATT&CK' },
-  '/lolbins':       { section: 'INTEL', label: 'LOLBINS & GTFO' },
-  '/cloak':         { section: 'OPS',   label: 'CLOAK OPSEC' },
-  '/ioc':           { section: 'OPS',   label: 'IOC MANAGER' },
-  '/correlation':   { section: 'OPS',   label: 'CORRÉLATION' },
-  '/osint':         { section: 'OPS',   label: 'OSINT RUNNER' },
-  '/notes':         { section: 'MISC',  label: 'NOTES OPÉRATIONNELLES' },
-  '/cheatsheets':   { section: 'MISC',  label: 'CHEATSHEETS' },
-  '/bgp':           { section: 'MISC',  label: 'BGP LOOKUP' },
-  '/bgp/historian': { section: 'MISC',  label: 'BGP HISTORIAN' },
-  '/settings':      { section: 'MISC',  label: 'PARAMÈTRES' },
-}
+/*
+ * CyberHub 2026 shared shell: one topbar, one navigation rail, one
+ * "Tous les modules" drawer and one global search for every page. The page
+ * area below is unchanged: each module keeps its own layout and styles.
+ */
 
 function useClock() {
-  const fmt = () => new Date().toLocaleTimeString('fr-FR', { hour:'2-digit', minute:'2-digit', second:'2-digit', hour12:false })
+  const fmt = () => new Date().toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false })
   const [time, setTime] = useState(fmt)
   useEffect(() => {
     const id = setInterval(() => setTime(fmt()), 1000)
@@ -38,15 +28,47 @@ function useClock() {
 
 export default function Layout() {
   const [searchOpen, setSearchOpen] = useState(false)
-  const [collapsed, setCollapsed]   = useState(false)
+  const [drawerOpen, setDrawerOpen] = useState(false)
+  const searchTrigger = useRef<HTMLButtonElement>(null)
+  const burger = useRef<HTMLButtonElement>(null)
+  const searchReturnFocus = useRef<HTMLElement | null>(null)
+  const drawerReturnFocus = useRef<HTMLElement | null>(null)
   const [bgpAlertCount, setBgpAlertCount] = useState(0)
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated)
   const location = useLocation()
   const clock = useClock()
+  const crumb = breadcrumbFor(location.pathname)
 
-  const segments = location.pathname.split('/').filter(Boolean)
-  const top = '/' + (segments[0] ?? '')
-  const meta = ROUTE_META[location.pathname] ?? ROUTE_META[top] ?? { section: 'CORE', label: 'DASHBOARD' }
+  const openSearch = (target: HTMLElement | null) => {
+    searchReturnFocus.current = target ?? searchTrigger.current
+    setDrawerOpen(false)
+    setSearchOpen(true)
+  }
+  const closeSearch = () => {
+    const target = searchReturnFocus.current
+    setSearchOpen(false)
+    window.setTimeout(() => (target?.isConnected ? target : searchTrigger.current)?.focus(), 0)
+  }
+  const openDrawer = (trigger: HTMLElement) => {
+    drawerReturnFocus.current = trigger
+    setSearchOpen(false)
+    setDrawerOpen(true)
+  }
+
+  // Ctrl+K / Cmd+K opens the global search from any page.
+  useEffect(() => {
+    const onShortcut = (event: KeyboardEvent) => {
+      if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'k') {
+        event.preventDefault()
+        if (!event.repeat) openSearch(document.activeElement instanceof HTMLElement ? document.activeElement : null)
+      }
+    }
+    window.addEventListener('keydown', onShortcut)
+    return () => window.removeEventListener('keydown', onShortcut)
+  }, [])
+
+  // A route change closes the drawer.
+  useEffect(() => setDrawerOpen(false), [location.pathname])
 
   useEffect(() => {
     if (!isAuthenticated) return
@@ -54,90 +76,82 @@ export default function Layout() {
   }, [isAuthenticated])
 
   return (
-    <div className="flex flex-col h-screen overflow-hidden bg-[#06080f] text-[#f1f5f9] font-sans selection:bg-[#00d4ff]/30">
-      
-      {/* TOPBAR alignée (h-12) */}
-      <header className="flex items-stretch h-12 border-b bg-[#0a0e17] flex-shrink-0 z-20" style={{ borderColor: '#1e2d40' }}>
-        
-        {/* ZONE LOGO STRICTEMENT ALIGNÉE AVEC LA SIDEBAR (w-64 ou w-20) */}
-        <div className={`flex items-center px-4 border-r transition-[width] duration-300 overflow-hidden ${collapsed ? 'w-20 justify-center' : 'w-64 justify-between'}`} style={{ borderColor: '#1e2d40' }}>
-          <div className="flex items-center gap-3">
-            
-            {/* ENCADRÉ CARRÉ NÉON */}
-            <div 
-              className="flex items-center justify-center w-8 h-8 border border-[#00d4ff] shadow-[0_0_10px_#00d4ff] rounded-md flex-shrink-0 cursor-pointer hover:drop-shadow-[0_0_5px_rgba(0,212,255,0.8)] transition-all"
-              onClick={() => setCollapsed(!collapsed)}
-            >
-              <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="#00d4ff" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
-              </svg>
-            </div>
+    <div className="ch-shell flex flex-col h-screen overflow-hidden bg-[#06080f] text-[#f1f5f9] font-sans selection:bg-[#00d4ff]/30">
+      <a className="ch-skip" href="#ch-main">
+        Aller au contenu
+      </a>
 
-            {/* GROS TITRE */}
-            {!collapsed && (
-              <h1 className="text-base font-black tracking-widest text-[#f1f5f9] flex items-center m-0">
-                CYBER<span className="text-[#00d4ff]">HUB</span>
-              </h1>
-            )}
-          </div>
-          
-          {/* BOUTON DE RÉTRACTATION */}
-          {!collapsed && (
-            <button 
-              onClick={() => setCollapsed(true)} 
-              className="text-[#64748b] hover:text-[#00d4ff] transition-colors flex-shrink-0 flex items-center justify-center"
-              title="Réduire le menu"
-            >
-              <ChevronLeft size={18} />
-            </button>
-          )}
-        </div>
+      <header className="ch-topbar">
+        <button
+          ref={burger}
+          type="button"
+          className="ch-icon-button"
+          aria-label={drawerOpen ? 'Fermer tous les modules' : 'Ouvrir tous les modules'}
+          aria-haspopup="dialog"
+          aria-expanded={drawerOpen}
+          aria-controls="ch-drawer"
+          onClick={(event) => (drawerOpen ? setDrawerOpen(false) : openDrawer(event.currentTarget))}
+        >
+          <Menu size={19} />
+        </button>
 
-        {/* SEARCH BAR & BREADCRUMB */}
-        <div className="flex-1 flex items-center px-4 gap-5">
-          <button
-            onClick={() => setSearchOpen(true)}
-            className="flex items-center gap-2 bg-[#0d1420] border border-[#1e2d40] hover:border-[#00d4ff]/60 focus:border-[#00d4ff] focus:outline-none focus:ring-1 focus:ring-[#00d4ff]/30 rounded px-3 py-1 text-[#64748b] hover:text-[#00d4ff] transition-all duration-150 text-xs font-mono group"
-          >
-            <Search size={13} className="opacity-70 group-hover:opacity-100 transition-opacity" />
-            <span className="hidden sm:inline">[CTRL+K]</span>
-            <span className="text-[#4a6480] hidden md:inline">COMMAND_SEARCH</span>
-          </button>
-          
-          <div className="h-4 w-px bg-[#1e2d40]" />
+        <Link to="/dashboard" className="ch-brand" aria-label="CyberHub, retour au Dashboard">
+          <img src="/dashboard-2026/mark.svg" alt="" width={30} height={30} />
+          <span>
+            CYBER<b>HUB</b>
+          </span>
+        </Link>
 
-          <div className="flex items-center gap-2 text-xs font-mono">
-            <span className="text-[#64748b]">~ /</span>
-            <span className="text-[#64748b]">{meta.section} /</span>
-            <span className="text-[#f1f5f9] font-medium">{meta.label}</span>
-          </div>
-        </div>
+        <button
+          ref={searchTrigger}
+          type="button"
+          className="ch-search-trigger"
+          aria-label="Ouvrir la recherche globale"
+          aria-haspopup="dialog"
+          aria-keyshortcuts="Control+K Meta+K"
+          onClick={(event) => openSearch(event.currentTarget)}
+        >
+          <Search size={16} aria-hidden="true" />
+          <span>Rechercher…</span>
+          <kbd className="ch-kbd">Ctrl K</kbd>
+        </button>
 
-        {/* RIGHT ACTIONS */}
-        <div className="flex items-center gap-4 px-4 font-mono text-[11px]">
+        <nav className="ch-breadcrumb" aria-label="Fil d’Ariane">
+          <span aria-hidden="true">~ /</span>
+          <span>{crumb.section} /</span>
+          <span aria-current="page">{crumb.label}</span>
+        </nav>
+
+        <div className="ch-status">
           {bgpAlertCount > 0 && (
-            <div className="text-[#ef4444] border border-[#ef4444]/30 bg-[#ef4444]/10 px-2 py-0.5 rounded">
-              {bgpAlertCount} BGP ALERTS
-            </div>
+            <Link to="/bgp/historian" className="ch-alert-pill" aria-label={`${bgpAlertCount} alertes BGP enregistrées, ouvrir BGP Historian`}>
+              {bgpAlertCount} BGP
+            </Link>
           )}
-          <div className="flex items-center gap-2 text-[#64748b]">
-            <div className="w-2 h-2 rounded-full bg-[#10b981]" />
-            <span>ONLINE</span>
-          </div>
-          <span className="text-[#64748b]">{clock}</span>
+          {/* Real state: the shell is only rendered for an authenticated session. */}
+          <span className="ch-session">
+            <i aria-hidden="true" />
+            <span>SESSION AUTHENTIFIÉE</span>
+          </span>
+          <time className="ch-clock">{clock}</time>
+          <NavLink to="/settings" className={({ isActive }) => `ch-topbar-icon${isActive ? ' is-active' : ''}`} aria-label="Paramètres">
+            <Settings size={18} />
+          </NavLink>
         </div>
       </header>
 
-      {/* BODY */}
-      <div className="flex flex-1 overflow-hidden">
-        <Sidebar collapsed={collapsed} setCollapsed={setCollapsed} bgpAlertCount={bgpAlertCount} />
-        <main className="flex-1 flex flex-col overflow-hidden relative">
-          <div className="absolute inset-0 pointer-events-none opacity-[0.02] bg-[repeating-linear-gradient(0deg,transparent,transparent_1px,#fff_1px,#fff_2px)] z-50" />
-          <div className="flex-1 overflow-auto z-10 custom-scrollbar"><Outlet /></div>
+      <div className="ch-body">
+        <Sidebar bgpAlertCount={bgpAlertCount} drawerOpen={drawerOpen} onOpenDrawer={openDrawer} />
+        <main id="ch-main" className="flex-1 flex flex-col overflow-hidden relative">
+          <div className="flex-1 overflow-auto z-10 custom-scrollbar">
+            <Outlet />
+          </div>
         </main>
       </div>
+
+      <ModuleDrawer open={drawerOpen} onClose={() => setDrawerOpen(false)} returnFocus={drawerReturnFocus} bgpAlertCount={bgpAlertCount} />
       <ToastContainer />
-      <SearchModal open={searchOpen} onClose={() => setSearchOpen(false)} />
+      <SearchModal open={searchOpen} onClose={closeSearch} />
     </div>
   )
 }
