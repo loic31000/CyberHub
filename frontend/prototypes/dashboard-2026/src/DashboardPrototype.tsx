@@ -1,7 +1,9 @@
 import NetworkGlobe from "./NetworkGlobe";
 import TerminalFlux from "./TerminalFlux";
 import CircuitBoard from "./CircuitBoard";
-import DashboardCircuit from "./DashboardCircuit";
+import DashboardCircuit, { requestCircuitRecompute } from "./DashboardCircuit";
+import { CustomizeEnvironmentDialog, EnvironmentGrid, MiniBars } from "./EnvironmentCards";
+import { useDashboardLayout } from "./useDashboardLayout";
 import { PanelBody, PanelToggle, useCollapsible } from "./CollapsiblePanel";
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { CSSProperties } from "react";
@@ -33,6 +35,7 @@ import {
   Database,
   Globe2,
   Settings,
+  SlidersHorizontal,
   type LucideIcon,
 } from "lucide-react";
 
@@ -44,16 +47,6 @@ type SearchEntry = {
   category: "Modules" | "Exemples fictifs";
   icon: LucideIcon;
 };
-type SignalItem = {
-  label: string;
-  status: string;
-  secondary: string;
-  action: string;
-  tone: "ready" | "quiet" | "attention";
-  icon: LucideIcon;
-  bars: number[];
-};
-
 type FeedItem = {
   title: string;
   detail: string;
@@ -120,54 +113,6 @@ const navigationGroups: { label: string; items: Module[] }[] = [
 ];
 
 const modules = navigationGroups.flatMap((group) => group.items);
-
-const signalItems: SignalItem[] = [
-  {
-    label: "Console",
-    status: "Opérationnelle",
-    secondary: "v2026.05.1",
-    action: "Dashboard",
-    tone: "ready",
-    icon: Terminal,
-    bars: [18, 24, 34, 46, 62, 74, 58, 82],
-  },
-  {
-    label: "MITRE",
-    status: "Index prêt",
-    secondary: "ATT&CK v14.1",
-    action: "MITRE ATT&CK",
-    tone: "ready",
-    icon: Layers3,
-    bars: [12, 22, 28, 43, 57, 70, 51, 78],
-  },
-  {
-    label: "Sources",
-    status: "Synchronisation",
-    secondary: "2/4 connectées",
-    action: "IOC Manager",
-    tone: "attention",
-    icon: Globe2,
-    bars: [10, 17, 25, 38, 48, 64, 78, 88],
-  },
-  {
-    label: "OSINT",
-    status: "Aucun job",
-    secondary: "En attente",
-    action: "OSINT Runner",
-    tone: "quiet",
-    icon: Search,
-    bars: [16, 22, 31, 48, 44, 61, 72, 68],
-  },
-  {
-    label: "BGP",
-    status: "À surveiller",
-    secondary: "12 réseaux suivis",
-    action: "BGP Historian",
-    tone: "ready",
-    icon: Network,
-    bars: [15, 29, 37, 51, 59, 72, 83, 91],
-  },
-];
 
 const operations: FeedItem[] = [
   {
@@ -313,19 +258,6 @@ function Brand() {
       <span>
         CYBER<span>HUB</span>
       </span>
-    </span>
-  );
-}
-
-function MiniBars({ bars }: { bars: number[] }) {
-  return (
-    <span className="mini-bars" aria-hidden="true">
-      {bars.map((height, index) => (
-        <i
-          key={index}
-          style={{ "--bar-height": `${height}%` } as React.CSSProperties}
-        />
-      ))}
     </span>
   );
 }
@@ -711,6 +643,19 @@ export default function DashboardPrototype() {
   const operationsPanel = useCollapsible("operations-panel");
   const threatPanel = useCollapsible("threat-panel");
   const alertsPanel = useCollapsible("alerts-panel");
+  const environmentLayout = useDashboardLayout();
+  const [customizeOpen, setCustomizeOpen] = useState(false);
+  const customizeReturnFocus = useRef<HTMLElement | null>(null);
+
+  function openCustomize(trigger: HTMLElement) {
+    customizeReturnFocus.current = trigger;
+    setCustomizeOpen(true);
+  }
+
+  // The environment panel can change height: let the circuit measure it again.
+  useEffect(() => {
+    requestCircuitRecompute();
+  }, [environmentLayout.envCards]);
 
   function selectDestination(label: string, returnTarget?: HTMLElement | null) {
     detailReturnFocus.current =
@@ -768,10 +713,10 @@ export default function DashboardPrototype() {
   useEffect(() => {
     document.body.classList.toggle(
       "overlay-open",
-      menuOpen || searchOpen || detail !== null,
+      menuOpen || searchOpen || detail !== null || customizeOpen,
     );
     return () => document.body.classList.remove("overlay-open");
-  }, [menuOpen, searchOpen, detail]);
+  }, [menuOpen, searchOpen, detail, customizeOpen]);
 
   useEffect(() => {
     if (menuOpen) requestAnimationFrame(() => menuClose.current?.focus());
@@ -992,6 +937,16 @@ export default function DashboardPrototype() {
         returnFocus={detailReturnFocus}
       />
 
+      <CustomizeEnvironmentDialog
+        open={customizeOpen}
+        envCards={environmentLayout.envCards}
+        onChange={environmentLayout.update}
+        onReset={environmentLayout.reset}
+        onClose={() => setCustomizeOpen(false)}
+        returnFocus={customizeReturnFocus}
+        persisted={environmentLayout.persisted}
+      />
+
       <main className="main-content" id="main-content">
         <DashboardCircuit />
         <div className="workspace dashboard-board" id="overview">
@@ -1040,6 +995,15 @@ export default function DashboardPrototype() {
                 </time>
                 <button
                   type="button"
+                  className="panel-action environment-customize"
+                  aria-haspopup="dialog"
+                  onClick={(event) => openCustomize(event.currentTarget)}
+                >
+                  <SlidersHorizontal size={14} aria-hidden="true" />
+                  Personnaliser
+                </button>
+                <button
+                  type="button"
                   className="panel-action"
                   onClick={(event) => openMenu(event.currentTarget)}
                 >
@@ -1047,37 +1011,11 @@ export default function DashboardPrototype() {
                 </button>
               </div>
             </header>
-            <div className="environment-grid">
-              {signalItems.map((signal) => {
-                const Icon = signal.icon;
-                return (
-                  <button
-                    type="button"
-                    className={`environment-card signal-${signal.tone}`}
-                    key={signal.label}
-                    onClick={() => selectDestination(signal.action)}
-                  >
-                    <span className="environment-icon">
-                      <Icon size={25} />
-                    </span>
-                    <span className="environment-copy">
-                      <strong>{signal.label}</strong>
-                      <span>
-                        <i className="signal-led" aria-hidden="true" />
-                        {signal.status}
-                      </span>
-                      <small>{signal.secondary}</small>
-                    </span>
-                    <ChevronRight
-                      className="environment-arrow"
-                      size={16}
-                      aria-hidden="true"
-                    />
-                    <MiniBars bars={signal.bars} />
-                  </button>
-                );
-              })}
-            </div>
+            <EnvironmentGrid
+              envCards={environmentLayout.envCards}
+              onOpen={(destination) => selectDestination(destination)}
+              onAdd={openCustomize}
+            />
           </section>
 
           <div className="monitor-grid">
