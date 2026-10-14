@@ -12,6 +12,7 @@ import type {
   CorrelationAttackLayer,
   CorrelationNote,
 } from '@/types/correlation'
+import { prepareIntelligenceData } from '@/ioc26/intelligenceData'
 
 interface Props {
   result: CorrelationResult | null
@@ -56,29 +57,33 @@ function EmptyHint({ label }: { label: string }) {
   return <p className="text-text-muted text-xs italic">{label}</p>
 }
 
-function readableTactics(raw?: string): string[] {
-  const value = raw?.trim()
-  if (!value) return []
-  let tactics: string[] = []
-  try {
-    const parsed: unknown = JSON.parse(value)
-    tactics = Array.isArray(parsed) ? parsed.filter((item): item is string => typeof item === 'string') : typeof parsed === 'string' ? [parsed] : []
-  } catch {
-    if (value.startsWith('[') && value.endsWith(']')) {
-      const quoted = [...value.matchAll(/['"]([^'"]+)['"]/g)].map(match => match[1])
-      tactics = quoted.length > 0 ? quoted : value.slice(1, -1).split(',')
-    } else tactics = [value]
-  }
-  return tactics.map(tactic => tactic.trim()).filter(Boolean).map(tactic =>
-    /^[a-z][a-z-]*$/.test(tactic)
-      ? tactic.split('-').map((word, index) => index > 0 && word === 'and' ? word : word.charAt(0).toUpperCase() + word.slice(1)).join(' ')
-      : tactic
-  )
-}
-
 function confidenceLabel(confidence: number): string {
   const pct = Math.round(confidence * 100)
   return pct >= 60 ? 'Confiance forte' : pct >= 30 ? 'Confiance modérée' : 'Confiance faible'
+}
+
+export function IocCorrelationSummary({ result, compact = false }: { result: CorrelationResult; compact?: boolean }) {
+  const data = prepareIntelligenceData(result)
+  const confidence = result.confidence ?? 0
+  return (
+    <section className={`ioc26-score-summary${compact ? ' is-compact' : ''}`} aria-label="Analyse de corrélation">
+      <div className="ioc26-score-heading"><h3>Analyse de corrélation</h3><Activity size={17} aria-hidden="true" /></div>
+      <div className="ioc26-score-reading">
+        <strong>{Math.round(confidence * 100)}<span>%</span></strong>
+        <span>{confidenceLabel(confidence)}</span>
+      </div>
+      <p className="ioc26-score-explanation">{compact ? 'Liens locaux pondérés · ni niveau de menace ni probabilité de compromission.' : 'Pondération des liens trouvés dans les données locales. Ce score ne mesure ni la menace ni la probabilité de compromission.'}</p>
+      {data.groups.some(group => group.count > 0) && (
+        <dl className="ioc26-score-evidence" aria-label="Correspondances locales">
+          {data.groups.filter(group => group.count > 0).map(group => <div key={group.id}><dt>{group.label}</dt><dd>{group.count}</dd></div>)}
+        </dl>
+      )}
+      {compact ? <details className="ioc26-score-more"><summary>Interprétation et contexte</summary>
+        <p>Pondération des liens trouvés dans les données locales. Ce score ne mesure ni la menace ni la probabilité de compromission.</p>
+        {result.rationale && <p>{result.rationale}</p>}
+      </details> : result.rationale && <p className="ioc26-score-rationale">{result.rationale}</p>}
+    </section>
+  )
 }
 
 function ConfidenceBadge({ confidence, neutral = false }: { confidence: number; neutral?: boolean }) {
@@ -125,6 +130,7 @@ export default function CorrelationPanel({ result, loading, error, variant }: Pr
   const nextActions: string[] = result.next_actions ?? []
   const confidence = result.confidence ?? 0
   const rationale = result.rationale ?? ''
+  const prepared = prepareIntelligenceData(result)
   const nextActionsSection = nextActions.length > 0 && (
     <section className={variant === 'ioc' ? 'ioc26-next-actions' : 'p-4 rounded-lg bg-cyber-cyan/5 border border-cyber-cyan/20'}>
       <h3 className={variant === 'ioc' ? '' : 'text-xs font-semibold text-cyber-cyan mb-2 flex items-center gap-1.5'}>
@@ -145,7 +151,7 @@ export default function CorrelationPanel({ result, loading, error, variant }: Pr
       defaultOpen={variant === 'ioc' ? result.playbooks.length > 0 : true}>
       {result.playbooks.length === 0 ? <EmptyHint label="Aucun playbook suggéré" /> : (
         <ul className={variant === 'ioc' ? 'ioc26-playbook-list' : 'space-y-1'}>
-          {result.playbooks.map(pb => <li key={pb.id}>
+          {prepared.playbooks.map(pb => <li key={pb.id}>
             <button onClick={() => navigate(`/playbooks/${pb.id}`)} className={`text-xs text-text-secondary hover:text-cyber-cyan hover:underline transition-colors text-left${variant === 'ioc' ? ' ioc26-playbook-link' : ''}`}>→ {pb.title}</button>
           </li>)}
         </ul>
@@ -156,7 +162,7 @@ export default function CorrelationPanel({ result, loading, error, variant }: Pr
     <Section title="CVE liées (CVSS ≥ 7.0)" icon={<ShieldAlert size={16} />} count={result.cves.length}
       defaultOpen={variant === 'ioc' ? result.cves.length > 0 : true}>
       {result.cves.length === 0 ? <EmptyHint label="Aucune CVE liée trouvée" /> : variant === 'ioc' ? (
-        <ul className="ioc26-cve-list">{result.cves.map(cve => <li key={cve.cve_id}>
+        <ul className="ioc26-cve-list">{prepared.cves.map(cve => <li key={cve.cve_id}>
           <span className="ioc26-cve-id">{cve.cve_id}</span>
           <span className="ioc26-cve-score">CVSS {cve.cvss_score.toFixed(1)}</span>
           <p>{cve.description}</p>
@@ -182,22 +188,7 @@ export default function CorrelationPanel({ result, loading, error, variant }: Pr
     <div className={variant === 'ioc' ? 'ioc26-correlation-panel' : 'space-y-3'}>
       {/* Header : confiance + rationale */}
       {variant === 'ioc' ? (
-        <section className="ioc26-score-summary" aria-label="Analyse de corrélation">
-          <div className="ioc26-score-heading"><h3>Analyse de corrélation</h3><Activity size={17} aria-hidden="true" /></div>
-          <div className="ioc26-score-reading">
-            <strong>{Math.round(confidence * 100)}<span>%</span></strong>
-            <span>{confidenceLabel(confidence)}</span>
-          </div>
-          <p className="ioc26-score-explanation">Pondération des liens trouvés dans les données locales. Ce score ne mesure ni la menace ni la probabilité de compromission.</p>
-          {(result.techniques.length > 0 || result.playbooks.length > 0 || result.cves.length > 0) && (
-            <dl className="ioc26-score-evidence" aria-label="Correspondances locales">
-              {result.techniques.length > 0 && <div><dt>MITRE</dt><dd>{result.techniques.length}</dd></div>}
-              {result.playbooks.length > 0 && <div><dt>Playbooks</dt><dd>{result.playbooks.length}</dd></div>}
-              {result.cves.length > 0 && <div><dt>CVE</dt><dd>{result.cves.length}</dd></div>}
-            </dl>
-          )}
-          {rationale && <p className="ioc26-score-rationale">{rationale}</p>}
-        </section>
+        <IocCorrelationSummary result={result} />
       ) : rationale && (
         <div className="p-3 rounded-lg bg-bg-hover border border-border space-y-2">
           <ConfidenceBadge confidence={confidence} />
@@ -215,8 +206,8 @@ export default function CorrelationPanel({ result, loading, error, variant }: Pr
           <EmptyHint label="Aucune technique MITRE associée" />
         ) : variant === 'ioc' ? (
           <ul className="ioc26-technique-list">
-            {result.techniques.map(t => {
-              const tactics = readableTactics(t.tactic)
+            {prepared.techniques.map(t => {
+              const tactics = t.tactics
               return <li key={t.technique_id}>
                 <button type="button" className="ioc26-technique-link" onClick={() => navigate(`/mitre?id=${t.technique_id}`)} aria-label={`Voir ${t.technique_id} ${t.name} dans MITRE`}>
                   <span>{t.technique_id}</span><strong>{t.name}</strong>

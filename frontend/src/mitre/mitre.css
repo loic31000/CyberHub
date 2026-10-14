@@ -1473,3 +1473,46 @@
     transition: none !important;
   }
 }
+
+/* A direct link to a technique that could not be opened (unknown ID, API error). */
+.mx-notice {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0 24px 10px;
+  padding: 8px 10px 8px 12px;
+  border: 1px solid rgb(245 165 36 / 0.35);
+  border-radius: 8px;
+  background: rgb(245 165 36 / 0.07);
+  color: #f3d9a8;
+  font-size: 0.8rem;
+}
+
+.mx-notice > svg { flex: none; color: #f5a524; }
+
+.mx-notice .mx-clear {
+  margin-left: auto;
+  display: inline-grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 6px;
+  color: #c9b48d;
+}
+
+.mx-notice .mx-clear:hover { color: #fff3dc; background: rgb(245 165 36 / 0.12); }
+
+/* Inside the detail, when it was opened from an IOC investigation. */
+.mx-detail-return {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  margin-bottom: 8px;
+  min-height: 26px;
+  color: #a8e9f3;
+  font-size: 0.74rem;
+  font-weight: 650;
+}
+
+.mx-detail-return:hover { color: #f0fcff; text-decoration: underline; }
+.mx-detail-return:focus-visible { outline: 2px solid #a9f4fa; outline-offset: 2px; border-radius: 4px; }

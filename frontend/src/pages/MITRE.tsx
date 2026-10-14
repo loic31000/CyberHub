@@ -1,10 +1,10 @@
 import { useEffect, useState, useCallback, useRef } from 'react'
-import { useSearchParams } from 'react-router-dom'
+import { useLocation, useNavigate, useSearchParams } from 'react-router-dom'
 import {
   Shield, Search, ExternalLink, X,
   Loader2, RefreshCw, ChevronDown, ChevronUp,
   AlertTriangle, Database, RotateCcw, Eye,
-  SlidersHorizontal, PanelLeftOpen, PanelLeftClose,
+  SlidersHorizontal, PanelLeftOpen, PanelLeftClose, ArrowLeft,
 } from 'lucide-react'
 import MitreCircuit from '@/mitre/MitreCircuit'
 import { MitreDisplaySettings, useMitrePreferences } from '@/mitre/MitrePreferences'
@@ -56,9 +56,11 @@ function TechCard({ t: tech, activeTactic, onSelect, selected, tactics }: TechCa
 interface DetailPanelProps {
   technique: MITRETechnique | null; loading: boolean
   onClose: () => void; tactics: MITRETactic[]
+  /* Opened from an IOC investigation: a way straight back to it. */
+  onReturn?: () => void
 }
 
-function DetailPanel({ technique, loading, onClose, tactics }: DetailPanelProps) {
+function DetailPanel({ technique, loading, onClose, tactics, onReturn }: DetailPanelProps) {
   const [showDetection, setShowDetection] = useState(false)
   const closeRef = useRef<HTMLButtonElement>(null)
   useEffect(() => { setShowDetection(false) }, [technique?.technique_id])
@@ -73,6 +75,11 @@ function DetailPanel({ technique, loading, onClose, tactics }: DetailPanelProps)
     <aside className="mx-detail" aria-label={technique ? `Détail de ${technique.technique_id}` : 'Détail de la technique'} aria-busy={loading}>
       <div className="mx-detail-head">
         <div style={{ minWidth: 0 }}>
+          {onReturn && (
+            <button type="button" className="mx-detail-return" onClick={onReturn}>
+              <ArrowLeft size={13} aria-hidden="true" />Retour à l’investigation IOC
+            </button>
+          )}
           {loading ? (
             <span className="mx-tag" role="status"><Loader2 size={12} className="mx-spin" />Chargement…</span>
           ) : (
@@ -164,7 +171,14 @@ export default function MITRE() {
   const [selected, setSelected] = useState<MITRETechnique | null>(null)
   const [detailFull, setDetailFull] = useState<MITRETechnique | null>(null)
   const [detailLoading, setDetailLoading] = useState(false)
-  const [searchParams] = useSearchParams()
+  const [searchParams, setSearchParams] = useSearchParams()
+  const location = useLocation()
+  const navigate = useNavigate()
+  const fromIoc = (location.state as { from?: string } | null)?.from === 'ioc'
+  // `?technique=T1046` (or `?id=`) opens that exact technique; handled once per ID.
+  const requested = (searchParams.get('technique') ?? searchParams.get('id') ?? '').trim().toUpperCase()
+  const handledRequest = useRef('')
+  const [requestNotice, setRequestNotice] = useState<string | null>(null)
 
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null)
   const opener = useRef<HTMLElement | null>(null)
@@ -199,6 +213,29 @@ export default function MITRE() {
     mitreApi.tactics().then(setTactics).catch(() => {})
   }, [status?.seeded])
 
+  // Direct link to a technique: fetch it by its exact ID (no fuzzy search),
+  // show it in the grid and open its detail.
+  useEffect(() => {
+    if (!status?.seeded || !requested || handledRequest.current === requested) return
+    handledRequest.current = requested
+    setRequestNotice(null)
+    if (!/^T\d{4}(\.\d{3})?$/.test(requested)) {
+      setRequestNotice(`« ${requested} » n’est pas un identifiant de technique ATT&CK valide.`)
+      return
+    }
+    let cancelled = false
+    mitreApi.technique(requested)
+      .then(tech => {
+        if (cancelled) return
+        if (tech?.technique_id?.toUpperCase() !== requested) throw new Error('mismatch')
+        setQuery(requested)
+        setDetailFull(tech)
+        setSelected(tech)
+      })
+      .catch(() => { if (!cancelled) setRequestNotice(`Technique ${requested} introuvable dans la matrice locale.`) })
+    return () => { cancelled = true }
+  }, [status?.seeded, requested])
+
   const fetchTechniques = useCallback(async (pg: number) => {
     if (!status?.seeded) return
     setLoading(true)
@@ -228,18 +265,28 @@ export default function MITRE() {
 
   const handleTacticChange = (sn: string) => { setActiveTactic(sn === activeTactic ? '' : sn); setSelected(null) }
   const handlePlatformChange = (p: string) => { setActivePlatform(p === activePlatform ? '' : p); setSelected(null) }
+  // The open technique stays in the URL (shareable), without a new history entry.
+  const setTechniqueParam = useCallback((id: string | null) => {
+    const next = new URLSearchParams(searchParams)
+    next.delete('id')
+    if (id) next.set('technique', id); else next.delete('technique')
+    handledRequest.current = id ?? ''
+    setSearchParams(next, { replace: true, state: location.state })
+  }, [searchParams, setSearchParams, location.state])
   const handleSelectTechnique = useCallback((tech: MITRETechnique) => {
     if (document.activeElement instanceof HTMLElement) opener.current = document.activeElement
     setDetailFull(null); setDetailLoading(true); setSelected(tech)
-  }, [])
+    setTechniqueParam(tech.technique_id)
+  }, [setTechniqueParam])
   const resetFilters = () => { setActiveTactic(''); setActivePlatform(''); setQuery(''); setShowSubs(true) }
 
   // Closing the detail returns focus to the card that opened it.
   const closeDetail = useCallback(() => {
     setSelected(null)
+    setTechniqueParam(null)
     const target = opener.current
     window.setTimeout(() => { if (target?.isConnected) target.focus() }, 0)
-  }, [])
+  }, [setTechniqueParam])
 
   // Escape closes the detail panel.
   useEffect(() => {
@@ -287,6 +334,11 @@ export default function MITRE() {
         accent="ATT&CK"
         subtitle="Matrice Enterprise locale : tactiques, techniques et sous-techniques."
         status={{ text: 'SYNCHRONISÉ', mark: `${status.count} TECH.` }}
+        actions={fromIoc ? (
+          <button type="button" className="mx-btn" onClick={() => navigate(-1)}>
+            <ArrowLeft size={14} aria-hidden="true" />Retour à l’investigation IOC
+          </button>
+        ) : undefined}
         below={
           /* Search, result count, sub-techniques and platforms */
           <div className="mx-toolbar">
@@ -383,6 +435,12 @@ export default function MITRE() {
             {loading && <Loader2 size={15} className="mx-spin" aria-hidden="true" style={{ color: 'var(--mx-cyan)' }} />}
           </div>
 
+          {requestNotice && (
+            <p className="mx-notice" role="alert">
+              <AlertTriangle size={14} aria-hidden="true" />{requestNotice}
+              <button type="button" className="mx-clear" onClick={() => setRequestNotice(null)} aria-label="Masquer le message"><X size={13} /></button>
+            </p>
+          )}
           <div className="mx-scroll">
             {loading && techniques.length === 0 ? (
               <SkeletonGrid />
@@ -415,7 +473,8 @@ export default function MITRE() {
         {selected && (
           <>
             <div className="mx-scrim" aria-hidden="true" onClick={closeDetail} />
-            <DetailPanel technique={detailFull} loading={detailLoading} onClose={closeDetail} tactics={tactics} />
+            <DetailPanel technique={detailFull} loading={detailLoading} onClose={closeDetail} tactics={tactics}
+              onReturn={fromIoc ? () => navigate(-1) : undefined} />
           </>
         )}
       </div>

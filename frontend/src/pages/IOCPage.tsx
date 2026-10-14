@@ -1,22 +1,24 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useMemo, useRef } from 'react'
 import { createPortal } from 'react-dom'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { useIocStore } from '@/store/useIocStore'
 import type { IOC, IOCCreatePayload, IOCType, IOCTLP, IOCStatus } from '@/types/ioc'
 import { toast } from '@/store/toast'
-import CorrelationPanel from '@/components/CorrelationPanel'
+import CorrelationPanel, { IocCorrelationSummary } from '@/components/CorrelationPanel'
 import ImportIOCModal from '@/components/ImportIOCModal'
 import { Dialog } from '@/mitre/MitreUi'
 import { ModuleHero } from '@/hero/ModuleHero'
 import IocMotif from '@/ioc26/IocMotif'
 import { IocDisplaySettings, useIocDensity } from '@/ioc26/IocPreferences'
+import IntelligenceMap from '@/ioc26/IntelligenceMap'
+import { prepareIntelligenceData } from '@/ioc26/intelligenceData'
 import '@/ioc26/ioc.css'
 import { correlationApi, hashApi, iocApi } from '@/api/client'
 import type { CorrelationResult } from '@/types/correlation'
 import type { HashAnalysisResponse, VirusTotalData, MalwareBazaarData, ThreatFoxData, URLhausData } from '@/types/hash'
 import {
   ShieldBan, Plus, Search, Download, X, Trash2, Edit2, Copy, SlidersHorizontal,
-  Globe, Hash, Link, Mail, Network, GitBranch, Loader2, RefreshCw, Shield, FolderOpen,
+  Globe, Hash, Link, Mail, Network, GitBranch, Loader2, RefreshCw, Shield, FolderOpen, Maximize2,
 } from 'lucide-react'
 
 // TLP labels sont standards — pas traduits
@@ -480,6 +482,9 @@ export default function IOCPage() {
   const [filtersOpen, setFiltersOpen] = useState(false)
   const detailOpener = useRef<HTMLElement | null>(null)
   const detailClose = useRef<HTMLButtonElement>(null)
+  const analysisModeButton = useRef<HTMLButtonElement>(null)
+  const [deepAnalysis, setDeepAnalysis] = useState(false)
+  const [analysisView, setAnalysisView] = useState<'map' | 'list'>('map')
 
   // Sélection multiple
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set())
@@ -493,6 +498,7 @@ export default function IOCPage() {
   // Vue détail
   const [selectedIOC, setSelectedIOC] = useState<IOC | null>(null)
   const [correlationResult, setCorrelationResult] = useState<CorrelationResult | null>(null)
+  const intelligenceData = useMemo(() => correlationResult ? prepareIntelligenceData(correlationResult) : null, [correlationResult])
   const [correlationLoading, setCorrelationLoading] = useState(false)
   const [correlationError, setCorrelationError] = useState<string | null>(null)
   const [activeTab, setActiveTab] = useState<'details' | 'correlation' | 'hash_analysis'>('details')
@@ -512,8 +518,15 @@ export default function IOCPage() {
     if (!selectedId) return
     const id = Number(selectedId)
     if (isNaN(id)) return
-    iocApi.get(id).then(ioc => { setSelectedIOC(ioc); setActiveTab('details') }).catch(() => {})
+    // Back from MITRE: the investigation comes back as it was left (deep analysis, open group).
+    const deep = searchParams.get('analysis') === 'deep'
+    iocApi.get(id).then(ioc => {
+      setSelectedIOC(ioc)
+      setActiveTab('details')
+      if (deep) { setDeepAnalysis(true); loadCorrelation(ioc) }
+    }).catch(() => {})
   }, [searchParams])
+  const restoredGroup = searchParams.get('group')
 
   useEffect(() => { fetchIocs(); fetchStats() }, [])
 
@@ -548,16 +561,24 @@ export default function IOCPage() {
   }
   const closeDetail = () => {
     setSelectedIOC(null)
+    setDeepAnalysis(false)
     const opener = detailOpener.current
     window.setTimeout(() => { if (opener?.isConnected) opener.focus() }, 0)
   }
   useEffect(() => {
     if (!selectedIOC) return
     detailClose.current?.focus()
-    const onKey = (event: KeyboardEvent) => { if (event.key === 'Escape' && !event.defaultPrevented) closeDetail() }
+  }, [selectedIOC?.id])
+  useEffect(() => {
+    if (!selectedIOC) return
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key !== 'Escape' || event.defaultPrevented) return
+      if (deepAnalysis) { setDeepAnalysis(false); requestAnimationFrame(() => analysisModeButton.current?.focus()) }
+      else closeDetail()
+    }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [selectedIOC?.id])
+  }, [selectedIOC?.id, deepAnalysis])
 
   const copyValue = async (value: string) => {
     try { await navigator.clipboard.writeText(value); toast.success('Valeur copiée') }
@@ -642,7 +663,7 @@ export default function IOCPage() {
 
       {/* Zone de contenu scrollable */}
       <div className="ioc26-content">
-        <div className={`ioc26-investigation${selectedIOC ? ' has-inspector' : ''}`}>
+        <div className={`ioc26-investigation${selectedIOC ? ' has-inspector' : ''}${deepAnalysis ? ' is-deep' : ''}`}>
         <div className="ioc26-left">
         {/* Barre de statistiques par type */}
         {stats && (
@@ -835,15 +856,23 @@ export default function IOCPage() {
 
           {/* Panneau latéral de détail */}
           {selectedIOC && (
-            <aside className="ioc26-inspector" aria-label={`Détail de ${selectedIOC.value}`}>
+            <aside className={`ioc26-inspector${deepAnalysis ? ' is-deep' : ''}`} aria-label={`Détail de ${selectedIOC.value}`}>
               <div className="ioc26-inspector-head">
                 <div className="ioc26-inspector-topline">
                   <span>INTELLIGENCE / INDICATEUR</span>
+                  <div className="ioc26-inspector-controls">
+                    <button ref={analysisModeButton} type="button" className="ioc26-analysis-mode" onClick={() => {
+                      if (!deepAnalysis && !correlationLoading && (!correlationResult || correlationResult.ioc_value !== selectedIOC.value)) loadCorrelation(selectedIOC)
+                      setDeepAnalysis(value => !value)
+                    }}>
+                      {deepAnalysis ? 'Revenir à l’inspecteur' : <><Maximize2 size={13} aria-hidden="true" />Analyse approfondie</>}
+                    </button>
                   <button ref={detailClose} onClick={closeDetail}
                     className="ioc26-inspector-close"
                     aria-label="Fermer le détail">
                     <X size={17} />
                   </button>
+                  </div>
                 </div>
                 <div className="ioc26-inspector-heading">
                   <h2>{typeIcon(selectedIOC.type)} {selectedIOC.type.toUpperCase()}</h2>
@@ -863,7 +892,7 @@ export default function IOCPage() {
               </div>
 
               {/* Onglets */}
-              <div className="flex border-b border-[#1e2d40]">
+              {!deepAnalysis && <div className="flex border-b border-[#1e2d40]">
                 <button
                   onClick={() => setActiveTab('details')}
                   aria-pressed={activeTab === 'details'}
@@ -899,10 +928,24 @@ export default function IOCPage() {
                     ANALYSE HASH
                   </button>
                 )}
-              </div>
+              </div>}
 
-              <div className="ioc26-inspector-body flex-1 overflow-y-auto p-4 space-y-4">
-                {activeTab === 'details' ? (
+              <div className={`ioc26-inspector-body flex-1 overflow-y-auto p-4 space-y-4${deepAnalysis ? ' is-deep' : ''}`}>
+                {deepAnalysis ? (
+                  <div className="ioc26-analysis">
+                    <div className="ioc26-analysis-switch" role="group" aria-label="Mode de consultation des corrélations">
+                      <button type="button" aria-pressed={analysisView === 'map'} onClick={() => setAnalysisView('map')}>Cartographie</button>
+                      <button type="button" aria-pressed={analysisView === 'list'} onClick={() => setAnalysisView('list')}>Liste</button>
+                    </div>
+                    {analysisView === 'list' ? <CorrelationPanel variant="ioc" result={correlationResult} loading={correlationLoading} error={correlationError} />
+                      : correlationLoading || correlationError ? <CorrelationPanel variant="ioc" result={correlationResult} loading={correlationLoading} error={correlationError} />
+                      : correlationResult && intelligenceData ? <>
+                        <IocCorrelationSummary result={correlationResult} compact />
+                        <IntelligenceMap key={selectedIOC.id} ioc={selectedIOC} data={intelligenceData}
+                          initialGroup={restoredGroup === 'mitre' || restoredGroup === 'cve' || restoredGroup === 'playbooks' ? restoredGroup : null} />
+                      </> : <p role="status">Aucune donnée de corrélation disponible.</p>}
+                  </div>
+                ) : activeTab === 'details' ? (
                   <>
                     <section className="ioc26-detail-group">
                       <h3>Contexte de l’indicateur</h3>
