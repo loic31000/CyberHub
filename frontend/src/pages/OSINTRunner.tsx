@@ -1,470 +1,799 @@
-import { useState, useEffect, useRef, useCallback } from 'react'
+import { useState, useEffect, useRef, useCallback, useId, useMemo, type FormEvent } from 'react'
+import { useNavigate } from 'react-router-dom'
 import {
-  Search, ExternalLink, Trash2, Clock, CheckCircle,
-  AlertCircle, Loader2, Download, Copy, Eye,
+  Search, ExternalLink, Trash2, Loader2, Download, Copy, AlertTriangle,
+  Radio, History, RotateCcw, Database, CheckCircle2, X, SlidersHorizontal, RefreshCw, ArrowLeft, BarChart3, ChevronRight, ArrowUpDown,
 } from 'lucide-react'
 import { osintWmnApi } from '@/api/client'
-import type { WMNMeta, OSINTJobSummary, OSINTJobDetail, SSEProgress } from '@/types/osint'
+import type { WMNMeta, OSINTJobSummary, OSINTJobDetail, OSINTResult, SSEProgress } from '@/types/osint'
 import { toast } from '@/store/toast'
+import { ModuleHero } from '@/hero/ModuleHero'
+import { Dialog } from '@/mitre/MitreUi'
+import OsintMotif from '@/osint26/OsintMotif'
+import SignalGlobe from '@/osint26/SignalGlobe'
+import { ChoiceMenu } from '@/osint26/ChoiceMenu'
+import '@/osint26/osint.css'
 
-const USERNAME_RE = /^[a-zA-Z0-9_\-]{1,50}$/
+const USERNAME_RE = /^[a-zA-Z0-9_-]{1,50}$/
+const DENSITY_KEY = 'cyberhub:osint-display:v1'
+const ROWS_PER_GROUP = 8 // a category shows this many profiles, then « Voir davantage »
+const MISSING_STEP = 200 // sites without a profile shown per step
+const TOP_CATEGORIES = 5
+const OTHERS = '__others'
+type Density = 'comfort' | 'compact'
+type ResultView = 'found' | 'issues' | 'missing'
+type Sort = 'name-asc' | 'name-desc' | 'time-asc' | 'time-desc'
+const SORTS: { value: Sort; label: string }[] = [
+  { value: 'name-asc', label: 'Nom A → Z' },
+  { value: 'name-desc', label: 'Nom Z → A' },
+  { value: 'time-asc', label: 'Réponse la plus rapide' },
+  { value: 'time-desc', label: 'Réponse la plus lente' },
+]
 
 function formatDuration(ms: number): string {
   if (ms <= 0) return '—'
-  if (ms < 1000) return `${ms}ms`
+  if (ms < 1000) return `${ms} ms`
   const s = Math.floor(ms / 1000)
-  if (s < 60) return `${s}s`
-  return `${Math.floor(s / 60)}m${s % 60}s`
+  if (s < 60) return `${s} s`
+  return `${Math.floor(s / 60)} min ${String(s % 60).padStart(2, '0')} s`
 }
 
 function relativeTime(iso: string): string {
-  const diff = Date.now() - new Date(iso).getTime()
-  const s = Math.floor(diff / 1000)
-  if (s < 60) return `il y a ${s}s`
+  const s = Math.max(0, Math.floor((Date.now() - new Date(iso).getTime()) / 1000))
+  if (s < 60) return 'à l’instant'
   const m = Math.floor(s / 60)
-  if (m < 60) return `il y a ${m}min`
-  return `il y a ${Math.floor(m / 60)}h`
+  if (m < 60) return `il y a ${m} min`
+  const h = Math.floor(m / 60)
+  if (h < 24) return `il y a ${h} h`
+  return new Date(iso).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short' })
 }
 
-const CAT_COLORS: Record<string, string> = {
-  coding:  'border-blue-500/30 bg-blue-500/10 text-blue-400',
-  social:  'border-purple-500/30 bg-purple-500/10 text-purple-400',
-  gaming:  'border-green-500/30 bg-green-500/10 text-green-400',
-  dating:  'border-red-500/30 bg-red-500/10 text-red-400',
-  music:   'border-yellow-500/30 bg-yellow-500/10 text-yellow-400',
-  video:   'border-orange-500/30 bg-orange-500/10 text-orange-400',
-  images:  'border-pink-500/30 bg-pink-500/10 text-pink-400',
-}
-function catColor(cat: string) {
-  return CAT_COLORS[cat] ?? 'border-gray-600 bg-gray-700/40 text-gray-400'
+/*
+ * The base's update date. The backend sends Go's zero time
+ * (0001-01-01T00:00:00Z) while the WhatsMyName base has never been updated:
+ * that is not a date, and is shown as such.
+ */
+function baseDate(iso?: string): string | null {
+  if (!iso) return null
+  const date = new Date(iso)
+  if (Number.isNaN(date.getTime()) || date.getUTCFullYear() < 2000) return null
+  return date.toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', year: 'numeric' })
 }
 
-function StatusBadge({ status }: { status: OSINTJobSummary['status'] }) {
-  const map = {
-    pending: { icon: <Clock size={12} />,                            label: 'EN ATTENTE', cls: 'border-yellow-500/30 bg-yellow-500/10 text-yellow-400' },
-    running: { icon: <Loader2 size={12} className="animate-spin" />, label: 'EN COURS',   cls: 'border-blue-500/30 bg-blue-500/10 text-blue-400'     },
-    done:    { icon: <CheckCircle size={12} />,                      label: 'TERMINÉ',    cls: 'border-green-500/30 bg-green-500/10 text-green-400'   },
-    error:   { icon: <AlertCircle size={12} />,                      label: 'ERREUR',     cls: 'border-red-500/30 bg-red-500/10 text-red-400'         },
-  }
-  const s = map[status]
+/* What the URL of a found profile shows best: host and path, without the scheme. */
+function shortUrl(url: string) {
+  return url.replace(/^https?:\/\//, '').replace(/\/$/, '')
+}
+
+const STATUS: Record<OSINTJobSummary['status'], { label: string; tone: string }> = {
+  pending: { label: 'En attente', tone: 'wait' },
+  running: { label: 'En cours', tone: 'busy' },
+  done: { label: 'Terminée', tone: 'ok' },
+  error: { label: 'Échec', tone: 'bad' },
+}
+
+function StatusTag({ status }: { status: OSINTJobSummary['status'] }) {
+  const s = STATUS[status]
   return (
-    <span className={`flex items-center gap-1 text-[10px] font-mono font-bold uppercase tracking-wider px-2 py-0.5 border ${s.cls}`}>
-      {s.icon} {s.label}
+    <span className={`os26-status is-${s.tone}`}>
+      {status === 'running' ? <Loader2 size={11} className="os26-spin" aria-hidden="true" /> : <i aria-hidden="true" />}
+      {s.label}
     </span>
   )
 }
 
-function LiveTimer({ startedAt }: { startedAt: string }) {
-  const [elapsed, setElapsed] = useState(0)
+/* Measured in this browser from the job's creation time: labelled as such. */
+function LocalTimer({ startedAt }: { startedAt: string }) {
+  const [elapsed, setElapsed] = useState(() => Date.now() - new Date(startedAt).getTime())
   useEffect(() => {
     const base = new Date(startedAt).getTime()
-    const iv = window.setInterval(() => setElapsed(Date.now() - base), 500)
+    const iv = window.setInterval(() => setElapsed(Date.now() - base), 1000)
     return () => clearInterval(iv)
   }, [startedAt])
-  return <span className="text-xs font-mono text-blue-400">{formatDuration(elapsed)}</span>
+  return <span className="os26-timer" title="Mesuré localement par le navigateur">Chrono local · {formatDuration(Math.max(0, elapsed))}</span>
+}
+
+function useDensity() {
+  const [density, setDensity] = useState<Density>(() => {
+    try { return localStorage.getItem(DENSITY_KEY) === 'compact' ? 'compact' : 'comfort' } catch { return 'comfort' }
+  })
+  const update = (next: Density) => {
+    setDensity(next)
+    try { localStorage.setItem(DENSITY_KEY, next) } catch { /* storage may be denied */ }
+  }
+  return [density, update] as const
+}
+
+/* A discreet, stable marker per category (cool tones only). */
+const MARKS = ['#4fd0e6', '#8fd3ff', '#6aa8ff', '#7fe0c8', '#b6c8ff', '#5fb3c6']
+function markOf(category: string) {
+  let h = 0
+  for (const c of category) h = (h * 31 + c.charCodeAt(0)) >>> 0
+  return MARKS[h % MARKS.length]
 }
 
 export default function OSINTRunner() {
+  const navigate = useNavigate()
   const [meta, setMeta] = useState<WMNMeta | null>(null)
+  const [metaError, setMetaError] = useState(false)
   const [username, setUsername] = useState('')
   const [category, setCategory] = useState('')
+  const [editing, setEditing] = useState(false)
+  // Back to the search: the report is kept (to reopen it), only its view is left.
+  const [reportHidden, setReportHidden] = useState(false)
+  const [distOpen, setDistOpen] = useState(false)
   const [running, setRunning] = useState(false)
+  const [runUsername, setRunUsername] = useState('')
   const [activeJobId, setActiveJobId] = useState<number | null>(null)
   const [progress, setProgress] = useState<SSEProgress | null>(null)
+  const [trackingLost, setTrackingLost] = useState(false)
   const [detail, setDetail] = useState<OSINTJobDetail | null>(null)
   const [jobs, setJobs] = useState<OSINTJobSummary[]>([])
-  const [filter, setFilter] = useState<'all' | 'found' | 'error'>('all')
+  const [jobsState, setJobsState] = useState<'loading' | 'ready' | 'error'>('loading')
+  const [historyOpen, setHistoryOpen] = useState(false)
+  const [view, setView] = useState<ResultView>('found')
+  const [query, setQuery] = useState('')
+  const [catFilter, setCatFilter] = useState<string | null>(null)
+  const [sort, setSort] = useState<Sort>('name-asc')
+  const [expanded, setExpanded] = useState<Set<string>>(new Set())
+  const [missingLimit, setMissingLimit] = useState(MISSING_STEP)
+  const [density, setDensity] = useDensity()
   const [importing, setImporting] = useState(false)
+  const [imported, setImported] = useState<{ jobId: number; created: number; skipped: number } | null>(null)
+  const [deleteTarget, setDeleteTarget] = useState<OSINTJobSummary | null>(null)
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null)
+  const failures = useRef(0)
+  const reportRef = useRef<HTMLElement>(null)
+  const commandRef = useRef<HTMLElement>(null)
+  // The report takes focus; its command bar (and the way back) stays in view.
+  const focusReport = () => requestAnimationFrame(() => {
+    reportRef.current?.focus({ preventScroll: true })
+    commandRef.current?.scrollIntoView({ block: 'nearest' })
+  })
+  const inputRef = useRef<HTMLInputElement>(null)
+  const historyButton = useRef<HTMLButtonElement>(null)
+  const historyHeading = useRef<HTMLHeadingElement>(null)
+  const ids = { input: useId(), hint: useId(), error: useId(), ops: useId(), report: useId(), history: useId(), dist: useId(), recent: useId(), sort: useId() }
 
-  useEffect(() => {
-    osintWmnApi.getMeta().then(setMeta).catch(() => {})
-    osintWmnApi.listJobs().then(r => setJobs(r.jobs)).catch(() => {})
+  const loadJobs = useCallback(() => {
+    setJobsState('loading')
+    osintWmnApi.listJobs()
+      .then(r => { setJobs(r.jobs ?? []); setJobsState('ready') })
+      .catch(() => setJobsState('error'))
   }, [])
 
+  useEffect(() => {
+    osintWmnApi.getMeta().then(setMeta).catch(() => setMetaError(true))
+    loadJobs()
+  }, [loadJobs])
+
   const stopPolling = useCallback(() => {
-    if (pollRef.current !== null) {
-      clearInterval(pollRef.current)
-      pollRef.current = null
-    }
+    if (pollRef.current !== null) { clearInterval(pollRef.current); pollRef.current = null }
+  }, [])
+
+  // A new report: its explorer starts on the profiles found, unfiltered.
+  const showReport = useCallback((job: OSINTJobDetail) => {
+    setDetail(job)
+    setReportHidden(false)
+    setView(job.found_count > 0 || job.status === 'done' ? 'found' : 'issues')
+    setQuery('')
+    setCatFilter(null)
+    setExpanded(new Set())
+    setMissingLimit(MISSING_STEP)
   }, [])
 
   const startPolling = useCallback((jobId: number) => {
     stopPolling()
-    const iv = setInterval(async () => {
+    failures.current = 0
+    setTrackingLost(false)
+    pollRef.current = setInterval(async () => {
       try {
         const job = await osintWmnApi.getJob(jobId)
-        const latestFound = (job.results ?? [])
-          .filter(r => r.status === 'found')
-          .slice(-5)
+        failures.current = 0
+        setTrackingLost(false)
         setProgress({
-          checked_sites:  job.checked_sites,
-          total_sites:    job.total_sites,
-          found_count:    job.found_count,
-          status:         job.status as SSEProgress['status'],
-          latest_results: latestFound,
+          checked_sites: job.checked_sites,
+          total_sites: job.total_sites,
+          found_count: job.found_count,
+          status: job.status,
+          latest_results: (job.results ?? []).filter(r => r.status === 'found').slice(-5),
         })
         if (job.status === 'done' || job.status === 'error') {
           stopPolling()
           setRunning(false)
-          setDetail(job)
+          showReport(job)
           setJobs(prev => prev.map(j => j.id === jobId
-            ? { ...j, status: job.status as OSINTJobSummary['status'], found_count: job.found_count, checked_sites: job.checked_sites, duration: job.duration }
-            : j
-          ))
-          toast.success(`Scan terminé - ${job.found_count} profil(s) trouvé(s)`)
+            ? { ...j, status: job.status, found_count: job.found_count, checked_sites: job.checked_sites, total_sites: job.total_sites, duration: job.duration }
+            : j))
+          if (job.status === 'done') toast.success(`Recherche terminée : ${job.found_count} profil${job.found_count > 1 ? 's' : ''} trouvé${job.found_count > 1 ? 's' : ''}`)
+          else toast.error('La recherche s’est terminée en échec')
         }
       } catch {
-        // silencieux
+        // Keep polling; after a few failed attempts in a row, say the tracking is interrupted.
+        failures.current += 1
+        if (failures.current >= 3) setTrackingLost(true)
       }
     }, 1000)
-    pollRef.current = iv
-  }, [stopPolling])
+  }, [stopPolling, showReport])
 
   useEffect(() => () => stopPolling(), [stopPolling])
 
-  const handleRun = async () => {
-    if (!USERNAME_RE.test(username)) {
-      toast.error('Username invalide (alphanumérique + tirets + underscores, 1-50 caractères)')
+  const trimmed = username.trim()
+  const invalid = trimmed.length > 0 && !USERNAME_RE.test(trimmed)
+  const badChars = invalid ? [...new Set(trimmed.replace(/[a-zA-Z0-9_-]/g, ''))].map(c => (c === ' ' ? 'espace' : `« ${c} »`)).join(', ') : ''
+
+  // One scan at a time. The previous report stays on screen until the new one is ready.
+  const launch = async (target: string, scope: string) => {
+    if (running) return
+    if (!USERNAME_RE.test(target)) {
+      toast.error('Pseudonyme invalide : lettres, chiffres, tirets et underscores, 50 caractères au plus')
       return
     }
     setRunning(true)
+    setRunUsername(target)
     setProgress(null)
-    setDetail(null)
+    setImported(null)
+    setEditing(false)
+    setReportHidden(false)
     try {
-      const { job_id } = await osintWmnApi.run(username, category)
+      const { job_id } = await osintWmnApi.run(target, scope)
       setActiveJobId(job_id)
-      const now = new Date().toISOString()
       setJobs(prev => [{
-        id: job_id, username, status: 'running',
+        id: job_id, username: target, status: 'running',
         total_sites: meta?.site_count ?? 0, checked_sites: 0, found_count: 0,
-        filter_category: category, duration: 0, launched_by: '', created_at: now,
+        filter_category: scope, duration: 0, launched_by: '', created_at: new Date().toISOString(),
       }, ...prev])
       startPolling(job_id)
     } catch {
-      toast.error('Erreur lors du lancement du scan')
+      toast.error('Impossible de lancer la recherche')
       setRunning(false)
     }
   }
+  const handleRun = (event?: FormEvent) => { event?.preventDefault(); void launch(trimmed, category) }
+  const relaunch = () => {
+    if (!detail) return
+    setUsername(detail.username)
+    setCategory(detail.filter_category)
+    void launch(detail.username, detail.filter_category)
+  }
+  // Adjust the current search: the form opens above the report, which stays in view.
+  const editSearch = () => {
+    if (detail) { setUsername(detail.username); setCategory(detail.filter_category) }
+    setEditing(true)
+    requestAnimationFrame(() => inputRef.current?.focus())
+  }
+  // Leave the report: the full search, with the last search and its scope kept.
+  // Nothing is sent; a running scan goes on and stays followed.
+  const backToSearch = () => {
+    const last = detail ?? null
+    if (running) setUsername(runUsername)
+    else if (last) { setUsername(last.username); setCategory(last.filter_category) }
+    setEditing(false)
+    setReportHidden(true)
+    setHistoryOpen(false)
+    requestAnimationFrame(() => inputRef.current?.focus())
+  }
+  const backToReport = () => {
+    setEditing(false)
+    setReportHidden(false)
+    focusReport()
+  }
 
-  const handleReview = async (jobId: number) => {
+  const closeHistory = useCallback(() => {
+    setHistoryOpen(false)
+    requestAnimationFrame(() => historyButton.current?.focus())
+  }, [])
+  useEffect(() => {
+    if (!historyOpen) return
+    historyHeading.current?.focus()
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape' && !e.defaultPrevented && !deleteTarget) closeHistory() }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [historyOpen, closeHistory, deleteTarget])
+
+  const handleReview = async (job: OSINTJobSummary) => {
     try {
-      const d = await osintWmnApi.getJob(jobId)
-      setDetail(d)
-      setActiveJobId(jobId)
-      setProgress(null)
-      window.scrollTo({ top: 0, behavior: 'smooth' })
+      const d = await osintWmnApi.getJob(job.id)
+      setImported(null)
+      setHistoryOpen(false) // the report opens with the history closed
+      if (d.status === 'running' || d.status === 'pending') {
+        // A search still running (launched earlier): follow it.
+        setActiveJobId(job.id)
+        setRunning(true)
+        setRunUsername(d.username)
+        setProgress(null)
+        setReportHidden(false)
+        startPolling(job.id)
+      } else {
+        if (!running) { stopPolling(); setActiveJobId(job.id) }
+        setEditing(false)
+        showReport(d)
+        focusReport()
+      }
     } catch {
-      toast.error('Impossible de charger le job')
+      toast.error('Impossible de charger cette opération')
     }
   }
 
-  const handleDelete = async (jobId: number) => {
-    if (!confirm('Supprimer ce job ?')) return
+  const confirmDelete = async () => {
+    const target = deleteTarget
+    if (!target) return
     try {
-      await osintWmnApi.deleteJob(jobId)
-      setJobs(prev => prev.filter(j => j.id !== jobId))
-      if (activeJobId === jobId) { setDetail(null); setProgress(null) }
-      toast.success('Job supprimé')
+      await osintWmnApi.deleteJob(target.id)
+      setJobs(prev => prev.filter(j => j.id !== target.id))
+      if (detail?.id === target.id) setDetail(null)
+      if (activeJobId === target.id && !running) setActiveJobId(null)
+      toast.success('Opération supprimée')
     } catch {
-      toast.error('Erreur suppression')
+      toast.error('Impossible de supprimer cette opération')
+    } finally {
+      setDeleteTarget(null)
     }
   }
+
+  const found = useMemo(() => detail?.results.filter(r => r.status === 'found') ?? [], [detail])
+  const issues = useMemo(() => detail?.results.filter(r => r.status === 'error' || r.status === 'timeout') ?? [], [detail])
+  const missing = useMemo(() => detail?.results.filter(r => r.status === 'not_found') ?? [], [detail])
+
+  // Where the profiles found concentrate: the leading categories, then « Autres ».
+  const distribution = useMemo(() => {
+    const counts = new Map<string, number>()
+    for (const r of found) if (r.category) counts.set(r.category, (counts.get(r.category) ?? 0) + 1)
+    const sorted = [...counts.entries()].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
+    const top = sorted.slice(0, TOP_CATEGORIES)
+    const rest = sorted.slice(TOP_CATEGORIES)
+    const rows = top.map(([name, n]) => ({ key: name, label: name, detail: name, n }))
+    if (rest.length) rows.push({ key: OTHERS, label: 'Autres', detail: `Autres (${rest.map(([name]) => name).join(', ')})`, n: rest.reduce((s, [, n]) => s + n, 0) })
+    return { rows, top: new Set(top.map(([name]) => name)), max: Math.max(1, ...rows.map(r => r.n)) }
+  }, [found])
 
   const handleImport = async () => {
     if (!detail) return
     setImporting(true)
     try {
       const r = await osintWmnApi.importIoc(detail.id)
-      toast.success(`${r.created} IOC(s) importé(s) (${r.skipped} doublons ignorés)`)
+      setImported({ jobId: detail.id, created: r.created, skipped: r.skipped })
+      toast.success(`${r.created} IOC importé${r.created > 1 ? 's' : ''} (${r.skipped} doublon${r.skipped > 1 ? 's' : ''} ignoré${r.skipped > 1 ? 's' : ''})`)
     } catch {
-      toast.error('Erreur import IOC')
+      toast.error('Erreur lors de l’import en IOC')
     } finally {
       setImporting(false)
     }
   }
 
-  const handleCopy = () => {
-    if (!detail) return
-    const urls = detail.results.filter(r => r.status === 'found').map(r => r.url).join('\n')
-    navigator.clipboard.writeText(urls)
-    toast.success('URLs copiées')
+  const copy = async (text: string, done: string) => {
+    try { await navigator.clipboard.writeText(text); toast.success(done) }
+    catch { toast.error('Impossible de copier dans le presse-papiers') }
   }
 
-  const pct = progress && progress.total_sites > 0
-    ? Math.round((progress.checked_sites / progress.total_sites) * 100)
-    : 0
+  const needle = query.trim().toLowerCase()
+  const inCategory = (r: OSINTResult) => !catFilter || (catFilter === OTHERS ? !distribution.top.has(r.category) : r.category === catFilter)
+  const match = (r: OSINTResult) => inCategory(r) && (!needle || r.site_name.toLowerCase().includes(needle) || r.category.toLowerCase().includes(needle))
+  const tab = view === 'found' ? found : view === 'issues' ? issues : missing
+  const byOrder = (a: OSINTResult, b: OSINTResult) =>
+    sort === 'name-asc' ? a.site_name.localeCompare(b.site_name, 'fr')
+      : sort === 'name-desc' ? b.site_name.localeCompare(a.site_name, 'fr')
+        : sort === 'time-asc' ? a.response_time - b.response_time : b.response_time - a.response_time
+  const shown = tab.filter(match).sort(byOrder)
+  const groups = useMemo(() => {
+    const map = new Map<string, OSINTResult[]>()
+    for (const r of shown) map.set(r.category || 'autres', [...(map.get(r.category || 'autres') ?? []), r])
+    return [...map.entries()].sort((a, b) => b[1].length - a[1].length || a[0].localeCompare(b[0]))
+  }, [shown])
+  const tabCategories = useMemo(() => {
+    const counts = new Map<string, number>()
+    for (const r of tab) counts.set(r.category || 'autres', (counts.get(r.category || 'autres') ?? 0) + 1)
+    return [...counts.entries()].sort((a, b) => a[0].localeCompare(b[0]))
+  }, [tab])
+  const clearFilters = () => { setQuery(''); setCatFilter(null) }
+  const catLabel = catFilter === OTHERS ? 'Autres catégories' : catFilter
 
-  const filteredResults = detail?.results.filter(r => {
-    if (filter === 'found') return r.status === 'found'
-    if (filter === 'error') return r.status === 'error' || r.status === 'timeout'
-    return true
-  }) ?? []
+  const runningJob = jobs.find(j => j.id === activeJobId)
+  const dbDate = baseDate(meta?.last_updated)
+  // A report open: the compact command bar. Otherwise (and during a scan): the workstation.
+  const compact = !!detail && !running && !editing && !reportHidden
+  const canReturn = !!detail && !running && (editing || reportHidden)
+  // The lens belongs to preparing and running a search, not above an open report.
+  const showLens = running || !detail || reportHidden
+  const lensTarget = running ? runUsername : USERNAME_RE.test(trimmed) ? trimmed : null
+  const outcome = !detail ? null : detail.status === 'error' ? (detail.results.length > 0 ? 'partial' : 'failed') : detail.found_count > 0 ? 'found' : 'empty'
+  const historyLabel = `Historique des opérations${jobsState === 'ready' ? ` (${jobs.length})` : ''}`
 
-  const foundResults = detail?.results.filter(r => r.status === 'found') ?? []
-  const errorCount = detail?.results.filter(r => r.status === 'error' || r.status === 'timeout').length ?? 0
+  const historyToggle = (
+    <button type="button" ref={historyButton} className="os26-btn os26-history-toggle" aria-expanded={historyOpen} aria-controls={ids.history}
+      onClick={() => (historyOpen ? closeHistory() : setHistoryOpen(true))}>
+      <History size={15} aria-hidden="true" />{historyLabel}
+    </button>
+  )
 
   return (
-    <div className="flex flex-col h-full bg-[#06080f] text-[#f1f5f9]">
-      {/* Bandeau d'en-tête style BGPLookup */}
-      <div className="flex items-center justify-between px-6 py-4 border-b border-[#1e2d40] bg-[#0a0f16]/50">
-        <div className="flex items-center gap-3">
-          <div className="relative">
-            <Search className="text-[#00d4ff]" size={20} />
-            <div className="absolute -top-1 -right-1 w-2 h-2 bg-[#10b981] rounded-full animate-pulse shadow-[0_0_8px_#10b981]" />
-          </div>
-          <div>
-            <h1 className="text-sm font-bold tracking-[0.2em] uppercase">OSINT RUNNER // RECON</h1>
-            <p className="text-[10px] text-[#64748b] font-mono">
-              Username lookup sur {meta?.site_count ?? '...'} sites via WhatsMyName
-            </p>
-          </div>
-        </div>
-        <div className="flex items-center gap-4 font-mono text-[10px]">
-          <span className="text-[#64748b]">SOURCE</span>
-          <span className="text-[#10b981]">WMN</span>
-        </div>
+    <div className="os26" data-density={density}>
+      <div className="os26-top">
+        <ModuleHero breadcrumb="OPS / OPEN SOURCE INTELLIGENCE" title="OSINT" accent="RUNNER" typeOnce="osint"
+          subtitle={`Rechercher un pseudonyme sur ${meta ? meta.site_count.toLocaleString('fr-FR') : 'les'} sites référencés par WhatsMyName, puis exploiter les profils trouvés.`}
+          motif={<OsintMotif active={running} />}
+          index={{
+            label: 'OPS / 2026',
+            lines: ['PSEUDONYMES', 'PROFILS PUBLICS', 'IMPORT IOC'],
+            status: meta
+              ? { text: `${meta.site_count.toLocaleString('fr-FR')} SITES`, mark: 'WMN' }
+              : metaError ? { text: 'BASE INDISPONIBLE', tone: 'warn' } : undefined,
+          }} />
       </div>
 
-      {/* Zone de contenu scrollable */}
-      <div className="flex-1 overflow-auto p-6 space-y-6">
-
-        {/* Formulaire de lancement */}
-        <div className="border border-[#1e2d40] bg-[#0a0f16] p-5 space-y-4">
-          <div className="flex gap-3">
-            <input
-              type="text"
-              value={username}
-              onChange={e => setUsername(e.target.value)}
-              onKeyDown={e => e.key === 'Enter' && !running && username && handleRun()}
-              placeholder="Nom d'utilisateur à rechercher"
-              className="flex-1 bg-[#0d131f] border border-[#1e2d40] px-4 py-2.5 font-mono text-sm text-[#f1f5f9] placeholder-[#2a3f55] focus:outline-none focus:border-[#00d4ff]/40 disabled:opacity-50"
-              disabled={running}
-            />
-            <button
-              onClick={handleRun}
-              disabled={running || !username || !USERNAME_RE.test(username)}
-              className="flex items-center gap-2 border border-[#00d4ff]/20 bg-[#00d4ff]/10 px-5 py-2.5 font-mono text-[10px] font-bold uppercase tracking-widest text-[#00d4ff] transition-colors hover:bg-[#00d4ff]/20 disabled:opacity-40"
-            >
-              {running ? <Loader2 size={14} className="animate-spin" /> : <Search size={14} />}
-              {running ? 'SCAN EN COURS...' : 'LANCER LE SCAN'}
-            </button>
-          </div>
-
-          {meta && (
-            <div className="flex flex-wrap gap-2">
-              <button
-                onClick={() => setCategory('')}
-                className={`text-[10px] font-mono font-bold uppercase tracking-wider px-3 py-1 border transition-colors ${
-                  category === ''
-                    ? 'border-[#00d4ff]/40 bg-[#00d4ff]/10 text-[#00d4ff]'
-                    : 'border-[#1e2d40] bg-[#06080f] text-[#64748b] hover:border-[#00d4ff]/40 hover:text-[#00d4ff]'
-                }`}
-              >
-                TOUS ({meta.site_count})
+      <div className={`os26-workspace${historyOpen ? ' has-history' : ''}`}>
+        <div className="os26-main">
+          {compact ? (
+            /* After a search: a compact command bar, the report comes first. */
+            <section className="os26-command" aria-label="Recherche" ref={commandRef}>
+              <button type="button" className="os26-back" onClick={backToSearch}>
+                <ArrowLeft size={15} aria-hidden="true" />Retour à la recherche
               </button>
-              {meta.categories.map(cat => (
-                <button
-                  key={cat}
-                  onClick={() => setCategory(cat === category ? '' : cat)}
-                  className={`text-[10px] font-mono font-bold uppercase tracking-wider px-3 py-1 border transition-colors ${
-                    category === cat
-                      ? 'border-[#00d4ff]/40 bg-[#00d4ff]/10 text-[#00d4ff]'
-                      : 'border-[#1e2d40] bg-[#06080f] text-[#64748b] hover:border-[#00d4ff]/40 hover:text-[#00d4ff]'
-                  }`}
-                >
-                  {cat}
+              <dl>
+                <div><dt>Pseudonyme</dt><dd className="is-target">@{running ? runUsername : detail?.username}</dd></div>
+                <div><dt>Périmètre</dt><dd>{(running ? category : detail?.filter_category) || 'Tous les sites'}</dd></div>
+              </dl>
+              <div className="os26-command-actions">
+                <button type="button" className="os26-btn" onClick={editSearch}><SlidersHorizontal size={15} aria-hidden="true" />Modifier la recherche</button>
+                <button type="button" className="os26-btn is-primary" onClick={relaunch} disabled={running || !detail}>
+                  {running ? <Loader2 size={15} className="os26-spin" aria-hidden="true" /> : <RefreshCw size={15} aria-hidden="true" />}
+                  {running ? 'Recherche en cours…' : 'Relancer'}
                 </button>
-              ))}
-            </div>
+                {historyToggle}
+              </div>
+            </section>
+          ) : (
+            /* Before a search, during it, or to change it: the search workstation. */
+            <section className={`os26-ops${showLens ? ' has-lens' : ''}`} aria-labelledby={ids.ops}>
+              <div className="os26-command-area">
+                <header className="os26-ops-head">
+                  <span className="os26-kicker">SEARCH OPERATIONS</span>
+                  <h2 id={ids.ops}>Rechercher un pseudonyme</h2>
+                  {meta ? (
+                    <p className="os26-source"><Database size={13} aria-hidden="true" />WhatsMyName · {dbDate ? `base du ${dbDate}` : 'base jamais mise à jour'}</p>
+                  ) : metaError ? (
+                    <p className="os26-source is-warn" role="status"><AlertTriangle size={13} aria-hidden="true" />Informations de la base WhatsMyName indisponibles</p>
+                  ) : null}
+                </header>
+
+                <form className="os26-form" onSubmit={handleRun} noValidate>
+                  <div className="os26-field">
+                    <label htmlFor={ids.input}>Pseudonyme ciblé</label>
+                    <div className={`os26-input${invalid ? ' is-invalid' : ''}`}>
+                      <span aria-hidden="true">@</span>
+                      <input ref={inputRef} id={ids.input} type="text" value={username} onChange={e => setUsername(e.target.value)}
+                        placeholder="ex. jdoe_42" autoComplete="off" spellCheck={false} maxLength={80} disabled={running}
+                        aria-invalid={invalid} aria-describedby={invalid ? `${ids.error} ${ids.hint}` : ids.hint} />
+                      {username && !running && (
+                        <button type="button" className="os26-clear" onClick={() => setUsername('')} aria-label="Effacer le pseudonyme"><X size={14} /></button>
+                      )}
+                    </div>
+                    {invalid && <p id={ids.error} className="os26-error" role="alert">Caractères non acceptés : {badChars || 'longueur'} — utilisez lettres, chiffres, « - » et « _ ».</p>}
+                    <p id={ids.hint} className="os26-hint">Lettres, chiffres, tirets et underscores · 50 caractères au plus.</p>
+                  </div>
+                  <button type="submit" className="os26-run" disabled={running || !trimmed || invalid}>
+                    {running ? <Loader2 size={17} className="os26-spin" aria-hidden="true" /> : <Search size={17} aria-hidden="true" />}
+                    {running ? 'Recherche en cours…' : 'Lancer la recherche'}
+                  </button>
+                </form>
+
+                <div className="os26-scope">
+                  <span className="os26-scope-label">Périmètre</span>
+                  <p className="os26-scope-summary">
+                    {category ? <>Catégorie <b>{category}</b></> : <><b>Tous les sites</b>{meta && <> · {meta.site_count.toLocaleString('fr-FR')} référencés</>}</>}
+                  </p>
+                  {meta && meta.categories.length > 0 && (
+                    <ChoiceMenu title="Périmètre de recherche" value={category} onChange={setCategory} filterable disabled={running}
+                      button={<>{category ? 'Changer de catégorie' : 'Choisir une catégorie'}</>}
+                      choices={[{ value: '', label: 'Tous les sites', count: meta.site_count }, ...meta.categories.map(c => ({ value: c, label: c }))]} />
+                  )}
+                </div>
+
+                <div className="os26-ops-foot">
+                  {canReturn ? (
+                    <button type="button" className="os26-btn" onClick={backToReport}>
+                      <ArrowLeft size={14} aria-hidden="true" />Revenir au rapport @{detail?.username}
+                    </button>
+                  ) : (
+                    <p className="os26-help">Chaque site du périmètre est vérifié au fil du scan ; les profils trouvés s’ouvrent, se copient ou s’importent en IOC.</p>
+                  )}
+                  {historyToggle}
+                </div>
+              </div>
+
+              {showLens && (
+                <SignalGlobe target={lensTarget} categories={meta?.categories ?? []} category={running ? (runningJob?.filter_category ?? category) : category}
+                  siteCount={meta?.site_count ?? null} running={running} warn={trackingLost}
+                  progress={progress ? { checked: progress.checked_sites, total: progress.total_sites, found: progress.found_count } : null}
+                  last={!running && detail && reportHidden && trimmed === detail.username && category === detail.filter_category
+                    ? { username: detail.username, status: detail.status === 'error' ? 'error' : 'done', found: detail.found_count, checked: detail.checked_sites, total: detail.total_sites }
+                    : null} />
+              )}
+            </section>
+          )}
+
+          {/* The running operation: real progress from the server. */}
+          {running && (
+            <section className="os26-run-state" aria-live="polite" aria-label={`Recherche de ${runUsername} en cours`}>
+              <div className="os26-run-head">
+                <Radio size={16} className="os26-run-icon" aria-hidden="true" />
+                <div>
+                  <span className="os26-kicker">OPÉRATION EN COURS{activeJobId ? ` · #${activeJobId}` : ''}</span>
+                  <strong>@{runUsername}</strong>
+                </div>
+                {runningJob && <LocalTimer startedAt={runningJob.created_at} />}
+              </div>
+              {progress && progress.latest_results.length > 0 && (
+                <ul className="os26-latest" aria-label="Derniers profils trouvés">
+                  {progress.latest_results.map(r => (
+                    <li key={r.url}>
+                      <span>{r.site_name}</span>
+                      <a href={r.url} target="_blank" rel="noreferrer">{shortUrl(r.url)}<ExternalLink size={11} aria-hidden="true" /></a>
+                    </li>
+                  ))}
+                </ul>
+              )}
+              {trackingLost && (
+                <p className="os26-warn" role="alert"><AlertTriangle size={14} aria-hidden="true" />Suivi interrompu : le serveur ne répond pas. Nouvelle tentative chaque seconde.</p>
+              )}
+              <p className="os26-footnote">Une recherche lancée ne peut pas être interrompue depuis l’interface.{detail ? ' Le rapport précédent reste affiché jusqu’à la fin du scan.' : ''}</p>
+            </section>
+          )}
+
+          {detail && !reportHidden ? (
+            <section className="os26-report" aria-labelledby={ids.report} ref={reportRef} tabIndex={-1}>
+              {/* Operation intelligence: what was searched, how it went, what was found. */}
+              <header className={`os26-intel is-${outcome}`}>
+                <div className="os26-intel-id">
+                  <span className="os26-kicker">{running ? 'RAPPORT PRÉCÉDENT' : 'OPERATION INTELLIGENCE'} · #{detail.id}</span>
+                  <h2 id={ids.report}>@{detail.username}</h2>
+                  <p className="os26-report-meta">
+                    <StatusTag status={detail.status} />
+                    {outcome === 'partial' && <span className="os26-flag">Résultats partiels</span>}
+                    <span>{detail.filter_category ? `Catégorie ${detail.filter_category}` : 'Tous les sites'}</span>
+                    <span>Lancée {relativeTime(detail.created_at)}</span>
+                  </p>
+                </div>
+                <div className="os26-intel-lead">
+                  <strong>{detail.found_count.toLocaleString('fr-FR')}</strong>
+                  <span>{outcome === 'empty' ? 'aucun profil trouvé' : `profil${detail.found_count > 1 ? 's' : ''} trouvé${detail.found_count > 1 ? 's' : ''}${outcome === 'partial' ? ' avant l’échec' : ''}`}</span>
+                </div>
+                <dl className="os26-intel-figures">
+                  <div><dt>Sites vérifiés</dt><dd>{detail.checked_sites.toLocaleString('fr-FR')}<small> / {detail.total_sites.toLocaleString('fr-FR')}</small></dd></div>
+                  <div className={issues.length ? 'is-issue' : ''}><dt>Erreurs et délais</dt><dd>{issues.length.toLocaleString('fr-FR')}</dd></div>
+                  <div><dt>Durée serveur</dt><dd>{formatDuration(detail.duration)}</dd></div>
+                </dl>
+              </header>
+
+              {(outcome === 'failed' || outcome === 'partial') && (
+                <p className="os26-warn is-block" role="alert">
+                  <AlertTriangle size={15} aria-hidden="true" />
+                  La recherche s’est terminée en échec côté serveur.
+                  {outcome === 'partial'
+                    ? ` Résultats partiels : ${detail.checked_sites.toLocaleString('fr-FR')} sites vérifiés sur ${detail.total_sites.toLocaleString('fr-FR')}.`
+                    : ' Aucun résultat n’a été enregistré.'}
+                </p>
+              )}
+
+              <div className="os26-report-actions">
+                <button type="button" className="os26-btn is-primary" onClick={handleImport} disabled={importing || found.length === 0}>
+                  {importing ? <Loader2 size={15} className="os26-spin" aria-hidden="true" /> : <Download size={15} aria-hidden="true" />}
+                  Importer en IOC ({found.length})
+                </button>
+                <button type="button" className="os26-btn" disabled={found.length === 0}
+                  onClick={() => copy(found.map(r => r.url).join('\n'), `${found.length} URL copiée${found.length > 1 ? 's' : ''}`)}>
+                  <Copy size={15} aria-hidden="true" />Copier les URLs
+                </button>
+                {distribution.rows.length > 0 && (
+                  <button type="button" className="os26-btn os26-dist-toggle" aria-expanded={distOpen} aria-controls={ids.dist}
+                    onClick={() => setDistOpen(!distOpen)}>
+                    <BarChart3 size={15} aria-hidden="true" />{distOpen ? 'Masquer la répartition' : 'Voir la répartition'}
+                  </button>
+                )}
+                {imported?.jobId === detail.id && (
+                  <p className="os26-note" role="status">
+                    <CheckCircle2 size={15} aria-hidden="true" />
+                    {imported.created} IOC créé{imported.created > 1 ? 's' : ''}, {imported.skipped} doublon{imported.skipped > 1 ? 's' : ''} ignoré{imported.skipped > 1 ? 's' : ''}.
+                    <button type="button" onClick={() => navigate('/ioc')}>Ouvrir IOC Manager</button>
+                  </p>
+                )}
+              </div>
+
+              {/* Where the profiles found concentrate (real results only). */}
+              {distribution.rows.length > 0 && distOpen && (
+                <section id={ids.dist} className="os26-dist" aria-label="Répartition des profils trouvés par catégorie">
+                  <h3>Répartition par catégorie</h3>
+                  <ul>
+                    {distribution.rows.map(row => (
+                      <li key={row.key}>
+                        <button type="button" aria-pressed={catFilter === row.key} title={row.detail}
+                          aria-label={`${row.detail} : ${row.n} profil${row.n > 1 ? 's' : ''}${catFilter === row.key ? ', filtre actif' : ', filtrer les résultats'}`}
+                          onClick={() => { setCatFilter(catFilter === row.key ? null : row.key); setView('found') }}>
+                          <span className="os26-dist-name"><i style={{ background: row.key === OTHERS ? '#5d7689' : markOf(row.key) }} aria-hidden="true" />{row.label}</span>
+                          <span className="os26-dist-bar" aria-hidden="true"><span style={{ width: `${(row.n / distribution.max) * 100}%` }} /></span>
+                          <b>{row.n}</b>
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                </section>
+              )}
+
+              {/* Results explorer. */}
+              <div className="os26-explorer">
+                <div className="os26-controls" role="group" aria-label="Contrôles des résultats">
+                  <div className="os26-tabs" role="group" aria-label="Résultats à afficher">
+                    {([['found', 'Profils trouvés', found.length], ['issues', 'Erreurs et délais', issues.length], ['missing', 'Non trouvés', missing.length]] as const).map(([id, label, n]) => (
+                      <button key={id} type="button" aria-pressed={view === id} onClick={() => setView(id)}>{label}<span>{n.toLocaleString('fr-FR')}</span></button>
+                    ))}
+                  </div>
+                  <div className="os26-controls-tools">
+                    <label className="os26-filter">
+                      <Search size={14} aria-hidden="true" />
+                      <span className="os26-sr">Filtrer les résultats par site ou catégorie</span>
+                      <input type="search" value={query} onChange={e => setQuery(e.target.value)} placeholder="Filtrer par site" />
+                    </label>
+                    <ChoiceMenu title="Filtrer par catégorie" value={catFilter ?? ''} onChange={v => setCatFilter(v || null)}
+                      className="is-tool" filterable={tabCategories.length > 8}
+                      button={<>Catégorie : <b>{catFilter ? catLabel : 'toutes'}</b></>}
+                      choices={[{ value: '', label: 'Toutes les catégories', count: tab.length }, ...tabCategories.map(([c, n]) => ({ value: c, label: c, count: n }))]} />
+                    <label className="os26-sort" htmlFor={ids.sort}>
+                      <ArrowUpDown size={14} aria-hidden="true" />
+                      <span className="os26-sr">Trier les résultats</span>
+                      <select id={ids.sort} value={sort} onChange={e => setSort(e.target.value as Sort)}>
+                        {SORTS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+                      </select>
+                    </label>
+                    <div className="os26-density" role="group" aria-label="Densité des résultats">
+                      <button type="button" aria-pressed={density === 'comfort'} onClick={() => setDensity('comfort')}>Confort</button>
+                      <button type="button" aria-pressed={density === 'compact'} onClick={() => setDensity('compact')}>Compact</button>
+                    </div>
+                  </div>
+                </div>
+                {catFilter && (
+                  <p className="os26-active-filter" role="status">
+                    Catégorie : <strong>{catLabel}</strong>
+                    <button type="button" onClick={() => setCatFilter(null)}><X size={13} aria-hidden="true" />Tous les résultats</button>
+                  </p>
+                )}
+
+                {shown.length === 0 ? (
+                  <div className="os26-empty">
+                    <strong>{needle || catFilter ? 'Aucun résultat pour ce filtre' : view === 'found' ? 'Aucun profil trouvé' : view === 'issues' ? 'Aucune erreur ni délai dépassé' : 'Aucun site sans profil'}</strong>
+                    {needle || catFilter
+                      ? <button type="button" className="os26-btn" onClick={clearFilters}><X size={14} aria-hidden="true" />Effacer les filtres</button>
+                      : <span>{view === 'found' && detail.status === 'done' ? `Le pseudonyme @${detail.username} n’apparaît sur aucun des sites vérifiés.` : ''}</span>}
+                  </div>
+                ) : view === 'missing' ? (
+                  <>
+                    <ul className="os26-missing" aria-label="Sites sans profil">
+                      {shown.slice(0, missingLimit).map(r => <li key={`${r.site_name}-${r.url}`}><span>{r.site_name}</span><small>{r.category}</small></li>)}
+                    </ul>
+                    {shown.length > missingLimit && (
+                      <button type="button" className="os26-more" onClick={() => setMissingLimit(missingLimit + MISSING_STEP)}>
+                        Voir davantage ({(shown.length - missingLimit).toLocaleString('fr-FR')} restants)
+                      </button>
+                    )}
+                  </>
+                ) : (
+                  <div className="os26-groups">
+                    {groups.map(([cat, rows]) => {
+                      const open = expanded.has(cat)
+                      const visible = open ? rows : rows.slice(0, ROWS_PER_GROUP)
+                      return (
+                        <section key={cat} className="os26-group" aria-label={`${cat}, ${rows.length} résultat${rows.length > 1 ? 's' : ''}`}>
+                          <h3><i style={{ background: markOf(cat) }} aria-hidden="true" /><span>{cat}</span><b>{rows.length}</b></h3>
+                          <ul>
+                            {visible.map(r => (
+                              <li key={`${r.site_name}-${r.url}`} className="os26-row">
+                                <div className="os26-row-main">
+                                  <strong>{r.site_name}</strong>
+                                  {view === 'found'
+                                    ? <a href={r.url} target="_blank" rel="noreferrer" title={r.url}>{shortUrl(r.url)}</a>
+                                    : <span className={`os26-issue is-${r.status}`}>{r.status === 'timeout' ? 'Délai dépassé' : 'Erreur de vérification'}</span>}
+                                </div>
+                                <span className="os26-row-time" title="Temps de réponse du site">{r.response_time > 0 ? `${r.response_time} ms` : '—'}</span>
+                                {view === 'found' && (
+                                  <div className="os26-row-actions">
+                                    <a className="os26-icon-btn" href={r.url} target="_blank" rel="noreferrer" title="Ouvrir le profil (nouvel onglet)" aria-label={`Ouvrir le profil ${r.site_name} (nouvel onglet)`}><ExternalLink size={15} /></a>
+                                    <button type="button" className="os26-icon-btn" title="Copier l’URL" onClick={() => copy(r.url, 'URL copiée')} aria-label={`Copier l’URL du profil ${r.site_name}`}><Copy size={15} /></button>
+                                  </div>
+                                )}
+                              </li>
+                            ))}
+                          </ul>
+                          {rows.length > ROWS_PER_GROUP && (
+                            <button type="button" className="os26-more" aria-expanded={open}
+                              onClick={() => setExpanded(prev => { const next = new Set(prev); if (open) next.delete(cat); else next.add(cat); return next })}>
+                              {open ? 'Voir moins' : `Voir davantage (${rows.length - ROWS_PER_GROUP})`}
+                            </button>
+                          )}
+                        </section>
+                      )
+                    })}
+                  </div>
+                )}
+              </div>
+            </section>
+          ) : !running && jobsState === 'ready' && jobs.length > 0 && (
+            <section className="os26-recent" aria-labelledby={ids.recent}>
+              <header>
+                <h2 id={ids.recent}>Opérations récentes</h2>
+                <button type="button" className="os26-link" onClick={() => setHistoryOpen(true)}>Tout l’historique ({jobs.length})</button>
+              </header>
+              <ul>
+                {jobs.slice(0, 3).map(job => (
+                  <li key={job.id}>
+                    <button type="button" className="os26-recent-op" onClick={() => handleReview(job)}
+                      aria-label={`Ouvrir le rapport @${job.username}, ${STATUS[job.status].label}, ${job.found_count} profil${job.found_count > 1 ? 's' : ''} trouvé${job.found_count > 1 ? 's' : ''}`}>
+                      <span className="os26-recent-icon" aria-hidden="true"><Radio size={15} /></span>
+                      <span className="os26-recent-name" title={`@${job.username}`}>@{job.username}</span>
+                      <StatusTag status={job.status} />
+                      <span className="os26-recent-found"><b>{job.found_count}</b> trouvé{job.found_count > 1 ? 's' : ''}</span>
+                      <span className="os26-recent-time">{relativeTime(job.created_at)}</span>
+                      <ChevronRight size={15} className="os26-recent-go" aria-hidden="true" />
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            </section>
           )}
         </div>
 
-        {/* Progression du scan en cours */}
-        {running && (
-          <div className="border border-[#1e2d40] bg-[#0a0f16] p-5 space-y-3">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <Loader2 size={14} className="animate-spin text-blue-400" />
-                <span className="text-[11px] font-mono font-bold uppercase tracking-widest text-[#f1f5f9]">
-                  Scan de <span className="text-[#00d4ff]">{username}</span>
-                </span>
-                <StatusBadge status="running" />
-              </div>
-              {activeJobId && (
-                <LiveTimer startedAt={jobs.find(j => j.id === activeJobId)?.created_at ?? new Date().toISOString()} />
-              )}
+        {/* History of operations, on demand. */}
+        {historyOpen && <div className="os26-history-backdrop" onClick={closeHistory} aria-hidden="true" />}
+        <aside id={ids.history} className="os26-history" aria-label="Historique des opérations" hidden={!historyOpen}>
+          <header>
+            <History size={15} aria-hidden="true" />
+            <h2 ref={historyHeading} tabIndex={-1}>Opérations</h2>
+            {jobsState === 'ready' && <span>{jobs.length}</span>}
+            <button type="button" className="os26-icon-btn" onClick={closeHistory} aria-label="Fermer l’historique" title="Fermer l’historique"><X size={15} /></button>
+          </header>
+          {jobsState === 'loading' ? (
+            <p className="os26-history-state"><Loader2 size={14} className="os26-spin" aria-hidden="true" />Chargement de l’historique…</p>
+          ) : jobsState === 'error' ? (
+            <div className="os26-history-state is-error" role="alert">
+              <span><AlertTriangle size={14} aria-hidden="true" />Historique indisponible.</span>
+              <button type="button" className="os26-btn" onClick={loadJobs}><RotateCcw size={14} aria-hidden="true" />Réessayer</button>
             </div>
-
-            {progress ? (
-              <>
-                <div>
-                  <div className="flex justify-between text-[10px] font-mono text-[#64748b] mb-1">
-                    <span>{progress.checked_sites} / {progress.total_sites} sites</span>
-                    <span className="text-green-400">{progress.found_count} trouvés</span>
-                  </div>
-                  <div className="w-full bg-[#1e2d40] h-1.5">
-                    <div
-                      className="bg-[#00d4ff] h-1.5 transition-all duration-500"
-                      style={{ width: `${pct}%` }}
-                    />
-                  </div>
-                </div>
-
-                {progress.latest_results.length > 0 && (
-                  <div className="space-y-1">
-                    <p className="text-[10px] font-mono text-[#4a6480] uppercase tracking-wider">Derniers profils trouvés :</p>
-                    {progress.latest_results.map((r, i) => (
-                      <div key={i} className="flex items-center gap-2 text-[11px] font-mono">
-                        <ExternalLink size={11} className="text-cyan-400 flex-shrink-0" />
-                        <span className="text-[#f1f5f9]">{r.site_name}</span>
-                        <span className={`text-[9px] px-1.5 py-0.5 border ${catColor(r.category)}`}>{r.category}</span>
-                        <a href={r.url} target="_blank" rel="noreferrer" className="text-cyan-400 hover:underline truncate">{r.url}</a>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </>
-            ) : (
-              <p className="text-[10px] font-mono text-[#64748b] animate-pulse">Démarrage du scan...</p>
-            )}
-          </div>
-        )}
-
-        {/* Résultats détaillés */}
-        {detail && detail.status === 'done' && (
-          <div className="border border-[#1e2d40] bg-[#0a0f16] p-5 space-y-4">
-            <div className="flex items-center justify-between flex-wrap gap-2">
-              <h2 className="font-mono text-[13px] font-bold uppercase tracking-wider text-[#f1f5f9]">
-                RÉSULTATS — <span className="text-[#00d4ff]">{detail.username}</span>
-              </h2>
-              <StatusBadge status={detail.status} />
-            </div>
-
-            <div className="grid grid-cols-4 gap-3">
-              {[
-                { label: 'TROUVÉS', value: detail.found_count, cls: 'text-green-400' },
-                { label: 'VÉRIFIÉS', value: detail.checked_sites, cls: 'text-blue-400' },
-                { label: 'ERREURS', value: errorCount, cls: 'text-red-400' },
-                { label: 'DURÉE', value: formatDuration(detail.duration), cls: 'text-yellow-400' },
-              ].map(s => (
-                <div key={s.label} className="bg-[#0d131f] border border-[#1e2d40] p-3 text-center">
-                  <p className={`text-lg font-mono font-bold ${s.cls}`}>{s.value}</p>
-                  <p className="text-[9px] font-mono text-[#64748b] uppercase tracking-wider mt-1">{s.label}</p>
-                </div>
-              ))}
-            </div>
-
-            <div className="flex flex-wrap gap-2">
-              {(['all', 'found', 'error'] as const).map(f => (
-                <button
-                  key={f}
-                  onClick={() => setFilter(f)}
-                  className={`text-[10px] font-mono font-bold uppercase tracking-wider px-3 py-1 border transition-colors ${
-                    filter === f
-                      ? 'border-[#00d4ff]/40 bg-[#00d4ff]/10 text-[#00d4ff]'
-                      : 'border-[#1e2d40] bg-[#06080f] text-[#64748b] hover:border-[#00d4ff]/40 hover:text-[#00d4ff]'
-                  }`}
-                >
-                  {f === 'all' ? 'TOUS' : f === 'found' ? `TROUVÉS (${foundResults.length})` : `ERREURS (${errorCount})`}
-                </button>
-              ))}
-            </div>
-
-            <div className="overflow-x-auto">
-              <table className="w-full text-[11px] font-mono">
-                <thead>
-                  <tr className="text-left text-[#4a6480] border-b border-[#1e2d40]">
-                    <th className="pb-2 pr-4 uppercase tracking-wider">SITE</th>
-                    <th className="pb-2 pr-4 uppercase tracking-wider">CATÉGORIE</th>
-                    <th className="pb-2 pr-4 uppercase tracking-wider">URL</th>
-                    <th className="pb-2 text-right uppercase tracking-wider">TEMPS</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {filteredResults.map((r, i) => (
-                    <tr key={i} className="border-b border-[#1e2d40]/40 hover:bg-[#0d131f]">
-                      <td className="py-2 pr-4 font-medium text-[#f1f5f9]">{r.site_name}</td>
-                      <td className="py-2 pr-4">
-                        <span className={`text-[9px] px-1.5 py-0.5 border ${catColor(r.category)}`}>{r.category}</span>
-                      </td>
-                      <td className="py-2 pr-4 max-w-xs truncate">
-                        {r.status === 'found' ? (
-                          <a href={r.url} target="_blank" rel="noreferrer" className="text-[#00d4ff] hover:underline flex items-center gap-1">
-                            <ExternalLink size={10} /> {r.url}
-                          </a>
-                        ) : (
-                          <span className="text-[#64748b]">{r.status}</span>
-                        )}
-                      </td>
-                      <td className="py-2 text-right text-[#64748b]">{r.response_time}ms</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-              {filteredResults.length === 0 && (
-                <p className="text-center text-[#64748b] text-[11px] font-mono py-6">Aucun résultat pour ce filtre</p>
-              )}
-            </div>
-
-            <div className="flex gap-3 pt-2">
-              <button
-                onClick={handleImport}
-                disabled={importing || foundResults.length === 0}
-                className="flex items-center gap-2 border border-[#00d4ff]/20 bg-[#00d4ff]/10 px-4 py-2 font-mono text-[10px] font-bold uppercase tracking-widest text-[#00d4ff] transition-colors hover:bg-[#00d4ff]/20 disabled:opacity-40"
-              >
-                {importing ? <Loader2 size={12} className="animate-spin" /> : <Download size={12} />}
-                IMPORTER EN IOC ({foundResults.length})
-              </button>
-              <button
-                onClick={handleCopy}
-                disabled={foundResults.length === 0}
-                className="flex items-center gap-2 border border-[#1e2d40] bg-[#0a0f16] px-4 py-2 font-mono text-[10px] font-bold uppercase tracking-widest text-[#64748b] hover:text-[#f1f5f9] transition-colors disabled:opacity-40"
-              >
-                <Copy size={12} /> COPIER LES URLS
-              </button>
-            </div>
-          </div>
-        )}
-
-        {/* Historique des scans */}
-        {jobs.length > 0 && (
-          <div className="border border-[#1e2d40] bg-[#0a0f16] p-5 space-y-3">
-            <h2 className="font-mono text-[11px] font-bold uppercase tracking-[0.2em] text-[#8a9ab0]">HISTORIQUE DES SCANS</h2>
-            <div className="space-y-2">
-              {jobs.map(job => (
-                <div key={job.id} className="flex items-center gap-3 px-3 py-2 border border-[#1e2d40] bg-[#0d131f] hover:border-[#00d4ff]/30 transition-colors">
-                  <span className="font-mono text-sm text-[#00d4ff] w-32 truncate">{job.username}</span>
-                  <StatusBadge status={job.status} />
-                  {job.filter_category && (
-                    <span className="text-[9px] px-1.5 py-0.5 border border-[#1e2d40] bg-[#0a0f16] text-[#64748b]">{job.filter_category}</span>
-                  )}
-                  <span className="text-[11px] text-green-400 font-mono">{job.found_count > 0 ? `${job.found_count} trouvés` : '-'}</span>
-                  <span className="text-[10px] text-[#64748b] font-mono">{job.total_sites > 0 ? `${job.checked_sites}/${job.total_sites}` : ''}</span>
-                  <span className="text-[10px] text-[#64748b] font-mono">{formatDuration(job.duration)}</span>
-                  <span className="text-[10px] text-[#64748b] ml-auto">{relativeTime(job.created_at)}</span>
-                  <button
-                    onClick={() => handleReview(job.id)}
-                    className="p-1 text-[#64748b] hover:text-[#00d4ff] transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-[#00d4ff]"
-                    title="Revoir"
-                    aria-label="Voir"
-                  >
-                    <Eye size={13} />
-                  </button>
-                  <button
-                    onClick={() => handleDelete(job.id)}
-                    className="p-1 text-[#64748b] hover:text-red-400 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-[#00d4ff]"
-                    title="Supprimer"
-                    aria-label="Supprimer"
-                  >
-                    <Trash2 size={13} />
-                  </button>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
+          ) : jobs.length === 0 ? (
+            <p className="os26-history-state">Aucune opération enregistrée.</p>
+          ) : (
+            <ul>
+              {jobs.map(job => {
+                const current = detail?.id === job.id || (running && activeJobId === job.id)
+                return (
+                  <li key={job.id} className={current ? 'is-current' : ''}>
+                    <button type="button" className="os26-job" onClick={() => handleReview(job)} aria-current={current ? 'true' : undefined}
+                      aria-label={`Ouvrir l’opération @${job.username}, ${STATUS[job.status].label}, ${job.found_count} profil${job.found_count > 1 ? 's' : ''} trouvé${job.found_count > 1 ? 's' : ''}`}>
+                      <span className="os26-job-name">@{job.username}</span>
+                      <StatusTag status={job.status} />
+                      <span className="os26-job-meta">
+                        <b>{job.found_count}</b> trouvé{job.found_count > 1 ? 's' : ''}
+                        {job.total_sites > 0 && <> · {job.checked_sites}/{job.total_sites}</>}
+                        {job.filter_category && <> · {job.filter_category}</>}
+                      </span>
+                      <span className="os26-job-time">{relativeTime(job.created_at)}{job.duration > 0 ? ` · ${formatDuration(job.duration)}` : ''}</span>
+                    </button>
+                    <button type="button" className="os26-icon-btn is-danger" onClick={() => setDeleteTarget(job)} title="Supprimer l’opération" aria-label={`Supprimer l’opération @${job.username}`}>
+                      <Trash2 size={14} />
+                    </button>
+                  </li>
+                )
+              })}
+            </ul>
+          )}
+        </aside>
       </div>
+
+      {deleteTarget && (
+        <Dialog title="Supprimer l’opération" onClose={() => setDeleteTarget(null)} footer={<>
+          <button type="button" className="os26-btn" onClick={() => setDeleteTarget(null)}>Annuler</button>
+          <button type="button" className="os26-btn is-danger" onClick={confirmDelete}><Trash2 size={14} aria-hidden="true" />Supprimer</button>
+        </>}>
+          <p>L’opération <strong>@{deleteTarget.username}</strong> et ses résultats seront supprimés. Les IOC déjà importés sont conservés.</p>
+        </Dialog>
+      )}
     </div>
   )
 }
