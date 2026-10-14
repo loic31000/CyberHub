@@ -1,15 +1,21 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
+import { createPortal } from 'react-dom'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { useIocStore } from '@/store/useIocStore'
 import type { IOC, IOCCreatePayload, IOCType, IOCTLP, IOCStatus } from '@/types/ioc'
 import { toast } from '@/store/toast'
 import CorrelationPanel from '@/components/CorrelationPanel'
 import ImportIOCModal from '@/components/ImportIOCModal'
+import { Dialog } from '@/mitre/MitreUi'
+import { ModuleHero } from '@/hero/ModuleHero'
+import IocMotif from '@/ioc26/IocMotif'
+import { IocDisplaySettings, useIocDensity } from '@/ioc26/IocPreferences'
+import '@/ioc26/ioc.css'
 import { correlationApi, hashApi, iocApi } from '@/api/client'
 import type { CorrelationResult } from '@/types/correlation'
 import type { HashAnalysisResponse, VirusTotalData, MalwareBazaarData, ThreatFoxData, URLhausData } from '@/types/hash'
 import {
-  ShieldBan, Plus, Search, Download, X, Trash2, Edit2,
+  ShieldBan, Plus, Search, Download, X, Trash2, Edit2, Copy, SlidersHorizontal,
   Globe, Hash, Link, Mail, Network, GitBranch, Loader2, RefreshCw, Shield, FolderOpen,
 } from 'lucide-react'
 
@@ -27,12 +33,12 @@ const STATUS_COLORS: Record<IOCStatus, string> = {
   false_positive: 'text-[#eab308]',
 }
 
-const IOC_TYPES: IOCType[] = ['ip', 'domain', 'hash', 'url', 'email']
+const IOC_TYPES: IOCType[] = ['ip', 'domain', 'hash', 'url', 'email', 'cidr']
 
 function tlpBadge(tlp: IOCTLP) {
   const opt = TLP_OPTIONS.find(t => t.value === tlp)
   return opt
-    ? <span className={`text-[10px] px-1.5 py-0.5 border font-mono uppercase tracking-wider ${opt.color}`}>{opt.label}</span>
+    ? <span className={`ioc26-tlp border font-mono uppercase ${opt.color}`}>{opt.label}</span>
     : null
 }
 
@@ -44,6 +50,7 @@ function typeIcon(type: IOCType) {
     case 'hash':   return <Hash    size={14} className={cls} />
     case 'url':    return <Link    size={14} className={cls} />
     case 'email':  return <Mail    size={14} className={cls} />
+    case 'cidr':   return <Network size={14} className={cls} />
   }
 }
 
@@ -56,6 +63,12 @@ function parseTags(raw: string): string[] {
 function tagsToJSON(input: string): string {
   const tags = input.split(',').map(t => t.trim()).filter(Boolean)
   return tags.length > 0 ? JSON.stringify(tags) : ''
+}
+
+function formatIocDate(value: string): string {
+  if (!value) return '—'
+  const date = new Date(value)
+  return Number.isNaN(date.getTime()) ? '—' : date.toLocaleString('fr-FR', { dateStyle: 'medium', timeStyle: 'short' })
 }
 
 // ── Formulaire (stylisé) ─────────────────────────────────────────────────────
@@ -76,77 +89,82 @@ function IOCForm({ initial, onSubmit, onCancel }: IOCFormProps) {
   const [notes, setNotes] = useState(initial?.notes ?? '')
   const [mitre, setMitre] = useState(initial?.mitre_tech_id ?? '')
   const [saving, setSaving] = useState(false)
+  const [submitError, setSubmitError] = useState(false)
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
+    if (saving) return
     if (!value.trim()) { toast.error('La valeur est requise'); return }
+    setSubmitError(false)
     setSaving(true)
     try {
       await onSubmit({ type, value: value.trim(), source: source.trim(), tlp, status,
         tags: tagsToJSON(tags), notes: notes.trim(), mitre_tech_id: mitre.trim() })
+    } catch {
+      setSubmitError(true)
+      toast.error('Impossible de sauvegarder cet IOC')
     } finally { setSaving(false) }
   }
 
-  const inputCls = 'w-full bg-[#0d131f] border border-[#1e2d40] rounded px-3 py-2 font-mono text-sm text-[#f1f5f9] placeholder-[#334155] focus:outline-none focus:border-[#00d4ff]/60'
-
   return (
-    <form onSubmit={handleSubmit} className="space-y-4">
-      <div className="flex gap-3">
-        <div className="w-36">
-          <label className="text-[10px] font-mono text-[#4a6480] uppercase tracking-wider block mb-1">TYPE *</label>
-          <select value={type} onChange={e => setType(e.target.value as IOCType)} className={inputCls}>
+    <form onSubmit={handleSubmit} className="ioc26-form">
+      <p className="ioc26-dialog-description">{initial?.id ? 'Mettre à jour cet indicateur et sa classification.' : 'Ajouter un indicateur à l’index local.'} <span>Les champs marqués * sont obligatoires.</span></p>
+      <div className="ioc26-form-grid ioc26-form-primary">
+        <div className="ioc26-field">
+          <label htmlFor="ioc-form-type">Type d’indicateur <span aria-hidden="true">*</span></label>
+          <select id="ioc-form-type" value={type} onChange={e => setType(e.target.value as IOCType)} required>
             {IOC_TYPES.map(tp => <option key={tp} value={tp}>{tp.toUpperCase()}</option>)}
           </select>
         </div>
-        <div className="flex-1">
-          <label className="text-[10px] font-mono text-[#4a6480] uppercase tracking-wider block mb-1">VALEUR *</label>
-          <input value={value} onChange={e => setValue(e.target.value)}
+        <div className="ioc26-field">
+          <label htmlFor="ioc-form-value">Valeur <span aria-hidden="true">*</span></label>
+          <input id="ioc-form-value" value={value} onChange={e => setValue(e.target.value)} required
             placeholder={type === 'hash' ? 'md5/sha256...' : type === 'ip' ? '192.168.1.1' : type}
-            className={inputCls} />
+          />
         </div>
       </div>
-      <div>
-        <label className="text-[10px] font-mono text-[#4a6480] uppercase tracking-wider block mb-1">SOURCE</label>
-        <input value={source} onChange={e => setSource(e.target.value)} placeholder="ex: VirusTotal, AbuseIPDB..." className={inputCls} />
+      <div className="ioc26-field">
+        <label htmlFor="ioc-form-source">Source</label>
+        <input id="ioc-form-source" value={source} onChange={e => setSource(e.target.value)} placeholder="Ex. : VirusTotal, AbuseIPDB…" />
       </div>
-      <div className="flex gap-3">
-        <div className="flex-1">
-          <label className="text-[10px] font-mono text-[#4a6480] uppercase tracking-wider block mb-1">TLP</label>
-          <select value={tlp} onChange={e => setTlp(e.target.value as IOCTLP)} className={inputCls}>
+      <div className="ioc26-form-grid">
+        <div className="ioc26-field">
+          <label htmlFor="ioc-form-tlp">Classification TLP</label>
+          <select id="ioc-form-tlp" value={tlp} onChange={e => setTlp(e.target.value as IOCTLP)}>
             {TLP_OPTIONS.map(tp => <option key={tp.value} value={tp.value}>{tp.label}</option>)}
           </select>
         </div>
-        <div className="flex-1">
-          <label className="text-[10px] font-mono text-[#4a6480] uppercase tracking-wider block mb-1">STATUT</label>
-          <select value={status} onChange={e => setStatus(e.target.value as IOCStatus)} className={inputCls}>
+        <div className="ioc26-field">
+          <label htmlFor="ioc-form-status">Statut</label>
+          <select id="ioc-form-status" value={status} onChange={e => setStatus(e.target.value as IOCStatus)}>
             <option value="active">ACTIF</option>
             <option value="archived">ARCHIVÉ</option>
             <option value="false_positive">FAUX POSITIF</option>
           </select>
         </div>
       </div>
-      <div>
-        <label className="text-[10px] font-mono text-[#4a6480] uppercase tracking-wider block mb-1">
-          TAGS <span className="normal-case">(séparés par virgule)</span>
-        </label>
-        <input value={tags} onChange={e => setTags(e.target.value)} placeholder="ransomware, c2, apt28..." className={inputCls} />
+      <div className="ioc26-form-grid">
+        <div className="ioc26-field">
+          <label htmlFor="ioc-form-tags">Tags <span className="ioc26-field-hint">séparés par virgule</span></label>
+          <input id="ioc-form-tags" value={tags} onChange={e => setTags(e.target.value)} placeholder="ransomware, c2, apt28…" />
+        </div>
+        <div className="ioc26-field">
+          <label htmlFor="ioc-form-mitre">Référence MITRE ATT&CK</label>
+          <input id="ioc-form-mitre" value={mitre} onChange={e => setMitre(e.target.value)} placeholder="Ex. : T1046" />
+        </div>
       </div>
-      <div>
-        <label className="text-[10px] font-mono text-[#4a6480] uppercase tracking-wider block mb-1">
-          MITRE ATT&CK <span className="normal-case">(optionnel)</span>
-        </label>
-        <input value={mitre} onChange={e => setMitre(e.target.value)} placeholder="ex: T1046" className={inputCls} />
+      <div className="ioc26-field">
+        <label htmlFor="ioc-form-notes">Notes</label>
+        <textarea id="ioc-form-notes" value={notes} onChange={e => setNotes(e.target.value)} rows={4} placeholder="Contexte, observations…" />
       </div>
-      <div>
-        <label className="text-[10px] font-mono text-[#4a6480] uppercase tracking-wider block mb-1">NOTES</label>
-        <textarea value={notes} onChange={e => setNotes(e.target.value)} rows={3} placeholder="Contexte, observations..." className={inputCls + ' resize-none'} />
-      </div>
-      <div className="flex gap-3 justify-end pt-2">
-        <button type="button" onClick={onCancel} className="px-4 py-2 text-xs font-mono border border-[#1e2d40] text-[#64748b] hover:text-[#f1f5f9] transition-colors">
-          ANNULER
+      {submitError && <p className="ioc26-form-error" role="alert">Enregistrement impossible. Vérifiez la connexion au service, puis réessayez.</p>}
+      <div className="ioc26-dialog-actions">
+        <button type="button" onClick={onCancel} className="ioc26-btn" disabled={saving}>
+          Annuler
         </button>
-        <button type="submit" disabled={saving} className="px-4 py-2 text-xs font-mono font-bold bg-[#00d4ff] text-[#06080f] rounded hover:bg-[#00d4ff]/80 disabled:opacity-50 transition-colors">
-          {saving ? 'SAUVEGARDE...' : initial?.id ? 'METTRE À JOUR' : 'AJOUTER'}
+        <button type="submit" disabled={saving} className="ioc26-btn is-primary">
+          {saving && <Loader2 size={15} className="animate-spin" aria-hidden="true" />}
+          {saving ? 'Enregistrement…' : initial?.id ? 'Enregistrer les modifications' : 'Ajouter l’IOC'}
         </button>
       </div>
     </form>
@@ -181,6 +199,7 @@ function HashAnalysisPanel({
   }
 
   const sources = hashResult.sources ?? []
+  const checkedSources = sources.filter(s => s.status === 'found' || s.status === 'not_found').length
   const mbSource = sources.find(s => s.source === 'malwarebazaar')
   const tfSource = sources.find(s => s.source === 'threatfox')
   const uhSource = sources.find(s => s.source === 'urlhaus')
@@ -209,7 +228,7 @@ function HashAnalysisPanel({
       <div className={`border p-4 flex items-start justify-between gap-4 ${
         hashResult.found
           ? 'border-red-500/40 bg-red-500/5'
-          : 'border-green-500/30 bg-green-500/5'
+          : checkedSources ? 'border-green-500/30 bg-green-500/5' : 'border-amber-500/30 bg-amber-500/5'
       }`}>
         <div className="flex-1">
           {hashResult.found ? (
@@ -222,7 +241,9 @@ function HashAnalysisPanel({
               )}
             </div>
           ) : (
-            <p className="text-green-400 font-mono text-sm">✅ HASH PROPRE SUR TOUTES LES SOURCES</p>
+            <p className={checkedSources ? 'text-green-400 font-mono text-sm' : 'text-amber-300 font-mono text-sm'}>
+              {checkedSources ? `Aucune correspondance dans ${checkedSources} source${checkedSources > 1 ? 's' : ''} consultée${checkedSources > 1 ? 's' : ''}` : 'Analyse non concluante : aucune source disponible'}
+            </p>
           )}
           {threatName && (
             <p className="text-[#f1f5f9] font-mono text-xs mt-1">{threatName}</p>
@@ -444,21 +465,27 @@ function HashAnalysisPanel({
 // ── Page principale ───────────────────────────────────────────────────────────
 
 export default function IOCPage() {
+  const [density, setDensity] = useIocDensity()
   const {
-    iocs, total, loading, stats, filter,
-    fetchIocs, fetchStats, setFilter,
+    iocs, total, page, limit, loading, error, stats, filter,
+    fetchIocs, fetchStats, setFilter, setPage,
     deleteIoc, exportCSV,
   } = useIocStore()
 
   const [showForm, setShowForm] = useState(false)
   const [showImport, setShowImport] = useState(false)
   const [editTarget, setEditTarget] = useState<IOC | null>(null)
-  const [search, setSearch] = useState('')
+  const [search, setSearch] = useState(filter.q ?? '')
   const [searchTimeout, setSearchTimeout] = useState<ReturnType<typeof setTimeout> | null>(null)
+  const [filtersOpen, setFiltersOpen] = useState(false)
+  const detailOpener = useRef<HTMLElement | null>(null)
+  const detailClose = useRef<HTMLButtonElement>(null)
 
   // Sélection multiple
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set())
   const [bulkDeleting, setBulkDeleting] = useState(false)
+  const [confirmBulk, setConfirmBulk] = useState(false)
+  const [deleteTarget, setDeleteTarget] = useState<IOC | null>(null)
 
   const allSelected = iocs.length > 0 && iocs.every(ioc => selectedIds.has(ioc.id))
   const someSelected = !allSelected && iocs.some(ioc => selectedIds.has(ioc.id))
@@ -485,7 +512,7 @@ export default function IOCPage() {
     if (!selectedId) return
     const id = Number(selectedId)
     if (isNaN(id)) return
-    iocApi.get(id).then(ioc => setSelectedIOC(ioc)).catch(() => {})
+    iocApi.get(id).then(ioc => { setSelectedIOC(ioc); setActiveTab('details') }).catch(() => {})
   }, [searchParams])
 
   useEffect(() => { fetchIocs(); fetchStats() }, [])
@@ -496,11 +523,45 @@ export default function IOCPage() {
     if (searchTimeout) clearTimeout(searchTimeout)
     setSearchTimeout(setTimeout(() => setFilter({ q: v || undefined }), 350))
   }
+  const resetFilters = () => {
+    if (searchTimeout) clearTimeout(searchTimeout)
+    setSearch('')
+    setFilter({ type: undefined, tlp: undefined, status: 'active', q: undefined })
+  }
 
-  const handleDelete = async (ioc: IOC) => {
-    if (!confirm(`Supprimer ${ioc.type.toUpperCase()} : ${ioc.value} ?`)) return
-    try { await deleteIoc(ioc.id); toast.success('IOC supprimé') }
-    catch { toast.error('Erreur lors de la suppression') }
+  const handleDelete = (ioc: IOC) => setDeleteTarget(ioc)
+  const confirmDelete = async () => {
+    if (!deleteTarget) return
+    try {
+      await deleteIoc(deleteTarget.id)
+      if (selectedIOC?.id === deleteTarget.id) setSelectedIOC(null)
+      setDeleteTarget(null)
+      toast.success('IOC supprimé')
+    } catch { toast.error('Erreur lors de la suppression') }
+  }
+
+  const openDetail = (ioc: IOC) => {
+    detailOpener.current = document.activeElement instanceof HTMLElement ? document.activeElement : null
+    setSelectedIOC(ioc)
+    setActiveTab('details')
+    loadCorrelation(ioc)
+  }
+  const closeDetail = () => {
+    setSelectedIOC(null)
+    const opener = detailOpener.current
+    window.setTimeout(() => { if (opener?.isConnected) opener.focus() }, 0)
+  }
+  useEffect(() => {
+    if (!selectedIOC) return
+    detailClose.current?.focus()
+    const onKey = (event: KeyboardEvent) => { if (event.key === 'Escape' && !event.defaultPrevented) closeDetail() }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [selectedIOC?.id])
+
+  const copyValue = async (value: string) => {
+    try { await navigator.clipboard.writeText(value); toast.success('Valeur copiée') }
+    catch { toast.error('Impossible de copier la valeur') }
   }
 
   const handleExport = async () => {
@@ -550,136 +611,122 @@ export default function IOCPage() {
 
   const handleBulkDelete = async () => {
     const count = selectedIds.size
-    if (!confirm(`Supprimer ${count} IOC${count > 1 ? 's' : ''} sélectionné${count > 1 ? 's' : ''} ?`)) return
     setBulkDeleting(true)
     let errors = 0
     for (const id of Array.from(selectedIds)) {
       try { await deleteIoc(id) } catch { errors++ }
     }
     setBulkDeleting(false)
+    setConfirmBulk(false)
     setSelectedIds(new Set())
     if (errors === 0) toast.success(`${count} IOC${count > 1 ? 's' : ''} supprimé${count > 1 ? 's' : ''}`)
     else toast.error(`${errors} erreur(s) lors de la suppression`)
   }
 
   return (
-    <div className="flex flex-col h-full bg-[#06080f] text-[#f1f5f9]">
-      {/* Bandeau d'en-tête style BGPLookup */}
-      <div className="flex items-center justify-between px-6 py-4 border-b border-[#1e2d40] bg-[#0a0f16]/50">
-        <div className="flex items-center gap-3">
-          <div className="relative">
-            <ShieldBan className="text-[#00d4ff]" size={20} />
-            <div className="absolute -top-1 -right-1 w-2 h-2 bg-[#10b981] rounded-full animate-pulse shadow-[0_0_8px_#10b981]" />
-          </div>
-          <div>
-            <h1 className="text-sm font-bold tracking-[0.2em] uppercase">IOC MANAGER // INDEX</h1>
-            <p className="text-[10px] text-[#64748b] font-mono">
-              {total} indicateur{total > 1 ? 's' : ''} de compromission
-            </p>
-          </div>
-        </div>
-        <div className="flex items-center gap-4 font-mono text-[10px]">
-          <span className="text-[#64748b]">STATUS</span>
-          <span className="text-[#10b981]">ACTIVE</span>
-          <button
-            onClick={handleExport}
-            className="flex items-center gap-2 px-3 py-1.5 bg-[#1e2d40] hover:bg-[#2a3f55] text-[10px] font-bold border border-[#334155] transition-colors"
-          >
-            <Download size={12} /> EXPORT CSV
-          </button>
-          <button
-            onClick={() => setShowImport(true)}
-            className="flex items-center gap-2 px-3 py-1.5 bg-[#1e2d40] hover:bg-[#2a3f55] text-[10px] font-bold border border-[#334155] transition-colors"
-          >
-            <FolderOpen size={12} /> IMPORT CSV/TXT
-          </button>
-          <button
-            onClick={() => { setShowForm(true); setEditTarget(null) }}
-            className="flex items-center gap-2 px-3 py-1.5 bg-[#1e2d40] hover:bg-[#2a3f55] text-[10px] font-bold border border-[#334155] transition-colors"
-          >
-            <Plus size={12} /> NEW IOC
-          </button>
+    <div className="ioc26" data-density={density}>
+      <div className="ioc26-top">
+        <ModuleHero breadcrumb="OPS / IOC MANAGER" title="IOC" accent="MANAGER" typeOnce="ioc"
+          subtitle="Rechercher, classer et gérer les indicateurs de compromission."
+          motif={<IocMotif />}
+          index={{ label: 'OPS / 2026', lines: ['INDICATEURS', 'CLASSIFICATION TLP', 'CORRÉLATION & ANALYSE'],
+            status: stats ? { text: `${stats.total.toLocaleString('fr-FR')} IOC`, mark: 'INDEX LOCAL' } : undefined }} />
+        <div className="ioc26-actions" aria-label="Actions IOC Manager">
+          <span className="ioc26-total">{total.toLocaleString('fr-FR')} résultat{total > 1 ? 's' : ''}</span>
+          <button type="button" onClick={handleExport} className="ioc26-btn"><Download size={15} />Exporter CSV</button>
+          <button type="button" onClick={() => setShowImport(true)} className="ioc26-btn"><FolderOpen size={15} />Importer CSV/TXT</button>
+          <IocDisplaySettings density={density} onChange={setDensity} />
+          <button type="button" onClick={() => { setShowForm(true); setEditTarget(null) }} className="ioc26-btn is-primary"><Plus size={16} />Ajouter un IOC</button>
         </div>
       </div>
 
       {/* Zone de contenu scrollable */}
-      <div className="flex-1 overflow-auto p-6 space-y-6">
+      <div className="ioc26-content">
+        <div className={`ioc26-investigation${selectedIOC ? ' has-inspector' : ''}`}>
+        <div className="ioc26-left">
         {/* Barre de statistiques par type */}
         {stats && (
-          <div className="grid grid-cols-5 gap-3">
+          <div className="ioc26-stats" aria-label="Indicateurs par type">
             {IOC_TYPES.map(tp => (
-              <div key={tp} className="border border-[#1e2d40] bg-[#0a0f16] p-3 text-center">
-                <div className="text-2xl font-mono font-bold text-[#00d4ff]">{stats.by_type[tp] ?? 0}</div>
-                <div className="text-[10px] font-mono text-[#64748b] uppercase tracking-wider flex items-center justify-center gap-1 mt-1">
-                  {typeIcon(tp)} {tp}
-                </div>
+              <div key={tp} className="ioc26-stat">
+                {typeIcon(tp)}<span>{tp.toUpperCase()}</span><strong>{stats.by_type[tp] ?? 0}</strong>
               </div>
             ))}
           </div>
         )}
 
         {/* Filtres */}
-        <div className="flex flex-wrap gap-3">
-          <div className="relative flex-1 min-w-[260px]">
-            <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#4a6480]" />
+        <div className="ioc26-filterbox">
+          <div className="ioc26-searchrow">
+          <div className="ioc26-search">
+            <Search size={16} aria-hidden="true" />
+            <label htmlFor="ioc26-search" className="ioc26-sr">Rechercher un IOC</label>
             <input
+              id="ioc26-search" type="search"
               value={search}
               onChange={e => handleSearch(e.target.value)}
-              placeholder="Rechercher un IOC…"
-              className="w-full bg-[#0d131f] border border-[#1e2d40] pl-9 pr-3 py-2 font-mono text-sm text-[#f1f5f9] placeholder-[#2a3f55] focus:outline-none focus:border-[#00d4ff]/40"
+              placeholder="Rechercher une IP, un domaine, une URL, un hash…"
             />
           </div>
+          <button type="button" className="ioc26-btn" aria-expanded={filtersOpen} aria-controls="ioc26-advanced"
+            onClick={() => setFiltersOpen(v => !v)}>
+            <SlidersHorizontal size={15} aria-hidden="true" />Filtres
+          </button>
+          </div>
+          {!filtersOpen && <div className="ioc26-active-filters" aria-label="Filtres actifs">
+            {filter.type && <button type="button" onClick={() => setFilter({ type: undefined })}>Type : {filter.type.toUpperCase()}<X size={12} /></button>}
+            {filter.tlp && <button type="button" onClick={() => setFilter({ tlp: undefined })}>TLP : {filter.tlp.toUpperCase()}<X size={12} /></button>}
+            {filter.status && <button type="button" onClick={() => setFilter({ status: undefined })}>Statut : {filter.status === 'active' ? 'Actif' : filter.status === 'archived' ? 'Archivé' : 'Faux positif'}<X size={12} /></button>}
+            {(filter.type || filter.tlp || filter.status !== 'active' || filter.q) && <button type="button" className="ioc26-clear" onClick={resetFilters}>Réinitialiser</button>}
+          </div>}
+          <div id="ioc26-advanced" className="ioc26-advanced" hidden={!filtersOpen}>
+          <label>Type
           <select
             value={filter.type ?? ''}
             onChange={e => setFilter({ type: (e.target.value as IOCType) || undefined })}
-            className="bg-[#0d131f] border border-[#1e2d40] px-3 py-2 font-mono text-sm text-[#f1f5f9] focus:outline-none focus:border-[#00d4ff]/40"
           >
             <option value="">TOUS LES TYPES</option>
             {IOC_TYPES.map(tp => <option key={tp} value={tp}>{tp.toUpperCase()}</option>)}
           </select>
+          </label>
+          <label>Classification TLP
           <select
             value={filter.tlp ?? ''}
             onChange={e => setFilter({ tlp: (e.target.value as IOCTLP) || undefined })}
-            className="bg-[#0d131f] border border-[#1e2d40] px-3 py-2 font-mono text-sm text-[#f1f5f9] focus:outline-none focus:border-[#00d4ff]/40"
           >
             <option value="">TOUS TLP</option>
             {TLP_OPTIONS.map(tp => <option key={tp.value} value={tp.value}>{tp.label}</option>)}
           </select>
+          </label>
+          <label>Statut
           <select
-            value={filter.status ?? 'active'}
+            value={filter.status ?? ''}
             onChange={e => setFilter({ status: (e.target.value as IOCStatus) || undefined })}
-            className="bg-[#0d131f] border border-[#1e2d40] px-3 py-2 font-mono text-sm text-[#f1f5f9] focus:outline-none focus:border-[#00d4ff]/40"
           >
             <option value="">TOUS STATUTS</option>
             <option value="active">ACTIF</option>
             <option value="archived">ARCHIVÉ</option>
             <option value="false_positive">FAUX POSITIF</option>
           </select>
-          {(filter.type || filter.tlp || (filter.status && filter.status !== 'active') || filter.q) && (
-            <button
-              onClick={() => { setSearch(''); setFilter({ type: undefined, tlp: undefined, status: 'active', q: undefined }) }}
-              className="flex items-center gap-1.5 px-3 py-2 text-sm font-mono border border-[#1e2d40] text-[#64748b] hover:border-red-500/40 hover:text-red-400 transition-colors"
-            >
-              <X size={13} /> RÉINITIALISER
-            </button>
-          )}
+          </label>
+          <button type="button" onClick={resetFilters} className="ioc26-btn"><X size={14} />Réinitialiser les filtres</button>
+          </div>
         </div>
 
-        <div className="flex gap-6">
           {/* Tableau des IOC */}
-          <div className="flex-1 min-w-0">
-            {loading ? (
-              <div className="text-center py-12 text-[#64748b] font-mono text-sm">CHARGEMENT...</div>
+          <div className="ioc26-list">
+            {error ? (
+              <div className="ioc26-state" role="alert"><ShieldBan size={26} /><strong>Impossible de charger les IOC</strong><p>Vérifiez la connexion au service puis réessayez.</p><button type="button" className="ioc26-btn" onClick={fetchIocs}><RefreshCw size={14} />Réessayer</button></div>
+            ) : loading ? (
+              <div className="ioc26-state" role="status"><Loader2 size={22} className="animate-spin" />Chargement des indicateurs…</div>
             ) : iocs.length === 0 ? (
-              <div className="flex flex-col items-center justify-center border border-[#1e2d40] bg-[#0a0f16] py-24 text-center">
-                <ShieldBan size={40} className="mb-4 text-[#1e2d40]" />
-                <p className="font-mono text-sm uppercase tracking-widest text-[#64748b]">AUCUN IOC TROUVÉ</p>
-                <button onClick={() => setShowForm(true)} className="mt-2 font-mono text-xs text-[#00d4ff] hover:underline">
-                  AJOUTER LE PREMIER IOC
-                </button>
+              <div className="ioc26-state">
+                <ShieldBan size={30} /><strong>Aucun IOC trouvé</strong>
+                <p>{filter.q || filter.type || filter.tlp || filter.status !== 'active' ? 'Modifiez vos critères pour élargir la recherche.' : 'Ajoutez un indicateur pour commencer.'}</p>
+                <button type="button" onClick={() => { setEditTarget(null); setShowForm(true) }} className="ioc26-btn is-primary"><Plus size={14} />Ajouter un IOC</button>
               </div>
             ) : (
-              <div className="border border-[#1e2d40] bg-[#0a0f16] overflow-x-auto">
+              <div className="ioc26-table-wrap">
                 {/* Barre d'actions groupées */}
                 {selectedIds.size > 0 && (
                   <div className="flex items-center gap-3 px-4 py-2.5 bg-red-500/10 border-b border-red-500/30">
@@ -687,7 +734,7 @@ export default function IOCPage() {
                       {selectedIds.size} IOC{selectedIds.size > 1 ? 's' : ''} SÉLECTIONNÉ{selectedIds.size > 1 ? 'S' : ''}
                     </span>
                     <button
-                      onClick={handleBulkDelete}
+                      onClick={() => setConfirmBulk(true)}
                       disabled={bulkDeleting}
                       className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-mono font-bold bg-red-500 text-white rounded hover:bg-red-500/80 disabled:opacity-50 transition-colors"
                     >
@@ -702,7 +749,7 @@ export default function IOCPage() {
                     </button>
                   </div>
                 )}
-                <table className="w-full text-sm font-mono">
+                <table className="ioc26-table">
                   <thead>
                     <tr className="border-b border-[#1e2d40] text-[10px] text-[#4a6480] uppercase tracking-wider">
                       <th className="px-4 py-3 w-8">
@@ -711,6 +758,7 @@ export default function IOCPage() {
                           checked={allSelected}
                           ref={el => { if (el) el.indeterminate = someSelected }}
                           onChange={handleToggleAll}
+                          aria-label="Sélectionner tous les IOC affichés"
                           className="w-4 h-4 rounded border-[#1e2d40] accent-[#00d4ff] cursor-pointer"
                         />
                       </th>
@@ -724,12 +772,13 @@ export default function IOCPage() {
                   </thead>
                   <tbody className="divide-y divide-[#1e2d40]">
                     {iocs.map(ioc => (
-                      <tr key={ioc.id} className={`hover:bg-[#0d131f]/70 transition-colors group ${selectedIds.has(ioc.id) ? 'bg-[#00d4ff]/5' : ''}`}>
+                      <tr key={ioc.id} data-selected={selectedIOC?.id === ioc.id || selectedIds.has(ioc.id)} className="ioc26-row group">
                         <td className="px-4 py-3">
                           <input
                             type="checkbox"
                             checked={selectedIds.has(ioc.id)}
                             onChange={() => handleToggleSelect(ioc.id)}
+                            aria-label={`Sélectionner ${ioc.value}`}
                             className="w-4 h-4 rounded border-[#1e2d40] accent-[#00d4ff] cursor-pointer"
                           />
                         </td>
@@ -738,33 +787,34 @@ export default function IOCPage() {
                             {typeIcon(ioc.type)} {ioc.type}
                           </span>
                         </td>
-                        <td className="px-4 py-3 max-w-[320px] break-all font-mono text-xs text-[#f1f5f9]">{ioc.value}</td>
+                        <td className="ioc26-value-cell"><button type="button" className="ioc26-value" onClick={() => openDetail(ioc)}
+                          aria-label={`Inspecter ${ioc.type} ${ioc.value}`} title={ioc.value}>{ioc.value}</button>
+                          {ioc.source && <small className="ioc26-value-source" title={ioc.source}>Source : {ioc.source}</small>}
+                        </td>
                         <td className="px-4 py-3">{tlpBadge(ioc.tlp)}</td>
                         <td className="px-4 py-3">
                           {parseTags(ioc.tags).length > 0
-                            ? <span className="text-[10px] font-mono text-[#64748b] border border-[#1e2d40] px-1.5 py-0.5">{parseTags(ioc.tags).length} tag{parseTags(ioc.tags).length > 1 ? 's' : ''}</span>
+                            ? <span className="ioc26-tag-count" title={parseTags(ioc.tags).join(', ')}>{parseTags(ioc.tags).length} tag{parseTags(ioc.tags).length > 1 ? 's' : ''}</span>
                             : <span className="text-[10px] text-[#2a3f55]">—</span>
                           }
                         </td>
                         <td className="px-4 py-3">
-                          {ioc.status !== 'active' && (
-                            <span className={`text-xs ${STATUS_COLORS[ioc.status] ?? 'text-[#64748b]'}`}>
-                              {ioc.status === 'archived' ? 'ARCHIVÉ' : 'FAUX POSITIF'}
-                            </span>
-                          )}
+                          <span className={`ioc26-status is-${ioc.status} ${STATUS_COLORS[ioc.status] ?? ''}`}>
+                            {ioc.status === 'active' ? 'Actif' : ioc.status === 'archived' ? 'Archivé' : 'Faux positif'}
+                          </span>
                         </td>
                         <td className="px-4 py-3 text-right">
-                          <div className="flex items-center justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                            <button onClick={() => { setSelectedIOC(ioc); setActiveTab('details'); loadCorrelation(ioc) }}
-                              className="p-1.5 rounded hover:bg-[#00d4ff]/10 text-[#64748b] hover:text-[#00d4ff] transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-[#00d4ff]" title="Voir détails" aria-label="Voir détails">
+                          <div className="ioc26-row-actions">
+                            <button onClick={() => openDetail(ioc)}
+                              className="p-1.5 rounded hover:bg-[#00d4ff]/10 text-[#64748b] hover:text-[#00d4ff] transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-[#00d4ff]" title="Voir détails" aria-label={`Voir les détails de ${ioc.value}`}>
                               <ShieldBan size={13} />
                             </button>
                             <button onClick={() => { setEditTarget(ioc); setShowForm(true) }}
-                              className="p-1.5 rounded hover:bg-[#00d4ff]/10 text-[#64748b] hover:text-[#00d4ff] transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-[#00d4ff]" title="Modifier" aria-label="Modifier">
+                              className="p-1.5 rounded hover:bg-[#00d4ff]/10 text-[#64748b] hover:text-[#00d4ff] transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-[#00d4ff]" title="Modifier" aria-label={`Modifier ${ioc.value}`}>
                               <Edit2 size={13} />
                             </button>
                             <button onClick={() => handleDelete(ioc)}
-                              className="p-1.5 rounded hover:bg-red-500/10 text-[#64748b] hover:text-red-400 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-[#00d4ff]" title="Supprimer" aria-label="Supprimer">
+                              className="p-1.5 rounded hover:bg-red-500/10 text-[#64748b] hover:text-red-400 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-[#00d4ff]" title="Supprimer" aria-label={`Supprimer ${ioc.value}`}>
                               <Trash2 size={13} />
                             </button>
                           </div>
@@ -775,26 +825,48 @@ export default function IOCPage() {
                 </table>
               </div>
             )}
+            {total > limit && !loading && !error && <nav className="ioc26-pager" aria-label="Pagination des IOC">
+            <button type="button" className="ioc26-btn" disabled={page <= 1} onClick={() => setPage(page - 1)}>← Précédent</button>
+            <span>Page {page} / {Math.ceil(total / limit)}</span>
+            <button type="button" className="ioc26-btn" disabled={page >= Math.ceil(total / limit)} onClick={() => setPage(page + 1)}>Suivant →</button>
+            </nav>}
           </div>
+        </div>
 
           {/* Panneau latéral de détail */}
           {selectedIOC && (
-            <div className="w-[500px] shrink-0 border border-[#00d4ff]/30 bg-[#0a0f16] flex flex-col">
-              <div className="flex items-center justify-between p-4 border-b border-[#1e2d40]">
-                <h2 className="text-sm font-mono font-bold text-[#f1f5f9] flex items-center gap-2">
-                  {typeIcon(selectedIOC.type)} IOC #{selectedIOC.id}
-                </h2>
-                <button onClick={() => setSelectedIOC(null)}
-                  className="p-1 rounded hover:bg-[#1e2d40] text-[#64748b] hover:text-[#f1f5f9] transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-[#00d4ff]"
-                  aria-label="Fermer">
-                  <X size={16} />
-                </button>
+            <aside className="ioc26-inspector" aria-label={`Détail de ${selectedIOC.value}`}>
+              <div className="ioc26-inspector-head">
+                <div className="ioc26-inspector-topline">
+                  <span>INTELLIGENCE / INDICATEUR</span>
+                  <button ref={detailClose} onClick={closeDetail}
+                    className="ioc26-inspector-close"
+                    aria-label="Fermer le détail">
+                    <X size={17} />
+                  </button>
+                </div>
+                <div className="ioc26-inspector-heading">
+                  <h2>{typeIcon(selectedIOC.type)} {selectedIOC.type.toUpperCase()}</h2>
+                  <span>#{selectedIOC.id}</span>
+                </div>
+                <div className="ioc26-inspector-value">
+                  <p tabIndex={selectedIOC.value.length > 150 ? 0 : undefined}>{selectedIOC.value}</p>
+                  <button type="button" className="ioc26-btn" onClick={() => copyValue(selectedIOC.value)}><Copy size={14} />Copier</button>
+                </div>
+                <dl className="ioc26-inspector-meta">
+                  <div><dt>CLASSIFICATION</dt><dd>{tlpBadge(selectedIOC.tlp)}</dd></div>
+                  <div><dt>STATUT</dt><dd className={`is-${selectedIOC.status}`}>
+                    {selectedIOC.status === 'active' ? 'Actif' : selectedIOC.status === 'archived' ? 'Archivé' : 'Faux positif'}
+                  </dd></div>
+                  <div><dt>SOURCE</dt><dd title={selectedIOC.source || undefined}>{selectedIOC.source || '—'}</dd></div>
+                </dl>
               </div>
 
               {/* Onglets */}
               <div className="flex border-b border-[#1e2d40]">
                 <button
                   onClick={() => setActiveTab('details')}
+                  aria-pressed={activeTab === 'details'}
                   className={`flex-1 px-4 py-3 text-xs font-mono font-bold uppercase tracking-wider transition-colors ${
                     activeTab === 'details'
                       ? 'text-[#00d4ff] border-b-2 border-[#00d4ff]'
@@ -805,6 +877,7 @@ export default function IOCPage() {
                 </button>
                 <button
                   onClick={() => { setActiveTab('correlation'); loadCorrelation(selectedIOC) }}
+                  aria-pressed={activeTab === 'correlation'}
                   className={`flex-1 px-4 py-3 text-xs font-mono font-bold uppercase tracking-wider transition-colors flex items-center justify-center gap-2 ${
                     activeTab === 'correlation'
                       ? 'text-[#00d4ff] border-b-2 border-[#00d4ff]'
@@ -816,6 +889,7 @@ export default function IOCPage() {
                 {selectedIOC.type === 'hash' && (
                   <button
                     onClick={() => { setActiveTab('hash_analysis'); loadHashAnalysis(selectedIOC) }}
+                    aria-pressed={activeTab === 'hash_analysis'}
                     className={`flex-1 px-4 py-3 text-xs font-mono font-bold uppercase tracking-wider transition-colors ${
                       activeTab === 'hash_analysis'
                         ? 'text-[#00d4ff] border-b-2 border-[#00d4ff]'
@@ -827,45 +901,11 @@ export default function IOCPage() {
                 )}
               </div>
 
-              <div className="flex-1 overflow-y-auto p-4 space-y-4">
+              <div className="ioc26-inspector-body flex-1 overflow-y-auto p-4 space-y-4">
                 {activeTab === 'details' ? (
                   <>
-                    {/* Carte 1 — Identité */}
-                    <div className="border border-[#1e2d40] bg-[#0d131f]/60 rounded-lg p-4 space-y-3">
-                      <div className="flex items-start justify-between gap-3">
-                        <div>
-                          <label className="text-[10px] font-mono text-[#4a6480] uppercase tracking-wider block mb-1.5">TYPE</label>
-                          <span className="text-sm font-mono text-[#00d4ff] uppercase flex items-center gap-1.5">
-                            {typeIcon(selectedIOC.type)} {selectedIOC.type}
-                          </span>
-                        </div>
-                        <div className="text-right">
-                          <label className="text-[10px] font-mono text-[#4a6480] uppercase tracking-wider block mb-1.5">TLP</label>
-                          {tlpBadge(selectedIOC.tlp)}
-                        </div>
-                      </div>
-                      <div>
-                        <label className="text-[10px] font-mono text-[#4a6480] uppercase tracking-wider block mb-1.5">VALEUR</label>
-                        <p className="text-sm font-mono text-[#f1f5f9] break-all leading-relaxed">{selectedIOC.value}</p>
-                      </div>
-                      <div className="grid grid-cols-2 gap-3 pt-3 border-t border-[#1e2d40]">
-                        <div>
-                          <label className="text-[10px] font-mono text-[#4a6480] uppercase tracking-wider block mb-1.5">SOURCE</label>
-                          <span className="text-xs font-mono text-[#f1f5f9]">{selectedIOC.source || '—'}</span>
-                        </div>
-                        <div>
-                          <label className="text-[10px] font-mono text-[#4a6480] uppercase tracking-wider block mb-1.5">STATUT</label>
-                          <span className={`text-xs font-mono ${STATUS_COLORS[selectedIOC.status] ?? 'text-[#64748b]'}`}>
-                            {selectedIOC.status === 'active' ? 'ACTIF'
-                              : selectedIOC.status === 'archived' ? 'ARCHIVÉ'
-                              : 'FAUX POSITIF'}
-                          </span>
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Carte 2 — Classification */}
-                    <div className="border border-[#1e2d40] bg-[#0d131f]/60 rounded-lg p-4 space-y-3">
+                    <section className="ioc26-detail-group">
+                      <h3>Contexte de l’indicateur</h3>
                       <div>
                         <label className="text-[10px] font-mono text-[#4a6480] uppercase tracking-wider block mb-2">TAGS</label>
                         {parseTags(selectedIOC.tags).length > 0 ? (
@@ -884,16 +924,19 @@ export default function IOCPage() {
                           {selectedIOC.mitre_tech_id || '—'}
                         </span>
                       </div>
-                    </div>
+                      <div className="ioc26-detail-dates">
+                        <div><span>Créé le</span><time>{formatIocDate(selectedIOC.created_at)}</time></div>
+                        <div><span>Mis à jour</span><time>{formatIocDate(selectedIOC.updated_at)}</time></div>
+                      </div>
+                    </section>
 
-                    {/* Carte 3 — Notes */}
-                    <div className={`border rounded-lg p-4 ${selectedIOC.notes ? 'border-[#1e2d40] bg-[#0d131f]/60' : 'border-[#1e2d40]/40'}`}>
-                      <label className="text-[10px] font-mono text-[#4a6480] uppercase tracking-wider block mb-2">NOTES</label>
+                    <section className="ioc26-detail-group">
+                      <h3>Notes</h3>
                       {selectedIOC.notes
                         ? <p className="text-sm font-mono text-[#cbd5e1] whitespace-pre-wrap leading-relaxed">{selectedIOC.notes}</p>
                         : <p className="text-xs font-mono text-[#2a3f55]">—</p>
                       }
-                    </div>
+                    </section>
 
                     {/* Actions */}
                     <div className="flex gap-2 pt-1">
@@ -901,18 +944,19 @@ export default function IOCPage() {
                         className="flex-1 px-3 py-2.5 text-xs font-mono font-bold bg-[#00d4ff] text-[#06080f] rounded hover:bg-[#00d4ff]/80 transition-colors">
                         MODIFIER
                       </button>
-                      <button onClick={() => { handleDelete(selectedIOC); setSelectedIOC(null) }}
+                      <button onClick={() => handleDelete(selectedIOC)}
                         className="px-3 py-2.5 text-xs font-mono border border-red-500 text-red-400 rounded hover:bg-red-500/10 transition-colors">
                         SUPPRIMER
                       </button>
                     </div>
                   </>
                 ) : activeTab === 'correlation' ? (
-                  <CorrelationPanel
-                    result={correlationResult}
-                    loading={correlationLoading}
-                    error={correlationError}
-                  />
+                  <div className="ioc26-correlation"><CorrelationPanel
+                      variant="ioc"
+                      result={correlationResult}
+                      loading={correlationLoading}
+                      error={correlationError}
+                    /></div>
                 ) : (
                   <HashAnalysisPanel
                     hashResult={hashResult}
@@ -924,7 +968,7 @@ export default function IOCPage() {
                   />
                 )}
               </div>
-            </div>
+            </aside>
           )}
         </div>
       </div>
@@ -936,20 +980,24 @@ export default function IOCPage() {
         onImported={() => { fetchIocs(); fetchStats() }}
       />
 
+      {deleteTarget && <Dialog title="Supprimer l’IOC" onClose={() => setDeleteTarget(null)} footer={<>
+        <button type="button" className="ioc26-btn" onClick={() => setDeleteTarget(null)}>Annuler</button>
+        <button type="button" className="ioc26-btn is-danger" onClick={confirmDelete}><Trash2 size={14} />Supprimer</button>
+      </>}>
+        <p>Supprimer définitivement <strong className="ioc26-confirm-value">{deleteTarget.value}</strong> ?</p>
+      </Dialog>}
+
+      {confirmBulk && <Dialog title="Supprimer la sélection" onClose={() => setConfirmBulk(false)} footer={<>
+        <button type="button" className="ioc26-btn" onClick={() => setConfirmBulk(false)} disabled={bulkDeleting}>Annuler</button>
+        <button type="button" className="ioc26-btn is-danger" onClick={handleBulkDelete} disabled={bulkDeleting}><Trash2 size={14} />{bulkDeleting ? 'Suppression…' : 'Supprimer'}</button>
+      </>}>
+        <p>Supprimer définitivement {selectedIds.size} IOC{selectedIds.size > 1 ? 's' : ''} sélectionné{selectedIds.size > 1 ? 's' : ''} ?</p>
+      </Dialog>}
+
       {/* Modale formulaire (création / édition) */}
-      {showForm && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
-          <div className="bg-[#0a0f16] border border-[#1e2d40] p-6 w-full max-w-lg">
-            <div className="flex items-center justify-between mb-5">
-              <h2 className="text-lg font-mono font-bold uppercase tracking-wider text-[#f1f5f9]">
-                {editTarget ? 'MODIFIER L\'IOC' : 'NOUVEL IOC'}
-              </h2>
-              <button onClick={() => { setShowForm(false); setEditTarget(null) }}
-                className="p-1 rounded hover:bg-[#1e2d40] text-[#64748b] hover:text-[#f1f5f9] transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-[#00d4ff]"
-                aria-label="Fermer">
-                <X size={18} />
-              </button>
-            </div>
+      {showForm && createPortal(
+        <div className="ioc26-form-dialog">
+        <Dialog title={editTarget ? 'Modifier l’IOC' : 'Nouvel IOC'} onClose={() => { setShowForm(false); setEditTarget(null) }}>
             <IOCForm
               initial={editTarget ?? undefined}
               onSubmit={async (data) => {
@@ -967,9 +1015,9 @@ export default function IOCPage() {
               }}
               onCancel={() => { setShowForm(false); setEditTarget(null) }}
             />
-          </div>
+        </Dialog>
         </div>
-      )}
+      , document.body)}
     </div>
   )
 }
