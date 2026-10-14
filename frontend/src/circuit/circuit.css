@@ -1,0 +1,108 @@
+/*
+ * The Dashboard motherboard on module pages (ModuleCircuit). Same copper,
+ * packages, LEDs, glows and connector as dashboard.css, scoped to the module
+ * circuit's two layers: `.chc` behind the page, `.chc-top` above its hero.
+ * The page root must be `position: relative; isolation: isolate`.
+ */
+
+.chc,
+.chc-top {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.chc {
+  z-index: -1;
+}
+
+.chc-top {
+  z-index: 2;
+}
+
+.chc svg,
+.chc-top svg {
+  position: absolute;
+  top: 0;
+  left: 0;
+  display: block;
+}
+
+/* A little quieter than the Dashboard: the module's data come first. */
+.chc .chc-static {
+  opacity: 0.82;
+}
+
+/* Relief: packages stand off the board a little, the copper stays as dim. */
+.chc .b-body {
+  filter: drop-shadow(0 2px 2.5px rgb(0 0 0 / 0.55));
+}
+
+.chc .b-die {
+  filter: drop-shadow(0 0 2px rgb(0 212 255 / 0.12));
+}
+
+/* ---------- copper and parts ---------- */
+
+:is(.chc, .chc-top) .b-backbone { fill: none; stroke: #1a3449; stroke-width: 2.6; stroke-linecap: round; opacity: 0.85; }
+:is(.chc, .chc-top) .b-trace { fill: none; stroke: #24475f; stroke-width: 1; stroke-linecap: round; stroke-linejoin: round; }
+:is(.chc, .chc-top) .b-bus { fill: none; stroke: #2f5d7a; stroke-width: 1.35; stroke-linecap: round; stroke-linejoin: round; }
+:is(.chc, .chc-top) .b-shadow { fill: #02060c; opacity: 0.55; }
+:is(.chc, .chc-top) .b-body { fill: #0b1520; stroke: #2a4c66; stroke-width: 1; }
+:is(.chc, .chc-top) .b-die { fill: #0e1d2c; stroke: #1f3a52; stroke-width: 0.8; }
+:is(.chc, .chc-top) .b-heat { fill: none; stroke: #2c5a76; stroke-width: 0.8; opacity: 0.8; }
+:is(.chc, .chc-top) .b-slot { fill: #081019; stroke: #2a4c66; stroke-width: 1; }
+:is(.chc, .chc-top) .b-pin { fill: #4f86a3; opacity: 0.85; }
+:is(.chc, .chc-top) .b-pad { fill: #3c6f8c; opacity: 0.9; }
+:is(.chc, .chc-top) .b-cap { fill: #13263a; }
+:is(.chc, .chc-top) .b-ball { fill: #35647f; }
+:is(.chc, .chc-top) .b-via { fill: #0b1824; stroke: #4a82a0; stroke-width: 1; }
+:is(.chc, .chc-top) .b-hole { fill: #04080e; }
+:is(.chc, .chc-top) .b-mark { fill: none; stroke: #5b9aba; stroke-width: 1; opacity: 0.7; }
+:is(.chc, .chc-top) .b-mark:not([d*="A"]) { fill: #5b9aba; }
+
+/* ---------- journeys: a small LED, a short tail that bends with the trace, glowing chips ---------- */
+
+:is(.chc, .chc-top) .b-journey { --tone: #00d4ff; }
+:is(.chc, .chc-top) .b-journey.is-blue { --tone: #6aa8ff; }
+:is(.chc, .chc-top) .b-journey.is-white { --tone: #e8f6ff; }
+:is(.chc, .chc-top) .b-journey.is-amber { --tone: #f5a524; }
+
+:is(.chc, .chc-top) .b-led { offset-rotate: auto; offset-distance: 0%; opacity: 0; }
+:is(.chc, .chc-top) .b-led-core { fill: #f2fbff; }
+:is(.chc, .chc-top) .b-led-soft { fill: var(--tone); opacity: 0.55; }
+
+:is(.chc, .chc-top) .b-tail {
+  fill: none;
+  stroke: var(--tone);
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  opacity: 0;
+  vector-effect: non-scaling-stroke;
+}
+
+:is(.chc, .chc-top) .b-tail.is-near { stroke-width: 2; }
+:is(.chc, .chc-top) .b-tail.is-far { stroke-width: 1.4; stroke-opacity: 0.35; }
+
+:is(.chc, .chc-top) .b-glow { opacity: 0; }
+:is(.chc, .chc-top) .b-glow-halo { fill: none; stroke: var(--tone); stroke-width: 6; stroke-opacity: 0.12; }
+:is(.chc, .chc-top) .b-glow-edge { fill: var(--tone); fill-opacity: 0.07; stroke: var(--tone); stroke-width: 1.2; stroke-opacity: 0.8; }
+
+/* ---------- the connector astride the hero's lower edge (as the Dashboard's link) ---------- */
+
+.chc-top .hero-link .hl-shadow { fill: #02060c; opacity: 0.7; }
+.chc-top .hero-link .hl-side { fill: #050b13; stroke: #1d3a52; stroke-width: 1; }
+.chc-top .hero-link .hl-face { stroke: #3a6a88; stroke-width: 1; }
+.chc-top .hero-link .hl-bevel { fill: none; stroke: #7fb6d2; stroke-width: 1; stroke-linecap: round; opacity: 0.55; }
+.chc-top .hero-link .hl-bevel.is-soft { opacity: 0.25; }
+.chc-top .hero-link .hl-groove { fill: none; stroke: #04090f; stroke-width: 1.4; stroke-linecap: round; opacity: 0.8; }
+.chc-top .hero-link .hl-mark { fill: #5b9aba; opacity: 0.8; }
+.chc-top .hero-link .hl-pin rect { fill: #8cc3dc; }
+.chc-top .hero-link .hl-pin.is-dummy rect { fill: #4f86a3; opacity: 0.75; }
+
+@media (prefers-reduced-motion: reduce) {
+  :is(.chc, .chc-top) .b-journeys {
+    display: none;
+  }
+}

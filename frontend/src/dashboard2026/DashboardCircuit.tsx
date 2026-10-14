@@ -41,13 +41,13 @@ const BAR = 12; // beats
 const SPEED = 80; // px per second, before snapping to the beat
 const START_BEATS = [0, 2, 5, 8, 10]; // each journey enters on its own beat
 
-type Rect = { x: number; y: number; w: number; h: number; globe?: boolean; role?: "hero" | "env" | "widget" | "foot" };
-type Point = { x: number; y: number };
+export type Rect = { x: number; y: number; w: number; h: number; globe?: boolean; role?: "hero" | "env" | "widget" | "foot" };
+export type Point = { x: number; y: number };
 type Side = "l" | "r" | "t" | "b";
 type Part = { id?: number; x: number; y: number; w: number; h: number; ports: Record<Side, Point[]>; used: Record<Side, number> };
 type Route = { d: string; length: number; points: Point[] };
 type Link = { route: Route; a: number; b: number };
-type Box = { x: number; y: number; w: number; h: number };
+export type Box = { x: number; y: number; w: number; h: number };
 
 /*
  * A journey: one LED leaves a chip, follows a visible trace, enters the next
@@ -70,7 +70,7 @@ export type BoardLayer =
   | "backbone" | "trace" | "bus" | "shadow" | "body" | "die" | "heat" | "slot" | "pin"
   | "pad" | "cap" | "ball" | "via" | "hole" | "mark";
 
-const LAYERS: BoardLayer[] = [
+export const LAYERS: BoardLayer[] = [
   "backbone", "trace", "bus", "shadow", "body", "die", "heat", "slot", "pin", "pad", "cap", "ball", "via", "hole", "mark",
 ];
 
@@ -81,6 +81,27 @@ type HeroAnchor = { hero: Box; band: Box; copyRight: number; indexLeft: number; 
 
 /* Room for CH's feeds: set when the open band below the environment card can hold the relay chip, with what that band must keep clear. */
 type FeedRoom = { keepout: Box[] };
+
+/*
+ * A module page's processor feeding the board, as the CH processor feeds the
+ * Dashboard's: its edge connector (board coordinates), the processor-to-
+ * connector paths, where the relay chip sits, and a schedule shared with the
+ * module hero's own pulses. Above `clearAbove` (the module's header band) the
+ * board places no part. Used by module pages only; the Dashboard passes none.
+ */
+export type ModuleFeed = {
+  clearAbove: number;
+  link: HeroLink;
+  heroPaths: Point[][];
+  chip: Box;
+  relayTop: number;
+  keepout: Box[];
+  schedule: { cycle: number; start: number; trip: number };
+  /* Where no part may sit (readable text, controls, the feed corridor): elsewhere the board fills the free space. */
+  avoid?: Box[];
+  /* Where the relay may sit: offset from the connector and top, best first. */
+  spots?: { dx: number; top: number }[];
+};
 
 /* The link connector: its body, its signal pins (x), unwired pins, and the tips of its upper and lower pins. */
 export type HeroLink = Box & { variant: Variant; pins: number[]; dummies: number[]; top: number; bottom: number };
@@ -100,6 +121,7 @@ export type CircuitGeometry = {
   hero: HeroBoard | null;
   boardKey: string; // changes only when the static drawing changes
   revision?: number;
+  fed?: boolean; // a module page's processor drives the journeys
 };
 
 /* ---------- small helpers ---------- */
@@ -204,7 +226,7 @@ function qfp(b: Builder, cx: number, cy: number, size: number, pins: number, cor
  * connector's pins, two bottom pins feed the trunk, one pin on each side feeds
  * a branch. Not part of the bus graph: journeys cross it explicitly.
  */
-function relayChip(b: Builder, link: { pins: number[] }, top: number) {
+function relayChip(b: Builder, link: { pins: number[] }, top: number, sidePins = 1) {
   const pinLen = 5;
   const left = Math.min(...link.pins);
   const right = Math.max(...link.pins);
@@ -226,10 +248,13 @@ function relayChip(b: Builder, link: { pins: number[] }, top: number) {
     b.add("pin", rectPath(px - 1, y + h, 2, pinLen));
     part.ports.b.push({ x: px, y: y + h + pinLen });
   }
-  b.add("pin", rectPath(x - pinLen, y + h / 2 - 1, pinLen, 2));
-  b.add("pin", rectPath(x + w, y + h / 2 - 1, pinLen, 2));
-  part.ports.l.push({ x: x - pinLen, y: y + h / 2 });
-  part.ports.r.push({ x: x + w + pinLen, y: y + h / 2 });
+  const sideY = sidePins === 3 ? [y + 3, y + h / 2, y + h - 3] : [y + h / 2];
+  for (const py of sideY) {
+    b.add("pin", rectPath(x - pinLen, py - 1, pinLen, 2));
+    b.add("pin", rectPath(x + w, py - 1, pinLen, 2));
+    part.ports.l.push({ x: x - pinLen, y: py });
+    part.ports.r.push({ x: x + w + pinLen, y: py });
+  }
   return part;
 }
 
@@ -371,13 +396,13 @@ function takePorts(part: Part, side: Side, count: number) {
 
 type Zone = { part: Part | null };
 
-function wireBus(b: Builder, links: Link[], from: Point[], to: Point[], axis: "h" | "v", a: Part, z: Part) {
+function wireBus(b: Builder, links: Link[], from: Point[], to: Point[], axis: "h" | "v", a: Part, z: Part, reject?: (route: Route) => boolean) {
   const middle = Math.floor((from.length - 1) / 2);
   from.forEach((port, i) => {
     const target = to[i];
     if (!target) return;
     const route = jogRoute(port, target, axis);
-    if (!route) return;
+    if (!route || reject?.(route)) return;
     b.add(i === middle ? "bus" : "trace", route.d);
     if (i === middle && a.id !== undefined && z.id !== undefined) links.push({ route, a: a.id, b: z.id });
   });
@@ -394,6 +419,7 @@ export function buildBoard(
   slots: Rect[] = obstacles,
   anchor: HeroAnchor | null = null,
   widgetTop = Math.min(...obstacles.filter((o) => o.role === "widget").map((o) => o.y), height),
+  module: ModuleFeed | null = null,
 ): Omit<CircuitGeometry, "revision"> {
   const compact = width < 760;
   const S = compact ? 150 : 172;
@@ -421,7 +447,7 @@ export function buildBoard(
     const y = oy + Math.round(fraction * rows) * S;
     // These isolated power strips have no signal route. Leave the hero's
     // approach clear instead of drawing an ornamental rail below it.
-    if (anchor && y < firstWidget) continue;
+    if ((anchor && y < firstWidget) || module) continue;
     const seed = random(Math.round(fraction * 1000) + cols);
     let c = Math.floor(seed() * 2);
     while (c < cols) {
@@ -456,7 +482,8 @@ export function buildBoard(
         connectorX !== null && Math.abs(cx - connectorX) <= S * 0.65;
       // Nor does a part sit on the widget bar's label or button (its pins reach about 60 px).
       const onToolbar = !!anchor?.feeds?.keepout.some((k) => overlaps({ x: cx - 60, y: cy - 60, w: 120, h: 120 }, k));
-      if ((anchor && cy < firstWidget && !connectorRow) || onToolbar) {
+      const onModuleText = !!module?.avoid?.some((k) => overlaps({ x: cx - 52, y: cy - 52, w: 104, h: 104 }, k));
+      if ((anchor && cy < firstWidget && !connectorRow) || onToolbar || (module && cy < module.clearAbove) || onModuleText) {
         zones[r].push({ part: null });
         continue;
       }
@@ -515,6 +542,18 @@ export function buildBoard(
     }
   }
 
+  // Module pages: no bus passes across readable text or a control.
+  const acrossText = module?.avoid ? (route: Route) => route.points.slice(1).some((z, i) => {
+    const a = route.points[i];
+    const n = Math.max(1, Math.round(Math.hypot(z.x - a.x, z.y - a.y) / 6));
+    for (let t = 0; t <= n; t += 1) {
+      const x = a.x + ((z.x - a.x) * t) / n;
+      const y = a.y + ((z.y - a.y) * t) / n;
+      if (module.avoid?.some((k) => x > k.x && x < k.x + k.w && y > k.y && y < k.y + k.h)) return true;
+    }
+    return false;
+  }) : undefined;
+
   // Buses between neighbouring components: right neighbour, then the one below.
   for (let r = 0; r < rows; r += 1) {
     for (let c = 0; c < cols; c += 1) {
@@ -522,15 +561,16 @@ export function buildBoard(
       if (!zone.part) continue;
       const rnd = random(((c + 11) * 2654435761) ^ ((r + 5) * 40503));
       // Right neighbour, or the next chip along the row when a zone holds no chip.
-      const right = zones[r][c + 1]?.part ?? (zones[r][c + 1] && zones[r][c + 2]?.part) ?? null;
+      // Module pages link direct neighbours only: a bus over an empty zone reads as a rail.
+      const right = zones[r][c + 1]?.part ?? (!module && zones[r][c + 1] && zones[r][c + 2]?.part) ?? null;
       if (right && rnd() < 0.95) {
         const from = takePorts(zone.part, "r", 2 + Math.floor(rnd() * 3));
-        wireBus(b, links, from, takePorts(right, "l", from.length), "h", zone.part, right);
+        wireBus(b, links, from, takePorts(right, "l", from.length), "h", zone.part, right, acrossText);
       }
-      const below = zones[r + 1]?.[c]?.part ?? (zones[r + 1]?.[c] && zones[r + 2]?.[c]?.part) ?? null;
+      const below = zones[r + 1]?.[c]?.part ?? (!module && zones[r + 1]?.[c] && zones[r + 2]?.[c]?.part) ?? null;
       if (below && rnd() < 0.85) {
         const from = takePorts(zone.part, "b", 2 + Math.floor(rnd() * 3));
-        wireBus(b, links, from, takePorts(below, "t", from.length), "v", zone.part, below);
+        wireBus(b, links, from, takePorts(below, "t", from.length), "v", zone.part, below, acrossText);
       }
       // Diagonal neighbour: an elbow cable from a right pin down to a top pin.
       const diagonal = zones[r + 1]?.[c + 1]?.part;
@@ -538,7 +578,7 @@ export function buildBoard(
         const [a] = takePorts(zone.part, "r", 1);
         const [z] = takePorts(diagonal, "t", 1);
         const route = a && z ? elbowRoute(a, z) : null;
-        if (route) {
+        if (route && !acrossText?.(route)) {
           b.add("bus", route.d);
           if (zone.part.id !== undefined && diagonal.id !== undefined) links.push({ route, a: zone.part.id, b: diagonal.id });
         }
@@ -562,7 +602,9 @@ export function buildBoard(
   // The desktop hero drives the board through its link connector; otherwise
   // the board keeps its own journeys towards its main processor.
   const hero = anchor && !compact ? heroCircuit(anchor, b, parts, links, obstacles, firstWidget) : null;
-  const journeys = hero?.journeys ?? planJourneys(links, parts, obstacles, compact, hub);
+  // A module page's processor drives the board the same way, through its own connector.
+  const fed = !hero && module && !compact ? moduleFeed(module, b, parts, links, obstacles, firstWidget) : null;
+  const journeys = hero?.journeys ?? fed ?? planJourneys(links, parts, obstacles, compact, hub);
   const layers = Object.fromEntries(LAYERS.map((l) => [l, b.layers[l].join("")])) as Record<BoardLayer, string>;
   // FNV-1a over the drawing: journeys may change (a panel collapses) without redrawing the board.
   let hash = 0x811c9dc5;
@@ -571,7 +613,7 @@ export function buildBoard(
     for (let i = 0; i < d.length; i += 1) hash = Math.imul(hash ^ d.charCodeAt(i), 0x01000193);
   }
   const heartbeat =
-    !hero?.journeys && hubBox && !isHidden({ x: hubBox.x + hubBox.w / 2, y: hubBox.y + hubBox.h / 2 }, obstacles)
+    !hero?.journeys && !fed && hubBox && !isHidden({ x: hubBox.x + hubBox.w / 2, y: hubBox.y + hubBox.h / 2 }, obstacles)
       ? { ...hubBox, period: BAR * BEAT, beats: [0, 6] }
       : null;
   return {
@@ -584,6 +626,7 @@ export function buildBoard(
     heartbeat,
     hero: hero?.board ?? null,
     boardKey: `${width}x${height}-${(hash >>> 0).toString(36)}`,
+    fed: !!fed,
   };
 }
 
@@ -1296,40 +1339,78 @@ const TRIP = 12; // s: one feed, from CH to a chip at the bottom of the board
  * widgets to a chip on its own side and follows the board's buses down to a
  * chip at the bottom, preferring copper that is not hidden by a panel.
  */
+/*
+ * Module pages call it without an environment card: the feeds run from the
+ * connector straight to the relay at `relayTop`; `routeKeepout` replaces the
+ * keep-out for routes (they may pass behind opaque controls) and `schedule`
+ * aligns the feeds with the module hero's pulses.
+ */
+type FeedOptions = {
+  relayTop?: number;
+  routeKeepout?: Box[];
+  schedule?: ModuleFeed["schedule"];
+  /* How much a hidden stretch costs over a visible one (module pages, mostly covered by cards). */
+  hiddenCost?: number;
+  /* End each feed on a chip that shows, rather than on the lowest row. */
+  visibleGoal?: boolean;
+  /* Where the relay may sit (offset from the connector, top), best first. */
+  spots?: { dx: number; top: number }[];
+};
+
 function feedJourneys(
   board: Builder, parts: Part[], links: Link[], obstacles: Rect[], link: HeroLink, heroPaths: Point[][],
-  chip: Box, env: Rect, room: FeedRoom, widgetTop: number,
-): { journeys: Journey[]; envLink: EnvironmentLink } | null {
+  chip: Box, env: Rect | null, room: FeedRoom, widgetTop: number, options: FeedOptions = {},
+): { journeys: Journey[]; envLink: EnvironmentLink | null } | null {
   const P = (x: number, y: number) => ({ x, y });
   const { keepout } = room;
+  const routeKeepout = options.routeKeepout ?? keepout;
   const pins = link.pins;
   if (pins.length !== 3) return null;
   const tip = link.bottom;
-  const envBottom = env.y + env.h;
   const bottomEdge = Math.max(...obstacles.map((o) => o.y + o.h), widgetTop);
 
   // The second connector, astride the card's lower edge, right below the first.
-  const envLink: EnvironmentLink = {
+  const envLink: EnvironmentLink | null = env ? {
     x: (pins[0] + pins[2]) / 2 - 26,
-    y: envBottom - 7,
+    y: env.y + env.h - 7,
     w: 52,
     h: 15,
     pins,
-    top: envBottom - 13,
-    bottom: envBottom + 14,
+    top: env.y + env.h - 13,
+    bottom: env.y + env.h + 14,
+  } : null;
+  const relayTop = envLink ? envLink.bottom + 10 : options.relayTop ?? tip + 18;
+  const relays: Box[] = [];
+  // The relay, `dx` beside the connector. Off to the side, its three inputs
+  // come down as one nested bus with 45° corners: the wire on the relay's
+  // side turns first, so no wire crosses another.
+  const placeRelay = (dx: number, top: number) => {
+    const placed = relayChip(board, { pins: pins.map((x) => x + dx) }, top, options.visibleGoal ? 3 : 1);
+    const area = { x: placed.x - 6, y: placed.y - 6, w: placed.w + 12, h: placed.h + 12 };
+    const start = envLink ? envLink.bottom : tip;
+    const side = Math.sign(dx);
+    const wires = pins.map((x, k) => {
+      if (Math.abs(dx) < 1) return polyline([P(x, start), placed.ports.t[k]]);
+      const rank = side > 0 ? pins.length - 1 - k : k;
+      const y = start + 8 + rank * 5;
+      return polyline([P(x, start), P(x, y - 4), P(x + side * 4, y), P(x + dx - side * 4, y), P(x + dx, y + 4), placed.ports.t[k]]);
+    });
+    return { relay: placed, relayArea: area, into: wires };
   };
-  const relayTop = envLink.bottom + 10;
-  const relayBox = { x: pins[1] - 32, y: relayTop - 8, w: 64, h: 40 };
-  if (relayTop + 26 + 12 > widgetTop || keepout.some((k) => overlaps(relayBox, k))) return null;
-  const relay = relayChip(board, envLink, relayTop);
-  const relayArea = { x: relay.x - 6, y: relay.y - 6, w: relay.w + 12, h: relay.h + 12 };
-  const down = pins.map((x) => polyline([P(x, tip), P(x, envLink.top)]));
-  const into = pins.map((x, k) => polyline([P(x, envLink.bottom), relay.ports.t[k]]));
-  pins.forEach((_, k) => {
-    board.add(k === 1 ? "bus" : "trace", down[k].d);
-    board.add(k === 1 ? "bus" : "trace", into[k].d);
-  });
-  const relays: Box[] = [relayArea];
+  let relay = null as unknown as Part;
+  let relayArea: Box = { x: 0, y: 0, w: 0, h: 0 };
+  let into: Route[] = [];
+  const down = envLink ? pins.map((x) => polyline([P(x, tip), P(x, envLink.top)])) : [];
+  if (!options.spots) {
+    const relayBox = { x: pins[1] - 32, y: relayTop - 8, w: 64, h: 40 };
+    if (relayTop + 26 + 12 > widgetTop || keepout.some((k) => overlaps(relayBox, k))) return null;
+    ({ relay, relayArea, into } = placeRelay(0, relayTop));
+    pins.forEach((_, k) => {
+      if (down[k]) board.add(k === 1 ? "bus" : "trace", down[k].d);
+      board.add(k === 1 ? "bus" : "trace", into[k].d);
+    });
+    relays.push(relayArea);
+  }
 
   const inside = (p: Point, box: Box, pad: number) => p.x > box.x - pad && p.x < box.x + box.w + pad && p.y > box.y - pad && p.y < box.y + box.h + pad;
   const samples = (route: Route) => {
@@ -1345,7 +1426,7 @@ function feedJourneys(
   const clear = (route: Route, target: Part, own: Box | null, loose: boolean) =>
     !samples(route).some((p) =>
       (!loose && !isHidden(p, obstacles) && parts.some((part) => part !== target && inside(p, part, 3))) ||
-      keepout.some((k) => inside(p, k, 6)) ||
+      routeKeepout.some((k) => inside(p, k, 6)) ||
       relays.some((r) => r !== own && inside(p, r, 2)));
 
   // From a pin, a short stub then a 45° run down to a free top pin of a connected chip.
@@ -1365,6 +1446,83 @@ function feedJourneys(
   // A second, looser pass may cross a visible part rather than leave a feed unwired.
   const drop = (lead: Point[], want: -1 | 0 | 1, own: Box | null, span: [number, number]) =>
     pick(lead, want, own, span, false) ?? pick(lead, want, own, span, true);
+
+  // A chip shows when at least 40 % of its body is out from under panels.
+  const shows = (p: Part) => {
+    let seen = 0;
+    for (let i = 0; i < 5; i += 1) for (let j = 0; j < 5; j += 1) {
+      const x = p.x + ((i + 0.5) * p.w) / 5;
+      const y = p.y + ((j + 0.5) * p.h) / 5;
+      // A point between two panels only counts with some room around it.
+      if (!obstacles.some((o) => x > o.x - 6 && x < o.x + o.w + 6 && y > o.y - 6 && y < o.y + o.h + 6)) seen += 1;
+    }
+    return seen >= 10;
+  };
+
+  // Module pages: the three feeds reach the board through one short bus, as
+  // between two neighbouring chips: three side pins of the relay to three top
+  // pins of the nearest chip, each wire with one 45° turn, nested so none
+  // crosses another. The board's own buses then carry them further.
+  const firstBus = (relay: Part) => {
+    let best: { part: Part; index: number; wires: Route[]; length: number } | null = null;
+    for (const part of parts) {
+      if (part.id === undefined || !adjacency.has(part.id) || taken.has(part) || part.y + part.h / 2 < widgetTop) continue;
+      const limit = Math.floor(part.ports.t.length / 2);
+      for (let index = part.used.t; index + 3 <= limit; index += 1) {
+        const tops = part.ports.t.slice(index, index + 3);
+        for (const side of ["r", "l"] as const) {
+          const outs = relay.ports[side];
+          if (outs.length < 3) continue;
+          const dir = side === "r" ? 1 : -1;
+          if (dir * ((dir > 0 ? tops[0].x : tops[2].x) - outs[0].x) < 24 || tops[0].y - outs[2].y < 20) continue;
+          // The upper pin turns down last (farthest pin), the lower one first.
+          const order = dir > 0 ? [2, 1, 0] : [0, 1, 2];
+          const wires = outs.map((o, w) => {
+            const q = tops[order[w]];
+            const turn = Math.min(8, (q.y - o.y) / 2);
+            return polyline([o, P(q.x - dir * turn, o.y), P(q.x, o.y + turn), q]);
+          });
+          const length = Math.max(...wires.map((w) => w.length));
+          if (length > 340 || (best && length >= best.length)) continue;
+          if (wires.some((w) => !clear(w, part, relayArea, false))) continue;
+          best = { part, index, wires, length };
+        }
+      }
+    }
+    // Or side by side, as the board's own buses between neighbours: three side
+    // pins of the relay to three facing side pins of a chip, one 45° jog each.
+    let side: { part: Part; key: "l" | "r"; index: number; wires: Route[]; length: number } | null = null;
+    for (const part of parts) {
+      if (part.id === undefined || !adjacency.has(part.id) || taken.has(part) || part.y + part.h / 2 < widgetTop - 60) continue;
+      for (const out of ["r", "l"] as const) {
+        const outs = relay.ports[out];
+        const key = out === "r" ? "l" : "r";
+        const ins = part.ports[key];
+        if (outs.length < 3) continue;
+        for (let index = part.used[key]; index + 3 <= ins.length; index += 1) {
+          const wires = outs.map((o, w) => jogRoute(out === "r" ? o : ins[index + w], out === "r" ? ins[index + w] : o, "h"));
+          if (wires.some((w) => !w)) continue;
+          const routes = (out === "r" ? wires : wires.map((w) => reversed(w as Route))) as Route[];
+          const length = Math.max(...routes.map((w) => w.length));
+          if (length > 340 || (best && length >= best.length) || (side && length >= side.length)) continue;
+          if (routes.some((w) => !clear(w, part, relayArea, false))) continue;
+          side = { part, key, index, wires: routes, length };
+        }
+      }
+    }
+    if (side) {
+      side.part.used[side.key] = side.index + 3;
+      taken.add(side.part);
+      side.wires.forEach((w, i) => board.add(i === 1 ? "bus" : "trace", w.d));
+      return { wires: side.wires, to: side.part };
+    }
+    if (!best) return null;
+    best.part.used.t = best.index + 3;
+    taken.add(best.part);
+    best.wires.forEach((w, i) => board.add(i === 1 ? "bus" : "trace", w.d));
+    return { wires: best.wires, to: best.part };
+  };
+
   const pick = (lead: Point[], want: -1 | 0 | 1, own: Box | null, span: [number, number], loose: boolean) => {
     const from = lead[lead.length - 1];
     let best: { part: Part; index: number; route: Route; score: number } | null = null;
@@ -1377,7 +1535,8 @@ function feedJourneys(
         // Side pins run outwards only; nothing doubles back under the relay.
         if (q.y - from.y < 24 || want * dx < 0 || q.x <= span[0] || q.x >= span[1]) continue;
         // The side feeds spread out about 220 px before they go down; the centre one stays close.
-        const score = q.y - from.y + (want === 0 ? Math.abs(dx) * 1.6 : Math.abs(Math.abs(dx) - 220) * 0.8);
+        const score = q.y - from.y + (want === 0 ? Math.abs(dx) * 1.6 : Math.abs(Math.abs(dx) - 220) * 0.8) +
+          (options.hiddenCost ? (1 - visibleShare(polyline([from, q]), obstacles)) * Math.hypot(dx, q.y - from.y) * options.hiddenCost : 0);
         if (best && score >= best.score) continue;
         const route = polyline(square(lead, q, want !== 0));
         if (!clear(route, part, own, loose)) continue;
@@ -1412,7 +1571,8 @@ function feedJourneys(
       done.add(node);
       for (const edge of adjacency.get(node) ?? []) {
         if (!shares.has(edge.route)) shares.set(edge.route, visibleShare(edge.route, obstacles));
-        const cost = edge.route.length * (1.6 - 0.6 * (shares.get(edge.route) ?? 0)) + (used.has(key(node, edge.to)) ? 500 : 0);
+        const hidden = 1 - (shares.get(edge.route) ?? 0);
+        const cost = edge.route.length * (options.hiddenCost ? 1 + options.hiddenCost * hidden : 1.6 - 0.6 * (1 - hidden)) + (used.has(key(node, edge.to)) ? 500 : 0);
         const d = (dist.get(node) ?? 0) + cost;
         if (d < (dist.get(edge.to) ?? Infinity)) {
           dist.set(edge.to, d);
@@ -1422,7 +1582,14 @@ function feedJourneys(
       }
     }
     const score = (p: Part) => (dist.get(p.id as number) ?? 0) + 1.5 * Math.abs(p.x + p.w / 2 - zoneX);
-    const goal = bottomRow.filter((p) => p.id !== undefined && dist.has(p.id)).sort((a, z) => score(a) - score(z))[0];
+    // Module pages: the feed ends on a chip in sight, a few hops away, towards its side.
+    const seen = options.visibleGoal
+      ? rows.filter((p) => p !== start && p.id !== undefined && dist.has(p.id) && shows(p) && !used.has(`goal-${p.id}`))
+        .sort((a, z) => score(a) - 0.9 * (a.y - start.y) - (score(z) - 0.9 * (z.y - start.y)))[0]
+      : undefined;
+    if (seen?.id !== undefined) used.add(`goal-${seen.id}`);
+    if (options.visibleGoal && !seen && shows(start)) return hops;
+    const goal = seen ?? bottomRow.filter((p) => p.id !== undefined && dist.has(p.id)).sort((a, z) => score(a) - score(z))[0];
     if (!goal || goal.id === undefined) return hops;
     for (let node = goal.id; node !== start.id; node = (prev.get(node) as { from: number }).from) {
       const step = prev.get(node) as { from: number; route: Route };
@@ -1436,14 +1603,41 @@ function feedJourneys(
   const linkGlow = { x: link.x - 3, y: link.y - 3, w: link.w + 6, h: link.h + 6, over: true };
   const width = Math.max(...obstacles.map((o) => o.x + o.w));
   const zones = [width * 0.15, pins[1], width * 0.85];
-  const envGlow = { x: envLink.x - 3, y: envLink.y - 3, w: envLink.w + 6, h: envLink.h + 6 };
+  const envGlow = envLink ? { x: envLink.x - 3, y: envLink.y - 3, w: envLink.w + 6, h: envLink.h + 6 } : null;
   type Leg = { route: Route; glow: Box & { over?: boolean }; rest: number };
   const branches: Leg[][] = [];
   // Sides first; the centre feed then lands between them.
   const span: [number, number] = [-Infinity, Infinity];
+  let bus: ReturnType<typeof firstBus> = null;
+  if (options.spots) {
+    // The input bus must keep clear of text, controls and visible parts.
+    const intoClear = (w: Route) => {
+      const [a, z] = [w.points[0], w.points[w.points.length - 1]];
+      return !samples(w).some((p) => Math.hypot(p.x - a.x, p.y - a.y) > 6 && Math.hypot(p.x - z.x, p.y - z.y) > 6 &&
+        (routeKeepout.some((k) => inside(p, k, 4)) || (!isHidden(p, obstacles) && parts.some((part) => inside(p, part, 3)))));
+    };
+    for (const spot of options.spots) {
+      const mark = LAYERS.map((l) => board.layers[l].length);
+      const usedPins = parts.map((part) => ({ ...part.used }));
+      ({ relay, relayArea, into } = placeRelay(spot.dx, spot.top));
+      relays.length = 0;
+      relays.push(relayArea);
+      const onPart = parts.some((part) => overlaps(relayArea, { x: part.x - 6, y: part.y - 6, w: part.w + 12, h: part.h + 12 }));
+      if (!onPart && into.every(intoClear)) bus = firstBus(relay);
+      if (bus) {
+        into.forEach((w, k) => board.add(k === 1 ? "bus" : "trace", w.d));
+        break;
+      }
+      LAYERS.forEach((l, i) => (board.layers[l].length = mark[i]));
+      parts.forEach((part, i) => (part.used = usedPins[i]));
+      taken.clear();
+      relays.length = 0;
+    }
+    if (!bus) return null;
+  }
   for (const k of [0, 2, 1]) {
     const legs: Leg[] = [{ route: polyline(heroPaths[k]), glow: linkGlow, rest: 0.3 }];
-    legs.push({ route: down[k], glow: envGlow, rest: 0.3 });
+    if (down[k] && envGlow) legs.push({ route: down[k], glow: envGlow, rest: 0.3 });
     legs.push({ route: into[k], glow: chipGlow(relay), rest: STOP });
     // Left by the relay's left pin, centre by a bottom pin, right by its right pin.
     const lead = k === 0
@@ -1451,12 +1645,13 @@ function feedJourneys(
       : k === 1
         ? [relay.ports.b[0], P(relay.ports.b[0].x, relay.ports.b[0].y + 6)]
         : [relay.ports.r[0], P(relay.ports.r[0].x + 8, relay.ports.r[0].y)];
-    const out = drop(lead, k === 0 ? -1 : k === 1 ? 0 : 1, relayArea, k === 1 ? [span[0] + 10, span[1] - 10] : [-Infinity, Infinity]);
+    const out = bus ? { route: bus.wires[k], to: bus.to } :
+      drop(lead, k === 0 ? -1 : k === 1 ? 0 : 1, relayArea, k === 1 ? [span[0] + 10, span[1] - 10] : [-Infinity, Infinity]);
     if (!out) return null;
     const landed = out.route.points[out.route.points.length - 1].x;
     if (k === 0) span[0] = landed;
     if (k === 2) span[1] = landed;
-    via(board, lead[1].x, lead[1].y, 1.8);
+    if (!bus) via(board, lead[1].x, lead[1].y, 1.8);
     legs.push({ route: out.route, glow: chipGlow(out.to), rest: STOP });
     const reached = out.to;
     for (const hop of descend(reached, zones[k])) legs.push({ route: hop.route, glow: chipGlow(hop.to), rest: STOP });
@@ -1468,7 +1663,7 @@ function feedJourneys(
   const speed = Math.min(360, Math.max(150, ...branches.map((legs) => {
     const length = legs.reduce((sum, leg) => sum + leg.route.length, 0);
     const rests = legs.reduce((sum, leg) => sum + leg.rest, 0);
-    return length / Math.max(4, TRIP - rests - STOP);
+    return length / Math.max(4, (options.schedule?.trip ?? TRIP) - rests - STOP);
   })));
   const runs = branches.map((legs) => {
     let t = STOP;
@@ -1482,7 +1677,9 @@ function feedJourneys(
     }
     return { hops, glows, length: t };
   });
-  const cycle = Math.max(...runs.map((r) => r.length)) + 1;
+  // A module page imposes its cycle, so the feeds leave right after its hero's pulses.
+  const cycle = options.schedule?.cycle ?? Math.max(...runs.map((r) => r.length)) + 1;
+  const start = options.schedule?.start ?? 0;
   // Three cycles per period: the right feed turns amber on the third one only.
   const period = 3 * cycle;
   const tones: Tone[] = ["cyan", "blue", "white"];
@@ -1493,13 +1690,25 @@ function feedJourneys(
         tone: k === 2 && c === 2 ? "amber" : tones[k],
         rare: false,
         period,
-        delay: c * cycle + (k * cycle) / 3 - period,
+        delay: start + c * cycle + (k * cycle) / 3 - period,
         hops: run.hops,
         glows: run.glows,
       });
     });
   }
   return { journeys, envLink };
+}
+
+/* A module page's feed: no environment card, relay right below the connector. */
+function moduleFeed(module: ModuleFeed, board: Builder, parts: Part[], links: Link[], obstacles: Rect[], widgetTop: number) {
+  const drawn = LAYERS.map((layer) => board.layers[layer].length);
+  const usedPins = parts.map((part) => ({ ...part.used }));
+  const routed = feedJourneys(board, parts, links, obstacles, module.link, module.heroPaths, module.chip, null,
+    { keepout: module.keepout }, widgetTop, { relayTop: module.relayTop, routeKeepout: module.keepout, schedule: module.schedule, hiddenCost: 3, visibleGoal: true, spots: module.spots });
+  if (routed) return routed.journeys;
+  LAYERS.forEach((layer, i) => (board.layers[layer].length = drawn[i]));
+  parts.forEach((part, i) => (part.used = usedPins[i]));
+  return null;
 }
 
 /* ---------- measurement ---------- */
@@ -1661,7 +1870,7 @@ const fx = (v: number) => v.toFixed(3);
  * only visible while it travels a hop, the tails follow it along the trace
  * (corners included), and the receiving chip glows while the LED is inside.
  */
-function journeyKeyframes(journeys: Journey[]) {
+export function journeyKeyframes(journeys: Journey[]) {
   let css = "";
   journeys.forEach((j, ji) => {
     j.hops.forEach((h, hi) => {
@@ -1739,7 +1948,7 @@ const boundsOf = (points: Point[]) => {
 };
 
 /* `clip` keeps only the hops and glows that cross a box (the hero layer draws its own part only). */
-function JourneyLayer({ journeys, mode, clip }: { journeys: Journey[]; mode: "under" | "over"; clip?: Box }) {
+export function JourneyLayer({ journeys, mode, clip }: { journeys: Journey[]; mode: "under" | "over"; clip?: Box }) {
   return (
     <>
       {journeys.map((j, ji) => (
@@ -1895,7 +2104,7 @@ function HeroLayer({ hero, journeys, target }: { hero: HeroBoard; journeys: Jour
  * shadow, a side face for its thickness, a lit top face, a bevel line and
  * real pins. It hides the hero's border locally; its glow sits on top.
  */
-function LinkLayer({ hero, link, journeys, target }: { hero: HeroBoard; link: HeroLink; journeys: Journey[]; target: Element }) {
+export function LinkLayer({ hero, link, journeys, target }: { hero: HeroBoard; link: HeroLink; journeys: Journey[]; target: Element }) {
   const pad = 14;
   const box = { x: link.x - pad, y: link.top - pad, w: link.w + 2 * pad, h: link.bottom - link.top + 2 * pad };
   const pinTop = link.y - link.top;
