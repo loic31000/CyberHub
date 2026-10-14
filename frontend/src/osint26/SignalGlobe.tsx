@@ -125,6 +125,9 @@ export default function SignalGlobe({ target, categories, category, siteCount, p
 }) {
   const state = running ? (warn ? 'error' : 'scan') : last ? (last.status === 'error' ? 'error' : 'done') : target ? 'armed' : 'idle'
   const pct = progress && progress.total > 0 ? Math.min(100, (progress.checked / progress.total) * 100) : 0
+  const reading = running ? progress : last
+  const readingPct = reading && reading.total > 0
+    ? Math.max(0, Math.min(100, (reading.checked / reading.total) * 100)) : null
   const name = running ? target : last ? last.username : target
   const label = name ? `@${name.length > 16 ? `${name.slice(0, 15)}…` : name}` : 'Cible à définir'
   const plate = Math.max(118, label.length * 8.6 + 28)
@@ -236,20 +239,16 @@ export default function SignalGlobe({ target, categories, category, siteCount, p
       </svg>
 
       <figcaption>
-        <span className="os26-kicker">OSINT SIGNAL GLOBE</span>
-        {running && progress ? (
+        <span className="os26-kicker">{running ? 'ANALYSE EN COURS' : last ? 'DERNIÈRE OPÉRATION' : 'SIGNAL INTELLIGENCE'}</span>
+        <span className={`os26-instrument-state is-${state}`}>{running && warn ? 'Suivi interrompu' : state === 'scan' ? 'Scan des sites' : state === 'armed' ? 'Cible définie' : state === 'done' ? 'Opération terminée' : state === 'error' ? 'Opération en échec' : 'Prêt pour la recherche'}</span>
+        {reading ? (
           <dl className="os26-globe-figures">
-            <div><dt>Sites vérifiés</dt><dd>{progress.checked.toLocaleString('fr-FR')}<small> / {progress.total.toLocaleString('fr-FR')}</small></dd></div>
-            <div><dt>Progression</dt><dd>{Math.round(pct)}<small> %</small></dd></div>
-            <div className="is-found"><dt>Profils trouvés</dt><dd>{progress.found.toLocaleString('fr-FR')}</dd></div>
+            <div><dt>Sites vérifiés</dt><dd>{reading.checked.toLocaleString('fr-FR')}<small> / {reading.total.toLocaleString('fr-FR')}</small></dd></div>
+            {readingPct !== null && <div><dt>Progression</dt><dd>{Math.round(readingPct)}<small> %</small></dd></div>}
+            <div className="is-found"><dt>Profils trouvés</dt><dd>{reading.found.toLocaleString('fr-FR')}</dd></div>
           </dl>
         ) : running ? (
           <p>Démarrage de la recherche…</p>
-        ) : last ? (
-          <p>
-            Dernière opération <b>@{last.username}</b> · {last.status === 'error' ? <>en échec · {last.checked.toLocaleString('fr-FR')} / {last.total.toLocaleString('fr-FR')} sites vérifiés</>
-              : <><b className="is-found">{last.found}</b> profil{last.found > 1 ? 's' : ''} trouvé{last.found > 1 ? 's' : ''} sur {last.checked.toLocaleString('fr-FR')} sites vérifiés</>}
-          </p>
         ) : (
           <p>
             {category
@@ -258,6 +257,13 @@ export default function SignalGlobe({ target, categories, category, siteCount, p
             {categories.length > 0 && <> · {categories.length} familles</>}
           </p>
         )}
+        {readingPct !== null && (
+          <div className="os26-instrument-track" role="progressbar" aria-label="Progression de l’opération" aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(readingPct)}>
+            <span style={{ width: `${readingPct}%` }} />
+          </div>
+        )}
+        {running && warn && progress && <span className="os26-instrument-note">Dernières données reçues</span>}
+        {!running && last && <span className="os26-instrument-note">@{last.username}</span>}
       </figcaption>
     </figure>
   )

@@ -134,18 +134,70 @@
 .os26-help { flex: 1 1 300px; margin: 0; color: var(--os-muted); font-size: .8rem; line-height: 1.5; }
 
 /* ---------- OSINT Signal Globe ---------- */
-.os26-globe { display: grid; align-content: center; gap: 4px; margin: 0; padding: 10px 14px 18px; border-left: 1px solid #1f3447; border-radius: 0 13px 13px 0; background: radial-gradient(85% 75% at 50% 42%, #0c1d2d, #070f18 78%); }
+.os26-globe {
+  position: relative;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 164px;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+  margin: 0;
+  padding: 20px 20px 20px 12px;
+  border-left: 1px solid #1f3447;
+  border-radius: 0 13px 13px 0;
+  background: radial-gradient(80% 88% at 39% 48%, #102437, #081421 63%, #070f18 100%);
+  overflow: hidden;
+}
+.os26-globe::before {
+  position: absolute;
+  top: 18px;
+  left: 22px;
+  right: 22px;
+  height: 1px;
+  background: linear-gradient(90deg, #3a6980 0 22px, transparent 22px 30px, #28495b 30px 36%, transparent 75%, #28495b 100%);
+  opacity: .45;
+  content: '';
+  pointer-events: none;
+}
+.os26-globe::after {
+  position: absolute;
+  bottom: 20px;
+  left: 22px;
+  width: 85px;
+  height: 6px;
+  background: repeating-linear-gradient(90deg, #4b849b 0 1px, transparent 1px 9px);
+  opacity: .35;
+  content: '';
+  pointer-events: none;
+}
 .os26-globe svg { display: block; width: 100%; max-height: 430px; }
-.os26-globe figcaption { display: grid; justify-items: center; gap: 8px; text-align: center; }
-.os26-globe figcaption p { margin: 0; color: var(--os-copy); font: 500 .8rem/1.5 "DM Mono", monospace; }
+.os26-globe figcaption {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  justify-content: center;
+  gap: 10px;
+  min-width: 0;
+  min-height: 306px;
+  padding: 14px 0 14px 17px;
+  border-left: 1px solid #294657;
+  text-align: left;
+}
+.os26-globe figcaption .os26-kicker { color: #8edbe7; font-size: .63rem; line-height: 1.45; }
+.os26-instrument-state { color: #d8edf6; font: 650 .86rem/1.25 Manrope, "DM Sans", sans-serif; }
+.os26-instrument-state.is-error { color: #f3c49b; }
+.os26-globe figcaption p { margin: 6px 0 0; color: var(--os-copy); font: 500 .72rem/1.6 "DM Mono", monospace; overflow-wrap: anywhere; }
 .os26-globe figcaption b { color: var(--os-ink); }
 .os26-globe .is-found { color: var(--os-found); }
-.os26-globe-figures { display: grid; grid-template-columns: repeat(3, auto); gap: 4px 26px; margin: 0; }
-.os26-globe-figures div { display: grid; gap: 4px; }
-.os26-globe-figures dt { color: var(--os-muted); font: 600 .64rem/1.2 "DM Mono", monospace; letter-spacing: .08em; text-transform: uppercase; }
-.os26-globe-figures dd { margin: 0; color: var(--os-ink); font: 700 1.35rem/1 "DM Mono", monospace; }
-.os26-globe-figures dd small { color: var(--os-muted); font-size: .8rem; font-weight: 500; }
+.os26-globe-figures { display: grid; gap: 0; margin: 2px 0 0; }
+.os26-globe-figures div { display: grid; gap: 5px; padding: 11px 0; border-top: 1px solid rgb(104 153 176 / .24); }
+.os26-globe-figures dt { color: #b0c6d4; font: 650 .69rem/1.2 "DM Mono", monospace; letter-spacing: .06em; text-transform: uppercase; }
+.os26-globe-figures dd { margin: 0; color: #f2f9fd; font: 750 1.3rem/1 "DM Mono", monospace; white-space: nowrap; }
+.os26-globe-figures dd small { color: #aec3d0; font-size: .74rem; font-weight: 550; }
 .os26-globe-figures .is-found dd { color: var(--os-found); }
+.os26-instrument-track { height: 3px; margin-top: 1px; border-radius: 2px; background: #1d3547; overflow: hidden; }
+.os26-instrument-track span { display: block; height: 100%; border-radius: inherit; background: linear-gradient(90deg, #3d9fba, #9beaf1); }
+.os26-instrument-note { color: #a5bdcb; font: 550 .67rem/1.4 "DM Mono", monospace; overflow-wrap: anywhere; }
 
 /* The sphere: a quiet wireframe, back fainter, a fine rim, the field of points. */
 .os26-g-back path { fill: none; stroke: #132d42; stroke-width: .7; stroke-dasharray: 2 5; }
@@ -601,8 +653,15 @@
 /* ---------- responsive ---------- */
 @media (max-width: 1099px) {
   .os26-ops.has-lens { grid-template-columns: minmax(0, 1fr); }
-  .os26-globe { border-left: 0; border-top: 1px solid #1f3447; border-radius: 0 0 13px 13px; }
-  .os26-globe svg { max-height: 260px; }
+  .os26-globe { grid-template-columns: minmax(0, 1fr); gap: 4px; padding: 16px 20px 20px; border-left: 0; border-top: 1px solid #1f3447; border-radius: 0 0 13px 13px; }
+  .os26-globe svg { max-height: 290px; }
+  .os26-globe figcaption { display: grid; grid-template-columns: 1fr auto; gap: 8px 18px; min-height: 0; padding: 12px 0 0; border-left: 0; border-top: 1px solid #294657; }
+  .os26-globe figcaption .os26-kicker { grid-column: 1; }
+  .os26-instrument-state { grid-column: 2; grid-row: 1; text-align: right; }
+  .os26-globe figcaption p, .os26-globe-figures { grid-column: 1 / -1; }
+  .os26-globe-figures { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
+  .os26-globe-figures div { padding: 8px 0 2px; }
+  .os26-instrument-track, .os26-instrument-note { grid-column: 1 / -1; }
   .os26-workspace.has-history { grid-template-columns: minmax(0, 1fr); }
   .os26-history { position: fixed; z-index: 45; inset: var(--ch-topbar-h, 56px) 0 0 auto; width: min(380px, 100%); align-content: start; border-radius: 0; border-width: 0 0 0 1px; box-shadow: -18px 0 40px rgb(0 0 0 / .45); overflow-y: auto; }
   .os26-history ul { max-height: none; }
@@ -615,11 +674,13 @@
   .os26-top { padding: 16px 16px 0; }
   .os26-workspace { padding: 16px 16px 24px; gap: 14px; }
   .os26-command-area, .os26-run-state { padding: 16px; }
-  .os26-globe { padding: 12px 10px 16px; }
+  .os26-globe { padding: 16px 12px 18px; }
   .os26-globe svg { max-height: 200px; }
   .os26-g-pt.is-back.is-minor, :is(.os26-w-arc, .os26-p).is-minor, .os26-w-front.is-second { display: none; }
-  .os26-globe-figures { gap: 4px 16px; }
-  .os26-globe-figures dd { font-size: 1.1rem; }
+  .os26-globe-figures { gap: 8px; }
+  .os26-globe-figures dt { font-size: .57rem; }
+  .os26-globe-figures dd { font-size: 1.05rem; }
+  .os26-globe-figures dd small { display: block; padding-top: 4px; font-size: .62rem; }
   .os26-field { flex-basis: 100%; max-width: none; }
   .os26-run { width: 100%; margin-top: 0; }
   .os26-controls-tools { width: 100%; }
