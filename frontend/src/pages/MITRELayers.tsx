@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import MitreCircuit from '@/mitre/MitreCircuit'
+import { MitreDisplaySettings, useMitrePreferences } from '@/mitre/MitrePreferences'
 import { attackLayerApi } from '@/api/client'
 import type { AttackLayer, AttackLayerCreatePayload } from '@/types/attackLayer'
 import { toast } from '@/store/toast'
@@ -66,6 +67,7 @@ function CreateModal({ onClose, onCreated }: CreateModalProps) {
 }
 
 export default function MITRELayers() {
+  const [display, setDisplay] = useMitrePreferences()
   const navigate = useNavigate()
   const [layers, setLayers] = useState<AttackLayer[]>([])
   const [loading, setLoading] = useState(true)
@@ -144,8 +146,8 @@ export default function MITRELayers() {
   const largest = Math.max(1, ...layers.map(l => layerTechCount(l.layer_data)))
 
   return (
-    <div className="mx">
-      <MitreCircuit />
+    <div className="mx" data-layout={display.layout}>
+      {display.circuit && <MitreCircuit />}
       <MitreHeader
         breadcrumb="Intel / ATT&CK Navigator"
         title="Layers"
@@ -171,6 +173,8 @@ export default function MITRELayers() {
           { label: 'Techniques référencées', value: totalTechniques.toLocaleString('fr-FR') },
         ]}
       />
+
+      <div className="mx-view-toolbar"><MitreDisplaySettings preferences={display} onChange={setDisplay} /></div>
 
       <div className="mx-scroll" style={{ padding: '20px 24px 28px' }}>
         {loading ? (

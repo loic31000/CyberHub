@@ -1,13 +1,14 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import MitreCircuit from '@/mitre/MitreCircuit'
+import { MitreDisplaySettings, useMitrePreferences } from '@/mitre/MitrePreferences'
 import { attackLayerApi, mitreApi } from '@/api/client'
 import type { AttackLayer, LayerEntry } from '@/types/attackLayer'
 import type { MITRETechnique, MITRETactic } from '@/types'
 import { toast } from '@/store/toast'
 import {
   ArrowLeft, Download, Search, X, Plus, Minus,
-  Save, Edit, CheckSquare, Check, Loader2, AlertTriangle,
+  Save, Edit, CheckSquare, Check, Loader2, AlertTriangle, PanelLeftOpen, PanelLeftClose,
 } from 'lucide-react'
 import { LayersGlyph } from '@/dashboard2026/CyberGlyphs'
 import { MitreHeader, SkeletonGrid, StateBlock, onTacticKeys, parseArr, tacticTone } from '@/mitre/MitreUi'
@@ -17,6 +18,7 @@ function parseLayerData(raw: string): LayerEntry[] {
 }
 
 export default function MITRELayerDetail() {
+  const [display, setDisplay] = useMitrePreferences()
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
   const layerId = Number(id)
@@ -186,8 +188,8 @@ export default function MITRELayerDetail() {
   )
 
   return (
-    <div className="mx">
-      <MitreCircuit />
+    <div className="mx" data-layout={display.layout}>
+      {display.circuit && <MitreCircuit />}
       <MitreHeader
         breadcrumb="Intel / Layers ATT&CK"
         title={layer.name}
@@ -226,6 +228,8 @@ export default function MITRELayerDetail() {
           </button>
         </div>
       </MitreHeader>
+
+      <div className="mx-view-toolbar"><MitreDisplaySettings preferences={display} onChange={setDisplay} /></div>
 
       {/* Edit metadata */}
       {editing && (
@@ -275,7 +279,7 @@ export default function MITRELayerDetail() {
             )}
           </div>
         ) : (
-          <div className="mx-body">
+          <div className={`mx-body${display.tactics ? '' : ' is-rail-hidden'}`}>
             {/* Tactics */}
             <nav className="mx-rail" aria-label="Tactiques ATT&CK" onKeyDown={onTacticKeys}>
               <p className="mx-rail-title">Tactiques</p>
@@ -302,14 +306,21 @@ export default function MITRELayerDetail() {
             {/* Techniques */}
             <section className="mx-main" aria-label="Techniques à ajouter">
               <div className="mx-toolbar" style={{ padding: '10px 20px' }}>
-                <div className="mx-search" role="search">
-                  <Search size={15} aria-hidden="true" />
-                  <label htmlFor="mx-layer-q" className="mx-sr">Rechercher une technique</label>
-                  <input id="mx-layer-q" type="search" value={query} onChange={e => setQuery(e.target.value)}
-                    placeholder="Rechercher une technique : ID, nom…" className="mx-input" autoComplete="off" />
-                  {query && (
-                    <button type="button" onClick={() => setQuery('')} className="mx-clear" aria-label="Effacer la recherche"><X size={14} /></button>
-                  )}
+                <div className="mx-toolbar-row">
+                  <div className="mx-search" role="search">
+                    <Search size={15} aria-hidden="true" />
+                    <label htmlFor="mx-layer-q" className="mx-sr">Rechercher une technique</label>
+                    <input id="mx-layer-q" type="search" value={query} onChange={e => setQuery(e.target.value)}
+                      placeholder="Rechercher une technique : ID, nom…" className="mx-input" autoComplete="off" />
+                    {query && (
+                      <button type="button" onClick={() => setQuery('')} className="mx-clear" aria-label="Effacer la recherche"><X size={14} /></button>
+                    )}
+                  </div>
+                  <button type="button" className="mx-btn" onClick={() => setDisplay({ ...display, tactics: !display.tactics })}
+                    aria-expanded={display.tactics} aria-label={display.tactics ? 'Replier les tactiques' : 'Afficher les tactiques'}>
+                    {display.tactics ? <PanelLeftClose size={15} aria-hidden="true" /> : <PanelLeftOpen size={15} aria-hidden="true" />}
+                    {display.tactics ? 'Replier' : 'Tactiques'}
+                  </button>
                 </div>
               </div>
               <div className="mx-scroll">

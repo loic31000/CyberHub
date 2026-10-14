@@ -4,8 +4,10 @@ import {
   Shield, Search, ExternalLink, X,
   Loader2, RefreshCw, ChevronDown, ChevronUp,
   AlertTriangle, Database, RotateCcw, Eye,
+  SlidersHorizontal, PanelLeftOpen, PanelLeftClose,
 } from 'lucide-react'
 import MitreCircuit from '@/mitre/MitreCircuit'
+import { MitreDisplaySettings, useMitrePreferences } from '@/mitre/MitrePreferences'
 import { mitreApi } from '@/api/client'
 import type { MITRETactic, MITRETechnique, MITREStatus } from '@/types'
 import {
@@ -147,6 +149,7 @@ function DetailPanel({ technique, loading, onClose, tactics }: DetailPanelProps)
 const PLATFORMS_FILTER = ['Windows', 'Linux', 'macOS', 'Cloud', 'Network', 'Android']
 
 export default function MITRE() {
+  const [display, setDisplay] = useMitrePreferences()
   const [status, setStatus] = useState<MITREStatus | null>(null)
   const [tactics, setTactics] = useState<MITRETactic[]>([])
   const [techniques, setTechniques] = useState<MITRETechnique[]>([])
@@ -229,7 +232,7 @@ export default function MITRE() {
     if (document.activeElement instanceof HTMLElement) opener.current = document.activeElement
     setDetailFull(null); setDetailLoading(true); setSelected(tech)
   }, [])
-  const resetFilters = () => { setActiveTactic(''); setActivePlatform(''); setQuery('') }
+  const resetFilters = () => { setActiveTactic(''); setActivePlatform(''); setQuery(''); setShowSubs(true) }
 
   // Closing the detail returns focus to the card that opened it.
   const closeDetail = useCallback(() => {
@@ -248,7 +251,8 @@ export default function MITRE() {
 
   const totalPages = Math.ceil(total / LIMIT)
   const currentTactic = tactics.find(tac => tac.short_name === activeTactic)
-  const filtered = !!(activeTactic || activePlatform || debouncedQ)
+  const filtered = !!(activeTactic || activePlatform || debouncedQ || !showSubs)
+  const advancedCount = Number(!!activeTactic) + Number(!!activePlatform) + Number(!showSubs)
 
   if (!status) return (
     <div className="mx">
@@ -275,25 +279,14 @@ export default function MITRE() {
   )
 
   return (
-    <div className="mx">
-      <MitreCircuit />
+    <div className="mx" data-layout={display.layout}>
+      {display.circuit && <MitreCircuit />}
       <MitreHeader
         breadcrumb="Intel / ATT&CK Enterprise"
         title="MITRE"
         accent="ATT&CK"
         subtitle="Matrice Enterprise locale : tactiques, techniques et sous-techniques."
         status={{ text: 'SYNCHRONISÉ', mark: `${status.count} TECH.` }}
-        actions={
-          <button type="button" onClick={resetFilters} className="mx-btn" disabled={!filtered && !query}>
-            <RotateCcw size={14} aria-hidden="true" />Réinitialiser les filtres
-          </button>
-        }
-        stats={[
-          { label: 'Techniques indexées', value: status.count.toLocaleString('fr-FR'), cyan: true },
-          { label: 'Tactiques', value: tactics.length || '—' },
-          { label: 'Résultats', value: loading ? '…' : total.toLocaleString('fr-FR') },
-          { label: 'Données', value: 'Synchronisées' },
-        ]}
         below={
           /* Search, result count, sub-techniques and platforms */
           <div className="mx-toolbar">
@@ -310,23 +303,47 @@ export default function MITRE() {
               <span className="mx-result-count" aria-live="polite">
                 {loading ? 'Recherche…' : <><b>{total.toLocaleString('fr-FR')}</b>résultat{total > 1 ? 's' : ''}</>}
               </span>
-              <button type="button" role="switch" aria-checked={showSubs} className="mx-switch" onClick={() => setShowSubs(v => !v)}>
-                <i aria-hidden="true" />Inclure les sous-techniques
+              <button type="button" className="mx-btn" aria-expanded={display.filters} aria-controls="mx-advanced-filters"
+                onClick={() => setDisplay({ ...display, filters: !display.filters })}>
+                <SlidersHorizontal size={15} aria-hidden="true" />Filtres{advancedCount > 0 ? ` · ${advancedCount} actif${advancedCount > 1 ? 's' : ''}` : ''}
               </button>
+              <MitreDisplaySettings preferences={display} onChange={setDisplay} />
             </div>
-            <div className="mx-toolbar-row" role="group" aria-label="Filtrer par plateforme">
-              <span className="mx-toolbar-label" aria-hidden="true">Plateforme</span>
-              {PLATFORMS_FILTER.map(p => (
-                <button key={p} type="button" className="mx-chip" aria-pressed={activePlatform === p} onClick={() => handlePlatformChange(p)}>
-                  <PlatformIcon name={p} />{p}
+            {advancedCount > 0 && !display.filters && <div className="mx-filter-summary" aria-label="Filtres actifs">
+              {activeTactic && <button type="button" className="mx-chip" onClick={() => handleTacticChange(activeTactic)}
+                aria-label={`Retirer le filtre tactique ${currentTactic?.name ?? activeTactic}`}>
+                {currentTactic?.name ?? activeTactic}<X size={12} aria-hidden="true" />
+              </button>}
+              {activePlatform && <button type="button" className="mx-chip" onClick={() => handlePlatformChange(activePlatform)}
+                aria-label={`Retirer le filtre plateforme ${activePlatform}`}>
+                <PlatformIcon name={activePlatform} />{activePlatform}<X size={12} aria-hidden="true" />
+              </button>}
+              {!showSubs && <button type="button" className="mx-chip" onClick={() => setShowSubs(true)}
+                aria-label="Inclure à nouveau les sous-techniques">Techniques seules<X size={12} aria-hidden="true" /></button>}
+            </div>}
+            <div id="mx-advanced-filters" className="mx-advanced-filters" hidden={!display.filters}>
+              <div className="mx-toolbar-row" role="group" aria-label="Filtrer par plateforme">
+                <span className="mx-toolbar-label" aria-hidden="true">Plateforme</span>
+                {PLATFORMS_FILTER.map(p => (
+                  <button key={p} type="button" className="mx-chip" aria-pressed={activePlatform === p} onClick={() => handlePlatformChange(p)}>
+                    <PlatformIcon name={p} />{p}
+                  </button>
+                ))}
+              </div>
+              <div className="mx-toolbar-row">
+                <button type="button" role="switch" aria-checked={showSubs} className="mx-switch" onClick={() => setShowSubs(v => !v)}>
+                  <i aria-hidden="true" />Inclure les sous-techniques
                 </button>
-              ))}
+                <button type="button" onClick={resetFilters} className="mx-btn" disabled={!filtered && !query}>
+                  <RotateCcw size={14} aria-hidden="true" />Réinitialiser les filtres
+                </button>
+              </div>
             </div>
           </div>
         }
       />
 
-      <div className={`mx-body${selected ? ' has-detail' : ''}`}>
+      <div className={`mx-body${selected ? ' has-detail' : ''}${display.tactics ? '' : ' is-rail-hidden'}`}>
         {/* Tactics */}
         <nav className="mx-rail" aria-label="Tactiques ATT&CK" onKeyDown={onTacticKeys}>
           <p className="mx-rail-title">Tactiques</p>
@@ -358,6 +375,11 @@ export default function MITRE() {
               <strong>{currentTactic?.name ?? 'Toutes les tactiques'}</strong>
               {totalPages > 1 && <span>Page {page} / {totalPages}</span>}
             </p>
+            <button type="button" className="mx-btn mx-rail-toggle" onClick={() => setDisplay({ ...display, tactics: !display.tactics })}
+              aria-expanded={display.tactics} aria-label={display.tactics ? 'Replier les tactiques' : 'Afficher les tactiques'}>
+              {display.tactics ? <PanelLeftClose size={15} aria-hidden="true" /> : <PanelLeftOpen size={15} aria-hidden="true" />}
+              {display.tactics ? 'Replier' : `Tactiques${currentTactic ? ` · ${currentTactic.name}` : ''}`}
+            </button>
             {loading && <Loader2 size={15} className="mx-spin" aria-hidden="true" style={{ color: 'var(--mx-cyan)' }} />}
           </div>
 
