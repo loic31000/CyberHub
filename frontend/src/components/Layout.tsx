@@ -5,10 +5,13 @@ import Sidebar from './Sidebar'
 import ToastContainer from './Toast'
 import SearchModal from './SearchModal'
 import ModuleDrawer from '@/shell/ModuleDrawer'
+import NavigationPreferencesDialog from '@/shell/NavigationPreferencesDialog'
+import { useNavigationPreferences } from '@/shell/navigationPreferences'
 import { breadcrumbFor } from '@/shell/navigation'
 import { bgpApi } from '@/api/client'
 import { useAuthStore } from '@/store/auth'
 import '@/shell/shell.css'
+import '@/shell/navigation.css'
 
 /*
  * CyberHub 2026 shared shell: one topbar, one navigation rail, one
@@ -29,10 +32,13 @@ function useClock() {
 export default function Layout() {
   const [searchOpen, setSearchOpen] = useState(false)
   const [drawerOpen, setDrawerOpen] = useState(false)
+  const [customizeOpen, setCustomizeOpen] = useState(false)
+  const [navigationPreferences, setNavigationPreferences] = useNavigationPreferences()
   const searchTrigger = useRef<HTMLButtonElement>(null)
   const burger = useRef<HTMLButtonElement>(null)
   const searchReturnFocus = useRef<HTMLElement | null>(null)
   const drawerReturnFocus = useRef<HTMLElement | null>(null)
+  const customizeReturnFocus = useRef<HTMLElement | null>(null)
   const [bgpAlertCount, setBgpAlertCount] = useState(0)
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated)
   const location = useLocation()
@@ -54,18 +60,32 @@ export default function Layout() {
     setSearchOpen(false)
     setDrawerOpen(true)
   }
+  const openCustomize = (trigger: HTMLElement) => {
+    customizeReturnFocus.current = drawerOpen ? drawerReturnFocus.current : trigger
+    setDrawerOpen(false)
+    setCustomizeOpen(true)
+  }
+  const closeCustomize = () => {
+    const target = customizeReturnFocus.current
+    setCustomizeOpen(false)
+    window.setTimeout(() => (target?.isConnected ? target : burger.current)?.focus(), 0)
+  }
+  const toggleGroup = (id: string) => setNavigationPreferences((current) => ({
+    ...current,
+    collapsed: current.collapsed.includes(id) ? current.collapsed.filter((group) => group !== id) : [...current.collapsed, id],
+  }))
 
   // Ctrl+K / Cmd+K opens the global search from any page.
   useEffect(() => {
     const onShortcut = (event: KeyboardEvent) => {
       if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'k') {
         event.preventDefault()
-        if (!event.repeat) openSearch(document.activeElement instanceof HTMLElement ? document.activeElement : null)
+        if (!event.repeat && !customizeOpen) openSearch(document.activeElement instanceof HTMLElement ? document.activeElement : null)
       }
     }
     window.addEventListener('keydown', onShortcut)
     return () => window.removeEventListener('keydown', onShortcut)
-  }, [])
+  }, [customizeOpen])
 
   // A route change closes the drawer.
   useEffect(() => setDrawerOpen(false), [location.pathname])
@@ -76,7 +96,8 @@ export default function Layout() {
   }, [isAuthenticated])
 
   return (
-    <div className="ch-shell flex flex-col h-screen overflow-hidden bg-[#06080f] text-[#f1f5f9] font-sans selection:bg-[#00d4ff]/30">
+    <div className="ch-shell flex flex-col h-screen overflow-hidden bg-[#06080f] text-[#f1f5f9] font-sans selection:bg-[#00d4ff]/30"
+      data-nav-mode={navigationPreferences.mode} data-nav-density={navigationPreferences.density}>
       <a className="ch-skip" href="#ch-main">
         Aller au contenu
       </a>
@@ -141,7 +162,8 @@ export default function Layout() {
       </header>
 
       <div className="ch-body">
-        <Sidebar bgpAlertCount={bgpAlertCount} drawerOpen={drawerOpen} onOpenDrawer={openDrawer} />
+        <Sidebar bgpAlertCount={bgpAlertCount} drawerOpen={drawerOpen} onOpenDrawer={openDrawer}
+          onCustomize={openCustomize} preferences={navigationPreferences} onToggleGroup={toggleGroup} />
         <main id="ch-main" className="flex-1 flex flex-col overflow-hidden relative">
           <div className="flex-1 overflow-auto z-10 custom-scrollbar">
             <Outlet />
@@ -149,7 +171,9 @@ export default function Layout() {
         </main>
       </div>
 
-      <ModuleDrawer open={drawerOpen} onClose={() => setDrawerOpen(false)} returnFocus={drawerReturnFocus} bgpAlertCount={bgpAlertCount} />
+      <ModuleDrawer open={drawerOpen} onClose={() => setDrawerOpen(false)} returnFocus={drawerReturnFocus}
+        onCustomize={openCustomize} onToggleGroup={toggleGroup} preferences={navigationPreferences} bgpAlertCount={bgpAlertCount} />
+      {customizeOpen && <NavigationPreferencesDialog preferences={navigationPreferences} onChange={setNavigationPreferences} onClose={closeCustomize} />}
       <ToastContainer />
       <SearchModal open={searchOpen} onClose={closeSearch} />
     </div>

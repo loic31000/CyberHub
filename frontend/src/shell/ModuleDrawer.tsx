@@ -1,24 +1,17 @@
 import { useEffect, useRef } from 'react'
 import type { KeyboardEvent, RefObject } from 'react'
-import { NavLink, useNavigate } from 'react-router-dom'
-import { ChevronRight, LogOut, X } from 'lucide-react'
+import { useNavigate } from 'react-router-dom'
+import { LogOut, SlidersHorizontal, X } from 'lucide-react'
 import { useAuthStore } from '@/store/auth'
-import { NAV_GROUPS } from './navigation'
+import NavigationSections from './NavigationSections'
+import type { NavigationPreferences } from './navigationPreferences'
 
-/*
- * "Tous les modules": every module by category, with its description and its
- * real route. Opened by the burger (the only navigation on phones) and by the
- * rail. Modal dialog: focus kept inside, Escape and the scrim close it, focus
- * returns to the control that opened it.
- */
-export default function ModuleDrawer({
-  open,
-  onClose,
-  returnFocus,
-  bgpAlertCount = 0,
-}: {
+export default function ModuleDrawer({ open, onClose, onCustomize, onToggleGroup, preferences, returnFocus, bgpAlertCount = 0 }: {
   open: boolean
   onClose: () => void
+  onCustomize: (trigger: HTMLElement) => void
+  onToggleGroup: (id: string) => void
+  preferences: NavigationPreferences
   returnFocus: RefObject<HTMLElement | null>
   bgpAlertCount?: number
 }) {
@@ -29,11 +22,26 @@ export default function ModuleDrawer({
 
   useEffect(() => {
     if (!open) return
+    const previousOverflow = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
     const frame = requestAnimationFrame(() => {
-      const current = dialogRef.current?.querySelector<HTMLElement>('.ch-drawer-link.is-active')
+      const current = dialogRef.current?.querySelector<HTMLElement>('.ch-nav-link.is-active')
       ;(current ?? closeRef.current)?.focus()
     })
-    return () => cancelAnimationFrame(frame)
+    const onEscape = (event: globalThis.KeyboardEvent) => {
+      if (event.key !== 'Escape') return
+      event.preventDefault()
+      event.stopPropagation()
+      const target = returnFocus.current
+      onClose()
+      window.setTimeout(() => target?.isConnected && target.focus(), 0)
+    }
+    window.addEventListener('keydown', onEscape, true)
+    return () => {
+      cancelAnimationFrame(frame)
+      window.removeEventListener('keydown', onEscape, true)
+      document.body.style.overflow = previousOverflow
+    }
   }, [open])
 
   if (!open) return null
@@ -45,14 +53,9 @@ export default function ModuleDrawer({
   }
 
   const onKeyDown = (event: KeyboardEvent) => {
-    if (event.key === 'Escape') {
-      event.preventDefault()
-      event.stopPropagation()
-      close()
-      return
-    }
     if (event.key !== 'Tab' || !dialogRef.current) return
     const focusable = [...dialogRef.current.querySelectorAll<HTMLElement>('a[href], button:not([disabled])')]
+      .filter((element) => element.getClientRects().length > 0)
     if (!focusable.length) return
     const first = focusable[0]
     const last = focusable[focusable.length - 1]
@@ -68,76 +71,24 @@ export default function ModuleDrawer({
   return (
     <div className="ch-drawer-layer">
       <button type="button" className="ch-drawer-scrim" aria-label="Fermer la navigation" tabIndex={-1} onClick={close} />
-      <div
-        ref={dialogRef}
-        id="ch-drawer"
-        className="ch-drawer"
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="ch-drawer-title"
-        onKeyDown={onKeyDown}
-      >
+      <div ref={dialogRef} id="ch-drawer" className="ch-drawer" role="dialog" aria-modal="true"
+        aria-labelledby="ch-drawer-title" onKeyDown={onKeyDown}>
         <div className="ch-drawer-head">
-          <div>
-            <span>NAVIGATION</span>
-            <h2 id="ch-drawer-title">Tous les modules</h2>
-          </div>
-          <button ref={closeRef} type="button" className="ch-icon-button" aria-label="Fermer la navigation" onClick={close}>
-            <X size={18} />
-          </button>
+          <div><span>NAVIGATION</span><h2 id="ch-drawer-title">Tous les modules</h2></div>
+          <button ref={closeRef} type="button" className="ch-icon-button" aria-label="Fermer la navigation" onClick={close}><X size={18} /></button>
         </div>
 
-        <nav className="ch-drawer-body" aria-label="Tous les modules CyberHub">
-          {NAV_GROUPS.map((group) => (
-            <section key={group.id} className="ch-drawer-group" aria-labelledby={`ch-drawer-${group.id}`}>
-              <h3 id={`ch-drawer-${group.id}`}>
-                <b>{group.code}</b>
-                {group.label}
-              </h3>
-              <ul>
-                {group.items.map(({ id, title, description, route, icon: Icon, end }) => (
-                  <li key={route}>
-                    <NavLink
-                      to={route}
-                      end={end}
-                      className={({ isActive }) => `ch-drawer-link${isActive ? ' is-active' : ''}`}
-                      onClick={close}
-                    >
-                      {({ isActive }) => (
-                        <>
-                          <span className="ch-glyph-tile" aria-hidden="true">
-                            <Icon size={17} />
-                          </span>
-                          <span>
-                            <strong>{title}</strong>
-                            <small>
-                              {id === 'bgp-historian' && bgpAlertCount > 0
-                                ? `${bgpAlertCount} alerte${bgpAlertCount > 1 ? 's' : ''} enregistrée${bgpAlertCount > 1 ? 's' : ''}`
-                                : description}
-                            </small>
-                          </span>
-                          {isActive ? <em>ACTUEL</em> : <ChevronRight size={15} aria-hidden="true" />}
-                        </>
-                      )}
-                    </NavLink>
-                  </li>
-                ))}
-              </ul>
-            </section>
-          ))}
-        </nav>
+        <div className="ch-drawer-body">
+          <NavigationSections idPrefix="ch-drawer" preferences={preferences} onToggleGroup={onToggleGroup}
+            onNavigate={close} bgpAlertCount={bgpAlertCount} />
+        </div>
 
         <div className="ch-drawer-foot">
-          <button
-            type="button"
-            className="ch-drawer-logout"
-            onClick={() => {
-              onClose()
-              logout()
-              navigate('/login')
-            }}
-          >
-            <LogOut size={16} aria-hidden="true" /> Déconnexion
+          <button type="button" className="ch-drawer-customize" onClick={(event) => onCustomize(event.currentTarget)}>
+            <SlidersHorizontal size={16} aria-hidden="true" />Personnaliser la navigation
+          </button>
+          <button type="button" className="ch-drawer-logout" onClick={() => { onClose(); logout(); navigate('/login') }}>
+            <LogOut size={16} aria-hidden="true" />Déconnexion
           </button>
         </div>
       </div>
