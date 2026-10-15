@@ -3,7 +3,7 @@ import { useParams, useNavigate, Link } from 'react-router-dom'
 import { cveApi, cisaApi } from '@/api/client'
 import type { CVEEntry, CVEStatus } from '@/types'
 import type { CISAKEVEntry, EPSSScore } from '@/types/threat_intel'
-import { ArrowLeft, Edit, Trash2, ExternalLink, Flame, TrendingUp, ShieldAlert } from 'lucide-react'
+import { ArrowLeft, Edit, Trash2, ExternalLink, Flame, TrendingUp, ShieldAlert, AlertTriangle } from 'lucide-react'
 import ConfirmModal from '@/components/ConfirmModal'
 import { toast } from '@/store/toast'
 
@@ -29,31 +29,91 @@ const STATUS_LABELS: Record<CVEStatus, string> = {
   na:       'N/A',
 }
 
+/*
+ * An enrichment (CISA KEV, EPSS) has three outcomes the page keeps apart:
+ * still loading, answered (with a value or none), or failed. A failure is
+ * never shown as "not exploited" or "no score".
+ */
+type Enrichment<T> = { status: 'loading' } | { status: 'ready'; value: T | null } | { status: 'error' }
+
+const httpStatus = (err: unknown) => (err as { response?: { status?: number } })?.response?.status
+
+function EnrichmentNote({ tone, children, onRetry }: { tone: 'muted' | 'warn'; children: React.ReactNode; onRetry?: () => void }) {
+  return (
+    <div role="status" className={`flex flex-wrap items-center justify-between gap-3 border px-4 py-2 font-mono text-[11px] ${
+      tone === 'warn' ? 'border-[#f97316]/30 bg-[#f97316]/5 text-[#fdba74]' : 'border-[#1e2d40] bg-[#0a0f16] text-[#64748b]'}`}>
+      <span>{children}</span>
+      {onRetry && (
+        <button type="button" onClick={onRetry}
+          className="border border-[#f97316]/30 px-3 py-1 text-[10px] font-bold uppercase tracking-widest hover:bg-[#f97316]/10 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#00d4ff]">
+          Réessayer
+        </button>
+      )}
+    </div>
+  )
+}
+
 export default function CVEDetail() {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
   const [cve, setCve] = useState<CVEEntry | null>(null)
   const [loading, setLoading] = useState(true)
+  const [loadError, setLoadError] = useState(false)
+  const [loadAttempt, setLoadAttempt] = useState(0)
   const [deleting, setDeleting] = useState(false)
   const [confirmOpen, setConfirmOpen] = useState(false)
-  const [kevEntry, setKevEntry] = useState<CISAKEVEntry | null>(null)
-  const [epss, setEpss] = useState<EPSSScore | null>(null)
+  const [kev, setKev] = useState<Enrichment<CISAKEVEntry>>({ status: 'loading' })
+  const [kevAttempt, setKevAttempt] = useState(0)
+  const [epss, setEpss] = useState<Enrichment<EPSSScore>>({ status: 'loading' })
+  const [epssAttempt, setEpssAttempt] = useState(0)
 
+  // The entry itself; a request for a previous id is cancelled and ignored.
   useEffect(() => {
     if (!id) return
-    cveApi.get(Number(id))
-      .then((data) => {
-        setCve(data)
-        cisaApi.checkKEV(data.cve_id)
-          .then((r) => { if (r.exploited && r.entry) setKevEntry(r.entry) })
-          .catch(() => {})
-        cisaApi.getEPSS(data.cve_id)
-          .then(setEpss)
-          .catch(() => {})
+    const controller = new AbortController()
+    const { signal } = controller
+    setLoading(true)
+    setLoadError(false)
+    setCve(null)
+    cveApi.get(Number(id), signal)
+      .then((data) => { if (!signal.aborted) setCve(data) })
+      .catch((err) => {
+        if (signal.aborted) return
+        if (httpStatus(err) === 404) {
+          toast.error('CVE introuvable')
+          navigate('/cve', { replace: true })
+        } else setLoadError(true)
       })
-      .catch(() => navigate('/cve'))
-      .finally(() => setLoading(false))
-  }, [id, navigate])
+      .finally(() => { if (!signal.aborted) setLoading(false) })
+    return () => controller.abort()
+  }, [id, navigate, loadAttempt])
+
+  const cveId = cve?.cve_id
+  useEffect(() => {
+    if (!cveId) return
+    const controller = new AbortController()
+    setKev({ status: 'loading' })
+    cisaApi.checkKEV(cveId, controller.signal)
+      .then((r) => { if (!controller.signal.aborted) setKev({ status: 'ready', value: r.exploited ? r.entry : null }) })
+      .catch(() => { if (!controller.signal.aborted) setKev({ status: 'error' }) })
+    return () => controller.abort()
+  }, [cveId, kevAttempt])
+
+  // EPSS: a 404 means no usable score came back. The backend also answers 404
+  // when FIRST.org's reply cannot be read, so the page does not claim that no
+  // score exists. Anything else is a failure.
+  useEffect(() => {
+    if (!cveId) return
+    const controller = new AbortController()
+    setEpss({ status: 'loading' })
+    cisaApi.getEPSS(cveId, controller.signal)
+      .then((score) => { if (!controller.signal.aborted) setEpss({ status: 'ready', value: score }) })
+      .catch((err) => {
+        if (controller.signal.aborted) return
+        setEpss(httpStatus(err) === 404 ? { status: 'ready', value: null } : { status: 'error' })
+      })
+    return () => controller.abort()
+  }, [cveId, epssAttempt])
 
   const handleDelete = async () => {
     if (!cve) return
@@ -75,7 +135,29 @@ export default function CVEDetail() {
       </div>
     )
   }
+  if (loadError) {
+    return (
+      <div className="flex h-full flex-col items-center justify-center gap-4 bg-[#06080f] text-center">
+        <div role="alert" className="space-y-2">
+          <AlertTriangle size={32} className="mx-auto text-[#ef4444]/60" aria-hidden="true" />
+          <p className="font-mono text-sm uppercase tracking-widest text-[#f1f5f9]">Impossible de charger cette CVE</p>
+          <p className="font-mono text-xs text-[#8a9ab0]">Le backend local n’a pas répondu.</p>
+        </div>
+        <div className="flex gap-3">
+          <button type="button" onClick={() => setLoadAttempt((n) => n + 1)}
+            className="border border-[#334155] bg-[#1e2d40] px-4 py-2 font-mono text-[10px] font-bold uppercase tracking-widest hover:bg-[#2a3f55] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#00d4ff]">
+            Réessayer
+          </button>
+          <Link to="/cve" className="border border-[#334155] px-4 py-2 font-mono text-[10px] font-bold uppercase tracking-widest text-[#8a9ab0] hover:text-[#f1f5f9] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#00d4ff]">
+            Retour à l’index
+          </Link>
+        </div>
+      </div>
+    )
+  }
   if (!cve) return null
+  const kevEntry = kev.status === 'ready' ? kev.value : null
+  const epssScore = epss.status === 'ready' ? epss.value : null
 
   const products = cve.products ? cve.products.split(',').map(p => p.trim()).filter(Boolean) : []
   const nvdUrl = `https://nvd.nist.gov/vuln/detail/${cve.cve_id}`
@@ -239,8 +321,27 @@ export default function CVEDetail() {
           </div>
         )}
 
+        {kev.status === 'loading' && <EnrichmentNote tone="muted">Vérification CISA KEV…</EnrichmentNote>}
+        {kev.status === 'error' && (
+          <EnrichmentNote tone="warn" onRetry={() => setKevAttempt((n) => n + 1)}>
+            Statut CISA KEV indisponible : impossible de dire si cette CVE est exploitée activement.
+          </EnrichmentNote>
+        )}
+        {kev.status === 'ready' && !kevEntry && (
+          <EnrichmentNote tone="muted">Absente du catalogue CISA KEV local.</EnrichmentNote>
+        )}
+
         {/* Section EPSS */}
-        {epss && (
+        {epss.status === 'loading' && <EnrichmentNote tone="muted">Récupération du score EPSS…</EnrichmentNote>}
+        {epss.status === 'error' && (
+          <EnrichmentNote tone="warn" onRetry={() => setEpssAttempt((n) => n + 1)}>
+            Score EPSS indisponible : la récupération auprès de FIRST.org a échoué.
+          </EnrichmentNote>
+        )}
+        {epss.status === 'ready' && !epssScore && (
+          <EnrichmentNote tone="muted">Aucun score EPSS obtenu pour cette CVE : FIRST.org n’en publie peut-être pas, ou sa réponse était inexploitable.</EnrichmentNote>
+        )}
+        {epssScore && (
           <div className="border border-[#1e2d40] bg-[#0a0f16] p-5">
             <h2 className="flex items-center gap-2 font-mono text-[11px] font-bold uppercase tracking-[0.2em] text-[#00d4ff] mb-3">
               <TrendingUp size={14} /> EPSS SCORE
@@ -248,23 +349,23 @@ export default function CVEDetail() {
             <p className="text-[11px] font-mono text-[#8a9ab0] mb-2">
               Probabilité d’exploitation dans les 30 prochains jours :
               <span className={`ml-2 font-bold ${
-                epss.score >= 0.7 ? 'text-[#ef4444]' :
-                epss.score >= 0.3 ? 'text-[#f97316]' : 'text-[#64748b]'
+                epssScore.score >= 0.7 ? 'text-[#ef4444]' :
+                epssScore.score >= 0.3 ? 'text-[#f97316]' : 'text-[#64748b]'
               }`}>
-                {(epss.score * 100).toFixed(1)}%
+                {(epssScore.score * 100).toFixed(1)}%
               </span>
-              {' · '}Percentile {(epss.percentile * 100).toFixed(0)}e
+              {' · '}Percentile {(epssScore.percentile * 100).toFixed(0)}e
             </p>
             <div className="h-1.5 bg-[#1e2d40] rounded-full overflow-hidden">
               <div
                 className={`h-full rounded-full transition-all ${
-                  epss.score >= 0.7 ? 'bg-[#ef4444]' :
-                  epss.score >= 0.3 ? 'bg-[#f97316]' : 'bg-[#64748b]'
+                  epssScore.score >= 0.7 ? 'bg-[#ef4444]' :
+                  epssScore.score >= 0.3 ? 'bg-[#f97316]' : 'bg-[#64748b]'
                 }`}
-                style={{ width: `${epss.score * 100}%` }}
+                style={{ width: `${epssScore.score * 100}%` }}
               />
             </div>
-            <p className="text-[10px] font-mono text-[#4a6480] mt-2">Source : FIRST.org · {epss.date}</p>
+            <p className="text-[10px] font-mono text-[#4a6480] mt-2">Source : FIRST.org · {epssScore.date}</p>
           </div>
         )}
 
