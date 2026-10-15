@@ -1,66 +1,76 @@
-import { useEffect, useRef, useState, useCallback } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import type { KeyboardEvent } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { Search } from 'lucide-react'
 import { searchApi } from '@/api/client'
 import type { SearchCategory, SearchResult } from '@/types'
+import { searchItems } from '@/dashboard2026/moduleSearch'
+import { categoryOf } from '@/dashboard2026/environmentRegistry'
+import { CveGlyph, PlaybookGlyph, ToolsGlyph, WriteupGlyph } from '@/dashboard2026/CyberGlyphs'
+import { NAV_ITEMS, type NavItem, type ShellIcon } from '@/shell/navigation'
 
-// ---- Icônes par catégorie ----
-const CATEGORY_ICON: Record<SearchCategory, string> = {
-  tool:     '🔧',
-  ctf:      '🏴',
-  cve:      '🛡️',
-  playbook: '📖',
-}
-
-// CATEGORY_LABEL is now resolved via t() inside the component
+/*
+ * Global search (Ctrl+K), shared by every page.
+ *
+ * Two sources, never mixed up:
+ * - Modules: the shared module registry, matched locally by name, category
+ *   and aliases (same matching as the Dashboard catalogues);
+ * - Content: the existing backend search (/api/search) over tools, writeups,
+ *   CVE and playbooks, unchanged. Module pages keep their own searches.
+ */
 
 const CATEGORY_ORDER: SearchCategory[] = ['tool', 'ctf', 'cve', 'playbook']
 
-// ---- Composant ----
+const CATEGORY_META: Record<SearchCategory, { label: string; icon: ShellIcon }> = {
+  tool: { label: 'Outils', icon: ToolsGlyph },
+  ctf: { label: 'Writeups CTF', icon: WriteupGlyph },
+  cve: { label: 'Veille CVE', icon: CveGlyph },
+  playbook: { label: 'Playbooks', icon: PlaybookGlyph },
+}
+
+type Option =
+  | { kind: 'module'; key: string; item: NavItem }
+  | { kind: 'content'; key: string; result: SearchResult }
+
 interface Props {
   open: boolean
   onClose: () => void
 }
 
 export default function SearchModal({ open, onClose }: Props) {
-    const [query, setQuery]     = useState('')
+  const [query, setQuery] = useState('')
   const [results, setResults] = useState<SearchResult[]>([])
   const [loading, setLoading] = useState(false)
   const [activeIdx, setActiveIdx] = useState(0)
-
-  const inputRef   = useRef<HTMLInputElement>(null)
+  const inputRef = useRef<HTMLInputElement>(null)
+  const dialogRef = useRef<HTMLDivElement>(null)
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
-  const navigate   = useNavigate()
+  const navigate = useNavigate()
 
-  const CATEGORY_LABEL: Record<SearchCategory, string> = {
-    tool:     `Outils`,
-    ctf:      `Writeups CTF`,
-    cve:      `Veille CVE`,
-    playbook: `Playbooks`,
-  }
-
-  // Focus l'input à l'ouverture
   useEffect(() => {
-    if (open) {
-      setQuery('')
-      setResults([])
-      setActiveIdx(0)
-      setTimeout(() => inputRef.current?.focus(), 50)
-    }
+    if (!open) return
+    setQuery('')
+    setResults([])
+    setLoading(false)
+    setActiveIdx(0)
+    const id = setTimeout(() => inputRef.current?.focus(), 30)
+    return () => clearTimeout(id)
   }, [open])
 
-  // Debounce de la recherche (300 ms)
+  useEffect(() => () => {
+    if (debounceRef.current) clearTimeout(debounceRef.current)
+  }, [])
+
+  // Backend content search, debounced (300 ms) as before.
   const handleChange = useCallback((value: string) => {
     setQuery(value)
     setActiveIdx(0)
-
     if (debounceRef.current) clearTimeout(debounceRef.current)
-
     if (!value.trim()) {
       setResults([])
       setLoading(false)
       return
     }
-
     setLoading(true)
     debounceRef.current = setTimeout(async () => {
       try {
@@ -74,164 +84,172 @@ export default function SearchModal({ open, onClose }: Props) {
     }, 300)
   }, [])
 
-  // Navigation clavier
-  const handleKeyDown = useCallback(
-    (e: React.KeyboardEvent<HTMLInputElement>) => {
-      if (e.key === 'Escape') {
-        onClose()
-        return
-      }
-      if (!results.length) return
-
-      if (e.key === 'ArrowDown') {
-        e.preventDefault()
-        setActiveIdx((i) => Math.min(i + 1, results.length - 1))
-      } else if (e.key === 'ArrowUp') {
-        e.preventDefault()
-        setActiveIdx((i) => Math.max(i - 1, 0))
-      } else if (e.key === 'Enter') {
-        e.preventDefault()
-        const r = results[activeIdx]
-        if (r) {
-          navigate(r.path)
-          onClose()
-        }
-      }
-    },
-    [results, activeIdx, navigate, onClose],
+  // Modules first (all of them when the field is empty), then content by category.
+  const modules = useMemo(() => (query.trim() ? searchItems(query, NAV_ITEMS).slice(0, 6) : NAV_ITEMS.slice(0, 8)), [query])
+  const options: Option[] = useMemo(
+    () => [
+      ...modules.map((item) => ({ kind: 'module' as const, key: `module-${item.id}`, item })),
+      ...CATEGORY_ORDER.flatMap((category) =>
+        results.filter((r) => r.category === category).map((result) => ({ kind: 'content' as const, key: `${result.category}-${result.id}`, result })),
+      ),
+    ],
+    [modules, results],
   )
 
-  const handleSelect = useCallback(
-    (r: SearchResult) => {
-      navigate(r.path)
+  const select = useCallback(
+    (option: Option | undefined) => {
+      if (!option) return
+      navigate(option.kind === 'module' ? option.item.route : option.result.path)
       onClose()
     },
     [navigate, onClose],
   )
 
-  // Clic hors du modal = fermeture
-  const handleBackdrop = (e: React.MouseEvent<HTMLDivElement>) => {
-    if (e.target === e.currentTarget) onClose()
+  const handleKeyDown = (e: KeyboardEvent<HTMLDivElement>) => {
+    if (e.key === 'Escape') {
+      e.preventDefault()
+      e.stopPropagation()
+      onClose()
+      return
+    }
+    if (e.key === 'ArrowDown' && options.length) {
+      e.preventDefault()
+      setActiveIdx((i) => (i + 1) % options.length)
+    } else if (e.key === 'ArrowUp' && options.length) {
+      e.preventDefault()
+      setActiveIdx((i) => (i - 1 + options.length) % options.length)
+    } else if (e.key === 'Enter' && document.activeElement === inputRef.current) {
+      e.preventDefault()
+      select(options[activeIdx])
+    } else if (e.key === 'Tab') {
+      // The field is the dialog's only tab stop (options are reached with the arrows).
+      e.preventDefault()
+      inputRef.current?.focus()
+    }
   }
 
-  // Grouper les résultats par catégorie
-  const grouped = CATEGORY_ORDER.reduce<Record<SearchCategory, SearchResult[]>>(
-    (acc, cat) => {
-      acc[cat] = results.filter((r) => r.category === cat)
-      return acc
-    },
-    { tool: [], ctf: [], cve: [], playbook: [] },
-  )
-
-  // Index global pour la navigation clavier
-  let globalIdx = 0
+  // Keep the active option visible while moving with the arrows.
+  useEffect(() => {
+    dialogRef.current?.querySelector('[aria-selected="true"]')?.scrollIntoView({ block: 'nearest' })
+  }, [activeIdx])
 
   if (!open) return null
 
-  return (
-    <div
-      className="fixed inset-0 z-50 flex items-start justify-center pt-24"
-      style={{ background: 'rgba(0,0,0,0.6)' }}
-      onClick={handleBackdrop}
-    >
-      <div
-        className="w-full max-w-2xl rounded-xl border border-border shadow-2xl overflow-hidden"
-        style={{ background: 'var(--bg-secondary)' }}
+  const activeId = options[activeIdx] ? `ch-search-${options[activeIdx].key}` : undefined
+  const contentCount = options.length - modules.length
+  let index = -1
+  const renderOption = (option: Option) => {
+    index += 1
+    const i = index
+    const selected = i === activeIdx
+    const Icon = option.kind === 'module' ? option.item.icon : CATEGORY_META[option.result.category].icon
+    return (
+      <button
+        key={option.key}
+        id={`ch-search-${option.key}`}
+        type="button"
+        role="option"
+        aria-selected={selected}
+        tabIndex={-1}
+        className="ch-palette-option"
+        onMouseEnter={() => setActiveIdx(i)}
+        onClick={() => select(option)}
       >
-        {/* ---- Input ---- */}
-        <div className="flex items-center gap-3 px-4 py-3 border-b border-border">
-          <span className="text-text-muted text-lg">🔍</span>
+        <span className="ch-glyph-tile" aria-hidden="true">
+          <Icon size={17} />
+        </span>
+        <span>
+          <strong>{option.kind === 'module' ? option.item.title : option.result.title}</strong>
+          <small>
+            {option.kind === 'module'
+              ? `${categoryOf(option.item.category).code} · ${option.item.description}`
+              : option.result.subtitle || CATEGORY_META[option.result.category].label}
+          </small>
+        </span>
+        {selected && <em aria-hidden="true">↵ ouvrir</em>}
+      </button>
+    )
+  }
+
+  return (
+    <div className="ch-palette-layer" onMouseDown={(e) => e.target === e.currentTarget && onClose()}>
+      <div
+        ref={dialogRef}
+        className="ch-palette"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="ch-search-title"
+        onKeyDown={handleKeyDown}
+      >
+        <h2 id="ch-search-title" className="ch-sr-only">
+          Recherche globale CyberHub
+        </h2>
+        <div className="ch-palette-field">
+          <Search size={18} aria-hidden="true" />
           <input
             ref={inputRef}
             type="text"
             value={query}
             onChange={(e) => handleChange(e.target.value)}
-            onKeyDown={handleKeyDown}
-            placeholder={`Rechercher dans les outils, CVE, writeups, playbooks…`}
-            className="flex-1 bg-transparent outline-none text-text-primary placeholder-text-muted text-sm"
+            role="combobox"
+            aria-expanded={options.length > 0}
+            aria-controls="ch-search-results"
+            aria-activedescendant={activeId}
+            aria-autocomplete="list"
+            aria-label="Rechercher un module, un outil, une CVE, un writeup ou un playbook"
+            placeholder="Module, outil, CVE, writeup, playbook…"
+            autoComplete="off"
+            spellCheck={false}
           />
-          {loading && (
-            <span className="text-xs text-text-muted animate-pulse">{`Recherche…`}</span>
-          )}
-          <kbd
-            className="hidden sm:inline-block px-2 py-0.5 rounded text-xs border border-border text-text-muted"
-          >
-            Esc
-          </kbd>
+          {loading && <span className="ch-kbd">Recherche…</span>}
+          <kbd className="ch-kbd">Échap</kbd>
         </div>
 
-        {/* ---- Résultats ---- */}
-        <div className="max-h-96 overflow-y-auto">
-          {query.trim() === '' && (
-            <p className="px-5 py-8 text-center text-text-muted text-sm">
-              {`Tapez pour rechercher dans tous les modules…`}
-            </p>
-          )}
-
-          {query.trim() !== '' && !loading && results.length === 0 && (
-            <p className="px-5 py-8 text-center text-text-muted text-sm">
-              {`Aucun résultat pour « ${query} »`}
-            </p>
-          )}
-
-          {CATEGORY_ORDER.map((cat) => {
-            const items = grouped[cat]
-            if (!items.length) return null
-
-            return (
-              <div key={cat}>
-                {/* En-tête de groupe */}
-                <div className="px-4 pt-3 pb-1 flex items-center gap-2">
-                  <span className="text-xs">{CATEGORY_ICON[cat]}</span>
-                  <span className="text-xs font-semibold text-text-muted uppercase tracking-wider">
-                    {CATEGORY_LABEL[cat]}
-                  </span>
+        <div className="ch-palette-results">
+          {options.length ? (
+            <div id="ch-search-results" role="listbox" aria-label="Résultats">
+              {modules.length > 0 && (
+                <div role="group" aria-label={query.trim() ? 'Modules' : 'Modules CyberHub'}>
+                  <div className="ch-palette-group-title" aria-hidden="true">
+                    Modules
+                  </div>
+                  {modules.map((item) => renderOption({ kind: 'module', key: `module-${item.id}`, item }))}
                 </div>
-
-                {items.map((r) => {
-                  const idx = globalIdx++
-                  const isActive = idx === activeIdx
-
-                  return (
-                    <button
-                      key={`${r.category}-${r.id}`}
-                      className={`w-full flex items-center gap-3 px-4 py-2.5 text-left transition-colors ${
-                        isActive
-                          ? 'bg-accent/20 text-text-primary'
-                          : 'text-text-secondary hover:bg-accent/10'
-                      }`}
-                      onMouseEnter={() => setActiveIdx(idx)}
-                      onClick={() => handleSelect(r)}
-                    >
-                      <span className="text-base leading-none flex-shrink-0">
-                        {CATEGORY_ICON[r.category]}
-                      </span>
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium truncate">{r.title}</p>
-                        {r.subtitle && (
-                          <p className="text-xs text-text-muted truncate">{r.subtitle}</p>
-                        )}
-                      </div>
-                      {isActive && (
-                        <span className="text-xs text-text-muted flex-shrink-0">↵ {`↵ ouvrir`}</span>
-                      )}
-                    </button>
-                  )
-                })}
-              </div>
-            )
-          })}
+              )}
+              {CATEGORY_ORDER.map((category) => {
+                const items = results.filter((r) => r.category === category)
+                if (!items.length) return null
+                return (
+                  <div key={category} role="group" aria-label={CATEGORY_META[category].label}>
+                    <div className="ch-palette-group-title" aria-hidden="true">
+                      {CATEGORY_META[category].label}
+                    </div>
+                    {items.map((result) => renderOption({ kind: 'content', key: `${result.category}-${result.id}`, result }))}
+                  </div>
+                )
+              })}
+            </div>
+          ) : (
+            <p className="ch-palette-empty">{loading ? 'Recherche…' : `Aucun résultat pour « ${query.trim()} »`}</p>
+          )}
         </div>
 
-        {/* ---- Footer ---- */}
-        {results.length > 0 && (
-          <div className="px-4 py-2 border-t border-border flex items-center gap-4 text-xs text-text-muted">
-            <span><kbd className="border border-border rounded px-1">↑↓</kbd> {`↑↓ naviguer`}</span>
-            <span><kbd className="border border-border rounded px-1">↵</kbd> {`↵ ouvrir`}</span>
-            <span><kbd className="border border-border rounded px-1">Esc</kbd> {`Esc fermer`}</span>
-            <span className="ml-auto">{`${results.length} résultat`}</span>
-          </div>
-        )}
+        <div className="ch-palette-foot">
+          <span>
+            <kbd className="ch-kbd">↑↓</kbd> naviguer
+          </span>
+          <span>
+            <kbd className="ch-kbd">↵</kbd> ouvrir
+          </span>
+          <span>
+            <kbd className="ch-kbd">Échap</kbd> fermer
+          </span>
+          <output aria-live="polite">
+            {query.trim()
+              ? `${modules.length} module${modules.length > 1 ? 's' : ''} · ${loading ? '…' : `${contentCount} contenu${contentCount > 1 ? 's' : ''}`}`
+              : 'Tapez pour chercher dans les modules et contenus'}
+          </output>
+        </div>
       </div>
     </div>
   )

@@ -12,11 +12,13 @@ import type {
   CorrelationAttackLayer,
   CorrelationNote,
 } from '@/types/correlation'
+import { prepareIntelligenceData } from '@/ioc26/intelligenceData'
 
 interface Props {
   result: CorrelationResult | null
   loading: boolean
   error: string | null
+  variant?: 'ioc'
 }
 
 interface SectionProps {
@@ -32,6 +34,8 @@ function Section({ title, icon, count, children, defaultOpen = true }: SectionPr
   return (
     <div className="border border-border rounded-lg overflow-hidden">
       <button
+        type="button"
+        aria-expanded={open}
         onClick={() => setOpen((o) => !o)}
         className="w-full flex items-center gap-3 px-4 py-3 bg-bg-hover hover:bg-bg-hover/80 transition-colors text-left"
       >
@@ -53,21 +57,50 @@ function EmptyHint({ label }: { label: string }) {
   return <p className="text-text-muted text-xs italic">{label}</p>
 }
 
-function ConfidenceBadge({ confidence }: { confidence: number }) {
+function confidenceLabel(confidence: number): string {
   const pct = Math.round(confidence * 100)
-  const color = pct >= 60 ? 'text-red-400 border-red-500/40 bg-red-500/10'
+  return pct >= 60 ? 'Confiance forte' : pct >= 30 ? 'Confiance modérée' : 'Confiance faible'
+}
+
+export function IocCorrelationSummary({ result, compact = false }: { result: CorrelationResult; compact?: boolean }) {
+  const data = prepareIntelligenceData(result)
+  const confidence = result.confidence ?? 0
+  return (
+    <section className={`ioc26-score-summary${compact ? ' is-compact' : ''}`} aria-label="Analyse de corrélation">
+      <div className="ioc26-score-heading"><h3>Analyse de corrélation</h3><Activity size={17} aria-hidden="true" /></div>
+      <div className="ioc26-score-reading">
+        <strong>{Math.round(confidence * 100)}<span>%</span></strong>
+        <span>{confidenceLabel(confidence)}</span>
+      </div>
+      <p className="ioc26-score-explanation">{compact ? 'Liens locaux pondérés · ni niveau de menace ni probabilité de compromission.' : 'Pondération des liens trouvés dans les données locales. Ce score ne mesure ni la menace ni la probabilité de compromission.'}</p>
+      {data.groups.some(group => group.count > 0) && (
+        <dl className="ioc26-score-evidence" aria-label="Correspondances locales">
+          {data.groups.filter(group => group.count > 0).map(group => <div key={group.id}><dt>{group.label}</dt><dd>{group.count}</dd></div>)}
+        </dl>
+      )}
+      {compact ? <details className="ioc26-score-more"><summary>Interprétation et contexte</summary>
+        <p>Pondération des liens trouvés dans les données locales. Ce score ne mesure ni la menace ni la probabilité de compromission.</p>
+        {result.rationale && <p>{result.rationale}</p>}
+      </details> : result.rationale && <p className="ioc26-score-rationale">{result.rationale}</p>}
+    </section>
+  )
+}
+
+function ConfidenceBadge({ confidence, neutral = false }: { confidence: number; neutral?: boolean }) {
+  const pct = Math.round(confidence * 100)
+  const color = neutral ? 'text-cyber-cyan border-cyber-cyan/40 bg-cyber-cyan/10'
+    : pct >= 60 ? 'text-red-400 border-red-500/40 bg-red-500/10'
     : pct >= 30 ? 'text-amber-400 border-amber-500/40 bg-amber-500/10'
     : 'text-slate-400 border-slate-500/40 bg-slate-500/10'
-  const label = pct >= 60 ? 'Confiance forte' : pct >= 30 ? 'Confiance modérée' : 'Confiance faible'
   return (
     <div className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full border text-xs font-semibold ${color}`}>
       <Activity size={12} />
-      {label} — {pct}%
+      {confidenceLabel(confidence)} — {pct}%
     </div>
   )
 }
 
-export default function CorrelationPanel({ result, loading, error }: Props) {
+export default function CorrelationPanel({ result, loading, error, variant }: Props) {
   const navigate = useNavigate()
 
   if (loading) {
@@ -97,11 +130,66 @@ export default function CorrelationPanel({ result, loading, error }: Props) {
   const nextActions: string[] = result.next_actions ?? []
   const confidence = result.confidence ?? 0
   const rationale = result.rationale ?? ''
+  const prepared = prepareIntelligenceData(result)
+  const nextActionsSection = nextActions.length > 0 && (
+    <section className={variant === 'ioc' ? 'ioc26-next-actions' : 'p-4 rounded-lg bg-cyber-cyan/5 border border-cyber-cyan/20'}>
+      <h3 className={variant === 'ioc' ? '' : 'text-xs font-semibold text-cyber-cyan mb-2 flex items-center gap-1.5'}>
+        <ArrowRight size={13} /> Actions recommandées
+      </h3>
+      <ul className="space-y-1">
+        {nextActions.map((action, i) => (
+          <li key={i} className="text-xs text-text-secondary flex items-start gap-1.5">
+            <span className="text-cyber-cyan/60 mt-0.5">›</span>
+            {action}
+          </li>
+        ))}
+      </ul>
+    </section>
+  )
+  const playbookSection = (
+    <Section title="Playbooks suggérés" icon={<BookOpen size={16} />} count={result.playbooks.length}
+      defaultOpen={variant === 'ioc' ? result.playbooks.length > 0 : true}>
+      {result.playbooks.length === 0 ? <EmptyHint label="Aucun playbook suggéré" /> : (
+        <ul className={variant === 'ioc' ? 'ioc26-playbook-list' : 'space-y-1'}>
+          {prepared.playbooks.map(pb => <li key={pb.id}>
+            <button onClick={() => navigate(`/playbooks/${pb.id}`)} className={`text-xs text-text-secondary hover:text-cyber-cyan hover:underline transition-colors text-left${variant === 'ioc' ? ' ioc26-playbook-link' : ''}`}>→ {pb.title}</button>
+          </li>)}
+        </ul>
+      )}
+    </Section>
+  )
+  const cveSection = (
+    <Section title="CVE liées (CVSS ≥ 7.0)" icon={<ShieldAlert size={16} />} count={result.cves.length}
+      defaultOpen={variant === 'ioc' ? result.cves.length > 0 : true}>
+      {result.cves.length === 0 ? <EmptyHint label="Aucune CVE liée trouvée" /> : variant === 'ioc' ? (
+        <ul className="ioc26-cve-list">{prepared.cves.map(cve => <li key={cve.cve_id}>
+          <span className="ioc26-cve-id">{cve.cve_id}</span>
+          <span className="ioc26-cve-score">CVSS {cve.cvss_score.toFixed(1)}</span>
+          <p>{cve.description}</p>
+        </li>)}</ul>
+      ) : (
+        <table className="w-full text-xs">
+          <thead><tr className="border-b border-border">
+            <th className="text-left py-1 px-2 text-text-muted font-medium">CVE</th>
+            <th className="text-left py-1 px-2 text-text-muted font-medium">Description</th>
+            <th className="text-right py-1 px-2 text-text-muted font-medium">CVSS</th>
+          </tr></thead>
+          <tbody>{result.cves.map(cve => <tr key={cve.cve_id} className="border-b border-border/50">
+            <td className={`py-1.5 px-2 font-mono font-semibold ${cve.cvss_score >= 9 ? 'text-red-400' : 'text-orange-400'}`}>{cve.cve_id}</td>
+            <td className="py-1.5 px-2 text-text-muted">{cve.description.length > 80 ? cve.description.slice(0, 80) + '…' : cve.description}</td>
+            <td className="py-1.5 px-2 text-right"><span className={`px-1.5 py-0.5 rounded text-xs font-bold ${cve.cvss_score >= 9 ? 'bg-red-500/20 text-red-400' : 'bg-orange-500/20 text-orange-400'}`}>{cve.cvss_score.toFixed(1)}</span></td>
+          </tr>)}</tbody>
+        </table>
+      )}
+    </Section>
+  )
 
   return (
-    <div className="space-y-3">
+    <div className={variant === 'ioc' ? 'ioc26-correlation-panel' : 'space-y-3'}>
       {/* Header : confiance + rationale */}
-      {rationale && (
+      {variant === 'ioc' ? (
+        <IocCorrelationSummary result={result} />
+      ) : rationale && (
         <div className="p-3 rounded-lg bg-bg-hover border border-border space-y-2">
           <ConfidenceBadge confidence={confidence} />
           <p className="text-xs text-text-secondary leading-relaxed">{rationale}</p>
@@ -116,6 +204,21 @@ export default function CorrelationPanel({ result, loading, error }: Props) {
       >
         {result.techniques.length === 0 ? (
           <EmptyHint label="Aucune technique MITRE associée" />
+        ) : variant === 'ioc' ? (
+          <ul className="ioc26-technique-list">
+            {prepared.techniques.map(t => {
+              const tactics = t.tactics
+              return <li key={t.technique_id}>
+                <button type="button" className="ioc26-technique-link" onClick={() => navigate(`/mitre?id=${t.technique_id}`)} aria-label={`Voir ${t.technique_id} ${t.name} dans MITRE`}>
+                  <span>{t.technique_id}</span><strong>{t.name}</strong>
+                </button>
+                <div className="ioc26-tactics" aria-label="Tactiques MITRE">
+                  {tactics.map((tactic, index) => <span key={`${tactic}-${index}`}>{tactic}</span>)}
+                  {tactics.length === 0 && <span>Sans tactique renseignée</span>}
+                </div>
+              </li>
+            })}
+          </ul>
         ) : (
           <table className="w-full text-xs">
             <thead>
@@ -127,12 +230,8 @@ export default function CorrelationPanel({ result, loading, error }: Props) {
             </thead>
             <tbody>
               {result.techniques.map((t) => (
-                <tr
-                  key={t.technique_id}
-                  className="border-b border-border/50 hover:bg-bg-hover cursor-pointer"
-                  onClick={() => navigate(`/mitre?id=${t.technique_id}`)}
-                >
-                  <td className="py-1.5 px-2 font-mono text-cyber-cyan">{t.technique_id}</td>
+                <tr key={t.technique_id} className="border-b border-border/50 hover:bg-bg-hover cursor-pointer" onClick={() => navigate(`/mitre?id=${t.technique_id}`)}>
+                  <td className="py-1.5 px-2 font-mono text-cyber-cyan"><button type="button" onClick={(event) => { event.stopPropagation(); navigate(`/mitre?id=${t.technique_id}`) }} className="text-left hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-cyber-cyan" aria-label={`Voir la technique ${t.technique_id} dans MITRE`}>{t.technique_id}</button></td>
                   <td className="py-1.5 px-2 text-text-primary">{t.name}</td>
                   <td className="py-1.5 px-2 text-text-muted">{t.tactic}</td>
                 </tr>
@@ -141,6 +240,10 @@ export default function CorrelationPanel({ result, loading, error }: Props) {
           </table>
         )}
       </Section>
+
+      {variant === 'ioc' && playbookSection}
+      {variant === 'ioc' && cveSection}
+      {variant === 'ioc' && nextActionsSection}
 
       {/* Section 2 — ATT&CK Layers */}
       <Section
@@ -204,6 +307,7 @@ export default function CorrelationPanel({ result, loading, error }: Props) {
         title="CLOAK OpSec"
         icon={<EyeOff size={16} />}
         count={result.cloak_tactics.length}
+        defaultOpen={variant === 'ioc' ? result.cloak_tactics.length > 0 : true}
       >
         {result.cloak_tactics.length === 0 ? (
           <EmptyHint label="Aucune tactique CLOAK associée" />
@@ -221,35 +325,14 @@ export default function CorrelationPanel({ result, loading, error }: Props) {
         )}
       </Section>
 
-      {/* Section 5 — Playbooks suggérés */}
-      <Section
-        title="Playbooks suggérés"
-        icon={<BookOpen size={16} />}
-        count={result.playbooks.length}
-      >
-        {result.playbooks.length === 0 ? (
-          <EmptyHint label="Aucun playbook suggéré" />
-        ) : (
-          <ul className="space-y-1">
-            {result.playbooks.map((pb) => (
-              <li key={pb.id}>
-                <button
-                  onClick={() => navigate(`/playbooks/${pb.id}`)}
-                  className="text-xs text-text-secondary hover:text-cyber-cyan hover:underline transition-colors text-left"
-                >
-                  → {pb.title}
-                </button>
-              </li>
-            ))}
-          </ul>
-        )}
-      </Section>
+      {variant !== 'ioc' && playbookSection}
 
       {/* Section 6 — Outils recommandés */}
       <Section
         title="Outils recommandés"
         icon={<Wrench size={16} />}
         count={result.tools.length}
+        defaultOpen={variant === 'ioc' ? result.tools.length > 0 : true}
       >
         {result.tools.length === 0 ? (
           <EmptyHint label="Aucun outil recommandé" />
@@ -268,49 +351,14 @@ export default function CorrelationPanel({ result, loading, error }: Props) {
         )}
       </Section>
 
-      {/* Section 7 — CVE liées */}
-      <Section
-        title="CVE liées (CVSS ≥ 7.0)"
-        icon={<ShieldAlert size={16} />}
-        count={result.cves.length}
-      >
-        {result.cves.length === 0 ? (
-          <EmptyHint label="Aucune CVE liée trouvée" />
-        ) : (
-          <table className="w-full text-xs">
-            <thead>
-              <tr className="border-b border-border">
-                <th className="text-left py-1 px-2 text-text-muted font-medium">CVE</th>
-                <th className="text-left py-1 px-2 text-text-muted font-medium">Description</th>
-                <th className="text-right py-1 px-2 text-text-muted font-medium">CVSS</th>
-              </tr>
-            </thead>
-            <tbody>
-              {result.cves.map((cve) => (
-                <tr key={cve.cve_id} className="border-b border-border/50">
-                  <td className={`py-1.5 px-2 font-mono font-semibold ${cve.cvss_score >= 9 ? 'text-red-400' : 'text-orange-400'}`}>
-                    {cve.cve_id}
-                  </td>
-                  <td className="py-1.5 px-2 text-text-muted">
-                    {cve.description.length > 80 ? cve.description.slice(0, 80) + '…' : cve.description}
-                  </td>
-                  <td className="py-1.5 px-2 text-right">
-                    <span className={`px-1.5 py-0.5 rounded text-xs font-bold ${cve.cvss_score >= 9 ? 'bg-red-500/20 text-red-400' : 'bg-orange-500/20 text-orange-400'}`}>
-                      {cve.cvss_score.toFixed(1)}
-                    </span>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        )}
-      </Section>
+      {variant !== 'ioc' && cveSection}
 
       {/* Section 8 — LOLBins / GTFOBins */}
       <Section
         title="LOLBins / GTFOBins"
         icon={<Terminal size={16} />}
         count={(result.lolbins ?? []).length}
+        defaultOpen={variant === 'ioc' ? (result.lolbins ?? []).length > 0 : true}
       >
         {(result.lolbins ?? []).length === 0 ? (
           <EmptyHint label="Aucun LOLBin correspondant (hash ou domaine uniquement)" />
@@ -364,22 +412,7 @@ export default function CorrelationPanel({ result, loading, error }: Props) {
       </Section>
 
       {/* Section 10 — Actions suivantes */}
-      {nextActions.length > 0 && (
-        <div className="p-4 rounded-lg bg-cyber-cyan/5 border border-cyber-cyan/20">
-          <p className="text-xs font-semibold text-cyber-cyan mb-2 flex items-center gap-1.5">
-            <ArrowRight size={13} />
-            Actions recommandées
-          </p>
-          <ul className="space-y-1">
-            {nextActions.map((action, i) => (
-              <li key={i} className="text-xs text-text-secondary flex items-start gap-1.5">
-                <span className="text-cyber-cyan/60 mt-0.5">›</span>
-                {action}
-              </li>
-            ))}
-          </ul>
-        </div>
-      )}
+      {variant !== 'ioc' && nextActionsSection}
 
       {/* Footer */}
       <div className="text-xs text-text-muted text-right pt-1">

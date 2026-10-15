@@ -1,93 +1,153 @@
-import { NavLink, useNavigate } from 'react-router-dom'
+import { useEffect, useRef, useState } from 'react'
+import type { FocusEvent, MouseEvent } from 'react'
+import { NavLink, useLocation, useNavigate } from 'react-router-dom'
+import { LogOut, PanelLeftOpen, SlidersHorizontal } from 'lucide-react'
 import { useAuthStore } from '@/store/auth'
-import {
-  LayoutDashboard, Wrench, FileText, ShieldAlert, BookOpen, LogOut, Settings,
-  ShieldBan, EyeOff, Network, History, GitBranch, Terminal, StickyNote, ChevronRight, Search, Binary, Zap, Activity, Layers
-} from 'lucide-react'
-import clsx from 'clsx'
+import { NAV_GROUPS, NAV_ITEMS, navItemFor, type NavItem } from '@/shell/navigation'
+import NavigationSections from '@/shell/NavigationSections'
+import type { NavigationPreferences } from '@/shell/navigationPreferences'
 
-export default function Sidebar({ collapsed, bgpAlertCount = 0 }: any) {
+/*
+ * CyberHub 2026 navigation rail, shared by every page. The essential rail
+ * shows chosen shortcuts; the full rail keeps every module and its groups.
+ * Names remain available to assistive technology and in hover/focus tooltips.
+ */
+
+type Tooltip = { text: string; top: number; left: number } | null
+
+export default function Sidebar({
+  bgpAlertCount = 0,
+  drawerOpen,
+  onOpenDrawer,
+  onCustomize,
+  preferences,
+  onToggleGroup,
+}: {
+  bgpAlertCount?: number
+  drawerOpen: boolean
+  onOpenDrawer: (trigger: HTMLElement) => void
+  onCustomize: (trigger: HTMLElement) => void
+  preferences: NavigationPreferences
+  onToggleGroup: (id: string) => void
+}) {
   const logout = useAuthStore((s) => s.logout)
   const navigate = useNavigate()
+  const location = useLocation()
+  const [tooltip, setTooltip] = useState<Tooltip>(null)
+  const railRef = useRef<HTMLElement>(null)
+  const dashboard = NAV_ITEMS.find((item) => item.id === 'dashboard')!
+  const settings = NAV_ITEMS.find((item) => item.id === 'settings')
+  const compactFavorites = preferences.favorites
+    .map((id) => NAV_ITEMS.find((item) => item.id === id))
+    .filter((item): item is NavItem => !!item && item.id !== dashboard.id && item.id !== settings?.id)
+    .slice(0, 5)
+  const activeItem = navItemFor(location.pathname)
+  const temporaryActive = activeItem && activeItem.id !== dashboard.id && activeItem.id !== settings?.id
+    && !compactFavorites.some((item) => item.id === activeItem.id) ? activeItem : null
 
-  const groups = [
-    {
-      section: 'CORE',
-      items: [
-        { to: '/dashboard', label: 'Dashboard', icon: <LayoutDashboard size={18} />, end: true },
-        { to: '/tools', label: 'Outils', icon: <Wrench size={18} /> },
-        { to: '/ctf', label: 'Writeups', icon: <FileText size={18} /> },
-      ],
-    },
-    {
-      section: 'INTEL',
-      items: [
-        { to: '/cve', label: 'CVE & KEV', icon: <ShieldAlert size={18} /> },
-        { to: '/playbooks', label: 'Playbooks', icon: <BookOpen size={18} /> },
-        { to: '/mitre', label: 'MITRE ATT&CK', icon: <Terminal size={18} /> },
-        { to: '/mitre/layers', label: 'Layers ATT&CK', icon: <Layers size={18} /> },
-        { to: '/lolbins', label: 'LOLBins', icon: <Terminal size={18} /> },
-      ],
-    },
-    {
-      section: 'OPS',
-      items: [
-        { to: '/cloak', label: 'CLOAK OpSec', icon: <EyeOff size={18} /> },
-        { to: '/ioc', label: 'IOC Manager', icon: <ShieldBan size={18} /> },
-        { to: '/correlation', label: 'Corrélation', icon: <GitBranch size={18} /> },
-        { to: '/osint', label: 'OSINT Runner', icon: <Search size={18} /> },
-        { to: '/investigations', label: 'Investigations', icon: <Activity size={18} /> },
-      ],
-    },
-    {
-      section: 'MISC',
-      items: [
-        { to: '/notes', label: 'Notes', icon: <StickyNote size={18} /> },
-        { to: '/cheatsheets', label: 'Cheatsheets', icon: <ChevronRight size={18} /> },
-        { to: '/encoder', label: 'Encoder/Decoder', icon: <Binary size={18} /> },
-        { to: '/revshell', label: 'RevShell Gen', icon: <Zap size={18} /> },
-        { to: '/bgp', label: 'BGP Lookup', icon: <Network size={18} />, end: true },
-        { to: '/bgp/historian', label: 'BGP Historian', icon: <History size={18} />, badge: bgpAlertCount },
-        { to: '/settings', label: 'Paramètres', icon: <Settings size={18} /> },
-      ],
-    },
-  ]
+  useEffect(() => {
+    const frame = requestAnimationFrame(() => {
+      const active = [...(railRef.current?.querySelectorAll<HTMLElement>('.ch-rail-compact .ch-rail-item.is-active, .ch-rail-expanded .ch-nav-link.is-active') ?? [])]
+        .find((item) => item.getClientRects().length > 0)
+      active?.scrollIntoView({ block: 'nearest' })
+    })
+    return () => cancelAnimationFrame(frame)
+  }, [location.pathname, preferences.mode, preferences.railContent, preferences.favorites])
+
+  // One tooltip for the whole rail, placed next to the item (fixed position,
+  // so the scrolling rail never clips it).
+  const show = (event: MouseEvent<HTMLElement> | FocusEvent<HTMLElement>) => {
+    const item = (event.target as HTMLElement).closest<HTMLElement>('[data-tooltip]')
+    if (!item) return
+    const rect = item.getBoundingClientRect()
+    setTooltip({ text: item.dataset.tooltip ?? '', top: rect.top + rect.height / 2, left: rect.right + 12 })
+  }
+  const hide = () => setTooltip(null)
+
+  const railLink = (item: NavItem, favorite = false, footer = false) => {
+    const Icon = item.icon
+    const badge = item.id === 'bgp-historian' && bgpAlertCount > 0 ? bgpAlertCount : 0
+    const label = badge ? `${item.title} · ${badge} alerte${badge > 1 ? 's' : ''}` : item.title
+    return (
+      <NavLink key={item.id} to={item.route} end={item.end} aria-label={label}
+        data-tooltip={favorite ? `Favori · ${label}` : label}
+        className={({ isActive }) => `ch-rail-item${isActive ? ' is-active' : ''}${footer ? ' ch-rail-settings' : ''}`}
+        onClick={hide}>
+        <Icon size={20} aria-hidden="true" />
+        {badge > 0 && <span className="ch-rail-badge" aria-hidden="true">{badge > 99 ? '99+' : badge}</span>}
+      </NavLink>
+    )
+  }
 
   return (
-    <aside className={clsx('bg-[#0a0e17] border-r border-[#1e2d40] flex flex-col transition-all duration-300', collapsed ? 'w-20' : 'w-64')}>
-      
-      {/* MENU DE NAVIGATION */}
-      <nav className="flex-1 overflow-y-auto py-3 space-y-3 custom-scrollbar">
-        {groups.map((g) => (
-          <div key={g.section} className="mb-0">
-            {!collapsed && <div className="px-5 mb-1 text-[10px] font-bold text-[#4a6480] tracking-[0.15em]">{g.section}</div>}
-
-            {g.items.map((i) => (
-              <NavLink key={i.to} to={i.to} end={i.end} className={({ isActive }) => clsx(
-                'flex items-center gap-3 py-2 text-xs font-mono transition-colors relative group',
-                collapsed ? 'justify-center mx-4 rounded-md' : 'px-6',
-                isActive ? 'text-[#00d4ff] bg-[#00d4ff]/5' : 'text-[#8a9ab0] hover:text-[#e2e8f0] hover:bg-[#1e2d40]/30'
-              )}>
-                {({ isActive }) => (
-                  <>
-                    {isActive && !collapsed && <div className="absolute left-0 top-0 bottom-0 w-0.5 bg-[#00d4ff] shadow-[0_0_8px_#00d4ff]" />}
-                    <span className={clsx(isActive ? 'text-[#00d4ff]' : 'text-[#64748b] group-hover:text-[#8a9ab0]')}>{i.icon}</span>
-                    {!collapsed && <span className="truncate">{i.label}</span>}
-                    {i.badge ? <span className={clsx("bg-[#ef4444] text-white text-[10px] px-1.5 py-0.5 rounded font-mono", collapsed ? "absolute top-1 right-1" : "ml-auto")}>{i.badge}</span> : null}
-                  </>
-                )}
-              </NavLink>
-            ))}
+    <aside ref={railRef} id="ch-rail" className="ch-rail" aria-label="Navigation principale" onMouseOver={show} onFocus={show} onMouseLeave={hide} onBlur={hide}>
+      <nav className={`ch-rail-nav ch-rail-compact${preferences.railContent === 'essential' ? ' is-essential' : ''}`}
+        aria-label={preferences.railContent === 'essential' ? 'Raccourcis CyberHub' : 'Modules CyberHub'} onScroll={hide}>
+        {preferences.railContent === 'essential' ? (
+          <>
+            <div className="ch-rail-group" role="group" aria-label="Accueil">
+              {railLink(dashboard)}
+            </div>
+            {(compactFavorites.length > 0 || temporaryActive) && (
+              <div className="ch-rail-group" role="group" aria-label="Favoris et module courant">
+                {compactFavorites.map((item) => railLink(item, true))}
+                {temporaryActive && railLink(temporaryActive)}
+              </div>
+            )}
+          </>
+        ) : NAV_GROUPS.map((group) => (
+          <div key={group.id} className="ch-rail-group" role="group" aria-label={`${group.code} · ${group.label}`}>
+            {group.items.map((item) => railLink(item))}
           </div>
         ))}
       </nav>
 
-      {/* FOOTER DECONNEXION */}
-      <div className="p-3 border-t border-[#1e2d40]">
-        <button onClick={() => { logout(); navigate('/login') }} className={clsx("flex items-center gap-3 text-[#ef4444] hover:bg-[#ef4444]/10 w-full rounded transition-colors text-sm font-medium", collapsed ? 'justify-center p-2' : 'px-3 py-2')}>
-          <LogOut size={18} /> {!collapsed && <span>Déconnexion</span>}
+      <div className="ch-rail-expanded">
+        <div className="ch-rail-expanded-head"><span>NAVIGATION</span><strong>CyberHub / 2026</strong></div>
+        <NavigationSections idPrefix="ch-expanded" preferences={preferences} onToggleGroup={onToggleGroup} bgpAlertCount={bgpAlertCount} />
+      </div>
+
+      <div className="ch-rail-foot">
+        <button
+          type="button"
+          className="ch-rail-item"
+          aria-label="Tous les modules"
+          data-tooltip="Tous les modules"
+          aria-haspopup="dialog"
+          aria-expanded={drawerOpen}
+          aria-controls="ch-drawer"
+          onClick={(event) => {
+            hide()
+            onOpenDrawer(event.currentTarget)
+          }}
+        >
+          <PanelLeftOpen size={20} aria-hidden="true" /><span className="ch-rail-item-label">Tous les modules</span>
+        </button>
+        <button type="button" className="ch-rail-item ch-rail-customize" aria-label="Personnaliser la navigation"
+          data-tooltip="Personnaliser la navigation"
+          onClick={(event) => { hide(); onCustomize(event.currentTarget) }}>
+          <SlidersHorizontal size={19} aria-hidden="true" /><span className="ch-rail-item-label">Personnaliser</span>
+        </button>
+        {preferences.railContent === 'essential' && settings && railLink(settings, false, true)}
+        <button
+          type="button"
+          className="ch-rail-item is-danger"
+          aria-label="Déconnexion"
+          data-tooltip="Déconnexion"
+          onClick={() => {
+            logout()
+            navigate('/login')
+          }}
+        >
+          <LogOut size={20} aria-hidden="true" /><span className="ch-rail-item-label">Déconnexion</span>
         </button>
       </div>
+
+      {tooltip && (
+        <span className="ch-tooltip" aria-hidden="true" style={{ top: tooltip.top, left: tooltip.left }}>
+          {tooltip.text}
+        </span>
+      )}
     </aside>
   )
 }

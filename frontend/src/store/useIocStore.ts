@@ -13,6 +13,7 @@ interface IocState {
   filter: IOCFilter
 
   setFilter: (f: Partial<IOCFilter>) => void
+  setPage: (page: number) => void
   fetchIocs: () => Promise<void>
   fetchStats: () => Promise<void>
   createIoc: (data: IOCCreatePayload) => Promise<IOC>
@@ -33,6 +34,10 @@ export const useIocStore = create<IocState>((set, get) => ({
 
   setFilter: (f) => {
     set((s) => ({ filter: { ...s.filter, ...f }, page: 1 }))
+    get().fetchIocs()
+  },
+  setPage: (page) => {
+    set({ page })
     get().fetchIocs()
   },
 

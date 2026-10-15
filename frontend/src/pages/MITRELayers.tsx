@@ -1,11 +1,13 @@
 import { useState, useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
+import MitreCircuit from '@/mitre/MitreCircuit'
+import { MitreDisplaySettings, useMitrePreferences } from '@/mitre/MitrePreferences'
 import { attackLayerApi } from '@/api/client'
 import type { AttackLayer, AttackLayerCreatePayload } from '@/types/attackLayer'
 import { toast } from '@/store/toast'
-import { Layers, Plus, Upload, Trash2, ChevronRight, X, Download } from 'lucide-react'
-
-const inputCls = 'w-full bg-[#0d131f] border border-[#1e2d40] rounded px-3 py-2 font-mono text-sm text-[#f1f5f9] placeholder-[#334155] focus:outline-none focus:border-[#00d4ff]/60'
+import { Plus, Upload, Trash2, ChevronRight, Download, Loader2, AlertTriangle } from 'lucide-react'
+import { LayersGlyph } from '@/dashboard2026/CyberGlyphs'
+import { Dialog, MitreHeader, StateBlock } from '@/mitre/MitreUi'
 
 function layerTechCount(layerData: string): number {
   try {
@@ -43,54 +45,58 @@ function CreateModal({ onClose, onCreated }: CreateModalProps) {
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
-      <div className="bg-[#0a0f16] border border-[#1e2d40] p-6 w-full max-w-md">
-        <div className="flex items-center justify-between mb-5">
-          <h2 className="text-sm font-mono font-bold uppercase tracking-wider text-[#f1f5f9]">NOUVEAU LAYER</h2>
-          <button onClick={onClose} className="p-1 rounded hover:bg-[#1e2d40] text-[#64748b] hover:text-[#f1f5f9] transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-[#00d4ff]" aria-label="Fermer"><X size={16} /></button>
+    <Dialog title="Nouveau layer ATT&CK" onClose={onClose}>
+      <form id="mx-create" onSubmit={handleSubmit} style={{ display: 'grid', gap: 14 }}>
+        <div className="mx-field">
+          <label htmlFor="mx-layer-name" className="mx-label">Nom *</label>
+          <input id="mx-layer-name" value={name} onChange={e => setName(e.target.value)} placeholder="ex. APT29 — Investigation Q1" className="mx-input" autoFocus required />
         </div>
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div>
-            <label className="text-[10px] font-mono text-[#4a6480] uppercase tracking-wider block mb-1">NOM *</label>
-            <input value={name} onChange={e => setName(e.target.value)} placeholder="ex: APT29 — Investigation Q1" className={inputCls} autoFocus />
-          </div>
-          <div>
-            <label className="text-[10px] font-mono text-[#4a6480] uppercase tracking-wider block mb-1">DESCRIPTION</label>
-            <textarea value={description} onChange={e => setDescription(e.target.value)} rows={2} placeholder="Contexte, objectif…" className={inputCls + ' resize-none'} />
-          </div>
-          <div className="flex gap-3 justify-end pt-1">
-            <button type="button" onClick={onClose} className="px-4 py-2 text-xs font-mono border border-[#1e2d40] text-[#64748b] hover:text-[#f1f5f9] transition-colors">ANNULER</button>
-            <button type="submit" disabled={saving} className="px-4 py-2 text-xs font-mono font-bold bg-[#00d4ff] text-[#06080f] rounded hover:bg-[#00d4ff]/80 disabled:opacity-50 transition-colors">
-              {saving ? 'CRÉATION...' : 'CRÉER'}
-            </button>
-          </div>
-        </form>
-      </div>
-    </div>
+        <div className="mx-field">
+          <label htmlFor="mx-layer-desc" className="mx-label">Description</label>
+          <textarea id="mx-layer-desc" value={description} onChange={e => setDescription(e.target.value)} rows={3} placeholder="Contexte, objectif…" className="mx-input" style={{ resize: 'vertical' }} />
+        </div>
+        <div className="mx-dialog-foot" style={{ padding: 0 }}>
+          <button type="button" onClick={onClose} className="mx-btn">Annuler</button>
+          <button type="submit" disabled={saving} className="mx-btn is-primary">
+            {saving ? <><Loader2 size={14} className="mx-spin" />Création…</> : <><Plus size={14} />Créer le layer</>}
+          </button>
+        </div>
+      </form>
+    </Dialog>
   )
 }
 
 export default function MITRELayers() {
+  const [display, setDisplay] = useMitrePreferences()
   const navigate = useNavigate()
   const [layers, setLayers] = useState<AttackLayer[]>([])
   const [loading, setLoading] = useState(true)
+  const [failed, setFailed] = useState(false)
   const [showCreate, setShowCreate] = useState(false)
   const [importing, setImporting] = useState(false)
+  const [pendingDelete, setPendingDelete] = useState<AttackLayer | null>(null)
   const fileRef = useRef<HTMLInputElement>(null)
 
   const load = () => {
     setLoading(true)
+    setFailed(false)
     attackLayerApi.list()
       .then(r => setLayers(r.items))
-      .catch(() => toast.error('Erreur lors du chargement'))
+      .catch(() => { setFailed(true); toast.error('Erreur lors du chargement') })
       .finally(() => setLoading(false))
   }
 
   useEffect(() => { load() }, [])
 
-  const handleDelete = async (layer: AttackLayer, e: React.MouseEvent) => {
+  const handleDelete = (layer: AttackLayer, e: React.MouseEvent) => {
     e.stopPropagation()
-    if (!confirm(`Supprimer le layer "${layer.name}" ?`)) return
+    setPendingDelete(layer)
+  }
+
+  const confirmDelete = async () => {
+    const layer = pendingDelete
+    if (!layer) return
+    setPendingDelete(null)
     try {
       await attackLayerApi.delete(layer.id)
       toast.success('Layer supprimé')
@@ -105,10 +111,11 @@ export default function MITRELayers() {
     const url = attackLayerApi.exportUrl(layer.id)
     const token = localStorage.getItem('cyber_hub_token') ?? ''
     const a = document.createElement('a')
-    a.href = url + (url.includes('?') ? '&' : '?') + `token=${encodeURIComponent(token)}`
-    // Use fetch with auth header instead
     fetch(url, { headers: { Authorization: `Bearer ${token}` } })
-      .then(res => res.blob())
+      .then(res => {
+        if (!res.ok) throw new Error(`Export HTTP ${res.status}`)
+        return res.blob()
+      })
       .then(blob => {
         const blobUrl = URL.createObjectURL(blob)
         a.href = blobUrl
@@ -116,7 +123,7 @@ export default function MITRELayers() {
         a.click()
         URL.revokeObjectURL(blobUrl)
       })
-      .catch(() => toast.error('Erreur lors de l\'export'))
+      .catch(() => toast.error('Export du layer impossible. Réessayez.'))
   }
 
   const handleImportFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -138,96 +145,97 @@ export default function MITRELayers() {
     }
   }
 
-  return (
-    <div className="flex flex-col h-full bg-[#06080f] text-[#f1f5f9]">
-      <div className="flex items-center justify-between px-6 py-4 border-b border-[#1e2d40] bg-[#0a0f16]/50">
-        <div className="flex items-center gap-3">
-          <Layers className="text-[#00d4ff]" size={20} />
-          <div>
-            <h1 className="text-sm font-bold tracking-[0.2em] uppercase">MITRE ATT&CK // LAYERS</h1>
-            <p className="text-[10px] text-[#64748b] font-mono">{layers.length} layer{layers.length > 1 ? 's' : ''} stocké{layers.length > 1 ? 's' : ''}</p>
-          </div>
-        </div>
-        <div className="flex items-center gap-2">
-          <input ref={fileRef} type="file" accept=".json" onChange={handleImportFile} className="hidden" />
-          <button
-            onClick={() => fileRef.current?.click()}
-            disabled={importing}
-            className="flex items-center gap-2 px-3 py-1.5 text-[10px] font-mono font-bold border border-[#334155] bg-[#1e2d40] hover:bg-[#2a3f55] disabled:opacity-50 transition-colors"
-          >
-            <Upload size={11} /> {importing ? 'IMPORT...' : 'IMPORTER JSON'}
-          </button>
-          <button
-            onClick={() => setShowCreate(true)}
-            className="flex items-center gap-2 px-3 py-1.5 bg-[#1e2d40] hover:bg-[#2a3f55] text-[10px] font-bold border border-[#334155] transition-colors font-mono"
-          >
-            <Plus size={12} /> NOUVEAU LAYER
-          </button>
-        </div>
-      </div>
+  const totalTechniques = layers.reduce((sum, l) => sum + layerTechCount(l.layer_data), 0)
+  const largest = Math.max(1, ...layers.map(l => layerTechCount(l.layer_data)))
 
-      <div className="flex-1 overflow-auto p-6">
+  return (
+    <div className="mx" data-layout={display.layout}>
+      {display.circuit && <MitreCircuit />}
+      <MitreHeader
+        breadcrumb="Intel / ATT&CK Navigator"
+        title="Layers"
+        accent="ATT&CK"
+        subtitle="Calques de couverture ATT&CK, exportables au format Navigator."
+        status={loading ? { text: 'CHARGEMENT…', tone: 'busy' }
+          : failed ? { text: 'INDISPONIBLE', tone: 'warn' }
+          : { text: 'LAYERS LOCAUX', mark: `${layers.length} LAYER${layers.length > 1 ? 'S' : ''}` }}
+        actions={
+          <>
+            <input ref={fileRef} type="file" accept=".json" onChange={handleImportFile} hidden aria-hidden="true" tabIndex={-1} />
+            <button type="button" onClick={() => fileRef.current?.click()} disabled={importing} className="mx-btn">
+              {importing ? <Loader2 size={14} className="mx-spin" /> : <Upload size={14} aria-hidden="true" />}
+              {importing ? 'Import…' : 'Importer un JSON'}
+            </button>
+            <button type="button" onClick={() => setShowCreate(true)} className="mx-btn is-primary">
+              <Plus size={14} aria-hidden="true" />Nouveau layer
+            </button>
+          </>
+        }
+        stats={loading ? [] : [
+          { label: 'Layers', value: layers.length, cyan: true },
+          { label: 'Techniques référencées', value: totalTechniques.toLocaleString('fr-FR') },
+        ]}
+      />
+
+      <div className="mx-view-toolbar"><MitreDisplaySettings preferences={display} onChange={setDisplay} /></div>
+
+      <div className="mx-scroll" style={{ padding: '20px 24px 28px' }}>
         {loading ? (
-          <div className="text-center py-12 text-[#64748b] font-mono text-sm">CHARGEMENT...</div>
+          <StateBlock live icon={<Loader2 size={22} className="mx-spin" />} title="Chargement des layers…" />
+        ) : failed ? (
+          <StateBlock warn icon={<AlertTriangle size={22} />} title="Layers indisponibles"
+            actions={<button type="button" onClick={load} className="mx-btn is-primary">Réessayer</button>}>
+            La liste des layers n’a pas pu être chargée.
+          </StateBlock>
         ) : layers.length === 0 ? (
-          <div className="flex flex-col items-center justify-center border border-[#1e2d40] bg-[#0a0f16] py-24 text-center">
-            <Layers size={40} className="mb-4 text-[#1e2d40]" />
-            <p className="font-mono text-sm uppercase tracking-widest text-[#64748b]">AUCUN LAYER ATT&CK</p>
-            <p className="text-[10px] font-mono text-[#4a6480] mt-2">Créez un layer vide ou importez un JSON Navigator existant.</p>
-            <div className="flex gap-3 mt-4">
-              <button onClick={() => fileRef.current?.click()} className="font-mono text-xs text-[#00d4ff] hover:underline flex items-center gap-1">
-                <Upload size={11} /> IMPORTER JSON
-              </button>
-              <span className="text-[#4a6480]">·</span>
-              <button onClick={() => setShowCreate(true)} className="font-mono text-xs text-[#00d4ff] hover:underline">
-                CRÉER UN LAYER
-              </button>
-            </div>
-          </div>
+          <StateBlock icon={<LayersGlyph size={22} />} title="Aucun layer ATT&CK"
+            actions={
+              <>
+                <button type="button" onClick={() => fileRef.current?.click()} className="mx-btn"><Upload size={14} />Importer un JSON</button>
+                <button type="button" onClick={() => setShowCreate(true)} className="mx-btn is-primary"><Plus size={14} />Créer un layer</button>
+              </>
+            }>
+            Créez un layer vide ou importez un JSON ATT&CK Navigator existant.
+          </StateBlock>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+          <ul className="mx-layer-grid" style={{ margin: 0, padding: 0, listStyle: 'none' }}>
             {layers.map(layer => {
               const count = layerTechCount(layer.layer_data)
               return (
-                <div
-                  key={layer.id}
-                  onClick={() => navigate(`/mitre/layers/${layer.id}`)}
-                  className="border border-[#1e2d40] bg-[#0a0f16] p-4 cursor-pointer hover:border-[#00d4ff]/30 hover:bg-[#0d131f] transition-all group"
-                >
-                  <div className="flex items-start justify-between gap-2 mb-2">
-                    <div className="flex items-center gap-2 min-w-0">
-                      <Layers size={14} className="text-[#00d4ff] shrink-0" />
-                      <h3 className="text-sm font-mono font-bold text-[#f1f5f9] truncate">{layer.name}</h3>
-                    </div>
-                    <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
-                      <button onClick={e => handleExport(layer, e)} className="p-1.5 rounded hover:bg-[#00d4ff]/10 text-[#64748b] hover:text-[#00d4ff] transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-[#00d4ff]" title="Exporter" aria-label="Télécharger">
-                        <Download size={12} />
+                <li key={layer.id} className="mx-layer">
+                  <div className="mx-layer-top">
+                    <span className="mx-layer-icon" aria-hidden="true"><LayersGlyph size={19} /></span>
+                    <div style={{ minWidth: 0, flex: 1 }}>
+                      <button type="button" className="mx-layer-open" onClick={() => navigate(`/mitre/layers/${layer.id}`)}>
+                        {layer.name}
                       </button>
-                      <button onClick={e => handleDelete(layer, e)} className="p-1.5 rounded hover:bg-red-500/10 text-[#64748b] hover:text-red-400 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-[#00d4ff]" title="Supprimer" aria-label="Supprimer">
-                        <Trash2 size={12} />
+                      <span className="mx-row" style={{ marginTop: 7 }}>
+                        <span className="mx-tag">{layer.domain}</span>
+                        {layer.version && <span className="mx-tag">v{layer.version}</span>}
+                      </span>
+                    </div>
+                    <div className="mx-layer-actions">
+                      <button type="button" onClick={e => handleExport(layer, e)} className="mx-icon-btn" title="Exporter" aria-label={`Exporter le layer ${layer.name}`}>
+                        <Download size={15} />
+                      </button>
+                      <button type="button" onClick={e => handleDelete(layer, e)} className="mx-icon-btn is-danger" title="Supprimer" aria-label={`Supprimer le layer ${layer.name}`}>
+                        <Trash2 size={15} />
                       </button>
                     </div>
                   </div>
-                  {layer.description && (
-                    <p className="text-[11px] font-mono text-[#64748b] mb-3 line-clamp-2">{layer.description}</p>
-                  )}
-                  <div className="flex items-center justify-between mt-auto">
-                    <div className="flex items-center gap-2">
-                      <span className="text-[10px] font-mono text-[#00d4ff] font-bold">{count}</span>
-                      <span className="text-[10px] font-mono text-[#4a6480]">technique{count > 1 ? 's' : ''}</span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <span className="text-[9px] font-mono text-[#334155] border border-[#1e2d40] px-1.5 py-0.5">{layer.domain}</span>
-                      <ChevronRight size={12} className="text-[#334155] group-hover:text-[#00d4ff] transition-colors" />
-                    </div>
+                  {layer.description && <p className="mx-layer-desc">{layer.description}</p>}
+                  <div className="mx-meter" aria-hidden="true"><i style={{ width: `${Math.max(count ? 6 : 0, (count / largest) * 100)}%` }} /></div>
+                  <div className="mx-layer-foot">
+                    <span className="mx-layer-count"><b>{count}</b>technique{count > 1 ? 's' : ''}</span>
+                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                      Mis à jour le {new Date(layer.updated_at).toLocaleDateString('fr-FR')}
+                      <ChevronRight size={14} aria-hidden="true" />
+                    </span>
                   </div>
-                  <p className="text-[9px] font-mono text-[#334155] mt-2">
-                    {new Date(layer.updated_at).toLocaleDateString('fr-FR')}
-                  </p>
-                </div>
+                </li>
               )
             })}
-          </div>
+          </ul>
         )}
       </div>
 
@@ -236,6 +244,18 @@ export default function MITRELayers() {
           onClose={() => setShowCreate(false)}
           onCreated={layer => { setShowCreate(false); setLayers(prev => [layer, ...prev]) }}
         />
+      )}
+
+      {pendingDelete && (
+        <Dialog title="Supprimer le layer" onClose={() => setPendingDelete(null)}
+          footer={
+            <>
+              <button type="button" className="mx-btn" onClick={() => setPendingDelete(null)}>Annuler</button>
+              <button type="button" className="mx-btn is-danger" onClick={confirmDelete}><Trash2 size={14} />Supprimer</button>
+            </>
+          }>
+          <p>Supprimer le layer « {pendingDelete.name} » ? Cette action est définitive.</p>
+        </Dialog>
       )}
     </div>
   )

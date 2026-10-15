@@ -1,6 +1,8 @@
 import { useRef, useState, useCallback } from 'react'
-import { X, Upload, FileText, CheckCircle, AlertTriangle } from 'lucide-react'
+import { createPortal } from 'react-dom'
+import { Upload, FileText, CheckCircle, AlertTriangle } from 'lucide-react'
 import { iocApi } from '@/api/client'
+import { Dialog } from '@/mitre/MitreUi'
 import type { IOCTLP, IOCStatus } from '@/types/ioc'
 import type { ImportResult } from '@/types/threat_intel'
 
@@ -46,8 +48,6 @@ export default function ImportIOCModal({ open, onClose, onImported }: Props) {
   const [result, setResult] = useState<ImportResult | null>(null)
   const [dragging, setDragging] = useState(false)
 
-  const inputCls = 'bg-bg-secondary border border-border rounded px-3 py-2 text-sm text-text-primary focus:outline-none focus:border-cyber-cyan'
-
   const processFile = useCallback((f: File) => {
     setFile(f)
     setResult(null)
@@ -79,7 +79,7 @@ export default function ImportIOCModal({ open, onClose, onImported }: Props) {
   }
 
   const handleImport = async () => {
-    if (!file) return
+    if (!file || importing) return
     setImporting(true)
     try {
       const res = await iocApi.importCSV(file, tlp, status)
@@ -103,33 +103,23 @@ export default function ImportIOCModal({ open, onClose, onImported }: Props) {
 
   if (!open) return null
 
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
-      <div className="bg-bg-secondary border border-border rounded-xl p-6 w-full max-w-lg shadow-2xl space-y-5">
-        {/* Header */}
-        <div className="flex items-center justify-between">
-          <h2 className="text-lg font-bold text-text-primary flex items-center gap-2">
-            <Upload size={18} className="text-cyber-cyan" />
-            Import IOC — CSV / TXT
-          </h2>
-          <button onClick={handleClose} className="p-1 rounded hover:bg-bg-primary text-text-muted hover:text-text-primary transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-[#00d4ff]" aria-label="Fermer">
-            <X size={18} />
-          </button>
-        </div>
+  return createPortal(
+    <div className="ioc26-import-dialog">
+    <Dialog title="Importer des IOC — CSV / TXT" onClose={handleClose}>
+      <div className="ioc26-import-content">
+        <p className="ioc26-dialog-description">Importer des indicateurs depuis un fichier CSV ou TXT. Les options ci-dessous s’appliquent aux lignes importées.</p>
 
         {/* Drop zone */}
-        <div
-          className={`border-2 border-dashed rounded-xl p-6 text-center cursor-pointer transition-colors ${
+        <label className={`ioc26-import-drop border-2 border-dashed rounded-xl p-6 text-center cursor-pointer transition-colors ${
             dragging ? 'border-cyber-cyan bg-cyber-cyan/5' : 'border-border hover:border-cyber-cyan/50'
           }`}
           onDragOver={(e) => { e.preventDefault(); setDragging(true) }}
           onDragLeave={() => setDragging(false)}
           onDrop={handleDrop}
-          onClick={() => fileInputRef.current?.click()}
         >
-          <input ref={fileInputRef} type="file" accept=".csv,.txt" className="hidden" onChange={handleFileChange} />
+          <input ref={fileInputRef} type="file" accept=".csv,.txt" className="ioc26-file-input" onChange={handleFileChange} aria-label="Choisir un fichier CSV ou TXT" />
           {file ? (
-            <div className="flex items-center justify-center gap-2 text-cyber-cyan">
+            <div className="ioc26-import-file flex items-center justify-center gap-2 text-cyber-cyan">
               <FileText size={20} />
               <span className="font-medium text-sm">{file.name}</span>
               <span className="text-text-muted text-xs">({lineCount} lignes)</span>
@@ -138,10 +128,10 @@ export default function ImportIOCModal({ open, onClose, onImported }: Props) {
             <div className="text-text-muted space-y-1">
               <Upload size={28} className="mx-auto opacity-40" />
               <p className="text-sm">Glisser un fichier ici ou <span className="text-cyber-cyan">parcourir</span></p>
-              <p className="text-xs opacity-60">Formats acceptés : .csv, .txt · Max 10 000 IOCs</p>
+              <p className="ioc26-import-format">Formats acceptés : CSV et TXT · Max 10 000 IOC</p>
             </div>
           )}
-        </div>
+        </label>
 
         {/* Aperçu */}
         {preview.length > 0 && (
@@ -174,16 +164,16 @@ export default function ImportIOCModal({ open, onClose, onImported }: Props) {
 
         {/* Options */}
         {file && !result && (
-          <div className="flex gap-3">
-            <div className="flex-1">
-              <label className="text-xs text-text-muted block mb-1">TLP par défaut</label>
-              <select value={tlp} onChange={e => setTlp(e.target.value as IOCTLP)} className={inputCls + ' w-full'}>
+          <div className="ioc26-form-grid">
+            <div className="ioc26-field">
+              <label htmlFor="ioc-import-tlp">TLP par défaut</label>
+              <select id="ioc-import-tlp" value={tlp} onChange={e => setTlp(e.target.value as IOCTLP)}>
                 {TLP_OPTIONS.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
               </select>
             </div>
-            <div className="flex-1">
-              <label className="text-xs text-text-muted block mb-1">Statut par défaut</label>
-              <select value={status} onChange={e => setStatus(e.target.value as IOCStatus)} className={inputCls + ' w-full'}>
+            <div className="ioc26-field">
+              <label htmlFor="ioc-import-status">Statut par défaut</label>
+              <select id="ioc-import-status" value={status} onChange={e => setStatus(e.target.value as IOCStatus)}>
                 {STATUS_OPTIONS.map(s => <option key={s.value} value={s.value}>{s.label}</option>)}
               </select>
             </div>
@@ -192,7 +182,7 @@ export default function ImportIOCModal({ open, onClose, onImported }: Props) {
 
         {/* Résultat */}
         {result && (
-          <div className={`rounded-lg p-4 border space-y-2 ${
+          <div role={result.imported > 0 ? 'status' : 'alert'} className={`rounded-lg p-4 border space-y-2 ${
             result.imported > 0 ? 'bg-green-900/10 border-green-500/30' : 'bg-red-900/10 border-red-500/30'
           }`}>
             <div className="flex items-center gap-2 text-sm font-medium">
@@ -213,22 +203,23 @@ export default function ImportIOCModal({ open, onClose, onImported }: Props) {
         )}
 
         {/* Actions */}
-        <div className="flex gap-3 justify-end pt-1">
-          <button onClick={handleClose} className="px-4 py-2 text-sm text-text-muted hover:text-text-primary border border-border rounded transition-colors">
+        <div className="ioc26-dialog-actions">
+          <button type="button" onClick={handleClose} className="ioc26-btn">
             {result ? 'Fermer' : 'Annuler'}
           </button>
           {!result && file && (
             <button
               onClick={handleImport}
               disabled={importing}
-              className="px-4 py-2 text-sm bg-cyber-cyan text-bg-primary font-semibold rounded hover:bg-cyber-cyan/80 disabled:opacity-50 transition-colors flex items-center gap-2"
+              className="ioc26-btn is-primary"
             >
-              {importing && <div className="w-3 h-3 border-2 border-bg-primary/40 border-t-bg-primary rounded-full animate-spin" />}
-              {importing ? 'Import en cours…' : `Importer ${lineCount} lignes`}
+              {importing && <div className="w-3 h-3 border-2 border-bg-primary/40 border-t-bg-primary rounded-full animate-spin" aria-hidden="true" />}
+              {importing ? 'Import en cours…' : `Importer ${lineCount} ligne${lineCount > 1 ? 's' : ''}`}
             </button>
           )}
         </div>
       </div>
-    </div>
+    </Dialog>
+    </div>, document.body
   )
 }

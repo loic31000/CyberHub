@@ -1,37 +1,24 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
+import MitreCircuit from '@/mitre/MitreCircuit'
+import { MitreDisplaySettings, useMitrePreferences } from '@/mitre/MitrePreferences'
 import { attackLayerApi, mitreApi } from '@/api/client'
 import type { AttackLayer, LayerEntry } from '@/types/attackLayer'
 import type { MITRETechnique, MITRETactic } from '@/types'
 import { toast } from '@/store/toast'
 import {
-  ArrowLeft, Layers, Download, Search, X, Plus, Minus,
-  Save, Edit, CheckSquare,
+  ArrowLeft, Download, Search, X, Plus, Minus,
+  Save, Edit, CheckSquare, Check, Loader2, AlertTriangle, PanelLeftOpen, PanelLeftClose,
 } from 'lucide-react'
-
-const inputCls = 'w-full bg-[#0d131f] border border-[#1e2d40] rounded px-3 py-2 font-mono text-sm text-[#f1f5f9] placeholder-[#334155] focus:outline-none focus:border-[#00d4ff]/60'
-
-function parseArr(raw?: string): string[] {
-  if (!raw) return []
-  try { const p = JSON.parse(raw); return Array.isArray(p) ? p : [] } catch { return [] }
-}
+import { LayersGlyph } from '@/dashboard2026/CyberGlyphs'
+import { MitreHeader, SkeletonGrid, StateBlock, onTacticKeys, parseArr, tacticTone } from '@/mitre/MitreUi'
 
 function parseLayerData(raw: string): LayerEntry[] {
   try { const p = JSON.parse(raw); return Array.isArray(p) ? p : [] } catch { return [] }
 }
 
-const TACTIC_TEXT: Record<string, string> = {
-  'reconnaissance': 'text-[#a855f7]', 'resource-development': 'text-[#c084fc]',
-  'initial-access': 'text-[#ef4444]', 'execution': 'text-[#f97316]',
-  'persistence': 'text-[#eab308]', 'privilege-escalation': 'text-[#f59e0b]',
-  'defense-evasion': 'text-[#84cc16]', 'credential-access': 'text-[#10b981]',
-  'discovery': 'text-[#14b8a6]', 'lateral-movement': 'text-[#06b6d4]',
-  'collection': 'text-[#00d4ff]', 'command-and-control': 'text-[#0ea5e9]',
-  'exfiltration': 'text-[#3b82f6]', 'impact': 'text-[#ec4899]',
-}
-const tacticText = (s: string) => TACTIC_TEXT[s] ?? 'text-[#00d4ff]'
-
 export default function MITRELayerDetail() {
+  const [display, setDisplay] = useMitrePreferences()
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
   const layerId = Number(id)
@@ -97,6 +84,7 @@ export default function MITRELayerDetail() {
     finally { setTechLoading(false) }
   }, [debouncedQ, activeTactic])
 
+  // Refetches whenever the tab, the search or the tactic changes.
   useEffect(() => {
     if (tab === 'browse') fetchTechniques(1)
   }, [tab, fetchTechniques])
@@ -179,237 +167,208 @@ export default function MITRELayerDetail() {
   const totalPages = Math.ceil(techTotal / TECH_LIMIT)
 
   if (loading) return (
-    <div className="flex h-full items-center justify-center bg-[#06080f] text-[#64748b] font-mono text-sm">CHARGEMENT...</div>
+    <div className="mx">
+      <StateBlock page live icon={<Loader2 size={22} className="mx-spin" />} title="Chargement du layer…" />
+    </div>
   )
   if (!layer) return (
-    <div className="flex h-full items-center justify-center bg-[#06080f] text-[#64748b] font-mono text-sm">LAYER INTROUVABLE</div>
+    <div className="mx">
+      <StateBlock page warn icon={<AlertTriangle size={22} />} title="Layer introuvable"
+        actions={<button type="button" className="mx-btn is-primary" onClick={() => navigate('/mitre/layers')}><ArrowLeft size={14} />Retour aux layers</button>}>
+        Ce layer n’existe pas ou n’a pas pu être chargé.
+      </StateBlock>
+    </div>
+  )
+
+  const saveButton = (
+    <button type="button" onClick={handleSave} disabled={saving} className="mx-btn is-save">
+      {saving ? <Loader2 size={14} className="mx-spin" /> : <Save size={14} aria-hidden="true" />}
+      {saving ? 'Sauvegarde…' : 'Sauvegarder'}
+    </button>
   )
 
   return (
-    <div className="flex flex-col h-full bg-[#06080f] text-[#f1f5f9]">
-      {/* Header */}
-      <div className="flex items-center justify-between px-6 py-4 border-b border-[#1e2d40] bg-[#0a0f16]/50 flex-shrink-0">
-        <div className="flex items-center gap-3 min-w-0">
-          <button onClick={() => navigate('/mitre/layers')} className="p-1.5 rounded hover:bg-[#1e2d40] text-[#64748b] hover:text-[#f1f5f9] transition-colors">
-            <ArrowLeft size={16} />
-          </button>
-          <Layers className="text-[#00d4ff] shrink-0" size={18} />
-          <div className="min-w-0">
-            <h1 className="text-sm font-bold tracking-[0.15em] uppercase font-mono truncate">{layer.name}</h1>
-            <p className="text-[10px] text-[#64748b] font-mono">
-              {entries.length} technique{entries.length > 1 ? 's' : ''} · {layer.domain}
-            </p>
-          </div>
-        </div>
-        <div className="flex items-center gap-2 shrink-0">
-          <button onClick={() => setEditing(v => !v)} className="flex items-center gap-1.5 px-3 py-1.5 text-[10px] font-mono border border-[#1e2d40] text-[#64748b] hover:text-[#f1f5f9] transition-colors">
-            <Edit size={11} /> MÉTADONNÉES
-          </button>
-          {dirty && (
-            <button onClick={handleSave} disabled={saving} className="flex items-center gap-1.5 px-3 py-1.5 text-[10px] font-mono font-bold bg-[#10b981] text-[#06080f] rounded hover:bg-[#10b981]/80 disabled:opacity-50 transition-colors">
-              <Save size={11} /> {saving ? 'SAUVEGARDE...' : 'SAUVEGARDER'}
+    <div className="mx" data-layout={display.layout}>
+      {display.circuit && <MitreCircuit />}
+      <MitreHeader
+        breadcrumb="Intel / Layers ATT&CK"
+        title={layer.name}
+        compactTitle
+        subtitle={layer.description || 'Layer ATT&CK local.'}
+        status={dirty ? { text: 'NON SAUVEGARDÉ', tone: 'warn', mark: `${entries.length} TECH.` }
+          : { text: 'SAUVEGARDÉ', mark: `${entries.length} TECH.` }}
+        actions={
+          <>
+            <button type="button" onClick={() => navigate('/mitre/layers')} className="mx-btn is-ghost">
+              <ArrowLeft size={14} aria-hidden="true" />Tous les layers
             </button>
-          )}
-          <button onClick={handleExport} className="flex items-center gap-1.5 px-3 py-1.5 text-[10px] font-mono font-bold border border-[#334155] bg-[#1e2d40] hover:bg-[#2a3f55] transition-colors">
-            <Download size={11} /> EXPORTER
+            <button type="button" onClick={() => setEditing(v => !v)} className="mx-btn" aria-expanded={editing} aria-controls="mx-meta">
+              <Edit size={14} aria-hidden="true" />Métadonnées
+            </button>
+            {dirty && saveButton}
+            <button type="button" onClick={handleExport} className="mx-btn">
+              <Download size={14} aria-hidden="true" />Exporter
+            </button>
+          </>
+        }
+        stats={[
+          { label: 'Techniques', value: entries.length, cyan: true },
+          { label: 'Domaine', value: layer.domain },
+          { label: 'Mis à jour', value: new Date(layer.updated_at).toLocaleDateString('fr-FR') },
+        ]}
+      >
+        <div className="mx-tabs" role="tablist" aria-label="Contenu du layer">
+          <button type="button" role="tab" id="mx-tab-selected" aria-controls="mx-panel" aria-selected={tab === 'selected'}
+            className="mx-tab" onClick={() => setTab('selected')}>
+            <CheckSquare size={15} aria-hidden="true" />Sélectionnées<span className="mx-count">{entries.length}</span>
+          </button>
+          <button type="button" role="tab" id="mx-tab-browse" aria-controls="mx-panel" aria-selected={tab === 'browse'}
+            className="mx-tab" onClick={() => setTab('browse')}>
+            <Search size={15} aria-hidden="true" />Parcourir la matrice<span className="mx-count">{techTotal}</span>
           </button>
         </div>
-      </div>
+      </MitreHeader>
+
+      <div className="mx-view-toolbar"><MitreDisplaySettings preferences={display} onChange={setDisplay} /></div>
 
       {/* Edit metadata */}
       {editing && (
-        <div className="border-b border-[#1e2d40] bg-[#0a0f16] px-6 py-4 flex-shrink-0">
-          <form onSubmit={handleSaveMeta} className="flex items-end gap-3">
-            <div className="flex-1">
-              <label className="text-[10px] font-mono text-[#4a6480] uppercase tracking-wider block mb-1">NOM *</label>
-              <input value={editName} onChange={e => setEditName(e.target.value)} className={inputCls} />
-            </div>
-            <div className="flex-1">
-              <label className="text-[10px] font-mono text-[#4a6480] uppercase tracking-wider block mb-1">DESCRIPTION</label>
-              <input value={editDesc} onChange={e => setEditDesc(e.target.value)} className={inputCls} />
-            </div>
-            <div className="flex gap-2">
-              <button type="button" onClick={() => setEditing(false)} className="px-3 py-2 text-xs font-mono border border-[#1e2d40] text-[#64748b] hover:text-[#f1f5f9] transition-colors">ANNULER</button>
-              <button type="submit" disabled={saving} className="px-3 py-2 text-xs font-mono font-bold bg-[#00d4ff] text-[#06080f] rounded hover:bg-[#00d4ff]/80 disabled:opacity-50 transition-colors">
-                {saving ? '...' : 'OK'}
-              </button>
-            </div>
-          </form>
-        </div>
+        <form id="mx-meta" onSubmit={handleSaveMeta} className="mx-meta-form" aria-label="Métadonnées du layer">
+          <div className="mx-field">
+            <label htmlFor="mx-meta-name" className="mx-label">Nom *</label>
+            <input id="mx-meta-name" value={editName} onChange={e => setEditName(e.target.value)} className="mx-input" required />
+          </div>
+          <div className="mx-field">
+            <label htmlFor="mx-meta-desc" className="mx-label">Description</label>
+            <input id="mx-meta-desc" value={editDesc} onChange={e => setEditDesc(e.target.value)} className="mx-input" />
+          </div>
+          <div className="mx-head-actions">
+            <button type="button" onClick={() => setEditing(false)} className="mx-btn">Annuler</button>
+            <button type="submit" disabled={saving} className="mx-btn is-primary">
+              {saving ? <Loader2 size={14} className="mx-spin" /> : <Check size={14} aria-hidden="true" />}Enregistrer
+            </button>
+          </div>
+        </form>
       )}
 
-      {/* Tab bar */}
-      <div className="flex border-b border-[#1e2d40] flex-shrink-0 bg-[#0a0f16]/30">
-        <button
-          onClick={() => setTab('selected')}
-          className={`px-6 py-3 text-xs font-mono font-bold uppercase tracking-wider transition-colors flex items-center gap-2 ${
-            tab === 'selected' ? 'text-[#00d4ff] border-b-2 border-[#00d4ff]' : 'text-[#64748b] hover:text-[#f1f5f9]'
-          }`}
-        >
-          <CheckSquare size={12} /> SÉLECTIONNÉES ({entries.length})
-        </button>
-        <button
-          onClick={() => setTab('browse')}
-          className={`px-6 py-3 text-xs font-mono font-bold uppercase tracking-wider transition-colors flex items-center gap-2 ${
-            tab === 'browse' ? 'text-[#00d4ff] border-b-2 border-[#00d4ff]' : 'text-[#64748b] hover:text-[#f1f5f9]'
-          }`}
-        >
-          <Search size={12} /> PARCOURIR ({techTotal})
-        </button>
-      </div>
-
       {/* Content */}
-      <div className="flex-1 overflow-hidden">
+      <div id="mx-panel" role="tabpanel" aria-labelledby={tab === 'selected' ? 'mx-tab-selected' : 'mx-tab-browse'}
+        style={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0 }}>
         {tab === 'selected' ? (
-          <div className="h-full overflow-auto p-4">
+          <div className="mx-scroll">
             {entries.length === 0 ? (
-              <div className="flex flex-col items-center justify-center h-full text-center">
-                <Layers size={36} className="mb-3 text-[#1e2d40]" />
-                <p className="text-sm font-mono text-[#64748b] uppercase tracking-widest">AUCUNE TECHNIQUE</p>
-                <button onClick={() => setTab('browse')} className="mt-2 text-xs font-mono text-[#00d4ff] hover:underline">
-                  PARCOURIR LES TECHNIQUES →
-                </button>
-              </div>
+              <StateBlock icon={<LayersGlyph size={22} />} title="Aucune technique dans ce layer"
+                actions={<button type="button" onClick={() => setTab('browse')} className="mx-btn is-primary"><Search size={14} />Parcourir les techniques</button>}>
+                Ajoutez des techniques depuis la matrice pour construire ce layer.
+              </StateBlock>
             ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-2">
+              <ul className="mx-grid" style={{ margin: 0, padding: 0, listStyle: 'none' }}>
                 {entries.map(entry => (
-                  <div key={entry.technique_id} className="border border-[#1e2d40] bg-[#0a0f16] p-3 flex items-start justify-between gap-2 group hover:border-[#2a3f55] transition-colors">
-                    <div className="min-w-0">
-                      <span className="font-mono text-[11px] font-bold text-[#00d4ff] bg-[#00d4ff]/10 px-1.5 py-0.5 rounded">
-                        {entry.technique_id}
-                      </span>
-                      {entry.name && (
-                        <p className="text-xs font-mono text-[#f1f5f9] mt-1.5 line-clamp-1">{entry.name}</p>
-                      )}
+                  <li key={entry.technique_id} className="mx-entry">
+                    <div style={{ minWidth: 0 }}>
+                      <span className="mx-id">{entry.technique_id}</span>
+                      {entry.name && <p>{entry.name}</p>}
                     </div>
-                    <button
-                      onClick={() => removeEntry(entry.technique_id)}
-                      className="p-1 rounded opacity-0 group-hover:opacity-100 hover:bg-red-500/10 text-[#64748b] hover:text-red-400 transition-all shrink-0 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#00d4ff]"
-                      title="Retirer"
-                      aria-label="Retirer"
-                    >
-                      <Minus size={12} />
+                    <button type="button" onClick={() => removeEntry(entry.technique_id)} className="mx-icon-btn is-danger"
+                      title="Retirer" aria-label={`Retirer ${entry.technique_id} du layer`}>
+                      <Minus size={15} />
                     </button>
-                  </div>
+                  </li>
                 ))}
-              </div>
+              </ul>
             )}
           </div>
         ) : (
-          <div className="flex h-full overflow-hidden">
-            {/* Tactic sidebar */}
-            <div className="w-44 flex-shrink-0 border-r border-[#1e2d40] overflow-y-auto bg-[#06080f]">
-              <div className="p-2">
-                <button
-                  onClick={() => { setActiveTactic(''); fetchTechniques(1) }}
-                  className={`w-full text-left text-[11px] font-mono px-3 py-2 rounded mb-1 transition-colors ${
-                    activeTactic === '' ? 'bg-[#00d4ff]/20 text-[#00d4ff] font-bold' : 'text-[#8a9ab0] hover:bg-[#1e2d40]/60'
-                  }`}
-                >
-                  TOUTES
-                </button>
-                <div className="h-px bg-[#1e2d40] my-2" />
-                {tactics.map(tac => (
-                  <button
-                    key={tac.tactic_id}
-                    onClick={() => { setActiveTactic(tac.short_name); fetchTechniques(1) }}
-                    className={`w-full text-left text-[11px] font-mono px-3 py-1.5 rounded mb-0.5 transition-colors truncate ${
-                      activeTactic === tac.short_name
-                        ? tacticText(tac.short_name) + ' font-bold bg-white/5'
-                        : 'text-[#8a9ab0] hover:bg-[#1e2d40]/60'
-                    }`}
-                  >
-                    {tac.name}
+          <div className={`mx-body${display.tactics ? '' : ' is-rail-hidden'}`}>
+            {/* Tactics */}
+            <nav className="mx-rail" aria-label="Tactiques ATT&CK" onKeyDown={onTacticKeys}>
+              <p className="mx-rail-title">Tactiques</p>
+              <ul>
+                <li>
+                  <button type="button" className="mx-tactic is-all" aria-pressed={activeTactic === ''} onClick={() => setActiveTactic('')}>
+                    <span>Toutes</span>
                   </button>
-                ))}
-              </div>
-            </div>
-
-            {/* Technique grid */}
-            <div className="flex-1 flex flex-col overflow-hidden">
-              <div className="px-4 py-2 border-b border-[#1e2d40] flex-shrink-0 bg-[#0a0f16]/30">
-                <div className="relative">
-                  <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#4a6480]" />
-                  <input
-                    value={query}
-                    onChange={e => setQuery(e.target.value)}
-                    placeholder="Rechercher une technique..."
-                    className="w-full bg-[#0d131f] border border-[#1e2d40] pl-9 pr-3 py-1.5 font-mono text-xs text-[#f1f5f9] placeholder-[#2a3f55] focus:outline-none focus:border-[#00d4ff]/40"
-                  />
-                  {query && (
-                    <button onClick={() => setQuery('')} className="absolute right-3 top-1/2 -translate-y-1/2 text-[#64748b] hover:text-[#f1f5f9] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#00d4ff]" aria-label="Effacer la recherche">
-                      <X size={11} />
+                </li>
+              </ul>
+              <hr />
+              <ul>
+                {tactics.map(tac => (
+                  <li key={tac.tactic_id}>
+                    <button type="button" className="mx-tactic" {...tacticTone(tac.short_name)} aria-pressed={activeTactic === tac.short_name}
+                      onClick={() => setActiveTactic(tac.short_name)}>
+                      <span>{tac.name}</span><small>{tac.tactic_id}</small>
                     </button>
-                  )}
+                  </li>
+                ))}
+              </ul>
+            </nav>
+
+            {/* Techniques */}
+            <section className="mx-main" aria-label="Techniques à ajouter">
+              <div className="mx-toolbar" style={{ padding: '10px 20px' }}>
+                <div className="mx-toolbar-row">
+                  <div className="mx-search" role="search">
+                    <Search size={15} aria-hidden="true" />
+                    <label htmlFor="mx-layer-q" className="mx-sr">Rechercher une technique</label>
+                    <input id="mx-layer-q" type="search" value={query} onChange={e => setQuery(e.target.value)}
+                      placeholder="Rechercher une technique : ID, nom…" className="mx-input" autoComplete="off" />
+                    {query && (
+                      <button type="button" onClick={() => setQuery('')} className="mx-clear" aria-label="Effacer la recherche"><X size={14} /></button>
+                    )}
+                  </div>
+                  <button type="button" className="mx-btn" onClick={() => setDisplay({ ...display, tactics: !display.tactics })}
+                    aria-expanded={display.tactics} aria-label={display.tactics ? 'Replier les tactiques' : 'Afficher les tactiques'}>
+                    {display.tactics ? <PanelLeftClose size={15} aria-hidden="true" /> : <PanelLeftOpen size={15} aria-hidden="true" />}
+                    {display.tactics ? 'Replier' : 'Tactiques'}
+                  </button>
                 </div>
               </div>
-              <div className="flex-1 overflow-auto p-3">
+              <div className="mx-scroll">
                 {techLoading ? (
-                  <div className="text-center py-8 text-[#64748b] font-mono text-xs">CHARGEMENT...</div>
+                  <SkeletonGrid count={6} />
                 ) : techniques.length === 0 ? (
-                  <div className="text-center py-8 text-[#64748b] font-mono text-xs">AUCUN RÉSULTAT</div>
+                  <StateBlock icon={<Search size={22} />} title="Aucun résultat">Modifiez la recherche ou la tactique.</StateBlock>
                 ) : (
                   <>
-                    <div className="grid grid-cols-2 xl:grid-cols-3 gap-2">
+                    <div className="mx-grid">
                       {techniques.map(tech => {
                         const inLayer = entrySet.has(tech.technique_id)
-                        const tactics = parseArr(tech.tactics)
+                        const techTactics = parseArr(tech.tactics)
+                        const tacticName = tactics.find(t => t.short_name === techTactics[0])?.name ?? techTactics[0]
                         return (
-                          <button
-                            key={tech.technique_id}
-                            onClick={() => toggleTechnique(tech)}
-                            className={`w-full text-left border p-3 transition-all ${
-                              inLayer
-                                ? 'border-[#00d4ff]/50 bg-[#00d4ff]/5 ring-1 ring-[#00d4ff]/20'
-                                : 'border-[#1e2d40] bg-[#0a0f16] hover:border-[#00d4ff]/30'
-                            }`}
-                          >
-                            <div className="flex items-center justify-between gap-1 mb-1.5">
-                              <span className="font-mono text-[10px] font-bold text-[#00d4ff] bg-[#00d4ff]/10 px-1.5 py-0.5 rounded">
-                                {tech.technique_id}
-                              </span>
-                              <span className={`w-4 h-4 rounded-sm border flex items-center justify-center shrink-0 ${
-                                inLayer ? 'border-[#00d4ff] bg-[#00d4ff]/20 text-[#00d4ff]' : 'border-[#334155] text-transparent'
-                              }`}>
-                                {inLayer ? <Plus size={9} className="rotate-45" /> : <Plus size={9} />}
-                              </span>
-                            </div>
-                            <p className="text-xs font-mono text-[#f1f5f9] line-clamp-2 leading-tight">{tech.name}</p>
-                            {tactics[0] && (
-                              <p className={`text-[9px] font-mono mt-1.5 ${tacticText(tactics[0])}`}>{tactics[0]}</p>
-                            )}
+                          <button key={tech.technique_id} type="button" onClick={() => toggleTechnique(tech)}
+                            aria-pressed={inLayer} className="mx-card" {...tacticTone(techTactics[0])}
+                            aria-label={`${tech.technique_id} ${tech.name} : ${inLayer ? 'retirer du layer' : 'ajouter au layer'}`}>
+                            <span className="mx-card-top">
+                              <span className="mx-id">{tech.technique_id}</span>
+                              <span className="mx-check" aria-hidden="true">{inLayer ? <Check size={13} /> : <Plus size={12} style={{ color: 'var(--mx-faint)' }} />}</span>
+                            </span>
+                            <span className="mx-card-name">{tech.name}</span>
+                            {tacticName && <span className="mx-tactic-name">{tacticName}</span>}
                           </button>
                         )
                       })}
                     </div>
                     {totalPages > 1 && (
-                      <div className="flex items-center justify-center gap-3 mt-4 pb-2">
-                        <button disabled={techPage === 1} onClick={() => fetchTechniques(techPage - 1)}
-                          className="text-[10px] font-mono px-3 py-1.5 border border-[#1e2d40] text-[#64748b] hover:border-[#00d4ff]/40 disabled:opacity-30 hover:text-[#00d4ff] transition-colors">
-                          ← PRÉCÉDENT
-                        </button>
-                        <span className="text-[10px] font-mono text-[#64748b]">{techPage} / {totalPages}</span>
-                        <button disabled={techPage === totalPages} onClick={() => fetchTechniques(techPage + 1)}
-                          className="text-[10px] font-mono px-3 py-1.5 border border-[#1e2d40] text-[#64748b] hover:border-[#00d4ff]/40 disabled:opacity-30 hover:text-[#00d4ff] transition-colors">
-                          SUIVANT →
-                        </button>
-                      </div>
+                      <nav className="mx-pager" aria-label="Pagination des techniques">
+                        <button type="button" className="mx-btn" disabled={techPage === 1} onClick={() => fetchTechniques(techPage - 1)}>← Précédent</button>
+                        <span>Page {techPage} / {totalPages}</span>
+                        <button type="button" className="mx-btn" disabled={techPage === totalPages} onClick={() => fetchTechniques(techPage + 1)}>Suivant →</button>
+                      </nav>
                     )}
                   </>
                 )}
               </div>
-            </div>
+            </section>
           </div>
         )}
       </div>
 
-      {/* Dirty indicator */}
+      {/* Unsaved changes */}
       {dirty && (
-        <div className="flex items-center justify-between px-6 py-3 border-t border-[#eab308]/30 bg-[#eab308]/5 flex-shrink-0">
-          <span className="text-xs font-mono text-[#eab308]">⚠ Modifications non sauvegardées</span>
-          <button onClick={handleSave} disabled={saving} className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-mono font-bold bg-[#10b981] text-[#06080f] rounded hover:bg-[#10b981]/80 disabled:opacity-50 transition-colors">
-            <Save size={11} /> {saving ? 'SAUVEGARDE...' : 'SAUVEGARDER'}
-          </button>
+        <div className="mx-dirty" role="status">
+          <span><AlertTriangle size={15} aria-hidden="true" />Modifications non sauvegardées</span>
+          {saveButton}
         </div>
       )}
     </div>
