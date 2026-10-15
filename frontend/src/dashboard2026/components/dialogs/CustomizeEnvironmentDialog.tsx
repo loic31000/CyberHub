@@ -1,118 +1,18 @@
 import { useEffect, useRef, useState } from "react";
-import type { CSSProperties, KeyboardEvent, RefObject } from "react";
-import { ArrowDown, ArrowUp, ChevronRight, Plus, Repeat2, RotateCcw, Search, Trash2, X } from "lucide-react";
+import type { KeyboardEvent, RefObject } from "react";
+import { ArrowDown, ArrowUp, Plus, Repeat2, RotateCcw, Trash2, X } from "lucide-react";
 import {
   ENVIRONMENT_CARDS,
-  MODULE_CATEGORIES,
   categoryOf,
   getEnvironmentCard,
   type EnvironmentCardDefinition,
   type ModuleCategory,
-  type SystemCard,
-} from "./environmentRegistry";
-import { normalize, searchItems } from "./moduleSearch";
+} from "../../environmentRegistry";
+import { normalize, searchItems } from "../../moduleSearch";
+import { CatalogSearch } from "./CatalogSearch";
+import { rowAction, trapTab } from "./dialogFocus";
 
-/* Phase 3A.1: environment cards and their customisation dialog. */
-
-export function MiniBars({ bars }: { bars: number[] }) {
-  return (
-    <span className="mini-bars" aria-hidden="true">
-      {bars.map((height, index) => (
-        <i key={index} style={{ "--bar-height": `${height}%` } as CSSProperties} />
-      ))}
-    </span>
-  );
-}
-
-function EnvironmentCard({
-  card,
-  onOpen,
-  status,
-}: {
-  card: EnvironmentCardDefinition;
-  onOpen: (destination: string) => void;
-  status?: Pick<SystemCard, "status" | "secondary" | "tone">;
-}) {
-  const Icon = card.icon;
-  if (card.kind === "system") {
-    const current = status ?? card;
-    // Same markup as Phase 2N: the default dashboard stays visually identical.
-    return (
-      <button type="button" className={`environment-card signal-${current.tone}`} onClick={() => onOpen(card.action)}>
-        <span className="environment-icon">
-          <Icon size={25} />
-        </span>
-        <span className="environment-copy">
-          <strong>{card.title}</strong>
-          <span>
-            <i className="signal-led" aria-hidden="true" />
-            {current.status}
-          </span>
-          <small>{current.secondary}</small>
-        </span>
-        <ChevronRight className="environment-arrow" size={16} aria-hidden="true" />
-        <MiniBars bars={card.bars} />
-      </button>
-    );
-  }
-  // Module card: access only, no value or status the prototype could not know.
-  return (
-    <button type="button" className="environment-card is-module" onClick={() => onOpen(card.title)}>
-      <span className="environment-icon">
-        <Icon size={25} />
-      </span>
-      <span className="environment-copy">
-        <strong>{card.title}</strong>
-        <span className="module-kind">Accès au module</span>
-        <small>{card.description}</small>
-      </span>
-      <ChevronRight className="environment-arrow" size={16} aria-hidden="true" />
-    </button>
-  );
-}
-
-/* Columns follow the number of cards: at most six per row, rows kept balanced. */
-function desktopColumns(count: number) {
-  if (count <= 0) return 1;
-  const rows = Math.ceil(count / 6);
-  return Math.max(3, Math.ceil(count / rows));
-}
-
-export function EnvironmentGrid({
-  envCards,
-  onOpen,
-  onAdd,
-  statuses,
-}: {
-  envCards: string[];
-  onOpen: (destination: string) => void;
-  onAdd: (trigger: HTMLElement) => void;
-  statuses?: Record<string, Pick<SystemCard, "status" | "secondary" | "tone">>;
-}) {
-  const cards = envCards.map(getEnvironmentCard).filter((card): card is EnvironmentCardDefinition => !!card);
-  if (!cards.length) {
-    return (
-      <div className="environment-grid is-empty">
-        <div className="environment-empty">
-          <p>Aucune carte sélectionnée.</p>
-          <button type="button" className="panel-action" onClick={(event) => onAdd(event.currentTarget)}>
-            <Plus size={14} aria-hidden="true" /> Ajouter un module
-          </button>
-        </div>
-      </div>
-    );
-  }
-  return (
-    <div
-      className="environment-grid"
-      style={{ "--env-cols": desktopColumns(cards.length) } as CSSProperties}
-    >
-      {cards.map((card) => (
-        <EnvironmentCard key={card.id} card={card} onOpen={onOpen} status={statuses?.[card.id]} />
-      ))}
-    </div>
-  );
-}
+/* Phase 3A.1: customisation dialog of the environment cards. */
 
 type PendingFocus = { id: string; action: "up" | "down" | "replace" | "remove" } | "catalog" | "selected" | "reset" | null;
 
@@ -121,56 +21,6 @@ const searchableCard = (card: EnvironmentCardDefinition) => ({
   ...card,
   description: card.kind === "system" ? `Carte système ${card.status} ${card.secondary}` : card.description,
 });
-
-export function CatalogSearch({
-  query,
-  onQuery,
-  category,
-  onCategory,
-  label,
-  count,
-}: {
-  query: string;
-  onQuery: (value: string) => void;
-  category: ModuleCategory | "all";
-  onCategory: (value: ModuleCategory | "all") => void;
-  label: string;
-  count: number;
-}) {
-  return (
-    <div className="catalog-search">
-      <label className="catalog-field">
-        <Search size={15} aria-hidden="true" />
-        <span className="sr-only">{label}</span>
-        <input
-          type="search"
-          value={query}
-          onChange={(event) => onQuery(event.target.value)}
-          placeholder="Nom, alias ou catégorie…"
-          autoComplete="off"
-          spellCheck={false}
-        />
-      </label>
-      <div className="catalog-filters" role="group" aria-label="Filtrer par catégorie">
-        {[{ id: "all" as const, code: "Tous", label: "Toutes les catégories" }, ...MODULE_CATEGORIES].map((c) => (
-          <button
-            key={c.id}
-            type="button"
-            className="catalog-filter"
-            aria-pressed={category === c.id}
-            title={c.label}
-            onClick={() => onCategory(c.id)}
-          >
-            {c.code}
-          </button>
-        ))}
-      </div>
-      <p className="catalog-count" aria-live="polite">
-        {count} résultat{count > 1 ? "s" : ""}
-      </p>
-    </div>
-  );
-}
 
 export function CustomizeEnvironmentDialog({
   open,
@@ -217,11 +67,7 @@ export function CustomizeEnvironmentDialog({
     else if (pendingFocus === "selected") target = root.querySelector("#customize-selected-title");
     else if (pendingFocus === "reset") target = root.querySelector("[data-reset-confirm]") ?? root.querySelector("[data-reset]");
     else {
-      const row = root.querySelector(`[data-card-row="${pendingFocus.id}"]`);
-      target =
-        row?.querySelector<HTMLElement>(`[data-action="${pendingFocus.action}"]:not([aria-disabled="true"])`) ??
-        row?.querySelector<HTMLElement>("[data-action]:not([aria-disabled='true'])") ??
-        null;
+      target = rowAction(root, `[data-card-row="${pendingFocus.id}"]`, pendingFocus.action);
     }
     target?.focus();
     setPendingFocus(null);
@@ -311,20 +157,7 @@ export function CustomizeEnvironmentDialog({
       } else close();
       return;
     }
-    if (event.key !== "Tab" || !dialogRef.current) return;
-    const focusable = [
-      ...dialogRef.current.querySelectorAll<HTMLElement>('button:not([disabled]), input, [href], [tabindex]:not([tabindex="-1"])'),
-    ];
-    if (!focusable.length) return;
-    const first = focusable[0];
-    const last = focusable[focusable.length - 1];
-    if (event.shiftKey && document.activeElement === first) {
-      event.preventDefault();
-      last.focus();
-    } else if (!event.shiftKey && document.activeElement === last) {
-      event.preventDefault();
-      first.focus();
-    }
+    trapTab(event, dialogRef.current);
   }
 
   // Matching cards, those not on the dashboard first; the match order is kept within each part.

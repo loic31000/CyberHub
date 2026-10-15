@@ -1,6 +1,6 @@
 import { useCallback, useState } from "react";
-import { DEFAULT_ENVIRONMENT_CARDS, getEnvironmentCard } from "./environmentRegistry";
-import { DEFAULT_WIDGETS, parseWidgets, type WidgetPlacement } from "./widgetRegistry";
+import { DEFAULT_ENVIRONMENT_CARDS, getEnvironmentCard } from "../environmentRegistry";
+import { DEFAULT_WIDGETS, parseWidgets, type WidgetPlacement } from "../widgetRegistry";
 
 /*
  * Versioned dashboard layout stored in localStorage.
