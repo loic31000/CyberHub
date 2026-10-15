@@ -1,0 +1,65 @@
+/* Source: styles.css @ d1d08ae */
+@font-face {
+  font-family: Manrope;
+  src: url("/dashboard-2026/fonts/manrope-latin.woff2") format("woff2");
+  font-weight: 200 800;
+  font-display: swap;
+}
+@font-face {
+  font-family: "DM Sans";
+  src: url("/dashboard-2026/fonts/dm-sans-latin.woff2") format("woff2");
+  font-weight: 100 900;
+  font-display: swap;
+}
+@font-face {
+  font-family: "DM Mono";
+  src: url("/dashboard-2026/fonts/dm-mono-latin.woff2") format("woff2");
+  font-weight: 400;
+  font-display: swap;
+}
+
+.cyber-dashboard-2026 {
+  font-family: "DM Sans", sans-serif;
+  color: #e9f1f4;
+  font-synthesis: none;
+  --ink: #0b1119;
+  --panel: #111b26;
+  --panel-soft: #0f1a24;
+  --line: #385166;
+  --line-soft: #263d4c;
+  --muted: #a7b9c6;
+  --cyan: #70e2ed;
+  --blue: #5498e9;
+  --mono: "DM Mono", monospace;
+}
+
+:where(.cyber-dashboard-2026) * {
+  box-sizing: border-box;
+}
+:where(.cyber-dashboard-2026) button, :where(.cyber-dashboard-2026) select, :where(.cyber-dashboard-2026) input {
+  font: inherit;
+}
+:where(.cyber-dashboard-2026) button {
+  cursor: pointer;
+}
+:where(.cyber-dashboard-2026) button:focus-visible, :where(.cyber-dashboard-2026) a:focus-visible, :where(.cyber-dashboard-2026) select:focus-visible, :where(.cyber-dashboard-2026) input:focus-visible {
+  outline: 3px solid #a9f4fa;
+  outline-offset: 3px;
+}
+:where(.cyber-dashboard-2026) h1, :where(.cyber-dashboard-2026) h2, :where(.cyber-dashboard-2026) h3, :where(.cyber-dashboard-2026) p {
+  margin: 0;
+}
+:where(.cyber-dashboard-2026) a {
+  color: inherit;
+}
+:where(.cyber-dashboard-2026) .sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}

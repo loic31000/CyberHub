@@ -1,0 +1,199 @@
+/* Source: terminal-flux.css @ d1d08ae */
+:where(.cyber-dashboard-2026) .dashboard-board .overview-hero {
+  background: linear-gradient(90deg, #101317 0 29%, transparent 54%), #101317;
+}
+
+:where(.cyber-dashboard-2026) .overview-hero .hero-flux {
+  position: absolute;
+  z-index: 1;
+  inset: 0 190px 0 clamp(360px, 31vw, 570px);
+  width: auto;
+  height: 100%;
+  opacity: 1;
+  pointer-events: none;
+  mask-image: linear-gradient(
+    90deg,
+    transparent 0,
+    #000 12%,
+    #000 94%,
+    transparent
+  );
+}
+
+:where(.cyber-dashboard-2026) .flux-field {
+  fill: url(#flux-field);
+}
+
+:where(.cyber-dashboard-2026) .flux-grid line {
+  stroke: #5e747b;
+  stroke-width: 0.45;
+  opacity: 0.13;
+  vector-effect: non-scaling-stroke;
+}
+
+:where(.cyber-dashboard-2026) .flux-aura path, :where(.cyber-dashboard-2026) .flux-line, :where(.cyber-dashboard-2026) .flux-light-runs path {
+  fill: none;
+  vector-effect: non-scaling-stroke;
+}
+
+:where(.cyber-dashboard-2026) .flux-aura path {
+  stroke-width: 9;
+  opacity: 0.24;
+}
+
+:where(.cyber-dashboard-2026) .flux-aura .cyan, :where(.cyber-dashboard-2026) .flux-line.cyan, :where(.cyber-dashboard-2026) .flux-light-runs .cyan {
+  stroke: url(#flux-cyan);
+}
+
+:where(.cyber-dashboard-2026) .flux-aura .blue, :where(.cyber-dashboard-2026) .flux-line.blue, :where(.cyber-dashboard-2026) .flux-light-runs .blue {
+  stroke: url(#flux-blue);
+}
+
+:where(.cyber-dashboard-2026) .flux-aura .amber, :where(.cyber-dashboard-2026) .flux-line.amber, :where(.cyber-dashboard-2026) .flux-light-runs .amber {
+  stroke: url(#flux-amber);
+}
+
+:where(.cyber-dashboard-2026) .flux-aura .blue {
+  stroke-width: 7;
+  opacity: 0.18;
+}
+
+:where(.cyber-dashboard-2026) .flux-aura .amber {
+  stroke-width: 6;
+  opacity: 0.17;
+}
+
+:where(.cyber-dashboard-2026) .flux-line.core {
+  stroke-width: 1.8;
+  opacity: 0.94;
+}
+
+:where(.cyber-dashboard-2026) .flux-line.fine {
+  stroke-width: 0.85;
+  opacity: 0.68;
+}
+
+:where(.cyber-dashboard-2026) .flux-line.hairline {
+  stroke-width: 0.6;
+  stroke-dasharray: 2 5;
+  opacity: 0.54;
+}
+
+:where(.cyber-dashboard-2026) .flux-light-runs path {
+  stroke-width: 2.2;
+  stroke-linecap: round;
+  stroke-dasharray: 2 52 18 80;
+  opacity: 0.94;
+  animation: flux-stream 9s linear infinite;
+}
+
+:where(.cyber-dashboard-2026) .flux-light-runs path.reverse {
+  animation-direction: reverse;
+  animation-duration: 12s;
+}
+
+:where(.cyber-dashboard-2026) .flux-light-runs path.slow {
+  animation-duration: 15s;
+}
+
+:where(.cyber-dashboard-2026) .flux-light-runs path.fine-run {
+  stroke-width: 0.8;
+  stroke-dasharray: 1 34 8 66;
+  opacity: 0.7;
+  animation-duration: 11s;
+}
+
+:where(.cyber-dashboard-2026) .flux-dust circle {
+  fill: #93d9dd;
+  opacity: 0.22;
+}
+
+:where(.cyber-dashboard-2026) .flux-dust circle:nth-child(3n) {
+  fill: #d9aa65;
+  opacity: 0.17;
+}
+
+:where(.cyber-dashboard-2026) .flux-nodes circle {
+  fill: #b8ffff;
+  opacity: 0.82;
+  transform-box: fill-box;
+  transform-origin: center;
+}
+
+:where(.cyber-dashboard-2026) .flux-nodes circle.amber {
+  fill: #f2c276;
+}
+
+:where(.cyber-dashboard-2026) .flux-nodes circle.blue {
+  fill: #9bc8e9;
+}
+
+:where(.cyber-dashboard-2026) .flux-nodes circle.major {
+  animation: flux-node-breathe 6.5s ease-in-out infinite;
+  animation-duration: 6.5s;
+  animation-delay: -2.2s;
+}
+
+:where(.cyber-dashboard-2026) .flux-travelers circle {
+  fill: #d9ffff;
+  offset-distance: 0%;
+  animation: flux-travel var(--flux-duration) linear var(--flux-delay) infinite;
+}
+
+:where(.cyber-dashboard-2026) .flux-travelers circle.blue {
+  fill: #b7dcf3;
+}
+
+:where(.cyber-dashboard-2026) .flux-travelers circle.amber {
+  fill: #ffe1a6;
+}
+
+@keyframes flux-stream {
+  to {
+    stroke-dashoffset: -240;
+  }
+}
+
+@keyframes flux-travel {
+  to {
+    offset-distance: 100%;
+  }
+}
+
+@keyframes flux-node-breathe {
+  50% {
+    opacity: 1;
+    transform: scale(1.22);
+  }
+}
+
+@media (max-width: 1180px) {
+  :where(.cyber-dashboard-2026) .overview-hero .hero-flux {
+    left: clamp(320px, 34vw, 420px);
+    right: 205px;
+  }
+}
+
+@media (max-width: 760px) {
+  :where(.cyber-dashboard-2026) .dashboard-board .overview-hero {
+    min-height: 286px;
+  }
+
+  :where(.cyber-dashboard-2026) .overview-hero .hero-flux {
+    inset: auto -14% 0 -14%;
+    width: 128%;
+    height: 120px;
+    opacity: 0.9;
+    mask-image: linear-gradient(180deg, transparent 0, #000 28%, #000 100%);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :where(.cyber-dashboard-2026) .flux-light-runs path, :where(.cyber-dashboard-2026) .flux-nodes circle, :where(.cyber-dashboard-2026) .flux-travelers circle {
+    animation: none !important;
+  }
+
+  :where(.cyber-dashboard-2026) .flux-travelers circle {
+    offset-distance: 54%;
+  }
+}

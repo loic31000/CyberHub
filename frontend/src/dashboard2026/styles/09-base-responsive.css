@@ -1,0 +1,162 @@
+@media (max-width: 1180px) {
+  :where(.cyber-dashboard-2026) .overview-hero {
+    grid-template-columns: minmax(430px, 1fr) minmax(360px, 1fr);
+  }
+  :where(.cyber-dashboard-2026) .hero-index {
+    display: none;
+  }
+  :where(.cyber-dashboard-2026) .hero-flux {
+    right: 0;
+    width: 62%;
+  }
+  :where(.cyber-dashboard-2026) .dashboard-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  :where(.cyber-dashboard-2026) .network-panel {
+    grid-column: 1 / -1;
+  }
+  :where(.cyber-dashboard-2026) .quick-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 760px) {
+  :where(.cyber-dashboard-2026) .main-content {
+    padding: 62px 0 0;
+  }
+  :where(.cyber-dashboard-2026) .workspace.dashboard-board {
+    padding: 0.7rem;
+    gap: 0.65rem;
+  }
+  :where(.cyber-dashboard-2026) .overview-hero {
+    min-height: 176px;
+    display: block;
+    border: 1px solid #0b6175;
+  }
+  :where(.cyber-dashboard-2026) .hero-copy {
+    padding: 1.15rem 1rem;
+  }
+  :where(.cyber-dashboard-2026) .hero-copy h1 {
+    max-width: 280px;
+    font-size: 2rem;
+  }
+  :where(.cyber-dashboard-2026) .hero-copy p {
+    max-width: 310px;
+    line-height: 1.45;
+  }
+  :where(.cyber-dashboard-2026) .hero-flux {
+    inset: auto 0 0 auto;
+    width: 100%;
+    height: 58%;
+    opacity: 0.42;
+  }
+  :where(.cyber-dashboard-2026) .panel-heading, :where(.cyber-dashboard-2026) .panel-heading > div {
+    align-items: flex-start;
+  }
+  :where(.cyber-dashboard-2026) .panel-heading > div {
+    display: grid;
+    gap: 0.2rem;
+  }
+  :where(.cyber-dashboard-2026) .panel-heading p {
+    white-space: normal;
+  }
+  :where(.cyber-dashboard-2026) .environment-heading {
+    align-items: flex-start;
+    flex-direction: column;
+    min-height: 94px;
+  }
+  :where(.cyber-dashboard-2026) .environment-meta {
+    width: 100%;
+    flex-wrap: wrap;
+  }
+  :where(.cyber-dashboard-2026) .environment-meta .panel-action {
+    margin-left: auto;
+  }
+  :where(.cyber-dashboard-2026) .environment-grid {
+    grid-template-columns: 1fr;
+    gap: 0;
+    padding: 0;
+  }
+  :where(.cyber-dashboard-2026) .environment-card {
+    min-height: 76px;
+    border-width: 0 0 1px;
+    border-radius: 0;
+  }
+  :where(.cyber-dashboard-2026) .environment-card:last-child {
+    border-bottom: 0;
+  }
+  :where(.cyber-dashboard-2026) .environment-card:hover {
+    transform: none;
+  }
+  :where(.cyber-dashboard-2026) .dashboard-grid {
+    grid-template-columns: 1fr;
+  }
+  :where(.cyber-dashboard-2026) .network-panel {
+    grid-column: auto;
+  }
+  :where(.cyber-dashboard-2026) .network-panel .panel-heading {
+    min-height: 78px;
+  }
+  :where(.cyber-dashboard-2026) .network-scene {
+    height: 280px;
+  }
+  :where(.cyber-dashboard-2026) .network-scene > svg {
+    width: 135%;
+    margin-left: -17%;
+  }
+  :where(.cyber-dashboard-2026) .demo-visual-label {
+    display: none;
+  }
+  :where(.cyber-dashboard-2026) .activity-list button {
+    min-height: 57px;
+  }
+  :where(.cyber-dashboard-2026) .alert-list button {
+    grid-template-columns: auto minmax(0, 1fr) auto;
+  }
+  :where(.cyber-dashboard-2026) .alert-list time {
+    display: none;
+  }
+  :where(.cyber-dashboard-2026) .quick-panel .panel-heading {
+    min-height: 76px;
+    align-items: flex-start;
+    flex-direction: column;
+  }
+  :where(.cyber-dashboard-2026) .quick-grid {
+    grid-template-columns: 1fr;
+    gap: 0;
+    padding: 0;
+  }
+  :where(.cyber-dashboard-2026) .quick-grid > button {
+    min-height: 66px;
+    border-width: 0 0 1px;
+    border-radius: 0;
+  }
+  :where(.cyber-dashboard-2026) .quick-grid > button:last-child {
+    border-bottom: 0;
+  }
+  :where(.cyber-dashboard-2026) .quick-grid > button:hover {
+    transform: none;
+  }
+  :where(.cyber-dashboard-2026) .sync-panel {
+    grid-template-columns: auto minmax(0, 1fr);
+  }
+  :where(.cyber-dashboard-2026) .sync-copy > div {
+    grid-template-columns: 1fr auto;
+  }
+  :where(.cyber-dashboard-2026) .sync-copy > div > span {
+    grid-column: 1 / -1;
+    grid-row: 2;
+  }
+  :where(.cyber-dashboard-2026) .sync-panel > .mini-bars {
+    display: none;
+  }
+  :where(.cyber-dashboard-2026) .dashboard-board .page-foot {
+    gap: 0.25rem;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :where(.cyber-dashboard-2026) .hero-wave path, :where(.cyber-dashboard-2026) .hero-points circle, :where(.cyber-dashboard-2026) .mini-bars i, :where(.cyber-dashboard-2026) .network-routes path, :where(.cyber-dashboard-2026) .network-nodes circle, :where(.cyber-dashboard-2026) .sync-track i {
+    animation: none !important;
+  }
+}
