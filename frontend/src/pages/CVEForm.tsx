@@ -1,13 +1,15 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useId, useRef } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { cveApi } from '@/api/client'
+import { toast } from '@/store/toast'
 import type { CVECreateRequest, CVESeverity, CVEStatus } from '@/types'
 import { Save, ArrowLeft, ShieldAlert } from 'lucide-react'
 
 const SEVERITIES: CVESeverity[] = ['critical', 'high', 'medium', 'low', 'none']
 const STATUSES: CVEStatus[] = ['new', 'analyzed', 'patched', 'na']
 
-const DEFAULT_FORM: CVECreateRequest = {
+// Today's date at the time the form opens, not when the module was loaded.
+const defaultForm = (): CVECreateRequest => ({
   cve_id: '',
   description: '',
   cvss_score: 0,
@@ -16,7 +18,7 @@ const DEFAULT_FORM: CVECreateRequest = {
   status: 'new',
   notes: '',
   published_at: new Date().toISOString().slice(0, 10),
-}
+})
 
 const STATUS_LABELS: Record<CVEStatus, string> = {
   new:      'NOUVEAU',
@@ -29,15 +31,19 @@ export default function CVEForm() {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
   const isEdit = Boolean(id)
-  const [form, setForm] = useState<CVECreateRequest>(DEFAULT_FORM)
+  const [form, setForm] = useState<CVECreateRequest>(defaultForm)
   const [loading, setLoading] = useState(isEdit)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
+  const submitting = useRef(false)
+  const ids = { error: useId(), cveId: useId(), description: useId(), cvss: useId(), severity: useId(), status: useId(), products: useId(), published: useId(), notes: useId() }
 
   useEffect(() => {
     if (!isEdit || !id) return
-    cveApi.get(Number(id))
-      .then((c) => setForm({
+    const controller = new AbortController()
+    const { signal } = controller
+    cveApi.get(Number(id), signal)
+      .then((c) => { if (!signal.aborted) setForm({
         cve_id: c.cve_id,
         description: c.description,
         cvss_score: c.cvss_score,
@@ -46,14 +52,21 @@ export default function CVEForm() {
         status: c.status,
         notes: c.notes,
         published_at: c.published_at ? c.published_at.slice(0, 10) : '',
-      }))
-      .catch(() => navigate('/cve'))
-      .finally(() => setLoading(false))
+      }) })
+      .catch(() => {
+        if (signal.aborted) return
+        toast.error('Impossible de charger cette CVE pour modification')
+        navigate('/cve')
+      })
+      .finally(() => { if (!signal.aborted) setLoading(false) })
+    return () => controller.abort()
   }, [id, isEdit, navigate])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
+    if (submitting.current) return
     if (!form.cve_id.trim()) { setError('Le CVE-ID est requis'); return }
+    submitting.current = true
     setSaving(true)
     setError('')
     const payload = { ...form, published_at: form.published_at ? new Date(form.published_at).toISOString() : new Date().toISOString() }
@@ -68,6 +81,7 @@ export default function CVEForm() {
     } catch (err: unknown) {
       const e = err as { response?: { data?: { error?: string } } }
       setError(e?.response?.data?.error ?? 'Erreur lors de la sauvegarde')
+      submitting.current = false
       setSaving(false)
     }
   }
@@ -112,12 +126,12 @@ export default function CVEForm() {
       <div className="flex-1 overflow-auto p-6">
         <div className="max-w-3xl mx-auto w-full space-y-8">
           {error && (
-            <div className="border-l-2 border-[#ef4444] bg-[#ef4444]/5 p-4 font-mono text-[11px] text-[#ef4444]">
+            <div id={ids.error} role="alert" className="border-l-2 border-[#ef4444] bg-[#ef4444]/5 p-4 font-mono text-[11px] text-[#ef4444]">
               {error}
             </div>
           )}
 
-          <form onSubmit={handleSubmit} className="space-y-8">
+          <form onSubmit={handleSubmit} className="space-y-8" aria-describedby={error ? ids.error : undefined}>
             {/* Informations principales */}
             <div className="space-y-6 border border-[#1e2d40] bg-[#0a0f16] p-6">
               <h2 className="border-b border-[#1e2d40] pb-3 font-mono text-[11px] font-bold uppercase tracking-[0.2em] text-[#00d4ff]">
@@ -125,8 +139,9 @@ export default function CVEForm() {
               </h2>
 
               <div>
-                <label className={labelClass}>CVE-ID *</label>
+                <label htmlFor={ids.cveId} className={labelClass}>CVE-ID *</label>
                 <input
+                  id={ids.cveId}
                   type="text"
                   className={fieldClass}
                   placeholder="EX: CVE-2024-12345"
@@ -137,8 +152,9 @@ export default function CVEForm() {
               </div>
 
               <div>
-                <label className={labelClass}>DESCRIPTION</label>
+                <label htmlFor={ids.description} className={labelClass}>DESCRIPTION</label>
                 <textarea
+                  id={ids.description}
                   className={textAreaClass}
                   rows={3}
                   value={form.description}
@@ -148,8 +164,9 @@ export default function CVEForm() {
 
               <div className="grid grid-cols-1 gap-6 md:grid-cols-3">
                 <div>
-                  <label className={labelClass}>CVSS SCORE</label>
+                  <label htmlFor={ids.cvss} className={labelClass}>CVSS SCORE</label>
                   <input
+                    id={ids.cvss}
                     type="number"
                     min="0" max="10" step="0.1"
                     className={fieldClass}
@@ -158,8 +175,9 @@ export default function CVEForm() {
                   />
                 </div>
                 <div>
-                  <label className={labelClass}>SÉVÉRITÉ</label>
+                  <label htmlFor={ids.severity} className={labelClass}>SÉVÉRITÉ</label>
                   <select
+                    id={ids.severity}
                     className={fieldClass}
                     value={form.severity}
                     onChange={(e) => setField('severity', e.target.value as CVESeverity)}
@@ -168,8 +186,9 @@ export default function CVEForm() {
                   </select>
                 </div>
                 <div>
-                  <label className={labelClass}>STATUT</label>
+                  <label htmlFor={ids.status} className={labelClass}>STATUT</label>
                   <select
+                    id={ids.status}
                     className={fieldClass}
                     value={form.status}
                     onChange={(e) => setField('status', e.target.value as CVEStatus)}
@@ -181,8 +200,9 @@ export default function CVEForm() {
 
               <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
                 <div>
-                  <label className={labelClass}>PRODUITS AFFECTÉS</label>
+                  <label htmlFor={ids.products} className={labelClass}>PRODUITS AFFECTÉS</label>
                   <input
+                    id={ids.products}
                     type="text"
                     className={fieldClass}
                     placeholder="EX: Apache, OpenSSL, Windows..."
@@ -191,8 +211,9 @@ export default function CVEForm() {
                   />
                 </div>
                 <div>
-                  <label className={labelClass}>DATE DE PUBLICATION</label>
+                  <label htmlFor={ids.published} className={labelClass}>DATE DE PUBLICATION</label>
                   <input
+                    id={ids.published}
                     type="date"
                     className={fieldClass}
                     value={typeof form.published_at === 'string' ? form.published_at.slice(0, 10) : ''}
@@ -204,10 +225,11 @@ export default function CVEForm() {
 
             {/* Notes d'analyse */}
             <div className="space-y-3 border border-[#1e2d40] bg-[#0a0f16] p-6">
-              <label className="block border-b border-[#1e2d40] pb-3 font-mono text-[11px] font-bold uppercase tracking-[0.2em] text-[#8a9ab0]">
+              <label htmlFor={ids.notes} className="block border-b border-[#1e2d40] pb-3 font-mono text-[11px] font-bold uppercase tracking-[0.2em] text-[#8a9ab0]">
                 📝 NOTES & ANALYSE
               </label>
               <textarea
+                id={ids.notes}
                 className={textAreaClass}
                 rows={6}
                 placeholder="Impact dans notre environnement, POC disponible, patch appliqué le..."
@@ -220,7 +242,7 @@ export default function CVEForm() {
             <div className="flex justify-end gap-4 pt-4 pb-8 border-t border-[#1e2d40]">
               <button
                 type="button"
-                onClick={() => navigate('/cve')}
+                onClick={() => navigate(isEdit && id ? `/cve/${id}` : '/cve')}
                 disabled={saving}
                 className="border border-[#1e2d40] bg-[#0a0f16] px-6 py-3 font-mono text-xs uppercase tracking-widest text-[#8a9ab0] transition-colors hover:bg-[#1e2d40] hover:text-[#f1f5f9]"
               >

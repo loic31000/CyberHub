@@ -114,11 +114,11 @@ export const ctfApi = {
 
 // ---- CVE ----
 export const cveApi = {
-  list: (filters?: CVEFilter) =>
-    http.get<CVEsResponse>('/cve', { params: filters }).then((r) => r.data),
+  list: (filters?: CVEFilter, signal?: AbortSignal) =>
+    http.get<CVEsResponse>('/cve', { params: filters, signal }).then((r) => r.data),
 
-  get: (id: number) =>
-    http.get<CVEEntry>(`/cve/${id}`).then((r) => r.data),
+  get: (id: number, signal?: AbortSignal) =>
+    http.get<CVEEntry>(`/cve/${id}`, { signal }).then((r) => r.data),
 
   create: (data: CVECreateRequest) =>
     http.post<CVEEntry>('/cve', data).then((r) => r.data),
@@ -531,12 +531,13 @@ export const osintWmnApi = {
 
 // ---- CISA KEV + EPSS ----
 export const cisaApi = {
-  checkKEV: (cveId: string) =>
-    http.get<{ exploited: boolean; entry: import('@/types/threat_intel').CISAKEVEntry | null }>(`/cisa/kev/check/${cveId}`).then((r) => r.data),
+  checkKEV: (cveId: string, signal?: AbortSignal) =>
+    http.get<{ exploited: boolean; entry: import('@/types/threat_intel').CISAKEVEntry | null }>(`/cisa/kev/check/${cveId}`, { signal }).then((r) => r.data),
 
-  batchCheckKEV: (cveIds: string[]) =>
+  batchCheckKEV: (cveIds: string[], signal?: AbortSignal) =>
     http.get<Record<string, boolean>>('/cisa/kev/batch', {
       params: { ids: cveIds.join(',') },
+      signal,
     }).then((r) => r.data),
 
   getStats: () =>
@@ -545,8 +546,8 @@ export const cisaApi = {
   updateKEV: () =>
     http.post<{ success: boolean; count: number; new_items: number; updated_at: string }>(`/cisa/kev/update`).then((r) => r.data),
 
-  getEPSS: (cveId: string) =>
-    http.get<import('@/types/threat_intel').EPSSScore>(`/epss/${cveId}`).then((r) => r.data),
+  getEPSS: (cveId: string, signal?: AbortSignal) =>
+    http.get<import('@/types/threat_intel').EPSSScore>(`/epss/${cveId}`, { signal }).then((r) => r.data),
 }
 
 // ---- LOLBins (LOLBAS + GTFOBins) ----

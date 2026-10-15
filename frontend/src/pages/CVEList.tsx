@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
-import { Link, useSearchParams } from 'react-router-dom'
+import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { cveApi, cisaApi } from '@/api/client'
 import type { CVEEntry, CVEFilter, CVESeverity, CVEStatus } from '@/types'
 import type { CISAKEVEntry } from '@/types/threat_intel'
@@ -12,6 +12,15 @@ import NVDImportModal from '@/components/NVDImportModal'
 const SEVERITIES: CVESeverity[] = ['critical', 'high', 'medium', 'low', 'none']
 const STATUSES: CVEStatus[] = ['new', 'analyzed', 'patched', 'na']
 const LIMIT = 20
+const SEARCH_DELAY = 300 // ms: one request once typing pauses, not one per key
+
+/*
+ * KEV enrichment, separate from the list: the list shows as soon as it
+ * arrives; flags come from one batch call, the names (tooltips) afterwards.
+ * 'error' means the status is unknown, never "not exploited".
+ */
+type KevState = { status: 'idle' | 'loading' | 'ready' | 'error'; flagged: Set<string>; entries: Map<string, CISAKEVEntry> }
+const kevState = (status: KevState['status'], flagged = new Set<string>()): KevState => ({ status, flagged, entries: new Map() })
 
 const SEV_COLORS: Record<CVESeverity, string> = {
   critical: 'border-[#ef4444]/30 bg-[#ef4444]/10 text-[#ef4444]',
@@ -36,55 +45,94 @@ const STATUS_COLORS: Record<CVEStatus, string> = {
 }
 
 export default function CVEList() {
+  const navigate = useNavigate()
+  const [searchParams] = useSearchParams()
   const [cves, setCves] = useState<CVEEntry[]>([])
   const [count, setCount] = useState(0)
   const [totalPages, setTotalPages] = useState(1)
   const [page, setPage] = useState(1)
   const [loading, setLoading] = useState(true)
+  const [listError, setListError] = useState(false)
   const [importing, setImporting] = useState(false)
-  const [filters, setFilters] = useState<CVEFilter>({ severity: '', status: '', search: '' })
-  const [searchParams] = useSearchParams()
+  const [filters, setFilters] = useState<CVEFilter>(() => ({ severity: '', status: '', search: searchParams.get('find') ?? '' }))
+  const [searchInput, setSearchInput] = useState(filters.search ?? '')
+  const [reloadKey, setReloadKey] = useState(0)
   const fileRef = useRef<HTMLInputElement>(null)
-  const [kevMap, setKevMap] = useState<Map<string, CISAKEVEntry>>(new Map())
+  const [kev, setKev] = useState<KevState>(() => kevState('idle'))
   const [showNVDModal, setShowNVDModal] = useState(false)
 
-  const fetchCVE = useCallback(async () => {
+  const reload = useCallback(() => setReloadKey((k) => k + 1), [])
+
+  // The latest filters and page win: each run cancels the previous one, and a
+  // response arriving after its run was superseded is ignored.
+  useEffect(() => {
+    const controller = new AbortController()
+    const { signal } = controller
     setLoading(true)
-    try {
-      const res = await cveApi.list({ ...filters, page, limit: LIMIT } as CVEFilter & { page: number; limit: number })
-      const fetchedCves = res.cves ?? []
-      setCves(fetchedCves)
-      setCount(Number(res.count))
-      setTotalPages((res as { total_pages?: number }).total_pages ?? 1)
-      const newMap = new Map<string, CISAKEVEntry>()
-      if (fetchedCves.length > 0) {
-        const batchResult = await cisaApi.batchCheckKEV(fetchedCves.map(c => c.cve_id))
-        await Promise.allSettled(
-          fetchedCves
-            .filter(cve => batchResult[cve.cve_id])
-            .map(async (cve) => {
-              try {
-                const r = await cisaApi.checkKEV(cve.cve_id)
-                if (r.entry) newMap.set(cve.cve_id, r.entry)
-              } catch { /* silencieux */ }
-            })
-        )
+    setListError(false)
+
+    const loadKev = async (list: CVEEntry[]) => {
+      if (list.length === 0) { setKev(kevState('ready')); return }
+      setKev(kevState('loading'))
+      const ids = list.map((c) => c.cve_id)
+      let batch: Record<string, boolean>
+      try {
+        batch = await cisaApi.batchCheckKEV(ids, signal)
+      } catch {
+        if (!signal.aborted) setKev(kevState('error'))
+        return
       }
-      setKevMap(newMap)
-    } catch {
-      toast.error('Erreur de chargement des CVE')
-      setCves([])
-    } finally {
-      setLoading(false)
+      if (signal.aborted) return
+      // The backend answers with upper-case IDs.
+      const flagged = new Set(ids.filter((id) => batch[id.toUpperCase()] ?? batch[id]))
+      setKev(kevState('ready', flagged))
+      if (flagged.size === 0) return
+      // Names for the tooltips only: the badges are already shown.
+      const names = [...flagged]
+      const details = await Promise.allSettled(names.map((id) => cisaApi.checkKEV(id, signal)))
+      if (signal.aborted) return
+      const entries = new Map<string, CISAKEVEntry>()
+      details.forEach((d, n) => { if (d.status === 'fulfilled' && d.value.entry) entries.set(names[n], d.value.entry) })
+      setKev((k) => ({ ...k, entries }))
     }
-  }, [filters, page])
 
-  useEffect(() => { fetchCVE() }, [fetchCVE])
+    cveApi.list({ ...filters, page, limit: LIMIT } as CVEFilter & { page: number; limit: number }, signal)
+      .then((res) => {
+        if (signal.aborted) return
+        const fetched = res.cves ?? []
+        setCves(fetched)
+        setCount(Number(res.count))
+        setTotalPages((res as { total_pages?: number }).total_pages ?? 1)
+        setLoading(false)
+        void loadKev(fetched)
+      })
+      .catch(() => {
+        if (signal.aborted) return
+        setCves([])
+        setKev(kevState('idle'))
+        setListError(true)
+        setLoading(false)
+      })
+    return () => controller.abort()
+  }, [filters, page, reloadKey])
 
+  // A new ?find= (link from another module) replaces the search.
   useEffect(() => {
     const find = searchParams.get('find')
-    if (find) setFilters(f => ({ ...f, search: find }))
+    if (find === null) return
+    setSearchInput(find)
+    setFilters((f) => (f.search === find ? f : { ...f, search: find }))
   }, [searchParams])
+
+  // Typing: the search filter follows the field once typing pauses.
+  useEffect(() => {
+    if (searchInput === (filters.search ?? '')) return
+    const timer = window.setTimeout(() => {
+      setPage(1)
+      setFilters((f) => ({ ...f, search: searchInput }))
+    }, SEARCH_DELAY)
+    return () => window.clearTimeout(timer)
+  }, [searchInput, filters.search])
 
   const updateFilter = <K extends keyof CVEFilter>(k: K, v: CVEFilter[K]) => {
     setPage(1)
@@ -100,7 +148,7 @@ export default function CVEList() {
       const json = JSON.parse(text)
       const res = await cveApi.importNVD(json)
       toast.success(`Import terminé : ${res.created} ajoutés, ${res.skipped} ignorés`)
-      fetchCVE()
+      reload()
     } catch {
       toast.error('Erreur lors de l’import — vérifiez le format NVD JSON 2.0')
     } finally {
@@ -161,12 +209,14 @@ export default function CVEList() {
               <input
                 type="text"
                 placeholder="Rechercher CVE-ID, description, produit..."
+                aria-label="Rechercher une CVE"
                 className="w-full bg-[#0d131f] border border-[#1e2d40] pl-9 pr-4 py-2.5 font-mono text-sm text-[#f1f5f9] placeholder-[#2a3f55] outline-none focus:border-[#00d4ff]/40"
-                value={filters.search ?? ''}
-                onChange={(e) => updateFilter('search', e.target.value)}
+                value={searchInput}
+                onChange={(e) => setSearchInput(e.target.value)}
               />
             </div>
             <select
+              aria-label="Filtrer par sévérité"
               className="bg-[#0d131f] border border-[#1e2d40] px-3 py-2.5 font-mono text-sm text-[#f1f5f9] focus:border-[#00d4ff]/40 outline-none"
               value={filters.severity ?? ''}
               onChange={(e) => updateFilter('severity', e.target.value as CVESeverity | '')}
@@ -175,6 +225,7 @@ export default function CVEList() {
               {SEVERITIES.map(s => <option key={s} value={s}>{s.toUpperCase()}</option>)}
             </select>
             <select
+              aria-label="Filtrer par statut"
               className="bg-[#0d131f] border border-[#1e2d40] px-3 py-2.5 font-mono text-sm text-[#f1f5f9] focus:border-[#00d4ff]/40 outline-none"
               value={filters.status ?? ''}
               onChange={(e) => updateFilter('status', e.target.value as CVEStatus | '')}
@@ -187,6 +238,16 @@ export default function CVEList() {
           {/* Tableau des CVE */}
           {loading ? (
             <RowListSkeleton count={8} />
+          ) : listError ? (
+            <div role="alert" className="flex flex-col items-center justify-center border border-[#ef4444]/30 bg-[#0a0f16] py-24 text-center">
+              <AlertTriangle size={40} className="mb-4 text-[#ef4444]/60" aria-hidden="true" />
+              <p className="font-mono text-sm uppercase tracking-widest text-[#f1f5f9]">Impossible de charger les CVE</p>
+              <p className="mt-2 font-mono text-xs text-[#8a9ab0]">Le backend local n’a pas répondu. Vérifiez qu’il est lancé, puis réessayez.</p>
+              <button type="button" onClick={reload}
+                className="mt-5 border border-[#334155] bg-[#1e2d40] px-4 py-2 font-mono text-[10px] font-bold uppercase tracking-widest hover:bg-[#2a3f55] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#00d4ff]">
+                Réessayer
+              </button>
+            </div>
           ) : cves.length === 0 ? (
             <div className="flex flex-col items-center justify-center border border-[#1e2d40] bg-[#0a0f16] py-24 text-center">
               <AlertTriangle size={40} className="mb-4 text-[#1e2d40]" />
@@ -197,6 +258,15 @@ export default function CVEList() {
             </div>
           ) : (
             <>
+              {kev.status === 'error' && (
+                <div role="status" className="flex flex-wrap items-center justify-between gap-3 border border-[#f97316]/30 bg-[#f97316]/5 px-4 py-2 font-mono text-[11px] text-[#fdba74]">
+                  <span>Statut CISA KEV indisponible pour cette page : l’absence de badge ne signifie pas « non exploitée ».</span>
+                  <button type="button" onClick={reload}
+                    className="border border-[#f97316]/30 px-3 py-1 text-[10px] font-bold uppercase tracking-widest hover:bg-[#f97316]/10 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#00d4ff]">
+                    Réessayer
+                  </button>
+                </div>
+              )}
               <div className="overflow-x-auto border border-[#1e2d40]">
                 <table className="w-full text-sm font-mono">
                   <thead className="bg-[#0a0f16] border-b border-[#1e2d40]">
@@ -214,7 +284,7 @@ export default function CVEList() {
                       <tr
                         key={cve.id}
                         className="border-b border-[#1e2d40] hover:bg-[#0a0f16]/70 transition-colors cursor-pointer"
-                        onClick={() => window.location.href = `/cve/${cve.id}`}
+                        onClick={() => navigate(`/cve/${cve.id}`)}
                       >
                         <td className="px-4 py-3">
                           <div className="flex items-center gap-2 flex-wrap">
@@ -225,10 +295,12 @@ export default function CVEList() {
                             >
                               {cve.cve_id}
                             </Link>
-                            {kevMap.has(cve.cve_id) && (
+                            {kev.flagged.has(cve.cve_id) && (
                               <span
                                 className="inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 border border-[#ef4444]/50 bg-[#ef4444]/20 text-[#ef4444] animate-pulse font-mono uppercase tracking-wider"
-                                title={`Exploitée activement — ${kevMap.get(cve.cve_id)?.vulnerability_name ?? ''}`}
+                                title={kev.entries.get(cve.cve_id)?.vulnerability_name
+                                  ? `Exploitée activement — ${kev.entries.get(cve.cve_id)?.vulnerability_name}`
+                                  : 'Exploitée activement — catalogue CISA KEV'}
                               >
                                 <Flame size={10} /> KEV
                               </span>
@@ -274,7 +346,7 @@ export default function CVEList() {
         <NVDImportModal
           open={showNVDModal}
           onClose={() => setShowNVDModal(false)}
-          onSuccess={fetchCVE}
+          onSuccess={reload}
         />
       )}
     </>
