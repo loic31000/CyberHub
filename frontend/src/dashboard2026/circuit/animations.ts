@@ -17,10 +17,12 @@ export const fx = (v: number) => v.toFixed(3);
  * only visible while it travels a hop, the tails follow it along the trace
  * (corners included), and the receiving chip glows while the LED is inside.
  */
-export function journeyKeyframes(journeys: Journey[]) {
+export function journeyKeyframes(journeys: Journey[], keepHop?: (ji: number, hi: number) => boolean) {
   let css = "";
   journeys.forEach((j, ji) => {
     j.hops.forEach((h, hi) => {
+      // Only the hops some layer still draws per hop (by default, all of them).
+      if (keepHop && !keepHop(ji, hi)) return;
       const a = pct(h.start, j.period);
       const z = pct(h.end, j.period);
       const e = Math.min(0.8, (z - a) / 5);

@@ -100,3 +100,6 @@ export const boundsOf = (points: Point[]) => {
   const ys = points.map((p) => p.y);
   return { x: Math.min(...xs) - 4, y: Math.min(...ys) - 4, w: Math.max(...xs) - Math.min(...xs) + 8, h: Math.max(...ys) - Math.min(...ys) + 8 };
 };
+
+/* Does a clipped layer (hero) draw this hop? The layer and its keyframes share this test. */
+export const hopIn = (hop: { points: Point[] }, clip: Box) => overlaps(boundsOf(hop.points), clip);

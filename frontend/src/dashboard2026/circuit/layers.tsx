@@ -1,7 +1,7 @@
 import type { CSSProperties } from "react";
 import { createPortal } from "react-dom";
 import { animation, fx, TAILS } from "./animations";
-import { boundsOf, overlaps, r1 } from "./geometry";
+import { hopIn, overlaps, r1 } from "./geometry";
 import type { MergedJourney } from "./merged";
 import { LAYERS, type Box, type HeroBoard, type HeroLink, type Journey } from "./types";
 
@@ -22,7 +22,7 @@ export function JourneyLayer({ journeys, mode, clip }: { journeys: Journey[]; mo
             ) : null,
           )}
           {mode === "under" &&
-            j.hops.map((h, hi) => (clip && !overlaps(boundsOf(h.points), clip) ? null : (
+            j.hops.map((h, hi) => (clip && !hopIn(h, clip) ? null : (
               <g key={`h${hi}`}>
                 {TAILS.map(({ px, cls }, ti) => (
                   <path
