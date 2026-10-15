@@ -2,15 +2,20 @@
 
 **Décision exprimée par l'auteur le 12 octobre 2026 :** CyberHub est principalement un outil personnel de cybersécurité, développé pour un usage local, à partager en open source et à présenter dans une vitrine/portfolio. Ce projet ne vise pas actuellement une plateforme SaaS, un service commercial ni un déploiement Internet de production.
 
-**Cible fonctionnelle : une seule application frontend React dans `frontend/`.** La landing de présentation, le futur Dashboard 2026 et les modules existants appartiendront à cette même expérience. Le backend Go et SQLite reste le service local de l'application. La mise à disposition éventuelle d'une vitrine statique indépendante sur Internet est une **possibilité future**, pas une exigence ni une décision de déploiement.
+**Cible fonctionnelle : une seule application frontend React dans `frontend/`.** La landing de présentation, le Dashboard 2026 et les modules existants appartiennent ou appartiendront à cette même expérience. Le backend Go et SQLite reste le service local de l'application. La mise à disposition éventuelle d'une vitrine statique indépendante sur Internet est une **possibilité future**, pas une exigence ni une décision de déploiement.
 
-**Statut technique : intention d'intégration validée, pas encore implémentée dans `main`.** Cette ADR remplace l'ancienne proposition privilégiant deux applications frontend autonomes. Les branches expérimentales `feat/cyberhub-2026-design` (landing / Showcase) et `feat/console-2026-dashboard-prototype` (dashboard) sont conservées séparément jusqu'à une intégration revue et testée. Le prototype Showcase dispose aujourd'hui de son propre laboratoire Vite uniquement pour le développement ; ce n'est pas la cible produit.
+**Statut d'implémentation au 15 octobre 2026 : partiellement réalisée.** Cette ADR remplace l'ancienne proposition privilégiant deux applications frontend autonomes.
+
+- **Console 2026 intégrée** au frontend principal via la [PR #27](https://github.com/loic31000/CyberHub/pull/27) : Dashboard, navigation globale, MITRE ATT&CK, IOC Manager et OSINT Runner vivent dans `frontend/src/`, avec le backend Go/SQLite et l'authentification existants. La branche `feat/console-2026-dashboard-prototype` reste une référence historique.
+- **Landing / Showcase pas encore intégrée** : elle reste un laboratoire Vite autonome sur `feat/cyberhub-2026-design`, utilisé uniquement pour le développement ; ce n'est pas la cible produit.
+
+*Décision et statut initiaux du 12 octobre 2026 : intention d'intégration validée, pas encore implémentée dans `main`.*
 
 ## Objectif et périmètre
 
 - **Usage :** CyberHub fonctionne principalement sur le poste de l'utilisateur, et reste installable, partageable et consultable sur GitHub sous licence MIT pour le code original (voir [licences](../LICENSING.md)).
 - **Présentation :** une landing soignée raconte le projet, présente les modules et peut inclure une démonstration explicitement fictive. Le partage du projet ne nécessite pas d'exposer l'API Go ni la base SQLite.
-- **Application :** le Dashboard 2026 devient à terme le tableau de bord de la Console React existante, avec les vrais modules, parcours et données autorisées. Il ne constitue pas une troisième application.
+- **Application :** le Dashboard 2026 est désormais le tableau de bord de la Console React existante, avec les vrais modules, parcours et données autorisées. Il ne constitue pas une troisième application.
 - **Limite :** aucun hébergement public de la Console ni architecture SaaS ne sont planifiés par cette décision.
 
 ## Organisation cible indicative
@@ -20,7 +25,7 @@ CyberHub/
   frontend/                application React unifiée
     src/
       ...                  landing et présentation du projet (à intégrer)
-      ...                  dashboard 2026 (à intégrer)
+      dashboard2026/       dashboard 2026 (intégré, PR #27)
       ...                  modules existants, recherche et paramètres
   backend/                 API Go, authentification, SQLite, build React embarqué
   docs/                    architecture, roadmap, licences
@@ -68,6 +73,9 @@ Si la démonstration est intégrée au frontend commun, ses composants ne doiven
 
 ## Étapes avant fusion des prototypes
 
+Suivies pour l'intégration de la Console (PR #27) ; elles restent applicables à la landing.
+
+
 1. Relever les routes, conventions d'authentification et composants de `frontend/` sur la base réelle de `main`.
 2. Préparer un plan d'intégration de la landing dans le frontend principal sans supprimer son travail visuel validé.
 3. Préparer l'intégration progressive du Dashboard 2026 avec les données et les modules effectifs, sans présenter ses compteurs fictifs comme des mesures.
@@ -76,4 +84,4 @@ Si la démonstration est intégrée au frontend commun, ses composants ne doiven
 6. Revoir les licences et attributions de chaque ressource intégrée avant redistribution.
 7. Faire valider explicitement les changements et leurs tests, puis seulement fusionner le travail concerné dans `main`.
 
-**Cette ADR décrit la cible documentaire actuelle, pas une fonctionnalité livrée. Aucun code de landing, de Dashboard ou du backend n'est modifié ici.**
+**Cette ADR décrit la cible d'architecture. Seule la partie Console est livrée ; la landing reste à intégrer.**

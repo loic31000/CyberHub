@@ -1,6 +1,6 @@
 # CyberHub
 
-**Version de l'application actuelle documentée sur `main` : v1.1.**
+**Console CyberHub 2026 intégrée sur `main`.** Le numéro v1.1 désigne la dernière version documentée avant cette intégration ; aucun nouveau tag de version n'a encore été créé.
 
 > Hub de ressources cybersécurité local ; certains imports et flux demandent Internet.
 
@@ -15,37 +15,35 @@ Application de bureau pour centraliser outils, writeups CTF, veille CVE, playboo
 
 ---
 
-## État du projet au 12 octobre 2026
+## État du projet au 15 octobre 2026
 
-La branche `main` contient l'application CyberHub existante (React, Go, SQLite), conçue principalement pour une utilisation locale. Le projet sert à développer un outil personnel, le partager en open source et le présenter en vitrine, **sans objectif actuel de service SaaS ou de déploiement Internet en production**. Deux chantiers graphiques 2026 restent en branches séparées, **non intégrés à l'application de `main`** :
+`main` contient la **Console CyberHub 2026 intégrée** depuis la [PR #27](https://github.com/loic31000/CyberHub/pull/27), fusionnée le 15 octobre 2026 : Dashboard « Terminal Overview », navigation globale, interfaces MITRE ATT&CK, IOC Manager et OSINT Runner modernisées. Il s'agit toujours d'une application personnelle locale : backend **Go**, frontend **React**, base **SQLite** locale, données de la Console derrière l'authentification existante. Le globe du Dashboard et ses routes sont illustratifs ; ils ne montrent pas du trafic réel.
 
-| Chantier | Branche | Statut |
-| --- | --- | --- |
-| Landing page / Showcase 2026 | [`feat/cyberhub-2026-design`](https://github.com/loic31000/CyberHub/tree/feat/cyberhub-2026-design) | Prototype autonome de présentation, avec scènes et données fictives. |
-| Dashboard / Terminal Overview 2026 | [`feat/console-2026-dashboard-prototype`](https://github.com/loic31000/CyberHub/tree/feat/console-2026-dashboard-prototype) | Prototype frontend indépendant, avec globe et animations de démonstration. |
+| Chantier | État actuel |
+| --- | --- |
+| Dashboard et modules 2026 | Intégrés dans `frontend/` sur `main` ; les anciennes branches de prototype restent des références historiques. |
+| Landing / Showcase 2026 | Prototype autonome sur [`feat/cyberhub-2026-design`](https://github.com/loic31000/CyberHub/tree/feat/cyberhub-2026-design), distinct de la Console ; son intégration n'est pas encore réalisée. |
 
-**Architecture cible souhaitée : un seul frontend React** dans `frontend/`, regroupant la landing de présentation, le futur Dashboard 2026 et les modules existants. Le backend Go/SQLite reste local et les fonctionnalités utilisant les données réelles restent authentifiées. Les laboratoires de prototype peuvent avoir temporairement leurs propres builds sans imposer plusieurs frontends dans l'application finale.
+Le projet reste destiné à un usage local et au partage du code source, **sans service SaaS ni déploiement Internet de la Console prévu**. La cible d'architecture demeure un seul frontend React pour la Console et, si elle est intégrée plus tard, la landing.
 
-**Intégration future :** ces deux branches sont destinées à alimenter progressivement `main` **après revue, tests et décision de fusion**. Elles n'impliquent ni fusion automatique, ni hébergement public, ni surveillance réseau réelle. Une démonstration fictive ne doit pas accéder aux données privées. Voir la [décision d'architecture](docs/cyberhub-2026/architecture.md).
-
-Documents de suivi : [plan d'intégration des branches](docs/BRANCH-INTEGRATION.md), [feuille de route](docs/cyberhub-2026/implementation-roadmap.md), [développement local](DEVELOPMENT.md), [crédits/licences](docs/LICENSING.md).
+Documents de suivi : [architecture](docs/cyberhub-2026/architecture.md), [suivi d'intégration des branches](docs/BRANCH-INTEGRATION.md), [feuille de route](docs/cyberhub-2026/implementation-roadmap.md), [développement local](DEVELOPMENT.md), [crédits/licences](docs/LICENSING.md).
 
 ---
 
 ## Modules
 
-- **Dashboard** - KPIs visuels, graphiques (writeups, CVE par sévérité, top outils, IOCs récents, corrélations)
+- **Dashboard 2026** - Terminal Overview, cartes d'environnement et widgets personnalisables ; statistiques et aperçus reliés aux API existantes, avec états de chargement, vide et erreur. Globe et circuit illustratifs.
 - **Outils** - 59 fiches techniques (offensif, défensif, OSINT, forensics, cloud, reverse engineering)
 - **CTF Writeups** - Gestion par plateforme (TryHackMe, HackTheBox) · 8 writeups inclus
 - **Veille CVE** - Base locale + import NVD JSON/API paginé · badge CISA KEV 🔥 · score EPSS (FIRST.org)
 - **Playbooks** - 19 procédures de réponse à incident interactives (checklist step-by-step)
-- **MITRE ATT&CK** - 823 techniques · 14 tactiques · format STIX 2.0 · 100% offline · **ATT&CK Layers** : création et visualisation de couches d'annotation par technique
+- **MITRE ATT&CK** - catalogue local de tactiques et techniques, Explorer, fiches et préférences d'affichage ; **ATT&CK Layers** : création, visualisation et export de couches d'annotation. Le contenu disponible dépend des données synchronisées localement.
 - **CLOAK OpSec** - 720 sous-techniques · 13 tactiques · anonymat, dissimulation, OpSec · 100% offline
-- **IOC Manager** - IP/domaine/hash/URL/email/CIDR · TLP · sélection groupée · import CSV/TXT en masse
+- **IOC Manager** - poste de travail 2026 avec inspecteur d'indicateur et Intelligence Map (corrélations locales vers techniques MITRE ATT&CK, CVE et playbooks), ouverture directe de la fiche MITRE correspondante · IP/domaine/hash/URL/email/CIDR · TLP · sélection groupée · import CSV/TXT en masse. Les niveaux de confiance des corrélations sont des indications heuristiques, pas des probabilités de compromission.
 - **Hash Analyzer** - VirusTotal · MalwareBazaar · ThreatFox · URLhaus · 4 sources parallèles · cache SQLite
-- **BGP / AS Lookup** - Proxy BGPView · cache SQLite TTL 1h · fallback RIPE Stat · export IOC CIDR
+- **BGP / AS Lookup** - API RIPE Stat · résolution DNS via Cloudflare DNS-over-HTTPS · cache SQLite 10 min · export IOC CIDR
 - **BGP Historian** - Snapshots AS périodiques · diff visuel · alertes automatiques sur changements de routage
-- **OSINT Runner** - Exécution locale WhatsMyName · extraction IOC · import direct
+- **OSINT Runner** - Search Workstation : recherche de pseudonyme sur le catalogue WhatsMyName local, périmètre par catégorie, historique et rapports, tri et filtres des profils trouvés, import des résultats en IOC. Le **Signal Globe** est une visualisation symbolique de la recherche : ses ondes et points ne représentent pas des sites ou détections individuels ; seuls les compteurs (sites vérifiés, progression, profils trouvés) sont des données réelles.
 - **Notes** - Éditeur opérationnel · liens IOC/MITRE/CVE · recherche fulltext · import/export JSON/MD/TXT/HTML
 - **Investigations** - Timeline d'investigation avec événements horodatés
 - **Corrélation IOC** - Moteur 9 goroutines · matching CVE, playbooks, MITRE, LOLBins, BGP, threat feeds
@@ -54,6 +52,8 @@ Documents de suivi : [plan d'intégration des branches](docs/BRANCH-INTEGRATION.
 - **Encoder / Decoder** - Base64 ↔ URL ↔ Hex ↔ ROT13 ↔ HTML entities · preview temps réel · 100% offline
 - **Reverse Shell Generator** - Payloads pour 16 langages · encodage none/base64/url · listener netcat auto
 - **Paramètres** - Backup SQLite · export/import JSON · clés API VirusTotal/NVD · sync CISA KEV + threat feeds
+
+**Navigation 2026** - rail **Essentiel** (Dashboard, jusqu'à cinq favoris dans l'ordre choisi, module courant) ou **Complet** (tous les modules), tiroir « Tous les modules », préférences d'affichage et de densité, recherche globale **Ctrl+K** (Cmd+K sur macOS).
 
 ---
 
@@ -80,27 +80,41 @@ cd CyberHub
 
 > Le build React écrit directement dans `backend/web/`, puis `build.ps1` compile Go avec `CGO_ENABLED=0`.
 
-**Build manuel :**
+**Build manuel - Windows (PowerShell) :**
 
-```bash
-# 1. Frontend
-cd frontend && npm ci && npm run build && cd ..
+```powershell
+# 1. Frontend : écrit le build dans backend/web
+cd frontend
+npm ci
+npm run build
+cd ..
 
 # 2. Backend
 cd backend
-CGO_ENABLED=0 go build -ldflags="-s -w" -o ../cyber-hub.exe .   # Windows
-# CGO_ENABLED=0 go build -ldflags="-s -w" -o ../cyber-hub .     # Linux/macOS
+$env:CGO_ENABLED = "0"
+go build -ldflags="-s -w" -o ..\cyber-hub.exe .
+cd ..
 ```
 
-> `CGO_ENABLED=0` est requis - le driver SQLite (`glebarez/sqlite`) est pur Go, sans dépendance C.
+**Build manuel - Linux / macOS (Bash) :**
+
+```bash
+cd frontend && npm ci && npm run build && cd ..
+cd backend && CGO_ENABLED=0 go build -ldflags="-s -w" -o ../cyber-hub . && cd ..
+```
+
+> `CGO_ENABLED=0` est utilisé par les builds du dépôt : le driver SQLite (`glebarez/sqlite`) est pur Go, sans dépendance C. Le serveur embarque `backend/web` (`go:embed`) : construire le frontend **avant** de compiler ou tester le backend. Ce dossier est généré et ignoré par Git.
 
 ---
 
 ## Lancement
 
+```powershell
+.\cyber-hub.exe   # Windows (PowerShell)
+```
+
 ```bash
-./cyber-hub.exe   # Windows
-./cyber-hub       # Linux/macOS
+./cyber-hub       # Linux / macOS
 ```
 
 L'application démarre sur **http://localhost:7743** et ouvre le navigateur automatiquement.
@@ -113,37 +127,38 @@ L'application démarre sur **http://localhost:7743** et ouvre le navigateur auto
 
 Pour utiliser le backend Docker existant et le hot reload Vite, suivre [le guide Windows Docker + Vite](DEVELOPMENT.md). Le frontend de développement est sur `http://localhost:5173`; le build embarqué est sur `http://localhost:7743`. Exécuter les commandes npm dans `frontend/` après installation des dépendances (`npm ci`). Depuis la racine, `npm run dev` ne correspond pas au serveur du frontend principal.
 
-Les commandes propres aux prototypes 2026 sont décrites dans les README de leurs branches respectives. Après intégration, la landing et le Dashboard sont destinés au frontend React principal, pas à deux applications autonomes.
+Le Dashboard 2026 est servi par le frontend principal. Les commandes du laboratoire Landing / Showcase restent documentées sur sa branche distincte.
+
+Vérifications, à lancer depuis le dossier indiqué (commandes identiques sous PowerShell et Bash) :
 
 ```bash
-# Vérification TypeScript
-cd frontend && npx tsc --noEmit
+# Dans frontend/
+npx tsc --noEmit          # vérification TypeScript
+npm test                  # tests Vitest
+npm run build             # build Vite, écrit dans backend/web
 
-# Formatage Go
-cd backend && gofmt -w ./internal/...
-
-# Lancer les tests backend (SQLite in-memory, pas de serveur requis)
-cd backend && go test ./internal/api/handlers/...
-
-# Réinitialiser le mot de passe (accès perdu)
-cd backend && go run cmd/reset-auth/main.go
+# Dans backend/ (après un build frontend)
+go test ./...             # tests Go (SQLite in-memory, pas de serveur requis)
+go vet ./...
+gofmt -l .                # liste les fichiers Go à formater, sans les modifier
+go run ./cmd/reset-auth   # réinitialiser le mot de passe (accès perdu)
 ```
+
+Pour un build de contrôle qui ne touche pas `backend/web`, la CI utilise un dossier temporaire : `npm run build -- --outDir <dossier-temporaire> --emptyOutDir`.
+
+### Intégration continue
+
+Le workflow [Frontend CI](.github/workflows/frontend-ci.yml) s'exécute sur les pull requests et sur `main` lorsque `frontend/` change : `npm ci`, `npx tsc --noEmit`, `npm test` (Vitest) et build Vite vers un dossier temporaire. Il est **ciblé sur le frontend** : il ne lance pas les tests Go et ne vérifie ni les opérations métier, ni les services externes.
 
 ---
 
 ## Aperçu
 
-### Dashboard
-![Dashboard](./.github/screenshots/dashboard.png)
+### CyberHub 2026 — Terminal Overview
 
-### IOC Manager
-![IOC Manager](./.github/screenshots/iocmanager.png)
+![Dashboard CyberHub 2026](.github/screenshots/dashboard-2026.png)
 
-### CVE Watch + CISA KEV
-![CVE](./.github/screenshots/cve.png)
-
-### MITRE ATT&CK
-![MITRE ATT&CK](./.github/screenshots/mitre.png)
+*Console CyberHub 2026 intégrée au frontend principal, ici sur une base vide. Le globe et les éléments graphiques sont illustratifs.*
 
 ---
 
@@ -160,13 +175,29 @@ cd backend && go run cmd/reset-auth/main.go
 | [Feodo Tracker - abuse.ch](https://feodotracker.abuse.ch/about/) | Flux d'indicateurs | Conditions de service à vérifier (CC0 non confirmé) |
 | [URLhaus - abuse.ch](https://urlhaus.abuse.ch/about/) | Flux d'URLs | Conditions de service à vérifier (CC0 non confirmé) |
 | [NVD - NIST](https://nvd.nist.gov/) | Base CVE (API v2 paginée) | Domaine public |
-| [BGPView](https://bgpview.io/) | API BGP / ASN lookup | Conditions du fournisseur à vérifier |
+| [RIPE Stat](https://stat.ripe.net/) | API BGP / ASN lookup | Conditions du fournisseur à vérifier |
+| [Cloudflare DNS-over-HTTPS](https://developers.cloudflare.com/1.1.1.1/encryption/dns-over-https/) | Résolution DNS du module BGP | Conditions du fournisseur à vérifier |
+| [WhatsMyName](https://github.com/WebBreacher/WhatsMyName) | Catalogue de sites de l'OSINT Runner (`wmn-data.json`) | Licence de la version embarquée à vérifier |
+| [Natural Earth](https://www.naturalearthdata.com/about/terms-of-use/) | Contours du globe illustratif du Dashboard | Domaine public |
+| [DM Sans, DM Mono, Manrope](frontend/public/dashboard-2026/fonts/) | Polices de la Console 2026 (textes de licence fournis) | SIL Open Font License 1.1 |
 
 ---
 
 ## Sécurité
 
-Bind sur `127.0.0.1` uniquement - aucun accès réseau externe. JWT HS256 · bcrypt · rate limit login 8 req/min · `X-Frame-Options: DENY` · `X-Content-Type-Options: nosniff` · aucun secret en dur (JWT secret et clés API stockés en DB).
+**Écoute locale.** Le binaire écoute par défaut sur `127.0.0.1:7743`. Dans l'image Docker, le serveur écoute sur toutes les interfaces du conteneur (`CYBER_HUB_LISTEN_ALL=1`), mais `compose.yaml` ne publie le port que sur `127.0.0.1` de l'hôte.
+
+**Connexions sortantes.** Certaines fonctions contactent des services externes lorsqu'elles sont utilisées : import NVD, synchronisation CISA KEV et threat feeds (abuse.ch), analyse de hash (VirusTotal, MalwareBazaar, ThreatFox, URLhaus), score EPSS (FIRST.org), BGP (RIPE Stat, Cloudflare DNS-over-HTTPS), téléchargement des données MITRE ATT&CK et des mises à jour CLOAK et WhatsMyName depuis GitHub, et recherches OSINT vers les sites du catalogue WhatsMyName.
+
+**Mesures en place.** JWT HS256 · mots de passe bcrypt · limitation du login à 8 requêtes/min par IP · `X-Frame-Options: DENY` · `X-Content-Type-Options: nosniff` · pas de secret en dur (secret JWT et clés API stockés en base locale).
+
+Ces mesures ne constituent pas un audit de sécurité. L'application est conçue pour un usage local ; l'exposer sur un réseau exigerait une revue distincte.
+
+---
+
+## Limites connues
+
+Les tests automatisés couvrent TypeScript, des tests Vitest ciblés, le build et des tests Go de handlers. Les smoke tests réalisés lors de l'intégration ont validé des parcours ciblés avec le vrai backend authentifié. Ils ne constituent pas une validation exhaustive des créations, éditions et suppressions, des imports, des synchronisations, des scans OSINT réels, de la sécurité de production, de l'accessibilité complète ni de tous les cas responsive.
 
 ---
 
@@ -186,4 +217,4 @@ Cyber-Hub est destiné **exclusivement à un usage légal et éthique** : tests 
 
 ---
 
-*Documentation revue le 12/10/2026. Version applicative de `main` : v1.1 ; prototypes 2026 encore en branches distinctes.*
+*Documentation actualisée le 15/10/2026. Console 2026 intégrée sur `main` (PR #27) ; la landing reste un chantier distinct.*

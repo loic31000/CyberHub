@@ -1,10 +1,23 @@
 # CyberHub 2026 - ordre de réalisation et portes de validation
 
-> **Point d'étape au 12 octobre 2026 :** des prototypes de landing / Showcase (`feat/cyberhub-2026-design`) et de dashboard (`feat/console-2026-dashboard-prototype`) sont présents sur GitHub. Ils ne sont pas intégrés dans `main` et ne prouvent ni la publication publique, ni la conformité finale. Les critères et étapes ci-dessous restent en partie la feuille de route historique, pas un rapport d'achèvement. **Décision d'architecture actualisée : une application React unifiée pour un outil personnel local ; la landing et le Dashboard rejoindront à terme `frontend/`, sans projet de SaaS ou d'hébergement public de la Console.** Avant intégration, revoir la qualité, les frontières API/données, les licences tierces et la [licence du projet](../LICENSING.md).
+> **Point d'étape au 15 octobre 2026 :** la Console 2026 (Dashboard, navigation, MITRE ATT&CK, IOC Manager, OSINT Runner) est **intégrée dans `main`** via la [PR #27](https://github.com/loic31000/CyberHub/pull/27). La landing / Showcase (`feat/cyberhub-2026-design`) reste un prototype non intégré. Cette intégration ne prouve ni une publication publique, ni une conformité finale (sécurité, accessibilité, licences).
+>
+> *Point d'étape initial (12 octobre 2026) : prototypes de landing et de dashboard présents sur GitHub, non intégrés dans `main`.* Les critères et étapes ci-dessous restent en partie la feuille de route historique, pas un rapport d'achèvement. **Décision d'architecture : une application React unifiée pour un outil personnel local ; le Dashboard a rejoint `frontend/`, la landing doit le rejoindre à terme, sans projet de SaaS ou d'hébergement public de la Console.** Avant intégration, revoir la qualité, les frontières API/données, les licences tierces et la [licence du projet](../LICENSING.md).
 
 Plan fondé sur les descriptions et critères d'acceptation des [issues #3 à #10](https://github.com/loic31000/CyberHub/issues/3) et [#19 à #22](https://github.com/loic31000/CyberHub/issues/19), lus sur GitHub pendant cette phase. Les issues restent ouvertes. Le présent lot est **documentaire** et ne constitue ni une vitrine livrée, ni une conformité sécurité/accessibilité démontrée.
 
 Les risques concrets de fusion entre branches sont documentés dans le [plan d'intégration Git](../BRANCH-INTEGRATION.md) ; une branche prototype ne doit pas être fusionnée telle quelle en supposant son interface déjà intégrée.
+
+## État d'avancement au 15 octobre 2026
+
+| Chantier | État | Précision |
+| --- | --- | --- |
+| Fondations documentées (phase 0) | **Documenté** | Récit, ADR, audit, brief et feuille de route sous `docs/cyberhub-2026/`. |
+| Prototypes landing et Dashboard (phase 1) | **Prototype** | Réalisés et validés visuellement sur leurs branches (voir le [brief](art-direction-brief.md)). |
+| Système visuel de la Console (phase 2) | **Intégré, partiellement** | Tokens, polices locales et composants de la Console 2026 ; pas de système unifié avec la landing. |
+| Landing et démo intégrées (phase 3) | **À réaliser** | PR #25 en brouillon ; aucune route de landing dans `frontend/`. |
+| Application et Dashboard 2026 (phase 4) | **Intégré et testé de façon ciblée** | PR #27 : TypeScript, Vitest, build Vite (CI) et smoke tests ciblés avec le backend authentifié ; pas de validation exhaustive (voir les limites du README). |
+| Réseau optionnel NetAlertX (phase 5) | **Prévu** | Non commencé ; issues #19 à #22 inchangées. |
 
 ## Séquence recommandée
 
@@ -83,7 +96,7 @@ Chaque lot doit comporter un scénario observable et un test de non-régression 
 | Architecture unifiée et sécurité | **Cible documentaire actualisée** dans `architecture.md` : une application React, Go/SQLite local. | Préparer l'intégration, préserver le contrôle d'accès et vérifier les frontières entre démonstration et données réelles. |
 | Brief artistique exploitable | **Documenté** dans `art-direction-brief.md`. | Maquettes haute fidélité, contrastes et mesures; issue #7 non terminée. |
 | Plan relié aux issues | **Documenté** ici. | Planifier sous-tâches et faire valider les portes de phase. |
-| Fonctionnalités/données existantes préservées | **Oui pour ce lot documentaire : aucun code ni donnée modifiés.** | Régression à vérifier à chaque futur lot de code. |
+| Fonctionnalités/données existantes préservées | **Oui pour ce lot documentaire : aucun code ni donnée modifiés.** Pour la Console intégrée (PR #27), préservation vérifiée par la CI frontend et des smoke tests ciblés. | Régression à vérifier à chaque futur lot de code. |
 | Secret/réseau privé non exposé | **Revue documentaire et pas de publication dans ce lot.** | Vérification automatisée des futurs bundles/captures et de l'hébergement. |
 
 Les DoD complètes des issues #3–#10 nécessitent une implémentation et/ou une validation humaine. Les cinq documents de fondation ont pour emplacement canonique `docs/cyberhub-2026/` : [récit](brand-story.md), [ADR](architecture.md), [audit](frontend-audit.md), [brief préparatoire](art-direction-brief.md) et cette feuille de route. La direction graphique finale sera consignée après comparaison des prototypes #7, dans le brief mis à jour ou un document distinct sous ce même répertoire si nécessaire. La branche de cette PR vient du `main` déjà fusionné avec Security CI; les **nouveaux chantiers** devront partir de `main` après revue et fusion des fondations. Aucune issue n'est close par la seule publication de ces documents.
