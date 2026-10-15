@@ -8,7 +8,7 @@ export const TAILS = [
   { px: 30, cls: "is-far" },
 ];
 
-const pct = (t: number, period: number) => Math.min(100, Math.max(0, (t / period) * 100));
+export const pct = (t: number, period: number) => Math.min(100, Math.max(0, (t / period) * 100));
 
 export const fx = (v: number) => v.toFixed(3);
 

@@ -2,6 +2,7 @@ import type { CSSProperties } from "react";
 import { createPortal } from "react-dom";
 import { animation, fx, TAILS } from "./animations";
 import { boundsOf, overlaps, r1 } from "./geometry";
+import type { MergedJourney } from "./merged";
 import { LAYERS, type Box, type HeroBoard, type HeroLink, type Journey } from "./types";
 
 /* SVG layers of the journeys, the hero processor and the link connector. */
@@ -41,6 +42,40 @@ export function JourneyLayer({ journeys, mode, clip }: { journeys: Journey[]; mo
                 </g>
               </g>
             )))}
+        </g>
+      ))}
+    </>
+  );
+}
+
+/*
+ * The board's journeys with one LED and two tails per journey (variant B, see
+ * merged.ts): same classes, glows and timing as JourneyLayer in "under" mode.
+ */
+export function MergedJourneyLayer({ journeys, merged }: { journeys: Journey[]; merged: MergedJourney[] }) {
+  return (
+    <>
+      {journeys.map((j, ji) => (
+        <g key={ji} className={`b-journey is-${j.tone}`}>
+          {j.glows.map((g, gi) =>
+            !g.over ? (
+              <g key={`g${gi}`} className="b-glow" style={{ animation: animation(`cbg${ji}-${gi}`, j) }}>
+                <rect className="b-glow-halo" x={g.x - 5} y={g.y - 5} width={g.w + 10} height={g.h + 10} rx="9" />
+                <rect className="b-glow-edge" x={g.x} y={g.y} width={g.w} height={g.h} rx="6" />
+              </g>
+            ) : null,
+          )}
+          {j.hops.length > 0 && (
+            <>
+              {TAILS.map(({ cls }, ti) => (
+                <path key={cls} className={`b-tail ${cls}`} d={j.hops[0].d} style={{ animation: animation(`cbtm${ji}-${ti}`, j) }} />
+              ))}
+              <g className="b-led" style={{ offsetPath: `path("${merged[ji].d}")`, animation: animation(`cbdm${ji}`, j) } as CSSProperties}>
+                <circle className="b-led-soft" r="3" />
+                <circle className="b-led-core" r="1.7" />
+              </g>
+            </>
+          )}
         </g>
       ))}
     </>

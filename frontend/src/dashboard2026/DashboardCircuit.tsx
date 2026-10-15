@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useRef } from "react";
 import { calmRamp, heartbeatKeyframes, journeyKeyframes } from "./circuit/animations";
 import { r1 } from "./circuit/geometry";
-import { HeroLayer, JourneyLayer, LinkLayer } from "./circuit/layers";
+import { HeroLayer, JourneyLayer, LinkLayer, MergedJourneyLayer } from "./circuit/layers";
+import { mergedKeyframes, mergeJourneys, supportsPathAnimation } from "./circuit/merged";
 import { LAYERS } from "./circuit/types";
 import { useCircuitGeometry } from "./circuit/useCircuitGeometry";
 
@@ -42,9 +43,13 @@ export { JourneyLayer, LinkLayer } from "./circuit/layers";
 export default function DashboardCircuit() {
   const hostRef = useRef<HTMLDivElement>(null);
   const { geometry } = useCircuitGeometry(hostRef);
+  // The board's own layer: one LED and two tails per journey where the browser can
+  // animate a path's shape (Chromium, Firefox); per hop otherwise (WebKit). The
+  // per-hop keyframes stay: the hero's layer still draws its hops with them.
+  const merged = useMemo(() => (geometry && supportsPathAnimation() ? mergeJourneys(geometry.journeys) : null), [geometry]);
   const keyframes = useMemo(
-    () => (geometry ? journeyKeyframes(geometry.journeys) + heartbeatKeyframes(geometry.heartbeat) : ""),
-    [geometry],
+    () => (geometry ? journeyKeyframes(geometry.journeys) + heartbeatKeyframes(geometry.heartbeat) + (merged ? mergedKeyframes(geometry.journeys, merged) : "") : ""),
+    [geometry, merged],
   );
   const heroElement = geometry?.hero ? hostRef.current?.parentElement?.querySelector(".dashboard-board .overview-hero") : null;
 
@@ -154,7 +159,7 @@ export default function DashboardCircuit() {
                   </g>
                 </g>
               )}
-              <JourneyLayer journeys={geometry.journeys} mode="under" />
+              {merged ? <MergedJourneyLayer journeys={geometry.journeys} merged={merged} /> : <JourneyLayer journeys={geometry.journeys} mode="under" />}
             </g>
           </svg>
           {geometry.hero && heroElement && <HeroLayer hero={geometry.hero} journeys={geometry.journeys} target={heroElement} />}
