@@ -158,11 +158,14 @@ const PLATFORMS_FILTER = ['Windows', 'Linux', 'macOS', 'Cloud', 'Network', 'Andr
 export default function MITRE() {
   const [display, setDisplay] = useMitrePreferences()
   const [status, setStatus] = useState<MITREStatus | null>(null)
+  const [statusLoading, setStatusLoading] = useState(true)
+  const [statusError, setStatusError] = useState(false)
   const [tactics, setTactics] = useState<MITRETactic[]>([])
   const [techniques, setTechniques] = useState<MITRETechnique[]>([])
   const [total, setTotal] = useState(0)
   const [page, setPage] = useState(1)
-  const [loading, setLoading] = useState(false)
+  const [loading, setLoading] = useState(true)
+  const [techniquesError, setTechniquesError] = useState(false)
   const [activeTactic, setActiveTactic] = useState<string>('')
   const [activePlatform, setActivePlatform] = useState<string>('')
   const [query, setQuery] = useState('')
@@ -181,22 +184,43 @@ export default function MITRE() {
   const [requestNotice, setRequestNotice] = useState<string | null>(null)
 
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null)
+  const statusRequestId = useRef(0)
+  const techniquesRequestId = useRef(0)
   const opener = useRef<HTMLElement | null>(null)
   const LIMIT = 60
 
   const fetchStatus = useCallback(async () => {
+    const requestId = ++statusRequestId.current
     try {
       const s = await mitreApi.status()
+      if (requestId !== statusRequestId.current) return
       setStatus(s)
+      setStatusLoading(false)
+      setStatusError(false)
       if (s.seeded && pollRef.current) { clearInterval(pollRef.current); pollRef.current = null }
-    } catch { /* ignore */ }
+    } catch {
+      if (requestId !== statusRequestId.current) return
+      setStatusLoading(false)
+      setStatusError(true)
+      if (pollRef.current) { clearInterval(pollRef.current); pollRef.current = null }
+    }
   }, [])
 
   useEffect(() => {
-    fetchStatus()
     pollRef.current = setInterval(fetchStatus, 3000)
-    return () => { if (pollRef.current) clearInterval(pollRef.current) }
+    void fetchStatus()
+    return () => {
+      statusRequestId.current++
+      if (pollRef.current) { clearInterval(pollRef.current); pollRef.current = null }
+    }
   }, [fetchStatus])
+
+  const retryStatus = () => {
+    setStatusLoading(true)
+    setStatusError(false)
+    if (!pollRef.current) pollRef.current = setInterval(fetchStatus, 3000)
+    void fetchStatus()
+  }
 
   useEffect(() => {
     const timer = setTimeout(() => setDebouncedQ(query), 300)
@@ -238,21 +262,33 @@ export default function MITRE() {
 
   const fetchTechniques = useCallback(async (pg: number) => {
     if (!status?.seeded) return
+    const requestId = ++techniquesRequestId.current
     setLoading(true)
+    setTechniquesError(false)
+    setTechniques([])
+    setTotal(0)
+    setPage(pg)
     try {
       const res = await mitreApi.techniques({
         tactic: activeTactic || undefined, platform: activePlatform || undefined,
         q: debouncedQ || undefined, only_techniques: !showSubs || undefined,
         page: pg, limit: LIMIT,
       })
+      if (requestId !== techniquesRequestId.current) return
       setTechniques(res.items ?? [])
       setTotal(res.total)
-      setPage(pg)
-    } catch { /* ignore */ }
-    finally { setLoading(false) }
+    } catch {
+      if (requestId !== techniquesRequestId.current) return
+      setTechniquesError(true)
+    } finally {
+      if (requestId === techniquesRequestId.current) setLoading(false)
+    }
   }, [status?.seeded, activeTactic, activePlatform, debouncedQ, showSubs])
 
-  useEffect(() => { fetchTechniques(1) }, [fetchTechniques])
+  useEffect(() => {
+    void fetchTechniques(1)
+    return () => { techniquesRequestId.current++ }
+  }, [fetchTechniques])
 
   useEffect(() => {
     if (!selected) { setDetailFull(null); return }
@@ -300,8 +336,18 @@ export default function MITRE() {
   const currentTactic = tactics.find(tac => tac.short_name === activeTactic)
   const filtered = !!(activeTactic || activePlatform || debouncedQ || !showSubs)
   const advancedCount = Number(!!activeTactic) + Number(!!activePlatform) + Number(!showSubs)
+  const searchPending = query !== debouncedQ
 
-  if (!status) return (
+  if (statusError) return (
+    <div className="mx">
+      <StateBlock page warn icon={<AlertTriangle size={22} />} title="Service MITRE indisponible"
+        actions={<button type="button" onClick={retryStatus} className="mx-btn is-primary"><RefreshCw size={14} />Réessayer</button>}>
+        Impossible de charger l’état de MITRE ATT&CK. Vérifiez la connexion au serveur, puis réessayez.
+      </StateBlock>
+    </div>
+  )
+
+  if (statusLoading || !status) return (
     <div className="mx">
       <StateBlock page live icon={<Loader2 size={22} className="mx-spin" />} title="Chargement de MITRE ATT&CK…" />
     </div>
@@ -353,7 +399,7 @@ export default function MITRE() {
                 )}
               </div>
               <span className="mx-result-count" aria-live="polite">
-                {loading ? 'Recherche…' : <><b>{total.toLocaleString('fr-FR')}</b>résultat{total > 1 ? 's' : ''}</>}
+                {loading || searchPending ? 'Recherche…' : techniquesError ? 'Résultats indisponibles' : <><b>{total.toLocaleString('fr-FR')}</b>résultat{total > 1 ? 's' : ''}</>}
               </span>
               <button type="button" className="mx-btn" aria-expanded={display.filters} aria-controls="mx-advanced-filters"
                 onClick={() => setDisplay({ ...display, filters: !display.filters })}>
@@ -432,7 +478,7 @@ export default function MITRE() {
               {display.tactics ? <PanelLeftClose size={15} aria-hidden="true" /> : <PanelLeftOpen size={15} aria-hidden="true" />}
               {display.tactics ? 'Replier' : `Tactiques${currentTactic ? ` · ${currentTactic.name}` : ''}`}
             </button>
-            {loading && <Loader2 size={15} className="mx-spin" aria-hidden="true" style={{ color: 'var(--mx-cyan)' }} />}
+            {(loading || searchPending) && <Loader2 size={15} className="mx-spin" aria-hidden="true" style={{ color: 'var(--mx-cyan)' }} />}
           </div>
 
           {requestNotice && (
@@ -442,8 +488,13 @@ export default function MITRE() {
             </p>
           )}
           <div className="mx-scroll">
-            {loading && techniques.length === 0 ? (
+            {loading || searchPending ? (
               <SkeletonGrid />
+            ) : techniquesError ? (
+              <StateBlock warn icon={<AlertTriangle size={22} />} title="Chargement des techniques impossible"
+                actions={<button type="button" onClick={() => void fetchTechniques(page)} className="mx-btn is-primary"><RefreshCw size={14} />Réessayer</button>}>
+                Impossible de charger les techniques ATT&CK pour cette recherche. Réessayez dans un instant.
+              </StateBlock>
             ) : techniques.length === 0 ? (
               <StateBlock icon={<Shield size={22} />} title="Aucune technique trouvée"
                 actions={filtered ? <button type="button" onClick={resetFilters} className="mx-btn is-primary"><RotateCcw size={14} />Réinitialiser les filtres</button> : undefined}>

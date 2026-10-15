@@ -112,7 +112,10 @@ export default function MITRELayers() {
     const token = localStorage.getItem('cyber_hub_token') ?? ''
     const a = document.createElement('a')
     fetch(url, { headers: { Authorization: `Bearer ${token}` } })
-      .then(res => res.blob())
+      .then(res => {
+        if (!res.ok) throw new Error(`Export HTTP ${res.status}`)
+        return res.blob()
+      })
       .then(blob => {
         const blobUrl = URL.createObjectURL(blob)
         a.href = blobUrl
@@ -120,7 +123,7 @@ export default function MITRELayers() {
         a.click()
         URL.revokeObjectURL(blobUrl)
       })
-      .catch(() => toast.error('Erreur lors de l\'export'))
+      .catch(() => toast.error('Export du layer impossible. Réessayez.'))
   }
 
   const handleImportFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
