@@ -1,0 +1,20 @@
+# A V1 → A V2 : audit visuel et validation
+
+Audit réalisé dans Chromium local sur `a.html` avant toute modification du prototype. Les captures V1 sont dans [`captures/a-v1-audit/`](captures/a-v1-audit/) : pages entières à 320, 390, 768, 1024, 1440 et 1920 px ; scènes séparées à 390 et 1440 px. Les dimensions relevées sont dans `metrics.json`. Les originaux A V1 et B restent consultables.
+
+| Scène V1 | Constat concret | Choix V2 |
+| --- | --- | --- |
+| Signal | À 390 px, le titre commence à 212 px mais le graphique seulement à 728 px. Le signal est une petite courbe dans un cadre de 346 px, après un long bloc de texte ; à 1440 px, il n’occupe que 556 px face à un titre de 639 px. | Titre monumental, signal horizontal sur toute la largeur, courbe liée à l’adresse du récit ; ordre mobile conçu pour garder texte, action et visuel proches. |
+| Comprendre | À 320 px, cette scène mesure 1531 px de haut et la fiche arrive après trois gros boutons. Les symboles et le contenu des étapes ne montrent pas clairement les deux observations d’une même adresse. | Deux notes A/B visibles simultanément, heures, sources et niveau de certitude ; une adresse commune sert de fil vertical. |
+| Cartographier | Les nœuds HTML en pourcentages et les connexions SVG en `viewBox` 600×360 avec `preserveAspectRatio="none"` n’ont pas les mêmes coordonnées. Le décalage est visible dans la capture 1440 px : les traits rencontrent des cercles vides à côté des nœuds. À 390 px, la carte n’occupe que 344 px de large et ses libellés deviennent petits. | Nœuds, cercles, liens et libellés dans un seul SVG 900×500. Vue mobile verticale dédiée et liste textuelle équivalente. |
+| Agir | Les cartes génériques « Observation / Recoupement / Vérification » ne reprennent pas les notes de l’histoire. Une personne non spécialiste ne sait pas ce qui sera effectivement vérifié. | Dossier CH-021, adresse, notes A/B, chronologie et hypothèse explicite, avec bouton « Voir la méthode ». |
+
+Le contrôle de débordement horizontal V1 était déjà vert aux six largeurs ; il ne révélait pas ces défauts de cadrage, de sens et de cohérence. Les compositions V2 sont dans [`captures/a-v2/`](captures/a-v2/) : pages entières aux six largeurs et scènes séparées à 390/1440 px. `motion-hero-start.png`, `motion-hero-progress.png`, `motion-hero-complete.png`, les trois captures de transition et `parcours-a-v2.webm` ont été enregistrés **avec animations actives**. Les captures statiques utilisent le mouvement réduit pour montrer l’état final sans artefact de transition.
+
+## Vérifications V2
+
+`npm run test:v2` contrôle les six largeurs, l’absence de débordement et d’erreurs JS, l’absence de requêtes hors du serveur Showcase ou vers une API privée, les actions souris/tactile, les sélections au clavier, le menu mobile, la méthode dépliable et la coïncidence géométrique des nœuds et des extrémités de leurs liens SVG. axe-core (règles WCAG 2 A/AA, 2.1 A/AA et 2.2 AA) est exécuté à 390 et 1440 px. Le script vérifie aussi l’animation de tracé et enregistre une vidéo du parcours. `check-report.json` contient les résultats bruts synthétiques.
+
+Résultats du 11 octobre 2026 : aucun débordement ni erreur JS aux six largeurs ; les extrémités des liens coïncident avec les centres SVG vérifiés à 768, 1024, 1440 et 1920 px ; axe-core ne signale aucune violation aux largeurs 390 et 1440 px ; la vidéo WebM dure environ 10 secondes et montre les quatre scènes. Le reflow à 320 px et l’agrandissement du texte à 200 % dans une fenêtre de 640 px passent aussi. Le raccourci de zoom natif du navigateur n’a pas modifié le zoom dans Chromium automatisé (`1280 → 1280` px) : ce contrôle reste **non exécuté**. NVDA n’est pas installé : le contrôle avec lecteur d’écran et l’essai sur appareils physiques restent **non exécutés**. Les résultats automatiques ne constituent pas une certification WCAG 2.2 AA.
+
+Sur le Chromium local, 100 intervalles `requestAnimationFrame` pendant le hero ont une médiane et un 95e percentile de **17 ms**. Cette mesure ne décrit pas la fluidité sur un appareil modeste.

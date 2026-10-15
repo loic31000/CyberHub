@@ -1,0 +1,197 @@
+{
+  "widths": [
+    {
+      "width": 320,
+      "viewport": 320,
+      "document": 320,
+      "body": 320
+    },
+    {
+      "width": 390,
+      "viewport": 390,
+      "document": 390,
+      "body": 390
+    },
+    {
+      "width": 768,
+      "viewport": 768,
+      "document": 768,
+      "body": 768
+    },
+    {
+      "width": 1024,
+      "viewport": 1024,
+      "document": 1024,
+      "body": 1024
+    },
+    {
+      "width": 1440,
+      "viewport": 1440,
+      "document": 1440,
+      "body": 1440
+    },
+    {
+      "width": 1920,
+      "viewport": 1920,
+      "document": 1920,
+      "body": 1920
+    }
+  ],
+  "axe": {
+    "320": [],
+    "390": [],
+    "768": [],
+    "1440": [],
+    "text200": [],
+    "motion": [],
+    "stopped": [],
+    "correlation": [],
+    "modules": [],
+    "mobileMenu": []
+  },
+  "interaction": {
+    "modules": true,
+    "caseAndPlaybook": true,
+    "menu": true,
+    "noJS": true
+  },
+  "motion": {
+    "mid": 0.55,
+    "tokenVisible": true,
+    "end": 1,
+    "back": 0,
+    "rapid": 0.8,
+    "stopped": "true",
+    "correlationDockPx": 0.4502196729444972,
+    "caseDockPx": 0.16733343548958807,
+    "boundaryPx": {
+      "correlation": 6,
+      "investigation": 6
+    },
+    "resize": {
+      "x": 449,
+      "y": 605,
+      "width": 127.28125,
+      "height": 27.75
+    },
+    "mobileChip": {
+      "x": 158,
+      "y": 603,
+      "width": 93.0625,
+      "height": 23.421875
+    }
+  },
+  "story": [
+    {
+      "name": "ioc",
+      "state": "ioc-imported",
+      "caption": "Une valeur devient un indicateur documenté.",
+      "token": {
+        "x": 969,
+        "y": 645
+      }
+    },
+    {
+      "name": "correlation",
+      "state": "correlation-linked",
+      "caption": "Deux observations. Un point commun.",
+      "token": {
+        "x": 657,
+        "y": 679
+      }
+    },
+    {
+      "name": "mitre",
+      "state": "references-explored",
+      "caption": "Un référentiel se consulte à part.",
+      "token": {
+        "x": 1214,
+        "y": 418
+      }
+    },
+    {
+      "name": "cve",
+      "state": "disciplines-explored",
+      "caption": "Changer de domaine, garder les limites.",
+      "token": {
+        "x": 1214,
+        "y": 578
+      }
+    },
+    {
+      "name": "osint",
+      "state": "disciplines-explored",
+      "caption": "Changer de domaine, garder les limites.",
+      "token": {
+        "x": 1214,
+        "y": 419
+      }
+    },
+    {
+      "name": "bgp",
+      "state": "disciplines-explored",
+      "caption": "Changer de domaine, garder les limites.",
+      "token": {
+        "x": 1214,
+        "y": 458
+      }
+    },
+    {
+      "name": "investigation",
+      "state": "investigation-attached",
+      "caption": "La piste devient une investigation.",
+      "token": {
+        "x": 868,
+        "y": 596
+      }
+    },
+    {
+      "name": "playbook",
+      "state": "playbook-reviewed",
+      "caption": "Une prochaine question devient possible.",
+      "token": {
+        "x": 874,
+        "y": 584
+      }
+    },
+    {
+      "name": "final",
+      "state": "cyberhub-revealed",
+      "caption": "Rendre visible l'invisible.",
+      "token": {
+        "x": 855,
+        "y": 535
+      }
+    },
+    {
+      "name": "reverse-correlation",
+      "state": "correlation-linked",
+      "caption": "Deux observations. Un point commun.",
+      "token": {
+        "x": 657,
+        "y": 679
+      }
+    }
+  ],
+  "errors": [],
+  "text200": {
+    "viewport": 320,
+    "document": 321,
+    "body": 321,
+    "controls": [
+      {
+        "left": 32,
+        "right": 275.515625,
+        "bottom": 131
+      },
+      {
+        "left": 32,
+        "right": 150.84375,
+        "bottom": 214.1875
+      }
+    ],
+    "statusTop": 231.1875,
+    "offenders": []
+  },
+  "videoBytes": 6284210
+}

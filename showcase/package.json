@@ -1,0 +1,34 @@
+{
+  "name": "cyberhub-2026-showcase-prototypes",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite --host 127.0.0.1 --port 5174 --strictPort",
+    "build": "vite build",
+    "preview": "vite preview --host 127.0.0.1 --port 5174 --strictPort",
+    "test": "npm run build && node --test tests/*.test.js",
+    "test:browser": "node scripts/browser-check.mjs",
+    "test:v2": "node scripts/v2-check.mjs",
+    "test:v3": "node scripts/v3-check.mjs",
+    "capture:compare": "node scripts/compare-v2-v3.mjs",
+    "test:visual": "node scripts/visual-regression.mjs",
+    "test:terminal": "node scripts/terminal-check.mjs",
+    "test:secondary": "node scripts/secondary-check.mjs",
+    "visual:update": "node scripts/visual-regression.mjs --update",
+    "format:check": "prettier --check index.html a.html a-v2.html a-v3.html terminal-story.html src scripts tests vite.config.js"
+  },
+  "devDependencies": {
+    "@axe-core/playwright": "^4.13.0",
+    "@fontsource-variable/dm-sans": "^5.3.0",
+    "@fontsource-variable/manrope": "^5.3.0",
+    "@fontsource/dm-mono": "^5.3.0",
+    "playwright-core": "^1.64.0",
+    "pngjs": "^7.0.0",
+    "prettier": "^3.9.10",
+    "vite": "^7.3.7"
+  },
+  "dependencies": {
+    "gsap": "^3.15.0"
+  }
+}

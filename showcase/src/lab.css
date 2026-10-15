@@ -1,0 +1,183 @@
+@import "@fontsource-variable/manrope/wght.css";
+@import "@fontsource/dm-mono/latin-400.css";
+:root {
+  font-family: "Manrope Variable", Manrope, sans-serif;
+  color: #eaf0f1;
+  background: #0d121a;
+  font-synthesis: none;
+}
+* {
+  box-sizing: border-box;
+}
+body {
+  margin: 0;
+  min-width: 320px;
+}
+a {
+  color: inherit;
+}
+:focus-visible {
+  outline: 3px solid #8ce1e6;
+  outline-offset: 4px;
+}
+.skip-link {
+  position: absolute;
+  top: 10px;
+  left: 10px;
+  z-index: 10;
+  background: #d5f4f3;
+  color: #0d121a;
+  padding: 12px;
+  transform: translateY(-150%);
+}
+.skip-link:focus {
+  transform: none;
+}
+.lab-header {
+  min-height: 78px;
+  border-bottom: 1px solid #43525e;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  padding: 14px clamp(23px, 5vw, 92px);
+  font:
+    12px "DM Mono",
+    monospace;
+  color: #a9b6c2;
+}
+.lab-brand {
+  color: #edf3f0;
+  text-decoration: none;
+  font:
+    700 24px "Manrope Variable",
+    sans-serif;
+  letter-spacing: -0.055em;
+}
+.lab-brand span {
+  color: #8ce1e6;
+}
+.lab-brand small {
+  display: block;
+  color: #a9b6c2;
+  font:
+    10px "DM Mono",
+    monospace;
+  letter-spacing: 0.08em;
+}
+.lab-main {
+  padding: clamp(55px, 8vw, 130px) clamp(23px, 5vw, 92px) 55px;
+  max-width: 1800px;
+  margin: auto;
+}
+.lab-eyebrow,
+.lab-number,
+.lab-state,
+.lab-footnote {
+  font:
+    12px/1.5 "DM Mono",
+    monospace;
+  letter-spacing: 0.03em;
+}
+.lab-eyebrow {
+  color: #8ce1e6;
+  text-transform: uppercase;
+}
+h1 {
+  max-width: 1130px;
+  margin: 38px 0 28px;
+  font-weight: 500;
+  font-size: clamp(42px, 5.6vw, 89px);
+  letter-spacing: -0.065em;
+  line-height: 1.04;
+}
+h1 em {
+  font-weight: 400;
+  font-family: Georgia, serif;
+  color: #9bced5;
+}
+.lab-lead {
+  max-width: 760px;
+  margin: 0 0 clamp(65px, 8vw, 125px);
+  line-height: 1.7;
+  font-size: clamp(15px, 1.2vw, 18px);
+  color: #c8d5d9;
+}
+.lab-list {
+  border-top: 1px solid #6b7a84;
+}
+.lab-row {
+  display: grid;
+  grid-template-columns: minmax(100px, 0.3fr) minmax(0, 1.5fr) minmax(
+      40px,
+      0.5fr
+    );
+  gap: 25px;
+  align-items: center;
+  min-height: 105px;
+  padding: 19px 0;
+  border-bottom: 1px solid #6b7a84;
+  text-decoration: none;
+  transition:
+    background 0.2s,
+    padding 0.2s;
+}
+.lab-row[href]:hover {
+  background: #182735;
+  padding-inline: 18px;
+}
+.lab-number {
+  color: #a4b5bf;
+}
+.lab-name {
+  font-size: clamp(18px, 2vw, 30px);
+  font-weight: 550;
+  letter-spacing: -0.035em;
+}
+.lab-arrow {
+  justify-self: end;
+  font-size: 27px;
+  color: #8ce1e6;
+}
+.lab-row-next {
+  color: #d9f3f2;
+}
+.lab-row-next .lab-name {
+  color: #8ce1e6;
+}
+.lab-state {
+  justify-self: end;
+  color: #8ce1e6;
+  text-align: right;
+}
+.lab-footnote {
+  margin: 30px 0 0;
+  color: #a6b5bd;
+}
+@media (max-width: 700px) {
+  .lab-header > span {
+    display: none;
+  }
+  .lab-row {
+    grid-template-columns: 1fr 30px;
+    gap: 5px 12px;
+    min-height: 110px;
+  }
+  .lab-number {
+    grid-column: 1/-1;
+  }
+  .lab-name {
+    grid-column: 1;
+  }
+  .lab-arrow,
+  .lab-state {
+    grid-column: 2;
+    grid-row: 2;
+  }
+  .lab-state {
+    grid-column: 1/-1;
+    grid-row: 3;
+    justify-self: start;
+    text-align: left;
+  }
+}

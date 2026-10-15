@@ -1,0 +1,518 @@
+[
+  {
+    "width": 320,
+    "overflow": 0,
+    "sections": [
+      {
+        "id": "signal",
+        "bounds": {
+          "x": 0,
+          "width": 320,
+          "height": 1049
+        },
+        "heading": {
+          "x": 22,
+          "y": 228,
+          "width": 276,
+          "height": 112
+        },
+        "visual": {
+          "x": 22,
+          "y": 745,
+          "width": 276,
+          "height": 300
+        }
+      },
+      {
+        "id": "comprendre",
+        "bounds": {
+          "x": 0,
+          "width": 320,
+          "height": 1531
+        },
+        "heading": {
+          "x": 22,
+          "y": 1334,
+          "width": 276,
+          "height": 208
+        },
+        "visual": {
+          "x": 22,
+          "y": 2075,
+          "width": 276,
+          "height": 573
+        }
+      },
+      {
+        "id": "cartographier",
+        "bounds": {
+          "x": 0,
+          "width": 320,
+          "height": 1734
+        },
+        "heading": {
+          "x": 22,
+          "y": 2865,
+          "width": 276,
+          "height": 208
+        },
+        "visual": {
+          "x": 23,
+          "y": 3246,
+          "width": 274,
+          "height": 370
+        }
+      },
+      {
+        "id": "console",
+        "bounds": {
+          "x": 0,
+          "width": 320,
+          "height": 1903
+        },
+        "heading": {
+          "x": 22,
+          "y": 4599,
+          "width": 276,
+          "height": 104
+        },
+        "visual": {
+          "x": 22,
+          "y": 4875,
+          "width": 276,
+          "height": 878
+        }
+      }
+    ]
+  },
+  {
+    "width": 390,
+    "overflow": 0,
+    "sections": [
+      {
+        "id": "signal",
+        "bounds": {
+          "x": 0,
+          "width": 390,
+          "height": 1032
+        },
+        "heading": {
+          "x": 22,
+          "y": 212,
+          "width": 346,
+          "height": 112
+        },
+        "visual": {
+          "x": 22,
+          "y": 728,
+          "width": 346,
+          "height": 300
+        }
+      },
+      {
+        "id": "comprendre",
+        "bounds": {
+          "x": 0,
+          "width": 390,
+          "height": 1350
+        },
+        "heading": {
+          "x": 22,
+          "y": 1318,
+          "width": 346,
+          "height": 104
+        },
+        "visual": {
+          "x": 22,
+          "y": 1955,
+          "width": 346,
+          "height": 496
+        }
+      },
+      {
+        "id": "cartographier",
+        "bounds": {
+          "x": 0,
+          "width": 390,
+          "height": 1627
+        },
+        "heading": {
+          "x": 22,
+          "y": 2668,
+          "width": 346,
+          "height": 158
+        },
+        "visual": {
+          "x": 23,
+          "y": 2972,
+          "width": 344,
+          "height": 370
+        }
+      },
+      {
+        "id": "console",
+        "bounds": {
+          "x": 0,
+          "width": 390,
+          "height": 1843
+        },
+        "heading": {
+          "x": 22,
+          "y": 4295,
+          "width": 346,
+          "height": 104
+        },
+        "visual": {
+          "x": 22,
+          "y": 4544,
+          "width": 346,
+          "height": 866
+        }
+      }
+    ]
+  },
+  {
+    "width": 768,
+    "overflow": 0,
+    "sections": [
+      {
+        "id": "signal",
+        "bounds": {
+          "x": 0,
+          "width": 768,
+          "height": 1126
+        },
+        "heading": {
+          "x": 46,
+          "y": 234,
+          "width": 676,
+          "height": 127
+        },
+        "visual": {
+          "x": 46,
+          "y": 677,
+          "width": 676,
+          "height": 418
+        }
+      },
+      {
+        "id": "comprendre",
+        "bounds": {
+          "x": 0,
+          "width": 768,
+          "height": 956
+        },
+        "heading": {
+          "x": 46,
+          "y": 1383,
+          "width": 676,
+          "height": 112
+        },
+        "visual": {
+          "x": 345,
+          "y": 1687,
+          "width": 377,
+          "height": 435
+        }
+      },
+      {
+        "id": "cartographier",
+        "bounds": {
+          "x": 0,
+          "width": 768,
+          "height": 1612
+        },
+        "heading": {
+          "x": 46,
+          "y": 2339,
+          "width": 676,
+          "height": 112
+        },
+        "visual": {
+          "x": 47,
+          "y": 2602,
+          "width": 674,
+          "height": 480
+        }
+      },
+      {
+        "id": "console",
+        "bounds": {
+          "x": 0,
+          "width": 768,
+          "height": 1509
+        },
+        "heading": {
+          "x": 46,
+          "y": 3952,
+          "width": 676,
+          "height": 112
+        },
+        "visual": {
+          "x": 46,
+          "y": 4214,
+          "width": 676,
+          "height": 637
+        }
+      }
+    ]
+  },
+  {
+    "width": 1024,
+    "overflow": 0,
+    "sections": [
+      {
+        "id": "signal",
+        "bounds": {
+          "x": 0,
+          "width": 1024,
+          "height": 1180
+        },
+        "heading": {
+          "x": 61,
+          "y": 234,
+          "width": 901,
+          "height": 145
+        },
+        "visual": {
+          "x": 61,
+          "y": 694,
+          "width": 760,
+          "height": 456
+        }
+      },
+      {
+        "id": "comprendre",
+        "bounds": {
+          "x": 0,
+          "width": 1024,
+          "height": 1030
+        },
+        "heading": {
+          "x": 61,
+          "y": 1455,
+          "width": 850,
+          "height": 129
+        },
+        "visual": {
+          "x": 456,
+          "y": 1776,
+          "width": 507,
+          "height": 457
+        }
+      },
+      {
+        "id": "cartographier",
+        "bounds": {
+          "x": 0,
+          "width": 1024,
+          "height": 1628
+        },
+        "heading": {
+          "x": 61,
+          "y": 2486,
+          "width": 850,
+          "height": 129
+        },
+        "visual": {
+          "x": 62,
+          "y": 2766,
+          "width": 899,
+          "height": 480
+        }
+      },
+      {
+        "id": "console",
+        "bounds": {
+          "x": 0,
+          "width": 1024,
+          "height": 1499
+        },
+        "heading": {
+          "x": 61,
+          "y": 4113,
+          "width": 850,
+          "height": 129
+        },
+        "visual": {
+          "x": 61,
+          "y": 4393,
+          "width": 901,
+          "height": 613
+        }
+      }
+    ]
+  },
+  {
+    "width": 1440,
+    "overflow": 0,
+    "sections": [
+      {
+        "id": "signal",
+        "bounds": {
+          "x": 0,
+          "width": 1440,
+          "height": 740
+        },
+        "heading": {
+          "x": 86,
+          "y": 234,
+          "width": 639,
+          "height": 205
+        },
+        "visual": {
+          "x": 798,
+          "y": 247,
+          "width": 556,
+          "height": 390
+        }
+      },
+      {
+        "id": "comprendre",
+        "bounds": {
+          "x": 0,
+          "width": 1440,
+          "height": 1167
+        },
+        "heading": {
+          "x": 86,
+          "y": 1057,
+          "width": 850,
+          "height": 181
+        },
+        "visual": {
+          "x": 608,
+          "y": 1429,
+          "width": 679,
+          "height": 459
+        }
+      },
+      {
+        "id": "cartographier",
+        "bounds": {
+          "x": 0,
+          "width": 1440,
+          "height": 1399
+        },
+        "heading": {
+          "x": 86,
+          "y": 2223,
+          "width": 850,
+          "height": 181
+        },
+        "visual": {
+          "x": 87,
+          "y": 2556,
+          "width": 917,
+          "height": 628
+        }
+      },
+      {
+        "id": "console",
+        "bounds": {
+          "x": 0,
+          "width": 1440,
+          "height": 1493
+        },
+        "heading": {
+          "x": 86,
+          "y": 3622,
+          "width": 850,
+          "height": 181
+        },
+        "visual": {
+          "x": 86,
+          "y": 3953,
+          "width": 1267,
+          "height": 648
+        }
+      }
+    ]
+  },
+  {
+    "width": 1920,
+    "overflow": 0,
+    "sections": [
+      {
+        "id": "signal",
+        "bounds": {
+          "x": 0,
+          "width": 1920,
+          "height": 787
+        },
+        "heading": {
+          "x": 100,
+          "y": 234,
+          "width": 875,
+          "height": 253
+        },
+        "visual": {
+          "x": 1060,
+          "y": 237,
+          "width": 760,
+          "height": 456
+        }
+      },
+      {
+        "id": "comprendre",
+        "bounds": {
+          "x": 0,
+          "width": 1920,
+          "height": 1232
+        },
+        "heading": {
+          "x": 100,
+          "y": 1114,
+          "width": 850,
+          "height": 210
+        },
+        "visual": {
+          "x": 622,
+          "y": 1515,
+          "width": 679,
+          "height": 473
+        }
+      },
+      {
+        "id": "cartographier",
+        "bounds": {
+          "x": 0,
+          "width": 1920,
+          "height": 1431
+        },
+        "heading": {
+          "x": 100,
+          "y": 2346,
+          "width": 850,
+          "height": 210
+        },
+        "visual": {
+          "x": 101,
+          "y": 2707,
+          "width": 1014,
+          "height": 609
+        }
+      },
+      {
+        "id": "console",
+        "bounds": {
+          "x": 0,
+          "width": 1920,
+          "height": 1521
+        },
+        "heading": {
+          "x": 100,
+          "y": 3776,
+          "width": 850,
+          "height": 210
+        },
+        "visual": {
+          "x": 100,
+          "y": 4137,
+          "width": 1400,
+          "height": 657
+        }
+      }
+    ]
+  }
+]
