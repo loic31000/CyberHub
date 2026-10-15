@@ -2,11 +2,20 @@
 
 ---
 
-## Travaux 2026 en branches dédiées (non publiés dans `main`)
+## CyberHub 2026 - Intégration de la Console (non taguée)
 
-- Landing / Showcase 2026 : `feat/cyberhub-2026-design`, prototype de présentation autonome.
-- Dashboard / Terminal Overview 2026 : `feat/console-2026-dashboard-prototype`, prototype frontend avec globe et flux de démonstration.
-- Ces travaux ne constituent **pas** une nouvelle version de la Console v1.1. Leur éventuelle intégration à `main` nécessite une revue et une décision de fusion distinctes. Voir [README](README.md) et [feuille de route](docs/cyberhub-2026/implementation-roadmap.md).
+Fusionnée dans `main` le 15 octobre 2026 via la [PR #27](https://github.com/loic31000/CyberHub/pull/27). Aucun tag ni numéro de version n'a été créé pour cette intégration ; v1.1 reste la dernière version numérotée.
+
+- **Dashboard 2026** - Terminal Overview dans le frontend principal : cartes d'état de l'environnement, widgets affichables, masquables et réordonnables, données issues des API existantes avec états de chargement, vide et erreur. Globe (Natural Earth) et circuit purement illustratifs.
+- **Navigation globale** - shell commun, rail Essentiel (favoris ordonnables) ou Complet, tiroir « Tous les modules », préférences de densité, recherche globale Ctrl+K.
+- **MITRE ATT&CK** - Explorer modernisé, recherche de techniques, fiches détaillées, préférences d'affichage ; ATT&CK Layers conservés.
+- **Stabilisation MITRE** - gestion des erreurs API et des réponses de recherche obsolètes.
+- **IOC Manager** - poste de travail avec inspecteur, Intelligence Map (corrélations locales vers MITRE, CVE et playbooks) et ouverture de la fiche MITRE exacte.
+- **OSINT Runner** - Search Workstation, Signal Globe (visualisation symbolique), historique et rapports, tri et filtres des profils, import en IOC.
+- **CI frontend** - workflow GitHub Actions `frontend-ci.yml` : TypeScript, tests Vitest et build Vite vers un dossier temporaire.
+- **Polices** - DM Sans, DM Mono et Manrope embarquées localement avec leurs licences SIL OFL 1.1.
+
+La Landing / Showcase 2026 reste un chantier distinct (`feat/cyberhub-2026-design`, [PR #25](https://github.com/loic31000/CyberHub/pull/25) en brouillon), non intégré à `main`.
 
 ---
 

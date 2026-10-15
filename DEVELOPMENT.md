@@ -62,11 +62,15 @@ Invoke-RestMethod http://localhost:5173/api/auth/status
 Les deux dernières commandes doivent rendre le même état de configuration. Une route protégée doit demander une authentification; le test de connexion complète nécessite le mot de passe du compte existant. Les sauvegardes SQLite, le WAL et les fichiers de la base restent dans le volume monté sur `/data`, pas dans le dossier `frontend/`.
 
 
-## Prototypes 2026 isolés (non intégrés à `main`)
+## Console 2026 et laboratoires historiques
 
-Les prototypes 2026 sont développés sur des branches distinctes uniquement pour la conception et les validations visuelles. **La cible de l'application personnelle CyberHub est un seul frontend React** regroupant landing, Dashboard et modules existants, avec backend Go/SQLite local. Il n'est pas prévu de service SaaS ou d'hébergement public de la Console. Leurs commandes n'existent pas nécessairement sur `main` :
+Depuis la [PR #27](https://github.com/loic31000/CyberHub/pull/27), le Dashboard 2026 et les modules modernisés font partie du frontend principal (`frontend/src/`) : `npm run dev` et `npm run build` dans `frontend/` les servent comme le reste de la Console. Aucune commande de prototype n'est nécessaire.
 
-- Landing / Showcase : branche `feat/cyberhub-2026-design`, dossier `showcase/`, commandes expliquées dans `showcase/README.md` de cette branche.
-- Dashboard / Terminal Overview : branche `feat/console-2026-dashboard-prototype`, dossier `frontend/prototypes/dashboard-2026/`, commandes expliquées dans le README du prototype.
+Vérifications usuelles dans `frontend/` : `npx tsc --noEmit`, `npm test` (Vitest) et `npm run build`. Ce dernier écrit dans `backend/web` ; pour un build de contrôle sans toucher ce dossier, utiliser comme la CI `npm run build -- --outDir <dossier-temporaire> --emptyOutDir`. Dans `backend/`, `go test ./...` nécessite un build frontend préalable, car `backend/web` est embarqué par `go:embed`.
 
-Pour les inspecter sans perturber un autre travail local non commité, privilégier des worktrees séparés après `git fetch origin`. Ne pas fusionner ces branches uniquement pour prévisualiser les laboratoires. Leur intégration future dans le frontend React de `main` dépendra des validations de compatibilité, d'accessibilité, de sécurité et de licences décrites dans [la feuille de route](docs/cyberhub-2026/implementation-roadmap.md). La landing et le Dashboard ne deviennent pas deux applications autonomes dans la cible retenue.
+Branches de laboratoire :
+
+- Landing / Showcase : branche `feat/cyberhub-2026-design`, dossier `showcase/`, commandes expliquées dans `showcase/README.md` de cette branche. **Pas encore intégrée** au frontend principal.
+- Dashboard / Terminal Overview : branche `feat/console-2026-dashboard-prototype`, dossier `frontend/prototypes/dashboard-2026/`. Conservée comme **référence historique** ; son contenu a été intégré par la PR #27.
+
+Pour inspecter ces branches sans perturber un travail local non commité, privilégier des worktrees séparés après `git fetch origin`. Ne pas les fusionner uniquement pour prévisualiser les laboratoires. La cible reste **un seul frontend React** ; l'intégration de la landing dépendra des validations décrites dans [la feuille de route](docs/cyberhub-2026/implementation-roadmap.md).
