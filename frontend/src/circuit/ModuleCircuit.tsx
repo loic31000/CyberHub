@@ -162,10 +162,13 @@ export default function ModuleCircuit({ config }: { config: ModuleCircuitConfig 
   useEffect(() => {
     const page = hostRef.current?.parentElement
     if (!page) return
-    let frame = 0
+    let frame: number | null = null
+    let active = true
     const recompute = () => {
-      cancelAnimationFrame(frame)
+      if (!active || frame !== null) return
       frame = requestAnimationFrame(() => {
+        frame = null
+        if (!active) return
         const m = measure(page, config)
         const key = JSON.stringify([m.width, m.height, m.obstacles, m.holes, m.bandBottom, m.hero, m.link, m.feed?.relayTop])
         if (key === signature.current || m.width === 0 || m.height === 0) return
@@ -175,20 +178,35 @@ export default function ModuleCircuit({ config }: { config: ModuleCircuitConfig 
       })
     }
     const observer = new ResizeObserver(recompute)
+    const observed = new Set<Element>()
     const observeAll = () => {
-      observer.disconnect()
-      observer.observe(page)
-      page.querySelectorAll(`${config.band}, ${config.hero}, ${config.watch}`).forEach((e) => observer.observe(e))
+      const next = new Set<Element>([page, ...page.querySelectorAll(`${config.band}, ${config.hero}, ${config.watch}`)])
+      for (const element of observed) {
+        if (next.has(element)) continue
+        observer.unobserve(element)
+        observed.delete(element)
+      }
+      for (const element of next) {
+        if (observed.has(element)) continue
+        observer.observe(element)
+        observed.add(element)
+      }
     }
     observeAll()
     // Lists that load or change re-measure (new elements to observe as well).
-    const mutations = new MutationObserver(() => { observeAll(); recompute() })
+    const mutations = new MutationObserver((records) => {
+      // The board's own SVG updates cannot move the page content it measures.
+      if (records.every(({ target }) => target instanceof Element && target.closest('.chc, .chc-top'))) return
+      observeAll()
+      recompute()
+    })
     mutations.observe(page, { childList: true, subtree: true })
     window.addEventListener('resize', recompute)
     document.fonts?.ready.then(recompute)
     recompute()
     return () => {
-      cancelAnimationFrame(frame)
+      active = false
+      if (frame !== null) cancelAnimationFrame(frame)
       observer.disconnect()
       mutations.disconnect()
       window.removeEventListener('resize', recompute)
