@@ -1,0 +1,385 @@
+/* Source: phase-three-s.css @ d1d08ae */
+/*
+ * Signature pass: one CyberHub design language for the rail, the environment
+ * cards, the widgets, the catalogue and the hero core.
+ *
+ * - Glyphs: a 1.6 px stroke; their single node is the board's signal point.
+ *   Idle nodes are dim, a hovered or active item lights its node.
+ * - Tiles: every icon sits in the same small instrument well (depth from a
+ *   top highlight and a dark rim, no blur).
+ * - Panels: an accent per widget type and a stronger heading.
+ * Colours stay opaque on panels; nothing here changes layout or behaviour.
+ */
+
+.cyber-dashboard-2026 {
+  --s-node: #00d4ff;
+  --s-node-dim: #3f7d99;
+  --s-tile: #0b1622;
+  --s-tile-rim: #1f3b52;
+  --s-tile-ink: #9adff0;
+  --s-panel: #101928;
+  --s-panel-raised: #142337;
+  --s-edge: #3a5871;
+  --s-edge-hover: #577e97;
+  --s-copy: #bfceda;
+  --s-muted: #a6bbca;
+  --s-control: #0d1a29;
+  --s-control-hover: #172c3f;
+  --s-selected: #183b50;
+  --s-focus: #8fe8f8;
+}
+
+/* ---------- glyphs ---------- */
+
+:where(.cyber-dashboard-2026) .cyber-glyph {
+  flex: none;
+}
+
+:where(.cyber-dashboard-2026) .cyber-glyph .cg-node {
+  fill: var(--glyph-node, var(--s-node));
+}
+
+/* Lucide utility icons (menu, bell, chevrons) share the glyph stroke. */
+:where(.cyber-dashboard-2026) svg.lucide {
+  stroke-width: 1.7;
+}
+
+/* ---------- icon tiles ---------- */
+
+:where(.cyber-dashboard-2026) .workspace.dashboard-board :is(.environment-icon, .feed-icon, .threat-icon, .sync-icon, .panel-glyph), :where(.cyber-dashboard-2026) .customize-dialog .customize-icon, :where(.cyber-dashboard-2026) .detail-dialog .detail-status {
+  display: grid;
+  place-items: center;
+  flex: none;
+  border: 1px solid var(--s-tile-rim);
+  border-radius: 8px;
+  color: var(--s-tile-ink);
+  background:
+    linear-gradient(180deg, rgb(255 255 255 / 0.04), transparent 60%),
+    var(--s-tile);
+  box-shadow:
+    inset 0 1px 0 rgb(255 255 255 / 0.05),
+    inset 0 -1px 0 rgb(0 0 0 / 0.45),
+    0 1px 0 rgb(2 6 12 / 0.7);
+}
+
+:where(.cyber-dashboard-2026) .workspace.dashboard-board .environment-icon svg {
+  width: 21px;
+  height: 21px;
+}
+
+/* Tones: amber and red keep their meaning, in the same well. */
+:where(.cyber-dashboard-2026) .workspace.dashboard-board :is(.feed-icon, .threat-icon).is-amber {
+  --glyph-node: #f5a524;
+  color: #f4c46d;
+  border-color: rgb(245 165 36 / 0.34);
+  background:
+    linear-gradient(180deg, rgb(245 165 36 / 0.09), transparent 70%),
+    #16130d;
+}
+
+:where(.cyber-dashboard-2026) .workspace.dashboard-board :is(.feed-icon, .threat-icon).is-red {
+  --glyph-node: #ff5c5c;
+  color: #ff9090;
+  border-color: rgb(239 68 68 / 0.38);
+  background:
+    linear-gradient(180deg, rgb(239 68 68 / 0.1), transparent 70%),
+    #1a0e13;
+}
+
+:where(.cyber-dashboard-2026) .workspace.dashboard-board .threat-icon.is-quiet {
+  --glyph-node: #7d97ab;
+  color: #93a9ba;
+}
+
+/* An environment card lights its node on hover and focus. */
+:where(.cyber-dashboard-2026) .workspace.dashboard-board .environment-card .environment-icon {
+  --glyph-node: var(--s-node-dim);
+  transition: border-color 160ms ease, color 160ms ease;
+}
+
+:where(.cyber-dashboard-2026) .workspace.dashboard-board .environment-card.signal-ready .environment-icon, :where(.cyber-dashboard-2026) .workspace.dashboard-board .environment-card:is(:hover, :focus-visible) .environment-icon {
+  --glyph-node: var(--s-node);
+}
+
+:where(.cyber-dashboard-2026) .workspace.dashboard-board .environment-card.signal-attention .environment-icon {
+  --glyph-node: #f5a524;
+}
+
+:where(.cyber-dashboard-2026) .workspace.dashboard-board .environment-card:is(:hover, :focus-visible) .environment-icon {
+  border-color: #4c7995;
+  color: #e1f8fd;
+}
+
+/* Small system modules have the same raised navy surface as the larger cards. */
+:where(.cyber-dashboard-2026) .workspace.dashboard-board .environment-card {
+  border-color: var(--s-edge);
+  border-radius: 8px;
+  background: linear-gradient(150deg, #152338, #101b2b 72%);
+  box-shadow:
+    0 7px 18px rgb(2 5 12 / 0.3),
+    inset 0 1px 0 rgb(223 243 255 / 0.075);
+}
+
+:where(.cyber-dashboard-2026) .workspace.dashboard-board .environment-card::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 14px;
+  width: 54px;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, #8ce6f4, transparent);
+  opacity: 0.25;
+  pointer-events: none;
+}
+
+:where(.cyber-dashboard-2026) .workspace.dashboard-board .environment-card:is(:hover, :focus-visible) {
+  border-color: var(--s-edge-hover);
+  background: linear-gradient(150deg, #192b40, #122135 72%);
+  box-shadow:
+    0 10px 22px rgb(2 5 12 / 0.43),
+    inset 0 1px 0 rgb(223 243 255 / 0.11);
+}
+
+:where(.cyber-dashboard-2026) .workspace.dashboard-board .environment-card:is(:hover, :focus-visible)::before {
+  opacity: 0.72;
+}
+
+:where(.cyber-dashboard-2026) .workspace.dashboard-board .environment-card .environment-icon {
+  border-color: #355b75;
+  background: linear-gradient(155deg, #122b3b, #0a1725);
+  box-shadow:
+    inset 0 1px 0 rgb(222 245 255 / 0.09),
+    0 3px 9px rgb(1 5 12 / 0.4);
+}
+
+:where(.cyber-dashboard-2026) .workspace.dashboard-board .environment-copy strong {
+  color: #f0f7fc;
+  font-size: 0.83rem;
+  line-height: 1.25;
+}
+
+:where(.cyber-dashboard-2026) .workspace.dashboard-board .environment-copy > span {
+  font-size: 0.7rem;
+  font-weight: 600;
+}
+
+:where(.cyber-dashboard-2026) .workspace.dashboard-board .environment-copy small {
+  color: var(--s-muted);
+  font-size: 0.65rem;
+  line-height: 1.35;
+}
+
+:where(.cyber-dashboard-2026) .workspace.dashboard-board .environment-card .mini-bars {
+  opacity: 0.86;
+  border-bottom: 1px solid rgb(65 102 127 / 0.55);
+  background: linear-gradient(180deg, transparent, rgb(5 17 29 / 0.55));
+}
+
+/* ---------- panels ---------- */
+
+:where(.cyber-dashboard-2026) .workspace.dashboard-board .environment-panel, :where(.cyber-dashboard-2026) .workspace.dashboard-board .feed-panel {
+  --panel-accent: #00d4ff;
+}
+
+:where(.cyber-dashboard-2026) .workspace.dashboard-board .network-panel {
+  --panel-accent: #79dceF;
+}
+
+:where(.cyber-dashboard-2026) .workspace.dashboard-board .feed-panel:not(.alert-panel) {
+  --panel-accent: #9dcff0;
+}
+
+:where(.cyber-dashboard-2026) .workspace.dashboard-board .alert-panel {
+  --panel-accent: #f5a524;
+}
+
+:where(.cyber-dashboard-2026) .workspace.dashboard-board .threat-panel {
+  --panel-accent: #ef4444;
+}
+
+:where(.cyber-dashboard-2026) .workspace.dashboard-board .sync-panel {
+  --panel-accent: #73c5e1;
+}
+
+/* Panels anchor their accent marks; none of their descendants is positioned outside them. */
+:where(.cyber-dashboard-2026) .workspace.dashboard-board :is(.dashboard-panel, .sync-panel) {
+  position: relative;
+  border-color: #1f3146;
+  box-shadow:
+    0 10px 28px rgb(2 4 10 / 0.25),
+    inset 0 1px 0 rgb(255 255 255 / 0.045);
+}
+
+:where(.cyber-dashboard-2026) .workspace.dashboard-board .threat-panel {
+  border-color: rgb(81 48 58);
+}
+
+/* Headings: a clearer title, and the widget's accent under its start. */
+:where(.cyber-dashboard-2026) .workspace.dashboard-board .panel-heading {
+  position: relative;
+}
+
+/* A small accent tab on the top edge names the widget's type at a glance. */
+:where(.cyber-dashboard-2026) .workspace.dashboard-board .panel-heading::before {
+  content: "";
+  position: absolute;
+  left: 14px;
+  top: -1px;
+  width: 30px;
+  height: 2px;
+  border-radius: 0 0 2px 2px;
+  pointer-events: none;
+  background: var(--panel-accent, #00d4ff);
+  opacity: 0.85;
+}
+
+:where(.cyber-dashboard-2026) .workspace.dashboard-board .panel-heading::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  bottom: -1px;
+  width: 56px;
+  height: 1px;
+  pointer-events: none;
+  background: linear-gradient(90deg, var(--panel-accent, #00d4ff), transparent);
+  opacity: 0.75;
+}
+
+/* Same metrics as before (the narrow widgets have 5 px to spare), a firmer weight. */
+:where(.cyber-dashboard-2026) .workspace.dashboard-board .panel-heading h2 {
+  color: #eef6fb;
+  font-weight: 700;
+}
+
+:where(.cyber-dashboard-2026) .workspace.dashboard-board .panel-heading p {
+  color: #93a6b6;
+}
+
+/* Widget glyph in the heading, tinted by the widget's accent; only where the
+   heading has room: the narrow widgets keep their titles on one line. */
+:where(.cyber-dashboard-2026) .workspace.dashboard-board .feed-panel .panel-heading > .panel-glyph {
+  display: none;
+}
+
+:where(.cyber-dashboard-2026) .workspace.dashboard-board .panel-heading:has(> .panel-glyph) {
+  justify-content: flex-start;
+}
+
+:where(.cyber-dashboard-2026) .workspace.dashboard-board .panel-heading > .panel-glyph {
+  width: 30px;
+  height: 30px;
+  margin-right: -4px;
+  --glyph-node: var(--panel-accent);
+  color: color-mix(in srgb, var(--panel-accent) 55%, #d8eef6);
+  border-color: color-mix(in srgb, var(--panel-accent) 34%, #1f3b52);
+}
+
+:where(.cyber-dashboard-2026) .workspace.dashboard-board .panel-heading > .panel-glyph + div {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+/* On phones the heading stacks: the glyph would add a row, so it gives way. */
+@media (max-width: 760px) {
+  :where(.cyber-dashboard-2026) .workspace.dashboard-board .panel-heading > .panel-glyph {
+    display: none;
+  }
+}
+
+/* The sync bar is a system strip: its well matches the tiles. */
+:where(.cyber-dashboard-2026) .workspace.dashboard-board .sync-icon {
+  --glyph-node: var(--s-node);
+}
+
+/* ---------- topbar and navigation ---------- */
+
+/* An even-sized Menu glyph keeps all three strokes on the same pixel grid. */
+
+:where(.cyber-dashboard-2026) .workspace.dashboard-board .panel-action, :where(.cyber-dashboard-2026) .customize-dialog :is(.panel-action, .text-action) {
+  border-color: var(--s-edge);
+  border-radius: 6px;
+  background: #0d1a29;
+  color: #b3e8f3;
+}
+
+:where(.cyber-dashboard-2026) .workspace.dashboard-board .panel-action:is(:hover, :focus-visible), :where(.cyber-dashboard-2026) .customize-dialog :is(.panel-action, .text-action):is(:hover, :focus-visible) {
+  border-color: var(--s-edge-hover);
+  background: #152a3c;
+  color: #eafbff;
+}
+
+/* The active item's marker: a lit pin on the rail's edge. */
+
+/* Drawer: the same glyphs, lit only on the current module. */
+
+/* ---------- hero core ---------- */
+
+:where(.cyber-dashboard-2026) .hero-board .core-window {
+  fill: #06101a;
+  stroke: #3f86a6;
+  stroke-width: 1.1;
+}
+
+:where(.cyber-dashboard-2026) .hero-board .core-bevel {
+  fill: none;
+  stroke: #9fdcef;
+  stroke-width: 1;
+  stroke-linecap: round;
+  opacity: 0.35;
+}
+
+:where(.cyber-dashboard-2026) .hero-board .core-fiducial {
+  fill: none;
+  stroke: #3a7895;
+  stroke-width: 1;
+  stroke-linecap: round;
+}
+
+:where(.cyber-dashboard-2026) .hero-board .core-prompt {
+  fill: none;
+  stroke: #7fe8f8;
+  stroke-width: 3.4;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+:where(.cyber-dashboard-2026) .hero-board .core-prompt.is-small {
+  stroke-width: 1.9;
+}
+
+:where(.cyber-dashboard-2026) .hero-board .core-node {
+  fill: #00d4ff;
+}
+
+:where(.cyber-dashboard-2026) .hero-board .core-pad {
+  fill: #2f6a88;
+}
+
+:where(.cyber-dashboard-2026) .hero-board .core-ring {
+  fill: none;
+  stroke: #24506a;
+  stroke-width: 1;
+}
+
+:where(.cyber-dashboard-2026) .hero-board .core-spoke {
+  fill: none;
+  stroke: #3a7193;
+  stroke-width: 1.2;
+}
+
+:where(.cyber-dashboard-2026) .hero-board .core-cell {
+  fill: #0b1c2a;
+  stroke: #24506a;
+  stroke-width: 1;
+}
+
+:where(.cyber-dashboard-2026) .hero-board .core-cell.is-lit {
+  fill: #0b2a3a;
+  stroke: #6fdcf2;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :where(.cyber-dashboard-2026) .workspace.dashboard-board .environment-card .environment-icon, :where(.cyber-dashboard-2026) .workspace.dashboard-board .environment-card {
+    transition: none;
+  }
+}

@@ -1,0 +1,37 @@
+/* Zones secondaires */
+
+:where(.cyber-dashboard-2026) .page-foot {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  padding-top: 1rem;
+  color: #829eac;
+  font: 400 0.58rem var(--mono);
+}
+
+@media (max-width: 980px) {
+  :where(.cyber-dashboard-2026) .workspace {
+    padding-inline: 1.5rem;
+  }
+}
+
+@media (max-width: 760px) {
+  :where(.cyber-dashboard-2026) .main-content {
+    padding: 62px 0 0;
+  }
+  :where(.cyber-dashboard-2026) .workspace {
+    padding: 1.35rem 1rem 1rem;
+  }
+
+  :where(.cyber-dashboard-2026) .page-foot {
+    flex-direction: column;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :where(.cyber-dashboard-2026) *, :where(.cyber-dashboard-2026) *::before, :where(.cyber-dashboard-2026) *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}

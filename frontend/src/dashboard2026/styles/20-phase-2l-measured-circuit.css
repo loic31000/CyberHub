@@ -1,0 +1,190 @@
+/* Source: phase-two-l.css @ d1d08ae */
+/* Phase 2L: measured circuit in the gutters, airy cockpit spacing, panel surface variants. */
+
+.cyber-dashboard-2026 {
+  --l-signal-cyan: #00d4ff;
+  --l-signal-blue: #6aa8ff;
+  --l-signal-white: #e8f6ff;
+  --l-signal-amber: #f5a524;
+  --l-trace: #2c5674;
+  --l-trace-center: #3f7c9e;
+  --l-texture: #1d3850;
+}
+
+/* The scrollable page is the document; only the horizontal axis is clipped. */
+:where(.cyber-dashboard-2026) .main-content {
+  overflow: visible;
+  overflow-x: clip;
+}
+
+:where(.cyber-dashboard-2026) .dashboard-circuit-bg {
+  opacity: 1;
+  mask-image: none;
+}
+
+:where(.cyber-dashboard-2026) .dashboard-circuit-bg > svg {
+  position: absolute;
+  inset: 0;
+  display: block;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+/* Static layer: texture, lanes, pads and vias. */
+:where(.cyber-dashboard-2026) .l-texture {
+  opacity: 0.5;
+}
+
+:where(.cyber-dashboard-2026) .l-texture-traces path {
+  fill: none;
+  stroke: var(--l-texture);
+  stroke-width: 1;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+:where(.cyber-dashboard-2026) .l-texture-pads rect {
+  fill: #0d1b28;
+  stroke: var(--l-texture);
+  stroke-width: 1;
+}
+
+:where(.cyber-dashboard-2026) .l-texture-vias circle {
+  fill: #08111b;
+  stroke: #24455f;
+  stroke-width: 1.2;
+}
+
+:where(.cyber-dashboard-2026) .l-lanes path {
+  fill: none;
+  stroke: var(--l-trace);
+  stroke-width: 1;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  opacity: 0.75;
+}
+
+:where(.cyber-dashboard-2026) .l-lanes path.is-center {
+  stroke: var(--l-trace-center);
+  stroke-width: 1.4;
+  opacity: 0.95;
+}
+
+:where(.cyber-dashboard-2026) .l-pads circle {
+  fill: #0a1520;
+  stroke: #4b88a8;
+  stroke-width: 1.1;
+}
+
+:where(.cyber-dashboard-2026) .l-via-ring {
+  fill: #0b1824;
+  stroke: #5b9aba;
+  stroke-width: 1.3;
+}
+
+:where(.cyber-dashboard-2026) .l-via-hole {
+  fill: #050a10;
+}
+
+/* Motion layer. */
+:where(.cyber-dashboard-2026) .l-stop-cyan { stop-color: var(--l-signal-cyan); }
+:where(.cyber-dashboard-2026) .l-stop-blue { stop-color: var(--l-signal-blue); }
+:where(.cyber-dashboard-2026) .l-stop-white { stop-color: var(--l-signal-white); }
+:where(.cyber-dashboard-2026) .l-stop-amber { stop-color: var(--l-signal-amber); }
+
+:where(.cyber-dashboard-2026) .l-pulse {
+  offset-rotate: auto;
+  offset-distance: 0%;
+  opacity: 0;
+  animation-name: l-pulse-travel;
+  animation-timing-function: linear;
+  animation-iteration-count: infinite;
+}
+
+:where(.cyber-dashboard-2026) .l-pulse-core { fill: var(--l-signal-white); }
+:where(.cyber-dashboard-2026) .l-pulse.is-cyan .l-pulse-core { fill: #b9f3ff; }
+:where(.cyber-dashboard-2026) .l-pulse.is-blue .l-pulse-core { fill: #cfe2ff; }
+:where(.cyber-dashboard-2026) .l-pulse.is-amber .l-pulse-core { fill: #ffe0a6; }
+
+:where(.cyber-dashboard-2026) .l-nodes circle {
+  transform-box: fill-box;
+  transform-origin: center;
+  opacity: 0.35;
+  animation: l-node-breathe 6.4s ease-in-out infinite;
+  animation-delay: calc(var(--l-node-order) * -730ms);
+}
+
+@keyframes l-pulse-travel {
+  0% { offset-distance: 0%; opacity: 0; }
+  6% { opacity: 1; }
+  74% { opacity: 1; }
+  80% { offset-distance: 100%; opacity: 0; }
+  100% { offset-distance: 100%; opacity: 0; }
+}
+
+@keyframes l-node-breathe {
+  0%, 100% { opacity: 0.25; transform: scale(0.8); }
+  50% { opacity: 0.9; transform: scale(1.15); }
+}
+
+/* Spacing: airy sections; the board may grow past the viewport. */
+@media (min-width: 1200px) {
+  :where(.cyber-dashboard-2026) .workspace.dashboard-board {
+    height: auto;
+    min-height: calc(100vh - 60px);
+    grid-template-rows: 116px 112px minmax(236px, 1fr) minmax(236px, 1fr) 48px 18px;
+    gap: 32px 28px;
+    padding: 24px 28px;
+  }
+
+  /* The globe fills its rows instead of sizing them from the SVG aspect ratio. */
+  :where(.cyber-dashboard-2026) .dashboard-board .network-panel > .premium-network {
+    contain: size;
+  }
+}
+
+@media (max-width: 1199px) {
+  :where(.cyber-dashboard-2026) .workspace.dashboard-board {
+    gap: 24px;
+    padding: 24px;
+  }
+
+  :where(.cyber-dashboard-2026) .monitor-grid, :where(.cyber-dashboard-2026) .feed-grid {
+    gap: 24px 20px;
+  }
+}
+
+@media (max-width: 760px) {
+  :where(.cyber-dashboard-2026) .workspace.dashboard-board {
+    gap: 20px;
+    padding: 16px;
+  }
+
+  :where(.cyber-dashboard-2026) .monitor-grid, :where(.cyber-dashboard-2026) .feed-grid {
+    gap: 20px 16px;
+  }
+
+  :where(.cyber-dashboard-2026) .l-texture {
+    opacity: 0.35;
+  }
+}
+
+@media (max-width: 340px) {
+  :where(.cyber-dashboard-2026) .workspace.dashboard-board {
+    padding-inline: 0.65rem;
+  }
+}
+
+/* Panel surfaces: "glass" keeps text panels near-opaque, secondary surfaces lighter. */
+
+@media (prefers-reduced-motion: reduce) {
+  :where(.cyber-dashboard-2026) .dashboard-circuit-motion .l-pulses {
+    display: none;
+  }
+
+  :where(.cyber-dashboard-2026) .l-nodes circle {
+    animation: none;
+    opacity: 0.5;
+    transform: none;
+  }
+}

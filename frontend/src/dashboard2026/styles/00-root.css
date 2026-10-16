@@ -1,0 +1,3 @@
+.cyber-dashboard-2026 { font-family: "DM Sans", sans-serif; color: #e9f1f4; min-height: 100%; position: relative; isolation: isolate; }
+/* Component styles first: in the prototype NetworkGlobe and TerminalFlux import
+   their CSS before main.tsx imports the phase sheets, which refine them. */

@@ -1,0 +1,147 @@
+/* Source: phase-two-k.css @ d1d08ae */
+/* Phase 2K: distributed circuit atmosphere, contained by the main workspace. */
+
+:where(.cyber-dashboard-2026) .main-content {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden auto;
+  background:
+    radial-gradient(ellipse 55% 46% at 80% 22%, #00c8eb08, transparent 72%),
+    radial-gradient(ellipse 50% 42% at 24% 78%, #27638108, transparent 70%),
+    #070c14;
+}
+
+:where(.cyber-dashboard-2026) .dashboard-circuit-bg {
+  position: absolute;
+  z-index: 0;
+  inset: 60px 0 0 60px;
+  width: calc(100% - 60px);
+  height: calc(100% - 60px);
+  min-height: 0;
+  overflow: hidden;
+  pointer-events: none;
+  opacity: 0.58;
+  mask-image:
+    radial-gradient(ellipse 43% 38% at 31% 52%, transparent 0 38%, #000 76%),
+    linear-gradient(180deg, #000 0, #000 100%);
+}
+
+:where(.cyber-dashboard-2026) .workspace.dashboard-board {
+  position: relative;
+  z-index: 1;
+}
+
+:where(.cyber-dashboard-2026) .dashboard-circuit-traces path {
+  fill: none;
+  stroke: url("#dashboard-trace");
+  stroke-width: 0.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  vector-effect: non-scaling-stroke;
+}
+
+:where(.cyber-dashboard-2026) .dashboard-circuit-traces path:nth-child(3n) {
+  opacity: 0.55;
+  stroke-width: 0.58;
+}
+
+:where(.cyber-dashboard-2026) .dashboard-circuit-components rect {
+  fill: #0b18236e;
+  stroke: #47758e55;
+  stroke-width: 0.75;
+  vector-effect: non-scaling-stroke;
+}
+
+:where(.cyber-dashboard-2026) .dashboard-circuit-components path {
+  fill: none;
+  stroke: #73a4ba52;
+  stroke-width: 0.7;
+  vector-effect: non-scaling-stroke;
+}
+
+:where(.cyber-dashboard-2026) .dashboard-circuit-signals path {
+  fill: none;
+  stroke: url("#dashboard-signal");
+  stroke-width: 3.2;
+  stroke-linecap: round;
+  stroke-dasharray: 0.001 0.999;
+  stroke-dashoffset: 1;
+  vector-effect: non-scaling-stroke;
+  animation: k-background-signal var(--background-signal-duration) cubic-bezier(0.45, 0.05, 0.22, 1) infinite;
+  animation-delay: calc(var(--background-signal-order) * -1.45s);
+}
+
+:where(.cyber-dashboard-2026) .dashboard-circuit-nodes g {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: k-background-node 9s ease-in-out infinite;
+  animation-delay: calc(var(--background-node-order) * -520ms);
+}
+
+:where(.cyber-dashboard-2026) .dashboard-circuit-nodes .background-node-ring {
+  fill: transparent;
+  stroke: #57dff5;
+  stroke-width: 0.65;
+  opacity: 0.22;
+  vector-effect: non-scaling-stroke;
+}
+
+:where(.cyber-dashboard-2026) .dashboard-circuit-nodes .background-node-core { fill: #5ce6fa; }
+:where(.cyber-dashboard-2026) .dashboard-circuit-nodes .is-white .background-node-ring { stroke: #e0f8ff; }
+:where(.cyber-dashboard-2026) .dashboard-circuit-nodes .is-white .background-node-core { fill: #e0f8ff; }
+:where(.cyber-dashboard-2026) .dashboard-circuit-nodes .is-amber .background-node-ring { stroke: #d6a44f; }
+:where(.cyber-dashboard-2026) .dashboard-circuit-nodes .is-amber .background-node-core { fill: #d6a44f; }
+
+/* The hero keeps a quiet visual handoff into the wider circuit layer. */
+:where(.cyber-dashboard-2026) .dashboard-board .overview-hero {
+  background:
+    radial-gradient(ellipse 35% 120% at 77% 52%, #00c8ed08, transparent 72%),
+    linear-gradient(90deg, #0a111cf8 0 42%, #09111be8 67%, #080f18 100%);
+}
+
+:where(.cyber-dashboard-2026) .dashboard-board .hero-circuit {
+  inset-inline-start: 51%;
+  opacity: 0.38;
+  mask-image: linear-gradient(90deg, transparent 0, #000 18%, #000 100%);
+}
+
+:where(.cyber-dashboard-2026) .dashboard-board .hero-circuit .circuit-ghosts, :where(.cyber-dashboard-2026) .dashboard-board .hero-circuit .circuit-components, :where(.cyber-dashboard-2026) .dashboard-board .hero-circuit .circuit-nodes g:nth-child(n + 9), :where(.cyber-dashboard-2026) .dashboard-board .hero-circuit .circuit-pulses path:nth-child(n + 5) {
+  display: none;
+}
+
+@keyframes k-background-signal {
+  0%, 12% { opacity: 0; stroke-dashoffset: 1; }
+  19% { opacity: 0.66; }
+  72% { opacity: 0.72; stroke-dashoffset: 0; }
+  84%, 100% { opacity: 0; stroke-dashoffset: 0; }
+}
+
+@keyframes k-background-node {
+  0%, 100% { opacity: 0.3; transform: scale(0.82); }
+  44%, 61% { opacity: 0.78; transform: scale(1.08); }
+}
+
+@media (max-width: 760px) {
+  :where(.cyber-dashboard-2026) .dashboard-circuit-bg {
+    inset: 62px 0 0;
+    width: 100%;
+    height: calc(100% - 62px);
+    opacity: 0.28;
+    mask-image: linear-gradient(180deg, transparent 0, #000 11%, #000 94%, transparent);
+  }
+
+  :where(.cyber-dashboard-2026) .dashboard-circuit-traces path:nth-child(even), :where(.cyber-dashboard-2026) .dashboard-circuit-components g:nth-child(n + 5), :where(.cyber-dashboard-2026) .dashboard-circuit-signals path:nth-child(n + 5), :where(.cyber-dashboard-2026) .dashboard-circuit-nodes g:nth-child(3n) {
+    display: none;
+  }
+
+  :where(.cyber-dashboard-2026) .dashboard-board .hero-circuit {
+    inset: 136px 0 0;
+    height: 50px;
+    opacity: 0.28;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :where(.cyber-dashboard-2026) .dashboard-circuit-signals { display: none; }
+  :where(.cyber-dashboard-2026) .dashboard-circuit-nodes g { animation: none; opacity: 0.48; transform: none; }
+}

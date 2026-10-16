@@ -1,0 +1,231 @@
+/* ---------- catalogue search (cards and widgets) ---------- */
+
+:where(.cyber-dashboard-2026) .catalog-search {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 0.6rem 0.75rem;
+  margin: 0.4rem 0 0.75rem;
+}
+
+:where(.cyber-dashboard-2026) .catalog-field {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  min-width: 0;
+  padding: 0 0.75rem;
+  border: 1px solid var(--s-edge, #3a5871);
+  border-radius: 7px;
+  background: var(--s-control, #0d1a29);
+  color: #b9cbd9;
+}
+
+:where(.cyber-dashboard-2026) .catalog-field svg {
+  flex: none;
+  width: 17px;
+  height: 17px;
+  color: #9ad9e8;
+}
+
+:where(.cyber-dashboard-2026) .catalog-field:focus-within {
+  border-color: #00d4ff;
+  box-shadow: 0 0 0 3px rgb(0 212 255 / 0.15);
+}
+
+:where(.cyber-dashboard-2026) .catalog-field input {
+  flex: 1;
+  min-width: 0;
+  height: 2.3rem;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  color: #e8f1f7;
+  font: inherit;
+  font-size: 0.88rem;
+}
+
+:where(.cyber-dashboard-2026) .catalog-field input::placeholder {
+  color: #a3b7c6;
+}
+
+:where(.cyber-dashboard-2026) .catalog-filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+}
+
+:where(.cyber-dashboard-2026) .catalog-filter {
+  min-height: 2rem;
+  padding: 0 0.6rem;
+  border: 1px solid var(--s-edge, #3a5871);
+  border-radius: 6px;
+  background: var(--s-control, #0d1a29);
+  color: #c3d2dd;
+  font: 600 0.72rem/1 var(--mono, "DM Mono", monospace);
+  letter-spacing: 0.06em;
+  cursor: pointer;
+}
+
+:where(.cyber-dashboard-2026) .catalog-filter:hover {
+  border-color: var(--s-edge-hover, #577e97);
+  background: var(--s-control-hover, #172c3f);
+  color: #e3f5fb;
+}
+
+:where(.cyber-dashboard-2026) .catalog-filter[aria-pressed="true"] {
+  border-color: #7acadd;
+  background: var(--s-selected, #183b50);
+  color: #e9fbff;
+  box-shadow: inset 0 -2px #8fe8f8;
+}
+
+:where(.cyber-dashboard-2026) .catalog-filter:focus-visible, :where(.cyber-dashboard-2026) .widget-sizes button:focus-visible {
+  outline: 2px solid #00d4ff;
+  outline-offset: 2px;
+}
+
+:where(.cyber-dashboard-2026) .catalog-count {
+  grid-column: 1 / -1;
+  margin: 0;
+  color: var(--s-muted, #a6bbca);
+  font-size: 0.75rem;
+}
+
+:where(.cyber-dashboard-2026) .catalog-tag {
+  display: inline-block;
+  margin-left: 0.45rem;
+  padding: 0.1rem 0.35rem;
+  border: 1px solid #2a4560;
+  border-radius: 4px;
+  color: #9fd9ea;
+  font: 600 0.62rem/1.3 var(--mono, "DM Mono", monospace);
+  letter-spacing: 0.06em;
+  vertical-align: 0.1em;
+}
+
+:where(.cyber-dashboard-2026) .catalog-tag.is-shown {
+  border-color: rgb(0 212 255 / 0.45);
+  color: #7fe8f8;
+}
+
+:where(.cyber-dashboard-2026) .catalog-tag.is-hidden {
+  border-color: #3a4a5c;
+  color: #b3c0cb;
+}
+
+:where(.cyber-dashboard-2026) .catalog-empty {
+  display: grid;
+  justify-items: start;
+  gap: 0.4rem;
+  padding: 1rem;
+  border: 1px solid #22364c;
+  border-radius: 7px;
+  color: #c3d1dc;
+}
+
+:where(.cyber-dashboard-2026) .catalog-empty p {
+  margin: 0;
+}
+
+@media (max-width: 560px) {
+  :where(.cyber-dashboard-2026) .catalog-search {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+/* ---------- dashboard customisation dialog ---------- */
+
+:where(.cyber-dashboard-2026) .widget-preview {
+  display: grid;
+  grid-template-columns: repeat(12, minmax(0, 1fr));
+  grid-auto-flow: row dense;
+  grid-auto-rows: 1.6rem;
+  gap: 0.3rem;
+  margin: 0.2rem 0 1rem;
+  padding: 0.5rem;
+  border: 1px solid var(--s-edge, #3a5871);
+  border-radius: 7px;
+  background: linear-gradient(150deg, #0b1a29, #09131f);
+  box-shadow: inset 0 1px 0 rgb(230 246 255 / 0.045);
+}
+
+:where(.cyber-dashboard-2026) .widget-preview span {
+  grid-column: span var(--w-cols, 12);
+  grid-row: span var(--w-rows, 1);
+  display: flex;
+  align-items: center;
+  min-width: 0;
+  padding: 0 0.45rem;
+  overflow: hidden;
+  border: 1px solid #447087;
+  border-radius: 4px;
+  background: linear-gradient(180deg, #18384d, #102b3c);
+  color: #e2f4f8;
+  box-shadow: inset 0 2px 0 rgb(126 216 236 / 0.23);
+  font-size: 0.68rem;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+:where(.cyber-dashboard-2026) .widget-preview em {
+  grid-column: 1 / -1;
+  color: #9fb0bf;
+  font-size: 0.8rem;
+}
+
+:where(.cyber-dashboard-2026) .widgets-dialog .widget-rows li {
+  grid-template-columns: auto auto minmax(0, 1fr) auto auto;
+}
+
+:where(.cyber-dashboard-2026) .widget-sizes {
+  display: inline-flex;
+  border: 1px solid var(--s-edge, #3a5871);
+  border-radius: 6px;
+  overflow: hidden;
+  background: #0b1828;
+}
+
+:where(.cyber-dashboard-2026) .widget-sizes button {
+  min-height: 2.25rem;
+  padding: 0 0.55rem;
+  border: 0;
+  border-left: 1px solid var(--s-edge, #3a5871);
+  background: var(--s-control, #0d1a29);
+  color: #c3d2dd;
+  font-family: inherit;
+  font-size: 0.72rem;
+  font-weight: 600;
+  line-height: 1;
+  cursor: pointer;
+}
+
+:where(.cyber-dashboard-2026) .widget-sizes button:first-child {
+  border-left: 0;
+}
+
+:where(.cyber-dashboard-2026) .widget-sizes button:not([aria-pressed="true"]):hover {
+  background: var(--s-control-hover, #172c3f);
+  color: #f0f9fc;
+}
+
+:where(.cyber-dashboard-2026) .widget-sizes button[aria-pressed="true"] {
+  background: var(--s-selected, #183b50);
+  color: #f1fbfe;
+  box-shadow: inset 0 -2px #8fe8f8;
+}
+
+:where(.cyber-dashboard-2026) .customize-choose.is-restore {
+  border-color: rgb(0 212 255 / 0.45);
+  color: #bff3fc;
+}
+
+@media (max-width: 760px) {
+  :where(.cyber-dashboard-2026) .widgets-dialog .widget-rows li {
+    grid-template-columns: auto auto minmax(0, 1fr);
+  }
+
+  :where(.cyber-dashboard-2026) .widgets-dialog .widget-rows .widget-sizes, :where(.cyber-dashboard-2026) .widgets-dialog .widget-rows .customize-actions {
+    grid-column: 1 / -1;
+    justify-self: start;
+  }
+}

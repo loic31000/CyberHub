@@ -1,9 +1,10 @@
 import { useEffect, useRef, useState } from "react";
 import type { CSSProperties, KeyboardEvent, RefObject } from "react";
 import { ArrowDown, ArrowUp, Eye, EyeOff, RotateCcw, X } from "lucide-react";
-import { CatalogSearch } from "./EnvironmentCards";
-import { categoryOf, type ModuleCategory } from "./environmentRegistry";
-import { searchItems } from "./moduleSearch";
+import { CatalogSearch } from "./CatalogSearch";
+import { rowAction, trapTab } from "./dialogFocus";
+import { categoryOf, type ModuleCategory } from "../../environmentRegistry";
+import { searchItems } from "../../moduleSearch";
 import {
   WIDGET_SIZE_LABELS,
   getWidget,
@@ -12,7 +13,7 @@ import {
   type WidgetId,
   type WidgetPlacement,
   type WidgetSize,
-} from "./widgetRegistry";
+} from "../../widgetRegistry";
 
 /*
  * Large widgets customisation, built like the environment cards dialog:
@@ -67,11 +68,7 @@ export function CustomizeDashboardDialog({
     else if (pendingFocus === "catalog") target = root.querySelector("#widgets-catalog-title");
     else if (pendingFocus === "reset") target = root.querySelector("[data-reset-confirm]") ?? root.querySelector("[data-reset]");
     else {
-      const row = root.querySelector(`[data-widget-row="${pendingFocus.id}"]`);
-      target =
-        row?.querySelector<HTMLElement>(`[data-action="${pendingFocus.action}"]:not([aria-disabled="true"])`) ??
-        row?.querySelector<HTMLElement>("[data-action]:not([aria-disabled='true'])") ??
-        null;
+      target = rowAction(root, `[data-widget-row="${pendingFocus.id}"]`, pendingFocus.action);
     }
     target?.focus();
     setPendingFocus(null);
@@ -143,20 +140,7 @@ export function CustomizeDashboardDialog({
       } else close();
       return;
     }
-    if (event.key !== "Tab" || !dialogRef.current) return;
-    const focusable = [
-      ...dialogRef.current.querySelectorAll<HTMLElement>('button:not([disabled]), input, [href], [tabindex]:not([tabindex="-1"])'),
-    ];
-    if (!focusable.length) return;
-    const first = focusable[0];
-    const last = focusable[focusable.length - 1];
-    if (event.shiftKey && document.activeElement === first) {
-      event.preventDefault();
-      last.focus();
-    } else if (!event.shiftKey && document.activeElement === last) {
-      event.preventDefault();
-      first.focus();
-    }
+    trapTab(event, dialogRef.current);
   }
 
   // Catalogue: every widget, hidden ones first, filtered like the module catalogue.

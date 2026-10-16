@@ -1,20 +1,19 @@
 import { useEffect, useState } from 'react'
 import { bgpApi, cveApi, iocApi, statsApi, toolsApi } from '@/api/client'
+import type { BgpAlertsPayload, CvesPayload, DashboardData, IocPayload, Remote, StatsPayload, ToolsPayload } from '../model/dashboard.types'
 
-export type Remote<T> =
-  | { status: 'loading' }
-  | { status: 'ready'; data: T }
-  | { status: 'error' }
+export type { Remote } from '../model/dashboard.types'
 
 const loading = <T,>(): Remote<T> => ({ status: 'loading' })
 
-export function useDashboardData() {
+/* The Dashboard's data, loaded once for every widget; `retry` reloads all of it. */
+export function useDashboardData(): DashboardData {
   const [revision, setRevision] = useState(0)
-  const [stats, setStats] = useState<Remote<Awaited<ReturnType<typeof statsApi.get>>>>(loading)
-  const [tools, setTools] = useState<Remote<Awaited<ReturnType<typeof toolsApi.list>>>>(loading)
-  const [bgp, setBgp] = useState<Remote<Awaited<ReturnType<typeof bgpApi.getAlerts>>>>(loading)
-  const [ioc, setIoc] = useState<Remote<Awaited<ReturnType<typeof iocApi.list>>>>(loading)
-  const [cves, setCves] = useState<Remote<Awaited<ReturnType<typeof cveApi.list>>>>(loading)
+  const [stats, setStats] = useState<Remote<StatsPayload>>(loading)
+  const [tools, setTools] = useState<Remote<ToolsPayload>>(loading)
+  const [bgp, setBgp] = useState<Remote<BgpAlertsPayload>>(loading)
+  const [ioc, setIoc] = useState<Remote<IocPayload>>(loading)
+  const [cves, setCves] = useState<Remote<CvesPayload>>(loading)
 
   useEffect(() => {
     let active = true

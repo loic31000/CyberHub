@@ -1,0 +1,230 @@
+/* Integration inside the existing Layout outlet, with no second topbar or rail. */
+.cyber-dashboard-2026 .main-content {
+  width: 100%;
+  min-height: 100%;
+  padding: 0;
+  overflow: clip;
+}
+.cyber-dashboard-2026 .dashboard-circuit-bg {
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+.cyber-dashboard-2026 .workspace.dashboard-board {
+  width: 100%;
+  max-width: none;
+}
+.cyber-dashboard-2026 .dashboard-empty-state {
+  display: flex;
+  min-height: 105px;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 0.8rem;
+  padding: 1.25rem;
+  color: var(--s-copy, #bfceda);
+  text-align: center;
+  font-size: 0.8rem;
+}
+.cyber-dashboard-2026 .dashboard-demo-label {
+  display: inline-flex;
+  align-items: center;
+  color: var(--s-muted, #a6bbca);
+  font: 600 0.66rem var(--mono);
+  letter-spacing: 0.08em;
+}
+.cyber-dashboard-2026 .sync-panel {
+  grid-template-columns: auto minmax(0, 1fr);
+}
+.cyber-dashboard-2026 .sync-copy > div {
+  min-width: 0;
+}
+.cyber-dashboard-2026 .sync-copy b {
+  overflow-wrap: anywhere;
+}
+.cyber-dashboard-2026 :is(button, a, select, input):focus-visible {
+  outline: 3px solid #a9f4fa;
+  outline-offset: 3px;
+}
+
+@media (max-width: 760px) {
+  .dashboard-route .layout-brand-slot {
+    width: 52px !important;
+    flex: 0 0 52px;
+    justify-content: center;
+    padding: 0 9px;
+  }
+  .dashboard-route .layout-brand-slot h1,
+  .dashboard-route .layout-brand-slot button[title] {
+    display: none;
+  }
+  .dashboard-route .layout-header-search {
+    min-width: 0;
+    gap: 0.6rem;
+    padding: 0 0.6rem;
+  }
+  .dashboard-route .layout-header-breadcrumb {
+    min-width: 0;
+    overflow: hidden;
+    white-space: nowrap;
+  }
+  .dashboard-route .layout-header-breadcrumb span:not(:last-child),
+  .dashboard-route .layout-header-actions,
+  .dashboard-route .layout-header-search > div:nth-child(2) {
+    display: none;
+  }
+  .dashboard-route .layout-body > main {
+    width: 100%;
+    min-width: 0;
+  }
+  .dashboard-route .layout-sidebar {
+    position: fixed;
+    z-index: 40;
+    top: 48px;
+    bottom: 0;
+    left: 0;
+    width: min(280px, 85vw) !important;
+    visibility: hidden;
+    transform: translateX(-100%);
+    pointer-events: none;
+  }
+  .dashboard-route.mobile-nav-open .layout-sidebar {
+    visibility: visible;
+    transform: translateX(0);
+    pointer-events: auto;
+  }
+  .dashboard-route .dashboard-mobile-scrim {
+    position: fixed;
+    z-index: 30;
+    inset: 48px 0 0;
+    border: 0;
+    background: rgb(0 4 10 / 0.68);
+  }
+  .cyber-dashboard-2026 .dashboard-board .overview-hero {
+    min-width: 0;
+  }
+  .cyber-dashboard-2026 .hero-copy {
+    min-width: 0;
+  }
+}
+
+
+/* Veille CVE preview: id, severity and date on one row, description clamped
+   to two lines on screen (the full text stays in the DOM and on the CVE page). */
+.cyber-dashboard-2026 .alert-list.cve-preview li button.cve-row {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  grid-template-rows: auto;
+  align-items: start;
+  column-gap: 0.7rem;
+  height: auto;
+  min-height: 0;
+}
+
+.cyber-dashboard-2026 .alert-list.cve-preview .feed-copy {
+  grid-column: 2;
+  grid-row: 1;
+  min-width: 0;
+}
+
+.cyber-dashboard-2026 .alert-list.cve-preview .cve-summary {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  overflow: hidden;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+
+.cyber-dashboard-2026 .alert-list.cve-preview .cve-meta {
+  grid-column: 3;
+  grid-row: 1;
+  display: grid;
+  justify-items: end;
+  gap: 0.3rem;
+}
+
+.cyber-dashboard-2026 .alert-list.cve-preview .cve-meta time {
+  margin: 0;
+  white-space: nowrap;
+}
+
+.cyber-dashboard-2026 .cve-severity {
+  padding: 0.12rem 0.38rem;
+  border: 1px solid #3a4a5c;
+  border-radius: 4px;
+  background: #121b27;
+  color: #c3d1dc;
+  font: 650 0.64rem/1.3 var(--mono, "DM Mono", monospace);
+  letter-spacing: 0.06em;
+  white-space: nowrap;
+}
+
+.cyber-dashboard-2026 .cve-severity.is-critical {
+  border-color: #8e4b51;
+  background: #301d20;
+  color: #f5a7a8;
+}
+
+.cyber-dashboard-2026 .cve-severity.is-high {
+  border-color: #8e764c;
+  background: #2d261b;
+  color: #ebc890;
+}
+
+
+/* ---------- Integration fidelity (Console 2026) ---------- */
+
+/* Compact empty states: a row, not a large empty box. */
+.cyber-dashboard-2026 .dashboard-empty-state.is-compact {
+  display: flex;
+  min-height: 0;
+  align-items: center;
+  justify-content: flex-start;
+  flex-wrap: wrap;
+  gap: 0.65rem 0.8rem;
+  margin: 0.55rem 0.7rem 0.7rem;
+  padding: 0.75rem 0.85rem;
+  border: 1px dashed #263d55;
+  border-radius: 8px;
+  background: rgb(10 18 28 / 0.6);
+  text-align: left;
+}
+
+.cyber-dashboard-2026 .dashboard-empty-state.is-compact .empty-glyph {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 32px;
+  height: 32px;
+  border: 1px solid #1f3b52;
+  border-radius: 8px;
+  background: #0b1622;
+  color: #8fb9cc;
+  --glyph-node: #3f7d99;
+}
+
+.cyber-dashboard-2026 .dashboard-empty-state.is-compact .empty-copy {
+  display: grid;
+  flex: 1 1 10rem;
+  gap: 0.15rem;
+  min-width: 0;
+}
+
+.cyber-dashboard-2026 .dashboard-empty-state.is-compact strong {
+  color: #e6eef4;
+  font: 650 0.84rem/1.3 var(--sans, "DM Sans", sans-serif);
+}
+
+.cyber-dashboard-2026 .dashboard-empty-state.is-compact p {
+  margin: 0;
+  color: #a6bbca;
+  font-size: 0.76rem;
+  line-height: 1.4;
+}
+
+.cyber-dashboard-2026 .dashboard-empty-state.is-compact .text-action {
+  flex: none;
+  white-space: nowrap;
+}

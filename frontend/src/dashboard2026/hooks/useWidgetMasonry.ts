@@ -1,6 +1,6 @@
 import { useLayoutEffect } from "react";
 import type { RefObject } from "react";
-import { requestCircuitRecompute } from "./DashboardCircuit";
+import { requestCircuitRecompute } from "../DashboardCircuit";
 
 /*
  * The widget grid has fine 4 px rows. Each widget spans as many rows as its

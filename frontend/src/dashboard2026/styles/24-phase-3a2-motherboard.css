@@ -1,0 +1,334 @@
+/* Source: phase-three-a2.css @ d1d08ae */
+/* Phase 3A.2 lot A: motherboard background. No blur filters: depth comes from offset shadows. */
+
+:where(.cyber-dashboard-2026) .board-layer path {
+  vector-effect: non-scaling-stroke;
+}
+
+/* Lower copper layer: wide power buses, dim. */
+:where(.cyber-dashboard-2026) .board-layer .b-backbone {
+  fill: none;
+  stroke: #1a3449;
+  stroke-width: 2.6;
+  stroke-linecap: round;
+  opacity: 0.85;
+}
+
+:where(.cyber-dashboard-2026) .board-layer .b-trace {
+  fill: none;
+  stroke: #24475f;
+  stroke-width: 1;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+:where(.cyber-dashboard-2026) .board-layer .b-bus {
+  fill: none;
+  stroke: #2f5d7a;
+  stroke-width: 1.35;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+:where(.cyber-dashboard-2026) .board-layer .b-shadow {
+  fill: #02060c;
+  opacity: 0.55;
+}
+
+:where(.cyber-dashboard-2026) .board-layer .b-body {
+  fill: #0b1520;
+  stroke: #2a4c66;
+  stroke-width: 1;
+}
+
+:where(.cyber-dashboard-2026) .board-layer .b-die {
+  fill: #0e1d2c;
+  stroke: #1f3a52;
+  stroke-width: 0.8;
+}
+
+:where(.cyber-dashboard-2026) .board-layer .b-heat {
+  fill: none;
+  stroke: #2c5a76;
+  stroke-width: 0.8;
+  opacity: 0.8;
+}
+
+:where(.cyber-dashboard-2026) .board-layer .b-slot {
+  fill: #081019;
+  stroke: #2a4c66;
+  stroke-width: 1;
+}
+
+:where(.cyber-dashboard-2026) .board-layer .b-pin {
+  fill: #4f86a3;
+  opacity: 0.85;
+}
+
+:where(.cyber-dashboard-2026) .board-layer .b-pad {
+  fill: #3c6f8c;
+  opacity: 0.9;
+}
+
+:where(.cyber-dashboard-2026) .board-layer .b-cap {
+  fill: #13263a;
+}
+
+:where(.cyber-dashboard-2026) .board-layer .b-ball {
+  fill: #35647f;
+}
+
+:where(.cyber-dashboard-2026) .board-layer .b-via {
+  fill: #0b1824;
+  stroke: #4a82a0;
+  stroke-width: 1;
+}
+
+:where(.cyber-dashboard-2026) .board-layer .b-hole {
+  fill: #04080e;
+}
+
+:where(.cyber-dashboard-2026) .board-layer .b-mark {
+  fill: none;
+  stroke: #5b9aba;
+  stroke-width: 1;
+  opacity: 0.7;
+}
+
+:where(.cyber-dashboard-2026) .board-layer .b-mark:not([d*="A"]) {
+  fill: #5b9aba;
+}
+
+/* Journeys: a small LED, a short tail that bends with the trace, and the chip glows. */
+:where(.cyber-dashboard-2026) .b-journey { --tone: #00d4ff; }
+:where(.cyber-dashboard-2026) .b-journey.is-blue { --tone: #6aa8ff; }
+:where(.cyber-dashboard-2026) .b-journey.is-white { --tone: #e8f6ff; }
+:where(.cyber-dashboard-2026) .b-journey.is-amber { --tone: #f5a524; }
+
+:where(.cyber-dashboard-2026) .b-led {
+  offset-rotate: auto;
+  offset-distance: 0%;
+  opacity: 0;
+}
+
+:where(.cyber-dashboard-2026) .b-led-core {
+  fill: #f2fbff;
+}
+
+:where(.cyber-dashboard-2026) .b-led-soft {
+  fill: var(--tone);
+  opacity: 0.55;
+}
+
+:where(.cyber-dashboard-2026) .b-tail {
+  fill: none;
+  stroke: var(--tone);
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  opacity: 0;
+  vector-effect: non-scaling-stroke;
+}
+
+:where(.cyber-dashboard-2026) .b-tail.is-near {
+  stroke-width: 2;
+}
+
+:where(.cyber-dashboard-2026) .b-tail.is-far {
+  stroke-width: 1.4;
+  stroke-opacity: 0.35;
+}
+
+/* The chip, not the LED, carries the halo while the LED is inside it. */
+:where(.cyber-dashboard-2026) .b-glow {
+  opacity: 0;
+}
+
+:where(.cyber-dashboard-2026) .b-glow-halo {
+  fill: none;
+  stroke: var(--tone);
+  stroke-width: 6;
+  stroke-opacity: 0.12;
+}
+
+:where(.cyber-dashboard-2026) .b-glow-edge {
+  fill: var(--tone);
+  fill-opacity: 0.07;
+  stroke: var(--tone);
+  stroke-width: 1.2;
+  stroke-opacity: 0.8;
+}
+
+/* A collapsed panel's slot reveals the board; only a faint frame marks it. */
+@media (min-width: 1200px) {
+  :where(.cyber-dashboard-2026) .dashboard-board .dashboard-panel.is-collapsed::after {
+    border: 1px solid rgb(42 63 88 / 0.32);
+  }
+}
+
+@media (max-width: 760px) {
+  :where(.cyber-dashboard-2026) .board-layer {
+    opacity: 0.8;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :where(.cyber-dashboard-2026) .b-journeys {
+    display: none;
+  }
+}
+
+/* Unified hero: the CH processor sits on its own small board, drawn with the
+   board's primitives, under the copy and the SYS / 2026 index. */
+:where(.cyber-dashboard-2026) .dashboard-board .overview-hero > .hero-board {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  display: block;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+/* On desktop the 2N drawing gives way to it from the first frame, so a reload
+   never flashes the old circuit (four classes: Phase 2M shows its parts with
+   four); its box stays and places the processor. */
+@media (min-width: 1200px) {
+  :where(.cyber-dashboard-2026) .workspace.dashboard-board .overview-hero .hero-circuit > * {
+    display: none;
+  }
+}
+
+:where(.cyber-dashboard-2026) .hero-board .b-trace { stroke: #2b5674; }
+:where(.cyber-dashboard-2026) .hero-board .b-bus { stroke: #3a7193; }
+:where(.cyber-dashboard-2026) .hero-board .b-pin { fill: #5f9ab8; }
+:where(.cyber-dashboard-2026) .hero-board .b-via { stroke: #5590ae; }
+
+:where(.cyber-dashboard-2026) .hero-board .hero-chip-aura {
+  fill: #00d4ff06;
+  stroke: #00d4ff22;
+  stroke-width: 1;
+}
+
+:where(.cyber-dashboard-2026) .hero-board .hero-chip-halo {
+  fill: none;
+  stroke: #00d4ff55;
+  stroke-width: 1.2;
+}
+
+:where(.cyber-dashboard-2026) .hero-board .hero-chip-shell {
+  fill: none;
+  stroke: #76dff0;
+  stroke-width: 1.2;
+  filter: drop-shadow(0 0 6px #00d4ff55);
+}
+
+/* Link connector astride the hero's lower edge: above the hero card, below
+   its copy, out of the layout and of the pointer's way. */
+:where(.cyber-dashboard-2026) .dashboard-board > .hero-link {
+  position: absolute;
+  z-index: 3;
+  display: block;
+  overflow: visible;
+  pointer-events: none;
+}
+
+:where(.cyber-dashboard-2026) .hero-link .hl-shadow {
+  fill: #02060c;
+  opacity: 0.7;
+}
+
+:where(.cyber-dashboard-2026) .hero-link .hl-side {
+  fill: #050b13;
+  stroke: #1d3a52;
+  stroke-width: 1;
+}
+
+:where(.cyber-dashboard-2026) .hero-link .hl-face {
+  stroke: #3a6a88;
+  stroke-width: 1;
+}
+
+:where(.cyber-dashboard-2026) .hero-link .hl-bevel {
+  fill: none;
+  stroke: #7fb6d2;
+  stroke-width: 1;
+  stroke-linecap: round;
+  opacity: 0.55;
+}
+
+:where(.cyber-dashboard-2026) .hero-link .hl-bevel.is-soft {
+  opacity: 0.25;
+}
+
+:where(.cyber-dashboard-2026) .hero-link .hl-groove {
+  fill: none;
+  stroke: #04090f;
+  stroke-width: 1.4;
+  stroke-linecap: round;
+  opacity: 0.8;
+}
+
+:where(.cyber-dashboard-2026) .hero-link .hl-mark {
+  fill: #5b9aba;
+  opacity: 0.8;
+}
+
+:where(.cyber-dashboard-2026) .hero-link .hl-pin rect {
+  fill: #8cc3dc;
+}
+
+:where(.cyber-dashboard-2026) .hero-link .hl-pin.is-dummy rect {
+  fill: #4f86a3;
+  opacity: 0.75;
+}
+
+/* Variant B sits in a dark cut-out of the board, with mounting pads. */
+:where(.cyber-dashboard-2026) .hero-link .hl-notch {
+  fill: #060c14;
+  stroke: #142a3d;
+  stroke-width: 1;
+}
+
+:where(.cyber-dashboard-2026) .hero-link .hl-pad {
+  fill: #0b1824;
+  stroke: #5590ae;
+  stroke-width: 1;
+}
+
+:where(.cyber-dashboard-2026) .hero-link .hl-hole {
+  fill: #03070c;
+}
+
+/* A second raised connector exposes the three live feeds below Environment. */
+:where(.cyber-dashboard-2026) .environment-link .el-shadow {
+  fill: #02060c;
+  opacity: 0.72;
+}
+
+:where(.cyber-dashboard-2026) .environment-link .el-pin rect {
+  fill: #79b4d0;
+}
+
+:where(.cyber-dashboard-2026) .environment-link .el-side {
+  fill: #06111d;
+  stroke: #26475e;
+  stroke-width: 1;
+}
+
+:where(.cyber-dashboard-2026) .environment-link .el-face {
+  fill: #10283b;
+  stroke: #588ba8;
+  stroke-width: 1;
+}
+
+:where(.cyber-dashboard-2026) .environment-link .el-bevel {
+  fill: none;
+  stroke: #a1d7e9;
+  stroke-width: 1;
+  opacity: 0.55;
+}
+
+:where(.cyber-dashboard-2026) .environment-link .el-groove {
+  fill: none;
+  stroke: #040b13;
+  stroke-width: 1.5;
+}

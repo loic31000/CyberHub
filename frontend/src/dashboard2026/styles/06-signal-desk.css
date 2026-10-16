@@ -1,0 +1,120 @@
+/* Signal Desk */
+
+:where(.cyber-dashboard-2026) .module-access {
+  min-height: 38px;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0.45rem 0.7rem;
+  border: 1px solid #3d5c6b;
+  background: #101c27;
+  color: #c7dce1;
+  font: 650 0.66rem var(--mono);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+:where(.cyber-dashboard-2026) .module-access:hover {
+  border-color: #70c7d0;
+  color: #effcfd;
+}
+
+:where(.cyber-dashboard-2026) .signal-ready {
+  --signal-color: #70e2ed;
+}
+:where(.cyber-dashboard-2026) .signal-quiet {
+  --signal-color: #86aab5;
+}
+:where(.cyber-dashboard-2026) .signal-attention {
+  --signal-color: #f1b85b;
+}
+:where(.cyber-dashboard-2026) .signal-led {
+  position: relative;
+  width: 10px;
+  height: 10px;
+  border: 1px solid color-mix(in srgb, var(--signal-color), white 28%);
+  border-radius: 50%;
+  background: radial-gradient(
+    circle at 38% 34%,
+    #f5ffff 0 8%,
+    var(--signal-color) 22% 48%,
+    color-mix(in srgb, var(--signal-color), #061017 42%) 70%
+  );
+  box-shadow:
+    0 0 5px var(--signal-color),
+    0 0 13px color-mix(in srgb, var(--signal-color), transparent 62%),
+    inset 0 -1px 2px #0009;
+}
+:where(.cyber-dashboard-2026) .signal-led::after {
+  content: "";
+  position: absolute;
+  inset: -5px;
+  border: 1px solid var(--signal-color);
+  border-radius: inherit;
+  opacity: 0;
+  animation: none;
+}
+
+@keyframes led-breathe {
+  0%,
+  72%,
+  100% {
+    transform: scale(0.78);
+    opacity: 0;
+  }
+  82% {
+    transform: scale(1);
+    opacity: 0.34;
+  }
+}
+
+@keyframes readout-in {
+  from {
+    transform: translateX(-4px);
+    opacity: 0.45;
+  }
+}
+
+@keyframes focus-detail-in {
+  from {
+    transform: translateY(-3px);
+    opacity: 0;
+  }
+}
+
+:where(.cyber-dashboard-2026) .signal-disclaimer {
+  padding: 0.55rem clamp(1rem, 2vw, 1.5rem);
+  color: #6f8995;
+  font: 400 0.51rem var(--mono);
+  letter-spacing: 0.03em;
+}
+
+/* États */
+:where(.cyber-dashboard-2026) .data-state {
+  min-height: 340px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 1rem;
+  color: #e1edef;
+  animation: fade-in 180ms ease;
+}
+:where(.cyber-dashboard-2026) .data-state > div {
+  max-width: 390px;
+}
+:where(.cyber-dashboard-2026) .data-state strong {
+  font:
+    680 1rem Manrope,
+    sans-serif;
+}
+:where(.cyber-dashboard-2026) .data-state p {
+  margin-top: 0.25rem;
+  color: #a7bbc5;
+  font-size: 0.76rem;
+  line-height: 1.5;
+}
+
+@keyframes dashboard-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}

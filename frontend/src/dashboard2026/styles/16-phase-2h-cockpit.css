@@ -1,0 +1,261 @@
+/* Source: phase-two-h.css @ d1d08ae */
+/* Phase 2H: focused cockpit simplification and interaction hardening. */
+
+/* Editorial hero: one entrance, one accent glow, and a quiet branded pulse. */
+:where(.cyber-dashboard-2026) .dashboard-board .hero-copy, :where(.cyber-dashboard-2026) .dashboard-board .hero-index {
+  animation: none;
+}
+
+:where(.cyber-dashboard-2026) .dashboard-board .hero-copy h1 {
+  animation: h-hero-title-enter 560ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+:where(.cyber-dashboard-2026) .dashboard-board .hero-copy p {
+  animation: h-hero-copy-enter 520ms 90ms ease-out both;
+}
+
+:where(.cyber-dashboard-2026) .dashboard-board .overview-hero::before {
+  animation: h-hero-accent-once 900ms 100ms ease-out both;
+}
+
+:where(.cyber-dashboard-2026) .dashboard-board .overview-hero::after {
+  opacity: 0.105;
+  filter: saturate(0.8) contrast(1.15) drop-shadow(0 0 12px #00d4ff2e);
+  animation: h-watermark-breathe 5.2s ease-in-out 900ms infinite;
+}
+
+@keyframes h-hero-title-enter {
+  from {
+    opacity: 0;
+    transform: translateY(5px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes h-hero-copy-enter {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes h-hero-accent-once {
+  0% {
+    opacity: 0.5;
+    box-shadow: 0 0 4px #00d4ff33;
+  }
+  42% {
+    opacity: 1;
+    box-shadow: 0 0 18px #00d4ffaa;
+  }
+  100% {
+    opacity: 1;
+    box-shadow: 0 0 10px #00d4ff55;
+  }
+}
+
+@keyframes h-watermark-breathe {
+  0%,
+  100% {
+    opacity: 0.085;
+    filter: saturate(0.72) contrast(1.12) drop-shadow(0 0 8px #00d4ff1f);
+  }
+  50% {
+    opacity: 0.125;
+    filter: saturate(0.9) contrast(1.18) drop-shadow(0 0 16px #00d4ff38);
+  }
+}
+
+/* Threat Monitor: compact, recognizable and limited to the indicator pulse. */
+:where(.cyber-dashboard-2026) .dashboard-board .threat-panel {
+  border-color: #2a3445;
+  background:
+    radial-gradient(circle at 8% 4%, #ef44440a, transparent 30%),
+    linear-gradient(150deg, #111827, #0d1420);
+  box-shadow:
+    inset 0 1px #ffffff07,
+    inset 2px 0 #ef444426,
+    0 10px 28px #02040a40;
+}
+
+:where(.cyber-dashboard-2026) .dashboard-board .threat-heading {
+  background: linear-gradient(90deg, #1d1018b8, #0a0f18 42%);
+}
+
+:where(.cyber-dashboard-2026) .dashboard-board .threat-beacon {
+  border-color: #ef44447d;
+  background: #251017;
+  color: #ff7070;
+  box-shadow:
+    inset 0 0 14px #ef44441f,
+    0 0 12px #ef444419;
+}
+
+:where(.cyber-dashboard-2026) .dashboard-board .threat-beacon i {
+  animation: h-threat-indicator 3s ease-in-out infinite;
+}
+
+@keyframes h-threat-indicator {
+  0%,
+  100% {
+    opacity: 0.7;
+    box-shadow: 0 0 5px #ef444480;
+  }
+  50% {
+    opacity: 1;
+    box-shadow: 0 0 11px #ef4444;
+  }
+}
+
+:where(.cyber-dashboard-2026) .dashboard-board .threat-list li:first-child button {
+  border-color: #ef444470;
+  background: linear-gradient(100deg, #281018cc, #111827 58%);
+  box-shadow: inset 0 0 24px #ef44440d;
+}
+
+:where(.cyber-dashboard-2026) .dashboard-board .threat-list li:first-child b {
+  color: #ff7474;
+  text-shadow: 0 0 10px #ef444447;
+}
+
+:where(.cyber-dashboard-2026) .dashboard-board .threat-list li:nth-child(2) b {
+  color: #ffc45c;
+}
+
+/* Detail information lives above the grid and cannot resize cockpit tracks. */
+:where(.cyber-dashboard-2026) .detail-backdrop {
+  position: fixed;
+  z-index: 140;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: 1rem;
+  background: #02050bb8;
+  backdrop-filter: blur(7px);
+}
+
+:where(.cyber-dashboard-2026) .detail-dialog {
+  width: min(400px, calc(100vw - 2rem));
+  max-height: min(620px, calc(100vh - 2rem));
+  overflow: auto;
+  border: 1px solid #2a3f58;
+  border-radius: 8px;
+  background:
+    radial-gradient(circle at 12% 0, #00d4ff0c, transparent 36%),
+    linear-gradient(155deg, #111827, #090f19);
+  color: var(--f-text);
+  box-shadow:
+    0 24px 80px #02040acc,
+    inset 0 1px #ffffff09;
+}
+
+:where(.cyber-dashboard-2026) .detail-dialog > header, :where(.cyber-dashboard-2026) .detail-dialog > footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 1rem;
+}
+
+:where(.cyber-dashboard-2026) .detail-dialog > header {
+  border-bottom: 1px solid var(--f-border);
+}
+
+:where(.cyber-dashboard-2026) .detail-dialog > footer {
+  border-top: 1px solid var(--f-border);
+}
+
+:where(.cyber-dashboard-2026) .detail-kicker {
+  color: var(--f-cyan-soft);
+  font: 500 0.64rem var(--mono);
+  letter-spacing: 0.12em;
+}
+
+:where(.cyber-dashboard-2026) .detail-dialog h2 {
+  margin: 0.25rem 0 0;
+  font: 700 1.1rem Manrope, sans-serif;
+  letter-spacing: -0.02em;
+}
+
+:where(.cyber-dashboard-2026) .detail-dialog-body {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 0.55rem 0.75rem;
+  padding: 1.15rem 1rem 1.3rem;
+}
+
+:where(.cyber-dashboard-2026) .detail-status {
+  width: 38px;
+  height: 38px;
+  display: grid;
+  place-items: center;
+  grid-row: 1 / 3;
+  border: 1px solid #ef44445c;
+  border-radius: 6px;
+  background: #251017;
+  color: #ff7474;
+}
+
+:where(.cyber-dashboard-2026) .detail-dialog-body p {
+  margin: 0;
+  color: #d4deea;
+  font-size: 0.88rem;
+  line-height: 1.55;
+}
+
+:where(.cyber-dashboard-2026) .detail-dialog-body small {
+  color: var(--f-copy);
+  font-size: 0.76rem;
+  line-height: 1.5;
+}
+
+@media (min-width: 1200px) {
+  :where(.cyber-dashboard-2026) .workspace.dashboard-board {
+    height: max(720px, calc(100vh - 163px));
+    min-height: 0;
+    grid-template-rows: 116px 112px minmax(0, 1fr) minmax(0, 1fr) 48px 18px;
+    row-gap: 18px;
+  }
+
+  :where(.cyber-dashboard-2026) .sync-panel {
+    grid-row: 5;
+  }
+
+  :where(.cyber-dashboard-2026) .dashboard-board .page-foot {
+    grid-row: 6;
+  }
+}
+
+@media (max-width: 760px) {
+  :where(.cyber-dashboard-2026) .dashboard-board .overview-hero::after {
+    opacity: 0.04;
+    animation: none;
+  }
+
+  :where(.cyber-dashboard-2026) .detail-backdrop {
+    align-items: end;
+    padding: 0.75rem;
+  }
+
+  :where(.cyber-dashboard-2026) .detail-dialog {
+    width: 100%;
+    max-height: min(560px, calc(100vh - 1.5rem));
+  }
+
+  :where(.cyber-dashboard-2026) .detail-dialog > header, :where(.cyber-dashboard-2026) .detail-dialog > footer {
+    padding: 0.9rem;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :where(.cyber-dashboard-2026) .dashboard-board .hero-copy h1, :where(.cyber-dashboard-2026) .dashboard-board .hero-copy p, :where(.cyber-dashboard-2026) .dashboard-board .overview-hero::before, :where(.cyber-dashboard-2026) .dashboard-board .overview-hero::after, :where(.cyber-dashboard-2026) .dashboard-board .threat-beacon i {
+    animation: none;
+  }
+}

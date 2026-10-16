@@ -1,0 +1,104 @@
+/* Phase 2E hides the trailing chevron of threat rows on tablets with
+   `svg:last-child`, which also caught the icon inside its well: keep the icon. */
+:where(.cyber-dashboard-2026) .workspace.dashboard-board .threat-list .threat-icon svg {
+  display: block;
+}
+
+/* A narrow Threat Monitor lists its signals in one column. */
+@media (max-width: 1199px) {
+  :where(.cyber-dashboard-2026) .workspace.dashboard-board .widget-grid > .threat-panel:not([data-size="large"]) .threat-list {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+/* Quiet steel edges: one short reflection, no border animation. */
+:where(.cyber-dashboard-2026) .workspace.dashboard-board :is(.dashboard-panel, .sync-panel) {
+  --edge-reflection: #77d6eb;
+  border-color: var(--s-edge, #3a5871);
+  box-shadow:
+    0 13px 30px rgb(2 4 10 / 0.36),
+    0 0 16px rgb(42 137 175 / 0.055),
+    inset 0 1px 0 rgb(220 243 255 / 0.08);
+}
+
+:where(.cyber-dashboard-2026) .workspace.dashboard-board .widget-grid > .dashboard-panel.is-collapsed {
+  border-color: var(--s-edge, #3a5871);
+  box-shadow:
+    0 10px 24px rgb(2 4 10 / 0.32),
+    inset 0 1px 0 rgb(220 243 255 / 0.08);
+}
+
+:where(.cyber-dashboard-2026) .workspace.dashboard-board .widget-grid > .dashboard-panel.is-collapsed::before {
+  content: none;
+}
+
+:where(.cyber-dashboard-2026) .workspace.dashboard-board :is(.dashboard-panel, .sync-panel)::before {
+  content: "";
+  position: absolute;
+  z-index: 2;
+  top: -1px;
+  right: 17px;
+  width: 76px;
+  height: 1px;
+  pointer-events: none;
+  background: linear-gradient(90deg, transparent, var(--edge-reflection), transparent);
+  opacity: 0.54;
+}
+
+:where(.cyber-dashboard-2026) .workspace.dashboard-board :is(.dashboard-panel:not(.is-collapsed), .sync-panel):is(:hover, :focus-within) {
+  border-color: var(--s-edge-hover, #577e97);
+  box-shadow:
+    0 12px 30px rgb(2 4 10 / 0.31),
+    0 0 22px rgb(42 154 193 / 0.095),
+    inset 0 1px 0 rgb(220 243 255 / 0.09);
+}
+
+:where(.cyber-dashboard-2026) .workspace.dashboard-board .threat-panel:not(.is-collapsed) {
+  --edge-reflection: #dd727b;
+  border-color: #60404b;
+}
+
+:where(.cyber-dashboard-2026) .workspace.dashboard-board .threat-panel:not(.is-collapsed):is(:hover, :focus-within) {
+  border-color: #87505c;
+}
+
+:where(.cyber-dashboard-2026) .workspace.dashboard-board .alert-panel:not(.is-collapsed) {
+  --edge-reflection: #d4a85f;
+  border-color: #574832;
+}
+
+:where(.cyber-dashboard-2026) .workspace.dashboard-board .alert-panel:not(.is-collapsed):is(:hover, :focus-within) {
+  border-color: #75613d;
+}
+
+:where(.cyber-dashboard-2026) .workspace.dashboard-board .widget-grid > .dashboard-panel:not(.threat-panel) > .panel-heading, :where(.cyber-dashboard-2026) .workspace.dashboard-board > .environment-panel > .panel-heading {
+  background: linear-gradient(180deg, rgb(37 60 81 / 0.31), rgb(23 39 57 / 0.15));
+}
+
+:where(.cyber-dashboard-2026) .workspace.dashboard-board .panel-heading h2 {
+  color: #f0f7fc;
+  font-size: 0.84rem;
+  line-height: 1.25;
+}
+
+/* Compact headers keep their established one-line titles at desktop widths. */
+:where(.cyber-dashboard-2026) .workspace.dashboard-board .widget-grid > :is(.feed-panel, .threat-panel) .panel-heading h2 {
+  font-size: 0.76rem;
+}
+
+:where(.cyber-dashboard-2026) .workspace.dashboard-board .panel-heading p, :where(.cyber-dashboard-2026) .workspace.dashboard-board .threat-title p {
+  color: var(--s-copy, #bfceda);
+}
+
+/* One opaque surface for every widget, including collapsed and alert cards.
+   Their border, icon and heading accents still carry the status colour. */
+:where(.cyber-dashboard-2026) .workspace.dashboard-board .widget-grid > :is(.dashboard-panel, .sync-panel), :where(.cyber-dashboard-2026) .workspace.dashboard-board .widget-grid > .dashboard-panel.is-collapsed, :where(.cyber-dashboard-2026) .workspace.dashboard-board .widget-grid > .widget-empty {
+  background:
+    linear-gradient(180deg, rgb(255 255 255 / 0.025), transparent 140px),
+    var(--s-panel, #101928);
+}
+
+/* A layout change may redraw the copper, but it should never flash blank. */
+:where(.cyber-dashboard-2026) .dashboard-circuit-static .l-redraw {
+  animation: none;
+}
