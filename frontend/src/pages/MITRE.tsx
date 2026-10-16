@@ -223,7 +223,7 @@ export default function MITRE() {
   }
 
   useEffect(() => {
-    const timer = setTimeout(() => setDebouncedQ(query), 300)
+    const timer = setTimeout(() => setDebouncedQ(query), 150)
     return () => clearTimeout(timer)
   }, [query])
 
@@ -292,11 +292,18 @@ export default function MITRE() {
 
   useEffect(() => {
     if (!selected) { setDetailFull(null); return }
+    // The direct-link request already loaded the complete technique.
+    if (detailFull?.technique_id === selected.technique_id) {
+      setDetailLoading(false)
+      return
+    }
+    let cancelled = false
     setDetailLoading(true)
     mitreApi.technique(selected.technique_id)
-      .then(setDetailFull)
-      .catch(() => setDetailFull(selected))
-      .finally(() => setDetailLoading(false))
+      .then(tech => { if (!cancelled) setDetailFull(tech) })
+      .catch(() => { if (!cancelled) setDetailFull(selected) })
+      .finally(() => { if (!cancelled) setDetailLoading(false) })
+    return () => { cancelled = true }
   }, [selected?.technique_id])
 
   const handleTacticChange = (sn: string) => { setActiveTactic(sn === activeTactic ? '' : sn); setSelected(null) }

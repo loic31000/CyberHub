@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import MitreCircuit from '@/mitre/MitreCircuit'
 import { MitreDisplaySettings, useMitrePreferences } from '@/mitre/MitrePreferences'
@@ -40,9 +40,13 @@ export default function MITRELayerDetail() {
   const [techTotal, setTechTotal] = useState(0)
   const [techPage, setTechPage] = useState(1)
   const [techLoading, setTechLoading] = useState(false)
+  const [techError, setTechError] = useState(false)
   const [query, setQuery] = useState('')
   const [debouncedQ, setDebouncedQ] = useState('')
+  const [debounceReady, setDebounceReady] = useState(true)
   const [activeTactic, setActiveTactic] = useState('')
+  const requestVersion = useRef(0)
+  const requestedPage = useRef(1)
 
   // View tabs
   const [tab, setTab] = useState<'browse' | 'selected'>('selected')
@@ -64,12 +68,32 @@ export default function MITRELayerDetail() {
   }, [layerId])
 
   useEffect(() => {
-    const t = setTimeout(() => setDebouncedQ(query), 300)
+    const t = setTimeout(() => {
+      setDebouncedQ(query)
+      setDebounceReady(true)
+    }, 150)
     return () => clearTimeout(t)
   }, [query])
 
-  const fetchTechniques = useCallback(async (pg: number) => {
+  // Invalidate at the user's action, before the next debounced request starts.
+  const invalidateBrowse = () => {
+    requestVersion.current++
+    requestedPage.current = 1
     setTechLoading(true)
+    setTechError(false)
+    setTechniques([])
+    setTechTotal(0)
+    setTechPage(1)
+  }
+
+  const fetchTechniques = useCallback(async (pg: number) => {
+    const version = ++requestVersion.current
+    requestedPage.current = pg
+    setTechLoading(true)
+    setTechError(false)
+    setTechniques([])
+    setTechTotal(0)
+    setTechPage(pg)
     try {
       const res = await mitreApi.techniques({
         q: debouncedQ || undefined,
@@ -77,17 +101,43 @@ export default function MITRELayerDetail() {
         page: pg,
         limit: TECH_LIMIT,
       })
+      if (version !== requestVersion.current) return
       setTechniques(res.items ?? [])
       setTechTotal(res.total)
-      setTechPage(pg)
-    } catch { /* ignore */ }
-    finally { setTechLoading(false) }
+    } catch {
+      if (version === requestVersion.current) setTechError(true)
+    } finally {
+      if (version === requestVersion.current) setTechLoading(false)
+    }
   }, [debouncedQ, activeTactic])
 
   // Refetches whenever the tab, the search or the tactic changes.
   useEffect(() => {
-    if (tab === 'browse') fetchTechniques(1)
-  }, [tab, fetchTechniques])
+    if (tab !== 'browse' || !debounceReady) return
+    void fetchTechniques(1)
+    return () => { requestVersion.current++ }
+  }, [tab, debounceReady, fetchTechniques])
+
+  useEffect(() => () => { requestVersion.current++ }, [])
+
+  const changeQuery = (next: string) => {
+    if (next === query) return
+    invalidateBrowse()
+    setDebounceReady(false)
+    setQuery(next)
+  }
+
+  const changeTactic = (next: string) => {
+    if (next === activeTactic) return
+    invalidateBrowse()
+    setActiveTactic(next)
+  }
+
+  const changeTab = (next: 'browse' | 'selected') => {
+    if (next === tab) return
+    invalidateBrowse()
+    setTab(next)
+  }
 
   const entrySet = new Set(entries.map(e => e.technique_id))
 
@@ -219,11 +269,11 @@ export default function MITRELayerDetail() {
       >
         <div className="mx-tabs" role="tablist" aria-label="Contenu du layer">
           <button type="button" role="tab" id="mx-tab-selected" aria-controls="mx-panel" aria-selected={tab === 'selected'}
-            className="mx-tab" onClick={() => setTab('selected')}>
+            className="mx-tab" onClick={() => changeTab('selected')}>
             <CheckSquare size={15} aria-hidden="true" />Sélectionnées<span className="mx-count">{entries.length}</span>
           </button>
           <button type="button" role="tab" id="mx-tab-browse" aria-controls="mx-panel" aria-selected={tab === 'browse'}
-            className="mx-tab" onClick={() => setTab('browse')}>
+            className="mx-tab" onClick={() => changeTab('browse')}>
             <Search size={15} aria-hidden="true" />Parcourir la matrice<span className="mx-count">{techTotal}</span>
           </button>
         </div>
@@ -258,7 +308,7 @@ export default function MITRELayerDetail() {
           <div className="mx-scroll">
             {entries.length === 0 ? (
               <StateBlock icon={<LayersGlyph size={22} />} title="Aucune technique dans ce layer"
-                actions={<button type="button" onClick={() => setTab('browse')} className="mx-btn is-primary"><Search size={14} />Parcourir les techniques</button>}>
+                actions={<button type="button" onClick={() => changeTab('browse')} className="mx-btn is-primary"><Search size={14} />Parcourir les techniques</button>}>
                 Ajoutez des techniques depuis la matrice pour construire ce layer.
               </StateBlock>
             ) : (
@@ -285,7 +335,7 @@ export default function MITRELayerDetail() {
               <p className="mx-rail-title">Tactiques</p>
               <ul>
                 <li>
-                  <button type="button" className="mx-tactic is-all" aria-pressed={activeTactic === ''} onClick={() => setActiveTactic('')}>
+                  <button type="button" className="mx-tactic is-all" aria-pressed={activeTactic === ''} onClick={() => changeTactic('')}>
                     <span>Toutes</span>
                   </button>
                 </li>
@@ -295,7 +345,7 @@ export default function MITRELayerDetail() {
                 {tactics.map(tac => (
                   <li key={tac.tactic_id}>
                     <button type="button" className="mx-tactic" {...tacticTone(tac.short_name)} aria-pressed={activeTactic === tac.short_name}
-                      onClick={() => setActiveTactic(tac.short_name)}>
+                      onClick={() => changeTactic(tac.short_name)}>
                       <span>{tac.name}</span><small>{tac.tactic_id}</small>
                     </button>
                   </li>
@@ -310,10 +360,10 @@ export default function MITRELayerDetail() {
                   <div className="mx-search" role="search">
                     <Search size={15} aria-hidden="true" />
                     <label htmlFor="mx-layer-q" className="mx-sr">Rechercher une technique</label>
-                    <input id="mx-layer-q" type="search" value={query} onChange={e => setQuery(e.target.value)}
+                    <input id="mx-layer-q" type="search" value={query} onChange={e => changeQuery(e.target.value)}
                       placeholder="Rechercher une technique : ID, nom…" className="mx-input" autoComplete="off" />
                     {query && (
-                      <button type="button" onClick={() => setQuery('')} className="mx-clear" aria-label="Effacer la recherche"><X size={14} /></button>
+                      <button type="button" onClick={() => changeQuery('')} className="mx-clear" aria-label="Effacer la recherche"><X size={14} /></button>
                     )}
                   </div>
                   <button type="button" className="mx-btn" onClick={() => setDisplay({ ...display, tactics: !display.tactics })}
@@ -326,6 +376,11 @@ export default function MITRELayerDetail() {
               <div className="mx-scroll">
                 {techLoading ? (
                   <SkeletonGrid count={6} />
+                ) : techError ? (
+                  <StateBlock warn icon={<AlertTriangle size={22} />} title="Chargement des techniques impossible"
+                    actions={<button type="button" className="mx-btn is-primary" onClick={() => void fetchTechniques(requestedPage.current)}>Réessayer</button>}>
+                    Impossible de charger les techniques ATT&CK. Réessayez dans un instant.
+                  </StateBlock>
                 ) : techniques.length === 0 ? (
                   <StateBlock icon={<Search size={22} />} title="Aucun résultat">Modifiez la recherche ou la tactique.</StateBlock>
                 ) : (
