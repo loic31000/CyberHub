@@ -71,7 +71,7 @@ export default function MITRELayerDetail() {
     const t = setTimeout(() => {
       setDebouncedQ(query)
       setDebounceReady(true)
-    }, 300)
+    }, 150)
     return () => clearTimeout(t)
   }, [query])
 

@@ -79,7 +79,7 @@ describe('MITRE Layers — dernières requêtes gagnantes', () => {
     expect(screen.queryByText('Page 2 / 2')).toBeNull()
   })
 
-  it('ne montre pas une ancienne réponse pendant les 300 ms du debounce', async () => {
+  it('ne montre pas une ancienne réponse pendant les 150 ms du debounce', async () => {
     const slow = deferred<MITRETechniquesResponse>()
     api.techniques.mockImplementation(p => p?.page === 2 ? slow.promise : Promise.resolve(p?.q ? found : pageOne))
     await browse()
@@ -92,7 +92,7 @@ describe('MITRE Layers — dernières requêtes gagnantes', () => {
     expect(await screen.findByRole('button', { name: /T1059.*ajouter au layer/ })).toBeTruthy()
   })
 
-  it('conserve les 300 ms de debounce même si la recherche revient à sa valeur précédente', async () => {
+  it('conserve les 150 ms de debounce même si la recherche revient à sa valeur précédente', async () => {
     await browse()
     search('T1059')
     search('')

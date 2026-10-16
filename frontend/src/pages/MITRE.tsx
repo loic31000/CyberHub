@@ -223,7 +223,7 @@ export default function MITRE() {
   }
 
   useEffect(() => {
-    const timer = setTimeout(() => setDebouncedQ(query), 300)
+    const timer = setTimeout(() => setDebouncedQ(query), 150)
     return () => clearTimeout(timer)
   }, [query])
 
