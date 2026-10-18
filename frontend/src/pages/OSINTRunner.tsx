@@ -141,7 +141,9 @@ export default function OSINTRunner() {
   const [importing, setImporting] = useState(false)
   const [imported, setImported] = useState<{ jobId: number; created: number; skipped: number } | null>(null)
   const [deleteTarget, setDeleteTarget] = useState<OSINTJobSummary | null>(null)
-  const pollRef = useRef<ReturnType<typeof setInterval> | null>(null)
+  const pollRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  // Each follow-up is a session: an answer from a stopped or replaced one is ignored.
+  const pollSession = useRef(0)
   const failures = useRef(0)
   const reportRef = useRef<HTMLElement>(null)
   const commandRef = useRef<HTMLElement>(null)
@@ -168,7 +170,8 @@ export default function OSINTRunner() {
   }, [loadJobs])
 
   const stopPolling = useCallback(() => {
-    if (pollRef.current !== null) { clearInterval(pollRef.current); pollRef.current = null }
+    pollSession.current += 1
+    if (pollRef.current !== null) { clearTimeout(pollRef.current); pollRef.current = null }
   }, [])
 
   // A new report: its explorer starts on the profiles found, unfiltered.
@@ -184,11 +187,15 @@ export default function OSINTRunner() {
 
   const startPolling = useCallback((jobId: number) => {
     stopPolling()
+    const session = pollSession.current
     failures.current = 0
     setTrackingLost(false)
-    pollRef.current = setInterval(async () => {
+    // One request at a time: the next one is scheduled once the previous one has answered.
+    const poll = async () => {
+      pollRef.current = null
       try {
         const job = await osintWmnApi.getJob(jobId)
+        if (session !== pollSession.current) return
         failures.current = 0
         setTrackingLost(false)
         setProgress({
@@ -209,11 +216,14 @@ export default function OSINTRunner() {
           else toast.error('La recherche s’est terminée en échec')
         }
       } catch {
+        if (session !== pollSession.current) return
         // Keep polling; after a few failed attempts in a row, say the tracking is interrupted.
         failures.current += 1
         if (failures.current >= 3) setTrackingLost(true)
       }
-    }, 1000)
+      if (session === pollSession.current) pollRef.current = setTimeout(poll, 1000)
+    }
+    pollRef.current = setTimeout(poll, 1000)
   }, [stopPolling, showReport])
 
   useEffect(() => () => stopPolling(), [stopPolling])
