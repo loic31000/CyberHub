@@ -22,6 +22,11 @@ interface IocState {
   exportCSV: () => Promise<void>
 }
 
+// Latest request wins: each fetchIocs() call takes a ticket as soon as it is
+// made, and only the latest ticket may write iocs, total, loading or error.
+let latestList = 0
+let listInFlight = false
+
 export const useIocStore = create<IocState>((set, get) => ({
   iocs: [],
   total: 0,
@@ -42,13 +47,17 @@ export const useIocStore = create<IocState>((set, get) => ({
   },
 
   fetchIocs: async () => {
+    const request = ++latestList
+    listInFlight = true
     set({ loading: true, error: null })
     try {
       const { filter, page, limit } = get()
       const res = await iocApi.list({ ...filter, page, limit })
-      set({ iocs: res.items, total: res.total, loading: false })
+      if (request === latestList) set({ iocs: res.items, total: res.total, loading: false })
     } catch (e) {
-      set({ error: String(e), loading: false })
+      if (request === latestList) set({ error: String(e), loading: false })
+    } finally {
+      if (request === latestList) listInFlight = false
     }
   },
 
@@ -73,6 +82,8 @@ export const useIocStore = create<IocState>((set, get) => ({
     set((s) => ({
       iocs: s.iocs.map((i) => (i.id === id ? ioc : i)),
     }))
+    // A GET still in flight may predate the change: replace it by one for the current filter and page.
+    if (listInFlight) void get().fetchIocs()
     return ioc
   },
 
@@ -80,8 +91,10 @@ export const useIocStore = create<IocState>((set, get) => ({
     await iocApi.delete(id)
     set((s) => ({
       iocs: s.iocs.filter((i) => i.id !== id),
-      total: s.total - 1,
+      // A list fetched after the deletion no longer holds it nor counts it.
+      total: s.iocs.some((i) => i.id === id) ? s.total - 1 : s.total,
     }))
+    if (listInFlight) void get().fetchIocs()
     await get().fetchStats()
   },
 
