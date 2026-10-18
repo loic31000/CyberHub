@@ -509,9 +509,9 @@ export const osintWmnApi = {
       .get<{ jobs: import('@/types/osint').OSINTJobSummary[]; total: number }>('/osint/jobs')
       .then((r) => r.data),
 
-  getJob: (id: number) =>
+  getJob: (id: number, signal?: AbortSignal) =>
     http
-      .get<import('@/types/osint').OSINTJobDetail>(`/osint/jobs/${id}`)
+      .get<import('@/types/osint').OSINTJobDetail>(`/osint/jobs/${id}`, { signal })
       .then((r) => r.data),
 
   deleteJob: (id: number) =>
