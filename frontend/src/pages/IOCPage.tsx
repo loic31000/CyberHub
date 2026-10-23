@@ -529,6 +529,8 @@ export default function IOCPage() {
   const restoredGroup = searchParams.get('group')
 
   useEffect(() => { fetchIocs(); fetchStats() }, [])
+  // Une recherche différée encore en attente ne doit pas partir après avoir quitté la page.
+  useEffect(() => () => { if (searchTimeout) clearTimeout(searchTimeout) }, [searchTimeout])
 
   const handleSearch = (v: string) => {
     setSearch(v)
