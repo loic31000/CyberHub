@@ -1,15 +1,17 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import {
-  History, CheckCheck, Loader2, AlertCircle,
+  CheckCheck, Loader2, AlertCircle,
   Network, ChevronRight, X, GitCompare, RefreshCw, Clock, AlertTriangle, Trash2,
 } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { bgpApi } from '@/api/client'
 import { toast } from '@/store/toast'
+import { ModuleHero } from '@/hero/ModuleHero'
 import type {
   BGPAlert, BGPAlertType, BGPSnapshot,
   BGPDiffResponse, BGPDiffField,
 } from '@/types/bgp'
+import './bgp-console.css'
 
 function alertLabel(type: BGPAlertType): string {
   const labels: Record<BGPAlertType, string> = {
@@ -19,16 +21,6 @@ function alertLabel(type: BGPAlertType): string {
     downstream_change: 'Changement downstreams',
   }
   return labels[type] ?? type
-}
-
-function alertSeverityStyle(type: BGPAlertType): { border: string; text: string; bg: string } {
-  const styles: Record<BGPAlertType, { border: string; text: string; bg: string }> = {
-    prefix_change:    { border: 'border-[#ef4444]', text: 'text-[#ef4444]', bg: 'bg-[#ef4444]/5' },
-    peer_change:      { border: 'border-[#f59e0b]', text: 'text-[#f59e0b]', bg: 'bg-[#f59e0b]/5' },
-    upstream_change:  { border: 'border-[#f97316]', text: 'text-[#f97316]', bg: 'bg-[#f97316]/5' },
-    downstream_change:{ border: 'border-[#3b82f6]', text: 'text-[#3b82f6]', bg: 'bg-[#3b82f6]/5' },
-  }
-  return styles[type] ?? { border: 'border-[#4a6480]', text: 'text-[#8a9ab0]', bg: 'bg-[#1e2d40]' }
 }
 
 function formatDate(iso: string): string {
@@ -72,16 +64,17 @@ function parseAlertPreview(alert: BGPAlert): string {
 
 function Spinner() {
   return (
-    <div className="flex items-center justify-center py-10">
-      <Loader2 size={24} className="animate-spin text-[#00d4ff]" />
+    <div className="bgp-state bgp-state--loading" role="status" aria-live="polite">
+      <Loader2 size={22} aria-hidden="true" />
+      <span>Chargement des données BGP…</span>
     </div>
   )
 }
 
 function ErrorMessage({ message }: { message: string }) {
   return (
-    <div className="flex items-center gap-2 p-3 border-l-2 border-[#ef4444] bg-[#ef4444]/5 text-[#ef4444] font-mono text-xs">
-      <AlertCircle size={14} />
+    <div className="bgp-state bgp-state--error" role="alert">
+      <AlertCircle size={14} aria-hidden="true" />
       <span>{message}</span>
     </div>
   )
@@ -94,8 +87,28 @@ interface DiffModalProps {
   onClose: () => void
 }
 
-function DiffModal({ diffResponse, onClose }: DiffModalProps) {
+function DiffPanel({ diffResponse, onClose }: DiffModalProps) {
   const { diff, older, newer } = diffResponse
+  const dialogRef = useRef<HTMLElement>(null)
+  const closeButtonRef = useRef<HTMLButtonElement>(null)
+  const onCloseRef = useRef(onClose)
+  onCloseRef.current = onClose
+
+  useEffect(() => {
+    const previousFocus = document.activeElement instanceof HTMLElement ? document.activeElement : null
+    closeButtonRef.current?.focus()
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        event.preventDefault()
+        onCloseRef.current()
+      }
+    }
+    document.addEventListener('keydown', handleKeyDown)
+    return () => {
+      document.removeEventListener('keydown', handleKeyDown)
+      previousFocus?.focus()
+    }
+  }, [])
 
   const renderField = (fieldName: string, field: BGPDiffField) => {
     const addedCount = field.added?.length ?? 0
@@ -115,13 +128,13 @@ function DiffModal({ diffResponse, onClose }: DiffModalProps) {
         ) : (
           <div className="space-y-1">
             {(field.added ?? []).map((item, i) => (
-              <div key={`add-${i}`} className="text-xs font-mono bg-[#10b981]/10 text-[#10b981] px-2 py-1 border-l-2 border-[#10b981]">
-                + {JSON.stringify(item)}
+              <div key={`add-${i}`} className="bgp-diff-change bgp-diff-change--added">
+                + {typeof item === 'string' ? item : JSON.stringify(item)}
               </div>
             ))}
             {(field.removed ?? []).map((item, i) => (
-              <div key={`rem-${i}`} className="text-xs font-mono bg-[#ef4444]/10 text-[#ef4444] px-2 py-1 border-l-2 border-[#ef4444]">
-                - {JSON.stringify(item)}
+              <div key={`rem-${i}`} className="bgp-diff-change bgp-diff-change--removed">
+                - {typeof item === 'string' ? item : JSON.stringify(item)}
               </div>
             ))}
           </div>
@@ -131,27 +144,33 @@ function DiffModal({ diffResponse, onClose }: DiffModalProps) {
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4">
-      <div className="bg-[#06080f] border border-[#1e2d40] w-full max-w-3xl max-h-[80vh] flex flex-col">
+    <section ref={dialogRef} className="bgp-diff-panel" role="region" aria-labelledby="bgp-diff-title" tabIndex={-1}>
         <div className="flex items-center justify-between p-4 border-b border-[#1e2d40] bg-[#0a0f16]">
           <div className="flex items-center gap-2">
             <GitCompare size={16} className="text-[#00d4ff]" />
-            <span className="font-mono font-bold text-xs uppercase tracking-widest text-[#f1f5f9]">Differential Engine</span>
+            <h2 id="bgp-diff-title" className="font-mono font-bold text-xs uppercase tracking-widest text-[#f1f5f9]">Comparaison des snapshots</h2>
           </div>
           <div className="text-[10px] text-[#4a6480] font-mono flex items-center gap-2">
             <span className="text-[#ef4444]">#{older.id}</span>
             <ChevronRight size={12} />
             <span className="text-[#10b981]">#{newer.id}</span>
           </div>
-          <button onClick={onClose} className="p-1 hover:bg-[#1e2d40] text-[#4a6480] hover:text-[#f1f5f9] transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-[#00d4ff]" aria-label="Fermer">
+          <button ref={closeButtonRef} type="button" onClick={onClose} className="p-1 hover:bg-[#1e2d40] text-[#4a6480] hover:text-[#f1f5f9] transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-[#00d4ff]" aria-label="Fermer">
             <X size={16} />
           </button>
         </div>
-        <div className="flex gap-4 px-4 py-2 bg-[#0a0f16]/50 border-b border-[#1e2d40] text-[10px] font-mono text-[#4a6480]">
-          <span>OLDER: {formatDate(older.created_at)}</span>
-          <span>NEWER: {formatDate(newer.created_at)}</span>
+        <div className="bgp-diff-meta">
+          <div className="bgp-diff-state" data-state="before">
+            <span>AVANT · #{older.id}</span>
+            <time dateTime={older.created_at}>{formatDate(older.created_at)}</time>
+          </div>
+          <ChevronRight size={14} aria-hidden="true" />
+          <div className="bgp-diff-state" data-state="after">
+            <span>APRÈS · #{newer.id}</span>
+            <time dateTime={newer.created_at}>{formatDate(newer.created_at)}</time>
+          </div>
         </div>
-        <div className="flex-1 overflow-y-auto p-4">
+        <div className="bgp-diff-panel-body">
           {diff.changed_fields.length === 0 ? (
             <div className="text-center font-mono text-xs text-[#4a6480] py-8 uppercase tracking-widest">
               No changes detected between these snapshots.
@@ -178,12 +197,11 @@ function DiffModal({ diffResponse, onClose }: DiffModalProps) {
             </div>
           )}
         </div>
-      </div>
-    </div>
+    </section>
   )
 }
 
-function AlertsSection() {
+function AlertsSection({ onOpenSnapshots }: { onOpenSnapshots: () => void }) {
   const navigate = useNavigate()
   const [alerts, setAlerts] = useState<BGPAlert[]>([])
   const [loading, setLoading] = useState(true)
@@ -266,26 +284,27 @@ function AlertsSection() {
 
   return (
     <div>
-      <div className="flex items-center justify-between mb-4">
-        <h3 className="text-xs font-mono font-bold text-[#ef4444] flex items-center gap-2 uppercase tracking-widest">
-          <AlertTriangle size={14} /> CRITICAL_EVENTS_STREAM
+      <div className="bgp-section-heading">
+        <h2>
+          <AlertTriangle size={16} aria-hidden="true" /> Changements de routage
           {alerts.length > 0 && (
-            <span className="px-2 py-0.5 bg-[#ef4444] text-white text-[9px] font-bold animate-pulse">
-              {alerts.length} ACTIVE
+            <span className="bgp-count-badge">
+              {alerts.length} alerte{alerts.length > 1 ? 's' : ''}
             </span>
           )}
-        </h3>
+        </h2>
         <div className="flex gap-2">
           <button
+            type="button"
             onClick={purgeCorruptedAlerts}
             disabled={purging}
-            className="p-1.5 hover:bg-[#ef4444]/10 text-[#ef4444] hover:text-[#ef4444] transition-colors rounded focus:outline-none focus-visible:ring-2 focus-visible:ring-[#00d4ff]"
+            className="bgp-icon-button"
             title="Purger les alertes corrompues (dates invalides)"
             aria-label="Supprimer les alertes corrompues"
           >
             {purging ? <Loader2 size={12} className="animate-spin" /> : <Trash2 size={12} />}
           </button>
-          <button onClick={loadAlerts} disabled={loading} className="p-1.5 hover:bg-[#1e2d40] text-[#4a6480] hover:text-[#8a9ab0] transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-[#00d4ff]" title="Rafraîchir" aria-label="Actualiser">
+          <button type="button" onClick={loadAlerts} disabled={loading} className="bgp-icon-button" title="Rafraîchir" aria-label="Actualiser">
             <RefreshCw size={12} className={loading ? 'animate-spin' : ''} />
           </button>
         </div>
@@ -295,34 +314,45 @@ function AlertsSection() {
       {error && <ErrorMessage message={error} />}
 
       {!loading && !error && alerts.length === 0 && (
-        <div className="text-center font-mono text-[10px] text-[#4a6480] py-6 flex flex-col items-center gap-2 uppercase tracking-widest">
-          <CheckCheck size={20} className="text-[#10b981]" />
-          No active threats detected
+        <div className="bgp-history-empty" data-state="no-alerts">
+          <div className="bgp-history-empty-index" aria-hidden="true">01 <span>/ 02</span></div>
+          <div className="bgp-history-empty-copy">
+            <span className="bgp-kicker">FLUX D’ALERTES</span>
+            <h3>Aucune alerte retournée</h3>
+            <p>L’API ne rapporte pas d’alerte active. Cela ne permet pas de conclure qu’aucun snapshot n’existe : les deux historiques se consultent séparément.</p>
+          </div>
+          <div className="bgp-history-empty-actions">
+            <button type="button" className="bgp-button bgp-button--primary" onClick={onOpenSnapshots}>
+              <Clock size={14} aria-hidden="true" /> Consulter les snapshots
+            </button>
+            <span>La liste demande un ASN.</span>
+          </div>
         </div>
       )}
 
       {!loading && !error && alerts.length > 0 && (
-        <div className="space-y-2">
+        <div className="bgp-alert-list bgp-event-stream">
           {alerts.map(alert => {
-            const style = alertSeverityStyle(alert.alert_type)
             return (
-              <div key={alert.id} className={`flex items-center justify-between p-3 border-l-2 font-mono text-[11px] ${style.border} ${style.text} ${style.bg}`}>
-                <div className="flex items-center gap-3 min-w-0">
-                  <span className="opacity-60 shrink-0">[{formatDate(alert.detected_at)}]</span>
-                  <span className="font-bold uppercase shrink-0">{alertLabel(alert.alert_type)}</span>
-                  <span className="opacity-60">➔</span>
-                  <span className="font-bold">AS{alert.asn}</span>
-                  <span className="opacity-50 text-[9px] truncate">{parseAlertPreview(alert)}</span>
+              <article key={alert.id} className="bgp-alert-row" data-alert-type={alert.alert_type}>
+                <div className="bgp-event-time">
+                  <span className="bgp-event-node" aria-hidden="true" />
+                  <time className="bgp-alert-time" dateTime={alert.detected_at}>{formatDate(alert.detected_at)}</time>
                 </div>
-                <div className="flex items-center gap-2 shrink-0 ml-2">
-                  <button onClick={() => navigate(`/bgp?asn=${alert.asn}`)} className="text-[9px] font-mono font-bold uppercase hover:underline opacity-70 hover:opacity-100 flex items-center gap-1">
-                    <Network size={10} /> Investigate
+                <div className="bgp-alert-main">
+                  <span className="bgp-alert-type">{alertLabel(alert.alert_type)}</span>
+                  <strong>AS{alert.asn}</strong>
+                  <span className="bgp-alert-preview">{parseAlertPreview(alert)}</span>
+                </div>
+                <div className="bgp-alert-actions">
+                  <button type="button" onClick={() => navigate(`/bgp?asn=${alert.asn}`)} className="bgp-button">
+                    <Network size={13} aria-hidden="true" /> Lookup
                   </button>
-                  <button onClick={() => handleAck(alert.id)} disabled={ackingId === alert.id} className="p-1 hover:bg-white/10 transition-colors opacity-70 hover:opacity-100" title="Acquitter">
+                  <button type="button" onClick={() => handleAck(alert.id)} disabled={ackingId === alert.id} className="bgp-icon-button" title="Acquitter" aria-label={`Acquitter l'alerte ${alert.id}`}>
                     {ackingId === alert.id ? <Loader2 size={12} className="animate-spin" /> : <CheckCheck size={12} />}
                   </button>
                 </div>
-              </div>
+              </article>
             )
           })}
         </div>
@@ -332,6 +362,7 @@ function AlertsSection() {
 }
 
 function SnapshotsSection() {
+  const navigate = useNavigate()
   const [asnInput, setAsnInput] = useState('')
   const [currentASN, setCurrentASN] = useState<number | null>(null)
   const [snapshots, setSnapshots] = useState<BGPSnapshot[]>([])
@@ -397,70 +428,87 @@ function SnapshotsSection() {
 
   return (
     <div>
-      {diffResponse && <DiffModal diffResponse={diffResponse} onClose={() => setDiffResponse(null)} />}
-
-      <div className="flex gap-0 mb-6">
+      <form className="bgp-snapshot-toolbar" onSubmit={event => { event.preventDefault(); handleLoad() }}>
+        <div className="bgp-query-field">
+          <label htmlFor="bgp-historian-asn">Numéro ASN</label>
         <input
+          id="bgp-historian-asn"
           type="text"
           value={asnInput}
           onChange={e => setAsnInput(e.target.value)}
-          onKeyDown={e => e.key === 'Enter' && handleLoad()}
-          placeholder="ENTER ASN... (ex: 13335)"
-          className="flex-1 bg-[#0d131f] border border-[#1e2d40] px-4 py-3 font-mono text-sm text-[#f1f5f9] placeholder-[#334155] uppercase tracking-widest focus:outline-none focus:border-[#00d4ff]/50"
+          placeholder="13335 ou AS13335"
+          className="bgp-query-input"
         />
-        <button onClick={handleLoad} disabled={loading} className="bg-[#00d4ff]/10 hover:bg-[#00d4ff]/20 text-[#00d4ff] px-6 border border-l-0 border-[#1e2d40] text-xs font-mono font-bold uppercase tracking-widest transition-colors disabled:opacity-50 flex items-center gap-2">
-          {loading ? <Loader2 size={14} className="animate-spin" /> : <Network size={14} />}
-          LOAD
+        </div>
+        <button type="submit" disabled={loading} className="bgp-button bgp-button--primary">
+          {loading ? <Loader2 size={14} aria-hidden="true" /> : <Network size={14} aria-hidden="true" />}
+          Charger l’historique
         </button>
-      </div>
+      </form>
 
       {loading && <Spinner />}
       {error && <ErrorMessage message={error} />}
 
       {!loading && !error && currentASN !== null && snapshots.length === 0 && (
-        <div className="text-center font-mono text-[10px] text-[#4a6480] py-10 uppercase tracking-widest">
-          No valid snapshots for AS{currentASN} — take one from BGP Lookup.
+        <div className="bgp-history-empty" data-state="no-snapshots">
+          <div className="bgp-history-empty-index" aria-hidden="true">02 <span>/ 02</span></div>
+          <div className="bgp-history-empty-copy">
+            <span className="bgp-kicker">AS{currentASN} · SNAPSHOTS</span>
+            <h3>Aucun snapshot retourné</h3>
+            <p>L’API n’a renvoyé aucun snapshot pour cet ASN. Les alertes restent consultables dans leur propre vue.</p>
+          </div>
+          <div className="bgp-history-empty-actions">
+            <button type="button" className="bgp-button" onClick={() => navigate(`/bgp?asn=${currentASN}`)}>Ouvrir dans BGP Lookup</button>
+            <span>Un snapshot peut être créé depuis la fiche ASN.</span>
+          </div>
         </div>
       )}
 
       {!loading && !error && snapshots.length > 0 && (
         <>
-          <div className="flex items-center justify-between mb-3">
-            <span className="text-[10px] font-mono text-[#4a6480] uppercase tracking-widest">
-              {total} SNAPSHOT(S) — AS{currentASN}
+          <div className="bgp-snapshot-summary">
+            <span className="bgp-tab-count">
+              {total} snapshot(s) · AS{currentASN}
             </span>
             {selected.length === 2 && (
-              <button onClick={handleCompare} disabled={diffLoading} className="flex items-center gap-2 px-3 py-1.5 bg-[#00d4ff]/10 hover:bg-[#00d4ff]/20 text-[#00d4ff] border border-[#00d4ff]/20 text-[10px] font-mono font-bold uppercase tracking-widest transition-colors disabled:opacity-50">
-                {diffLoading ? <Loader2 size={10} className="animate-spin" /> : <GitCompare size={10} />}
-                INITIALIZE_DIFF
+              <button type="button" onClick={handleCompare} disabled={diffLoading} className="bgp-button bgp-button--primary">
+                {diffLoading ? <Loader2 size={14} aria-hidden="true" /> : <GitCompare size={14} aria-hidden="true" />}
+                Comparer les snapshots
               </button>
             )}
             {selected.length === 1 && (
-              <span className="text-[10px] font-mono text-[#00d4ff]/60 uppercase tracking-widest">
-                Select a 2nd snapshot to diff
+              <span className="bgp-query-help">
+                Sélectionnez un second snapshot pour comparer
               </span>
             )}
           </div>
 
-          <div className="space-y-2">
-            {snapshots.map((snap, idx) => {
-              const isSelected = selected.includes(snap.id)
-              const isLatest = idx === 0
-              return (
-                <div key={snap.id} onClick={() => toggleSelect(snap.id)} className={`group flex items-center gap-3 p-3 border cursor-pointer transition-all font-mono text-xs ${
-                  isSelected
-                    ? 'border-[#00d4ff]/50 bg-[#00d4ff]/5 text-[#00d4ff]'
-                    : 'border-[#1e2d40] bg-[#0d131f] hover:border-[#00d4ff]/30 text-[#8a9ab0]'
-                }`}>
-                  <input type="checkbox" checked={isSelected} onChange={() => toggleSelect(snap.id)} onClick={e => e.stopPropagation()} className="rounded border-[#4a6480] text-[#00d4ff] focus:ring-[#00d4ff] bg-[#06080f]" />
-                  <span className="text-[#4a6480] text-[9px]">#{snap.id}</span>
-                  <Clock size={10} className="text-[#4a6480]" />
-                  <span>{formatDate(snap.created_at)}</span>
-                  {isLatest && <span className="text-[9px] text-[#10b981]">● LATEST</span>}
-                  <span className="ml-auto text-[9px] text-[#4a6480]">{snap.taken_by}</span>
-                </div>
-              )
-            })}
+          <div className={`bgp-timeline-workspace${diffResponse ? ' is-comparing' : ''}`}>
+            <div className="bgp-timeline-column">
+              <div className="bgp-timeline-heading">
+                <h3>Chronologie des observations</h3>
+                <span>Sélectionnez deux états pour comparer</span>
+              </div>
+              <div className="bgp-timeline" aria-label="Chronologie des snapshots">
+                {snapshots.map((snap, idx) => {
+                  const isSelected = selected.includes(snap.id)
+                  const isLatest = idx === 0
+                  return (
+                    <label key={snap.id} className="bgp-snapshot-item" data-selected={isSelected} data-latest={isLatest}>
+                      <input type="checkbox" checked={isSelected} onChange={() => toggleSelect(snap.id)} aria-label={`Comparer le snapshot ${snap.id}`} />
+                      <span className="bgp-snapshot-node" aria-hidden="true" />
+                      <span className="bgp-snapshot-id">#{snap.id}</span>
+                      <div className="bgp-snapshot-copy">
+                        <time dateTime={snap.created_at}>{formatDate(snap.created_at)}</time>
+                        <span>Capturé par {snap.taken_by || '—'}</span>
+                      </div>
+                      {isLatest && <span className="bgp-latest-badge">Le plus récent</span>}
+                    </label>
+                  )
+                })}
+              </div>
+            </div>
+            {diffResponse && <DiffPanel diffResponse={diffResponse} onClose={() => setDiffResponse(null)} />}
           </div>
         </>
       )}
@@ -473,40 +521,31 @@ export default function BGPHistorian() {
   const [activeTab, setActiveTab] = useState<'snapshots' | 'alerts'>('alerts')
 
   return (
-    <div className="flex flex-col h-full bg-[#06080f] text-[#f1f5f9]">
-      <div className="flex items-center justify-between px-6 py-4 border-b border-[#1e2d40] bg-[#0a0f16]/50">
-        <div className="flex items-center gap-3">
-          <div className="relative">
-            <History className="text-[#00d4ff]" size={20} />
-            <div className="absolute -top-1 -right-1 w-2 h-2 bg-[#10b981] rounded-full animate-pulse shadow-[0_0_8px_#10b981]" />
-          </div>
-          <div>
-            <h1 className="text-sm font-bold tracking-[0.2em] uppercase">BGP HISTORIAN // LOG</h1>
-            <p className="text-[10px] text-[#64748b] font-mono">Routing History Log — Temporal Snapshots &amp; Critical Events</p>
-          </div>
-        </div>
-        <div className="flex items-center gap-4 font-mono text-[10px]">
-          <span className="text-[#64748b]">STATUS</span>
-          <span className="text-[#10b981]">ACTIVE</span>
-          <button onClick={() => navigate('/bgp')} className="flex items-center gap-2 px-3 py-1.5 bg-[#1e2d40] hover:bg-[#2a3f55] text-[10px] font-bold border border-[#334155] transition-colors">
-            <Network size={12} /> BGP_LOOKUP
+    <div className="bgp-console bgp-historian">
+      <header className="bgp-page-head">
+        <ModuleHero breadcrumb="NETWORK / ROUTING INTELLIGENCE" title="BGP" accent="HISTORIAN"
+          subtitle="Routing Timeline — Suivre alertes, snapshots et différences dans le temps."
+          typeOnce="bgp-historian"
+          index={{ label: 'ROUTING TIMELINE', lines: ['ALERTES', 'SNAPSHOTS', 'COMPARAISON'] }} />
+        <div className="bgp-module-actions">
+          <button type="button" onClick={() => navigate('/bgp')} className="bgp-button">
+            <Network size={14} aria-hidden="true" /> BGP Lookup
           </button>
         </div>
-      </div>
+      </header>
 
-      <div className="flex border-b border-[#1e2d40] bg-[#0a0f16]/50">
+      <div className="bgp-content">
+      <div className="bgp-main-tabs" role="group" aria-label="Sections de BGP Historian">
         {[
-          { id: 'alerts' as const,    label: 'CRITICAL_EVENTS_STREAM', icon: <AlertTriangle size={12} /> },
-          { id: 'snapshots' as const, label: 'TEMPORAL_SNAPSHOTS',     icon: <Clock size={12} /> },
+          { id: 'alerts' as const,    label: 'Alertes', icon: <AlertTriangle size={14} /> },
+          { id: 'snapshots' as const, label: 'Snapshots', icon: <Clock size={14} /> },
         ].map(tab => (
           <button
+            type="button"
             key={tab.id}
             onClick={() => setActiveTab(tab.id)}
-            className={`flex items-center gap-2 px-5 py-3 text-[10px] font-mono font-bold uppercase tracking-widest border-b-2 transition-colors ${
-              activeTab === tab.id
-                ? 'border-[#00d4ff] text-[#00d4ff] bg-[#00d4ff]/5'
-                : 'border-transparent text-[#4a6480] hover:text-[#8a9ab0]'
-            }`}
+            aria-pressed={activeTab === tab.id}
+            className="bgp-main-tab"
           >
             {tab.icon}
             {tab.label}
@@ -514,9 +553,10 @@ export default function BGPHistorian() {
         ))}
       </div>
 
-      <div className="flex-1 overflow-auto p-6">
-        {activeTab === 'alerts' && <AlertsSection />}
+      <section className="bgp-panel bgp-panel-body bgp-historian-content" aria-label={activeTab === 'alerts' ? 'Changements de routage' : 'Snapshots BGP'}>
+        {activeTab === 'alerts' && <AlertsSection onOpenSnapshots={() => setActiveTab('snapshots')} />}
         {activeTab === 'snapshots' && <SnapshotsSection />}
+      </section>
       </div>
     </div>
   )

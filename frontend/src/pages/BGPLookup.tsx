@@ -4,16 +4,19 @@ import {
   Network, Search, Camera, Copy, ShieldBan,
   ChevronRight, Globe, Server, ArrowUpCircle,
   ArrowDownCircle, Users, Loader2, AlertCircle, History,
-  Activity, Database, ShieldCheck,
+  Activity, Database,
 } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { bgpApi } from '@/api/client'
 import { toast } from '@/store/toast'
+import { ModuleHero } from '@/hero/ModuleHero'
+import BGPRouteMotif from './BGPRouteMotif'
 import type {
   ASNInfo, IPv4Prefix, IPv6Prefix, BGPPeer, BGPUpstream, BGPDownstream,
   IPInfo, SearchASN, PrefixListData, PeerListData,
   UpstreamListData, DownstreamListData, BGPStatusResponse,
 } from '@/types/bgp'
+import './bgp-console.css'
 
 function parseAPIError(error: unknown): string {
   if (error instanceof Error) {
@@ -49,16 +52,17 @@ function countryFlag(code: string) {
 
 function Spinner() {
   return (
-    <div className="flex items-center justify-center py-12">
-      <Loader2 size={28} className="animate-spin text-[#00d4ff]" />
+    <div className="bgp-state bgp-state--loading" role="status" aria-live="polite">
+      <Loader2 size={24} aria-hidden="true" />
+      <span>Chargement des données de routage…</span>
     </div>
   )
 }
 
 function ErrorMessage({ message }: { message: string }) {
   return (
-    <div className="flex items-center gap-2 p-4 rounded bg-[#ef4444]/5 border-l-2 border-[#ef4444] text-[#ef4444] font-mono text-xs">
-      <AlertCircle size={16} />
+    <div className="bgp-state bgp-state--error" role="alert">
+      <AlertCircle size={16} aria-hidden="true" />
       <span>{message}</span>
     </div>
   )
@@ -66,8 +70,9 @@ function ErrorMessage({ message }: { message: string }) {
 
 function EmptyState({ label = 'Aucune donnée' }: { label?: string }) {
   return (
-    <div className="text-center py-10 font-mono text-xs text-[#4a6480]">
-      {label.toUpperCase()}
+    <div className="bgp-results-empty">
+      <Database size={22} aria-hidden="true" />
+      <p>{label}</p>
     </div>
   )
 }
@@ -85,12 +90,12 @@ function PagedTable<T>({ items, renderRow, headers }: PagedTableProps<T>) {
 
   return (
     <div>
-      <div className="overflow-x-auto">
-        <table className="w-full text-xs font-mono">
+      <div className="bgp-table-scroll">
+        <table aria-label={headers.join(', ')}>
           <thead>
             <tr className="border-b border-[#1e2d40]">
               {headers.map((h) => (
-                <th key={h} className="text-left py-2 px-3 text-[#4a6480] font-bold tracking-widest uppercase">
+                <th key={h} scope="col">
                   {h}
                 </th>
               ))}
@@ -99,7 +104,7 @@ function PagedTable<T>({ items, renderRow, headers }: PagedTableProps<T>) {
           <tbody>
             {slice.length === 0 ? (
               <tr>
-                <td colSpan={headers.length} className="text-center py-8 text-[#4a6480]">
+                <td colSpan={headers.length}>
                   Aucune donnée
                 </td>
               </tr>
@@ -110,19 +115,23 @@ function PagedTable<T>({ items, renderRow, headers }: PagedTableProps<T>) {
         </table>
       </div>
       {totalPages > 1 && (
-        <div className="flex items-center justify-center gap-2 mt-4 text-xs font-mono">
+        <div className="bgp-pagination" aria-label="Pagination">
           <button
+            type="button"
             onClick={() => setPage((p) => Math.max(1, p - 1))}
             disabled={page === 1}
-            className="px-3 py-1 bg-[#1e2d40] text-[#8a9ab0] disabled:opacity-40 hover:bg-[#2a3f55] transition-colors border border-[#2a3f55]"
+            aria-label="Page précédente"
+            className="bgp-button"
           >
             ←
           </button>
-          <span className="text-[#4a6480]">{page} / {totalPages}</span>
+          <span className="text-[#4a6480]" aria-live="polite">{page} / {totalPages}</span>
           <button
+            type="button"
             onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
             disabled={page === totalPages}
-            className="px-3 py-1 bg-[#1e2d40] text-[#8a9ab0] disabled:opacity-40 hover:bg-[#2a3f55] transition-colors border border-[#2a3f55]"
+            aria-label="Page suivante"
+            className="bgp-button"
           >
             →
           </button>
@@ -159,6 +168,34 @@ function ASNTabs({ asn, info, onNavigatePeer, lastSnapshotDate }: ASNTabsProps) 
   const [downstreamData, setDownstreamData] = useState<DownstreamListData | null>(null)
   const [downstreamLoading, setDownstreamLoading] = useState(false)
   const [downstreamError, setDownstreamError] = useState<string | null>(null)
+
+  useEffect(() => {
+    let active = true
+    setPeerData(null)
+    setUpstreamData(null)
+    setDownstreamData(null)
+    setPeerError(null)
+    setUpstreamError(null)
+    setDownstreamError(null)
+    setPeerLoading(true)
+    setUpstreamLoading(true)
+    setDownstreamLoading(true)
+
+    bgpApi.lookupASNPeers(asn)
+      .then(result => { if (active) setPeerData(result.data) })
+      .catch((error: unknown) => { if (active) setPeerError(error instanceof Error ? error.message : 'Erreur réseau') })
+      .finally(() => { if (active) setPeerLoading(false) })
+    bgpApi.lookupASNUpstreams(asn)
+      .then(result => { if (active) setUpstreamData(result.data) })
+      .catch((error: unknown) => { if (active) setUpstreamError(error instanceof Error ? error.message : 'Erreur réseau') })
+      .finally(() => { if (active) setUpstreamLoading(false) })
+    bgpApi.lookupASNDownstreams(asn)
+      .then(result => { if (active) setDownstreamData(result.data) })
+      .catch((error: unknown) => { if (active) setDownstreamError(error instanceof Error ? error.message : 'Erreur réseau') })
+      .finally(() => { if (active) setDownstreamLoading(false) })
+
+    return () => { active = false }
+  }, [asn])
 
   const handleTabClick = useCallback(
     (tab: ASNTab) => {
@@ -250,20 +287,23 @@ function ASNTabs({ asn, info, onNavigatePeer, lastSnapshotDate }: ASNTabsProps) 
           <td className="py-2 px-3 text-[#4a6480]">
             {p.country_code ? `${countryFlag(p.country_code)} ${p.country_code}` : '—'}
           </td>
-          <td className="py-2 px-3">
-            <div className="flex items-center gap-1">
+          <td>
+            <div className="bgp-row-actions">
               <button
+                type="button"
                 onClick={() => copyToClipboard(p.prefix)}
-                className="p-1 hover:bg-[#1e2d40] text-[#4a6480] hover:text-[#00d4ff] transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-[#00d4ff]"
+                className="bgp-icon-button"
                 title="Copier"
-                aria-label="Copier"
+                aria-label={`Copier le préfixe ${p.prefix}`}
               >
                 <Copy size={12} />
               </button>
               <button
+                type="button"
                 onClick={() => handleExportIOC(p.prefix)}
-                className="p-1 hover:bg-[#1e2d40] text-[#4a6480] hover:text-[#ef4444] transition-colors flex items-center gap-1"
+                className="bgp-icon-button"
                 title="Exporter en IOC"
+                aria-label={`Exporter ${p.prefix} en IOC`}
               >
                 <ShieldBan size={12} />
                 <span className="hidden sm:inline">IOC</span>
@@ -286,19 +326,23 @@ function ASNTabs({ asn, info, onNavigatePeer, lastSnapshotDate }: ASNTabsProps) 
           <td className="py-2 px-3 text-[#4a6480]">
             {p.country_code ? `${countryFlag(p.country_code)} ${p.country_code}` : '—'}
           </td>
-          <td className="py-2 px-3">
-            <div className="flex items-center gap-1">
+          <td>
+            <div className="bgp-row-actions">
               <button
+                type="button"
                 onClick={() => copyToClipboard(String(p.asn))}
-                className="p-1 hover:bg-[#1e2d40] text-[#4a6480] hover:text-[#00d4ff] transition-colors"
+                className="bgp-icon-button"
                 title="Copier ASN"
+                aria-label={`Copier l'ASN ${p.asn}`}
               >
                 <Copy size={12} />
               </button>
               <button
+                type="button"
                 onClick={() => onNavigatePeer(p.asn)}
-                className="p-1 hover:bg-[#1e2d40] text-[#4a6480] hover:text-[#00d4ff] transition-colors"
+                className="bgp-icon-button"
                 title="Rechercher ce AS"
+                aria-label={`Ouvrir l'ASN ${p.asn}`}
               >
                 <ChevronRight size={12} />
               </button>
@@ -309,29 +353,70 @@ function ASNTabs({ asn, info, onNavigatePeer, lastSnapshotDate }: ASNTabsProps) 
     />
   )
 
+  const renderRelationNodes = (items: (BGPPeer | BGPUpstream | BGPDownstream)[] | undefined, loading: boolean, error: string | null) => {
+    if (loading) return <span className="bgp-relation-state">Chargement…</span>
+    if (error) return <span className="bgp-relation-state" role="status">Relation indisponible</span>
+    if (!items?.length) return <span className="bgp-relation-state">Aucune relation retournée</span>
+    return (
+      <div className="bgp-relation-nodes">
+        {items.slice(0, 4).map(item => (
+          <button type="button" key={item.asn} className="bgp-relation-node" onClick={() => onNavigatePeer(item.asn)} aria-label={`Ouvrir AS${item.asn} ${item.name}`}>
+            <strong>AS{item.asn}</strong>
+            <span>{item.name || 'Nom non renseigné'}</span>
+            {item.country_code && <small>{item.country_code}</small>}
+          </button>
+        ))}
+        {items.length > 4 && <span className="bgp-relation-overflow">+{items.length - 4} dans la liste</span>}
+      </div>
+    )
+  }
+
   return (
-    <div>
-      <div className="flex items-center gap-0 border-b border-[#1e2d40] mb-4 overflow-x-auto">
+    <div className="bgp-asn-workstation">
+      <nav className="bgp-asn-tabs" aria-label="Informations BGP de l'ASN">
         {tabs.map((tab) => (
           <button
+            type="button"
             key={tab.id}
             onClick={() => handleTabClick(tab.id)}
-            className={`flex items-center gap-1.5 px-3 py-2 text-[10px] font-bold whitespace-nowrap border-b-2 tracking-widest uppercase transition-colors ${
-              activeTab === tab.id
-                ? 'border-[#00d4ff] text-[#00d4ff] bg-[#00d4ff]/5'
-                : 'border-transparent text-[#4a6480] hover:text-[#8a9ab0]'
-            }`}
+            aria-pressed={activeTab === tab.id}
+            className="bgp-asn-tab"
           >
             {tab.icon}
             {tab.label}
           </button>
         ))}
-      </div>
+      </nav>
 
+      <div className="bgp-asn-workspace">
       {activeTab === 'info' && (
-        <div className="space-y-4">
-          <div className="flex items-center gap-3 flex-wrap">
+        <div className="bgp-atlas-overview">
+          <div className="bgp-atlas-facts">
+            <div className="bgp-atlas-overview-heading">
+              <div>
+                <span className="bgp-kicker">Fiche opérateur</span>
+                <h3>Identité & provenance</h3>
+              </div>
+              <span className="bgp-asn-rir">{info.rir_allocation?.rir_name || 'RIR non renseigné'}</span>
+            </div>
+            <dl className="bgp-asn-facts">
+              {[
+                { label: 'ASN', value: `AS${info.asn}` },
+                { label: 'Organisation', value: info.name || 'Nom non renseigné' },
+                { label: 'Description', value: info.description_short || 'Aucune description retournée' },
+                { label: 'Pays', value: info.country_code ? `${countryFlag(info.country_code)} ${info.country_code}` : 'Non renseigné' },
+                { label: 'Site web', value: info.website || 'Non renseigné' },
+                { label: 'Registre', value: info.rir_allocation?.rir_name || 'Non renseigné' },
+              ].map(({ label, value }) => (
+                <div key={label} className="bgp-fact">
+                  <dt>{label}</dt>
+                  <dd title={String(value)}>{value}</dd>
+                </div>
+              ))}
+            </dl>
+            <div className="bgp-action-row">
             <button
+              type="button"
               onClick={handleSnapshot}
               disabled={snapping}
               className="flex items-center gap-2 px-4 py-2 bg-[#00d4ff]/10 hover:bg-[#00d4ff]/20 text-[#00d4ff] border border-[#00d4ff]/20 text-[10px] font-bold tracking-widest uppercase transition-colors disabled:opacity-50"
@@ -340,6 +425,7 @@ function ASNTabs({ asn, info, onNavigatePeer, lastSnapshotDate }: ASNTabsProps) 
               Prendre un snapshot
             </button>
             <button
+              type="button"
               onClick={() => navigate('/bgp/historian')}
               className="flex items-center gap-2 px-4 py-2 bg-[#1e2d40] hover:bg-[#2a3f55] text-[#8a9ab0] border border-[#2a3f55] text-[10px] font-bold tracking-widest uppercase transition-colors"
             >
@@ -347,8 +433,8 @@ function ASNTabs({ asn, info, onNavigatePeer, lastSnapshotDate }: ASNTabsProps) 
               Voir l'historique
             </button>
             {lastSnapshotDate && (
-              <span className="text-[10px] font-mono text-[#4a6480]">
-                LAST_SNAP:{' '}
+            <span className="bgp-last-snapshot">
+                Dernier snapshot :{' '}
                 {new Date(lastSnapshotDate).toLocaleDateString('fr-FR', {
                   day: 'numeric', month: 'short', year: 'numeric',
                 })}
@@ -356,21 +442,37 @@ function ASNTabs({ asn, info, onNavigatePeer, lastSnapshotDate }: ASNTabsProps) 
             )}
           </div>
 
-          <div className="grid grid-cols-2 gap-2 md:grid-cols-3">
-            {[
-              { label: 'ASN', value: `AS${info.asn}` },
-              { label: 'Nom', value: info.name },
-              { label: 'Description', value: info.description_short },
-              { label: 'Pays', value: info.country_code ? `${countryFlag(info.country_code)} ${info.country_code}` : '—' },
-              { label: 'Site web', value: info.website || '—' },
-              { label: 'RIR', value: info.rir_allocation?.rir_name || '—' },
-            ].map(({ label, value }) => (
-              <div key={label} className="bg-[#0a0f16] border border-[#1e2d40] p-3">
-                <div className="text-[9px] font-bold text-[#4a6480] mb-1 uppercase tracking-widest">{label}</div>
-                <div className="text-xs font-mono text-[#f1f5f9] truncate" title={value}>{value}</div>
-              </div>
-            ))}
+            <p className="bgp-atlas-provenance">Provenance affichée depuis les champs de la réponse ASN. Les relations ci-contre proviennent des réponses peers, upstreams et downstreams.</p>
           </div>
+
+          <section className="bgp-network-atlas" aria-labelledby="bgp-network-atlas-title">
+            <div className="bgp-network-atlas-heading">
+              <div>
+                <span className="bgp-kicker">Voisinage retourné par l’API</span>
+                <h3 id="bgp-network-atlas-title">Relations BGP observées</h3>
+              </div>
+              <span className="bgp-network-atlas-note">Chaque lien relie l’ASN étudié à une relation déclarée.</span>
+            </div>
+            <div className="bgp-network-axis">
+              <div className="bgp-relation-lane" data-direction="upstream" data-has-relations={Boolean(upstreamData?.ipv4_upstreams.length || upstreamData?.ipv6_upstreams.length)}>
+                <div className="bgp-relation-lane-label"><span>AMONT</span><ArrowUpCircle size={14} aria-hidden="true" /></div>
+                {renderRelationNodes(upstreamData?.ipv4_upstreams.concat(upstreamData.ipv6_upstreams), upstreamLoading, upstreamError)}
+              </div>
+              <div className="bgp-network-root">
+                <span>ASN ÉTUDIÉ</span>
+                <strong>AS{asn}</strong>
+                <small>{info.name || 'Nom non renseigné'}</small>
+              </div>
+              <div className="bgp-relation-lane" data-direction="downstream" data-has-relations={Boolean(downstreamData?.ipv4_downstreams.length || downstreamData?.ipv6_downstreams.length)}>
+                <div className="bgp-relation-lane-label"><span>AVAL</span><ArrowDownCircle size={14} aria-hidden="true" /></div>
+                {renderRelationNodes(downstreamData?.ipv4_downstreams.concat(downstreamData.ipv6_downstreams), downstreamLoading, downstreamError)}
+              </div>
+            </div>
+            <div className="bgp-peer-band">
+              <div className="bgp-relation-lane-label"><span>PEERING</span><Users size={14} aria-hidden="true" /></div>
+              {renderRelationNodes(peerData?.ipv4_peers.concat(peerData.ipv6_peers), peerLoading, peerError)}
+            </div>
+          </section>
 
           {info.abuse_contacts?.length > 0 && (
             <div className="bg-[#0a0f16] border border-[#1e2d40] p-3">
@@ -473,6 +575,7 @@ function ASNTabs({ asn, info, onNavigatePeer, lastSnapshotDate }: ASNTabsProps) 
           )}
         </>
       )}
+      </div>
     </div>
   )
 }
@@ -484,8 +587,12 @@ export default function BGPLookup() {
   const [searchParams] = useSearchParams()
 
   useEffect(() => {
+    const asn = searchParams.get('asn')
     const prefill = searchParams.get('prefill')
-    if (prefill) {
+    if (asn) {
+      setInputValue(asn.replace(/^AS/i, ''))
+      setMode('asn')
+    } else if (prefill) {
       setInputValue(prefill)
       setMode(prefill.includes('/') ? 'search' : 'ip')
     }
@@ -572,40 +679,27 @@ export default function BGPLookup() {
   }
 
   return (
-    <div className="flex flex-col h-full bg-[#06080f] text-[#f1f5f9]">
-      <div className="flex items-center justify-between px-6 py-4 border-b border-[#1e2d40] bg-[#0a0f16]/50">
-        <div className="flex items-center gap-3">
-          <div className="relative">
-            <Globe className="text-[#00d4ff]" size={20} />
-            <div className="absolute -top-1 -right-1 w-2 h-2 bg-[#10b981] rounded-full animate-pulse shadow-[0_0_8px_#10b981]" />
-          </div>
-          <div>
-            <h1 className="text-sm font-bold tracking-[0.2em] uppercase">BGP Signal Acquisition</h1>
-            <p className="text-[10px] text-[#64748b] font-mono">GLOBAL ROUTING TABLE // REAL-TIME INTERROGATION</p>
-          </div>
-        </div>
-        <div className="flex items-center gap-4 font-mono text-[10px]">
-          {bgpStatus && (
-            <div className="flex flex-col items-end">
-              <span className="text-[#64748b]">UPSTREAM</span>
-              <span className={bgpStatus.available ? 'text-[#10b981]' : 'text-[#ef4444]'}>
-                {bgpStatus.available ? 'CONNECTED' : 'DEGRADED'}
-              </span>
-            </div>
-          )}
+    <div className="bgp-console bgp-lookup">
+      <header className="bgp-page-head">
+        <ModuleHero breadcrumb="NETWORK / ROUTING INTELLIGENCE" title="BGP" accent="LOOKUP"
+          subtitle="Network Atlas — Explorer les systèmes autonomes et leurs annonces."
+          typeOnce="bgp-lookup"
+          index={{ label: 'NETWORK ATLAS', lines: ['ASN · PRÉFIXES', 'PEERS · ROUTES'] }} />
+        <div className="bgp-module-actions">
           <button
+            type="button"
             onClick={() => navigate('/bgp/historian')}
-            className="flex items-center gap-2 px-3 py-1.5 bg-[#1e2d40] hover:bg-[#2a3f55] text-[10px] font-bold border border-[#334155] transition-colors"
+            className="bgp-button"
           >
-            <History size={12} /> HISTORIAN
+            <History size={14} aria-hidden="true" /> BGP Historian
           </button>
         </div>
-      </div>
+      </header>
 
-      <div className="flex-1 overflow-auto p-6 space-y-6">
+      <div className="bgp-content">
         {bgpStatus && !bgpStatus.available && (
-          <div className="border-l-2 border-[#f59e0b] bg-[#f59e0b]/5 p-4 font-mono text-[11px] text-[#f59e0b]">
-            <div className="font-bold mb-1">⚠ BGP DATA UNAVAILABLE</div>
+          <div className="bgp-notice" role="status">
+            <strong>Source BGP indisponible</strong>
             <div className="text-[#8a9ab0]">
               {bgpStatus.cache_available ? 'Affichage de la dernière version mise en cache.' : 'Aucune version mise en cache disponible.'}
             </div>
@@ -613,80 +707,99 @@ export default function BGPLookup() {
           </div>
         )}
 
-        <div className="max-w-4xl mx-auto">
-          <div className="flex gap-0 mb-0 border-b border-[#1e2d40]">
-            {(['asn', 'ip', 'search'] as SearchMode[]).map((m) => (
-              <button
-                key={m}
-                onClick={() => { setMode(m); setError(null) }}
-                className={`px-4 py-2 text-[10px] font-bold tracking-widest uppercase border-b-2 transition-colors ${
-                  mode === m
-                    ? 'border-[#00d4ff] text-[#00d4ff] bg-[#00d4ff]/5'
-                    : 'border-transparent text-[#4a6480] hover:text-[#8a9ab0]'
-                }`}
-              >
-                {m === 'asn' ? 'ASN' : m === 'ip' ? 'IP' : 'Recherche'}
-              </button>
-            ))}
+        <form className="bgp-search-station bgp-atlas-search" onSubmit={(event) => { event.preventDefault(); void handleSearch() }}>
+          <div className="bgp-search-rail">
+            <div className="bgp-kicker"><span>NETWORK ATLAS</span></div>
+            <div className="bgp-mode-strip" role="group" aria-label="Mode de recherche">
+              {(['asn', 'ip', 'search'] as SearchMode[]).map((m) => (
+                <button
+                  type="button"
+                  key={m}
+                  onClick={() => { setMode(m); setError(null) }}
+                  aria-pressed={mode === m}
+                  className="bgp-mode-button"
+                >
+                  {m === 'asn' ? 'ASN' : m === 'ip' ? 'IP' : 'Recherche'}
+                </button>
+              ))}
+            </div>
+            <span className="bgp-key-hint"><kbd>↵</kbd> Explorer</span>
           </div>
 
-          <div className="relative group mt-0">
-            <div className="absolute -inset-1 bg-gradient-to-r from-[#00d4ff]/20 to-transparent rounded-lg blur opacity-25 group-focus-within:opacity-100 transition duration-500" />
-            <div className="relative flex items-center bg-[#0d131f] border border-[#1e2d40] overflow-hidden">
-              <div className="pl-4 text-[#4a6480]"><Search size={18} /></div>
+          <div className="bgp-command-field">
+            <label htmlFor="bgp-query">{mode === 'asn' ? 'Système autonome' : mode === 'ip' ? 'Adresse IP' : 'Organisation, ASN ou préfixe'}</label>
+            <div className="bgp-command-input-row">
+              <Search size={19} aria-hidden="true" />
               <input
+                id="bgp-query"
                 type="text"
                 value={inputValue}
                 onChange={(e) => setInputValue(e.target.value)}
-                onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
-                placeholder={
-                  mode === 'asn' ? 'ENTER ASN... (ex: 13335 or AS13335)'
-                  : mode === 'ip' ? 'ENTER IP ADDRESS... (ex: 8.8.8.8)'
-                  : 'SEARCH KEYWORD... (ex: cloudflare)'
-                }
-                className="w-full bg-transparent border-none py-4 px-4 text-sm font-mono focus:ring-0 placeholder-[#334155] uppercase tracking-widest outline-none"
+                placeholder={mode === 'asn' ? '13335 ou AS13335' : mode === 'ip' ? '1.1.1.1' : 'Cloudflare, AS13335, préfixe…'}
+                className="bgp-query-input"
+                autoComplete="off"
+                spellCheck={false}
               />
-              <button
-                onClick={handleSearch}
-                disabled={loading}
-                className="bg-[#00d4ff]/10 hover:bg-[#00d4ff]/20 text-[#00d4ff] px-6 py-4 border-l border-[#1e2d40] text-xs font-bold transition-colors disabled:opacity-50 flex items-center gap-2"
-              >
-                {loading ? <Loader2 size={14} className="animate-spin" /> : <Activity size={14} />}
-                EXECUTE_QUERY
+              <button type="submit" disabled={loading || !inputValue.trim()} className="bgp-search-submit">
+                {loading ? <Loader2 size={17} aria-hidden="true" /> : <Activity size={17} aria-hidden="true" />}
+                <span>{loading ? 'Analyse…' : 'Explorer'}</span>
+                <kbd>↵</kbd>
               </button>
             </div>
+            <p className="bgp-query-help">La recherche interroge les sources configurées. Les résultats précédents sont remplacés après réponse.</p>
           </div>
-        </div>
+        </form>
 
         {error && <ErrorMessage message={error} />}
 
-        <div className="grid grid-cols-12 gap-4">
-          <div className="col-span-12 lg:col-span-8 bg-[#0a0f16] border border-[#1e2d40] overflow-hidden">
-            <div className="bg-[#1e2d40]/30 px-4 py-2 border-b border-[#1e2d40] flex justify-between items-center">
-              <span className="text-[10px] font-bold tracking-widest text-[#8a9ab0]">ROUTING_DETAILS</span>
-              <Activity size={12} className="text-[#00d4ff]" />
+        <div className="bgp-workspace">
+          <section className="bgp-panel bgp-results-panel" aria-labelledby="bgp-results-heading">
+            <div className="bgp-panel-heading bgp-results-heading">
+              <div>
+                <div className="bgp-kicker"><span>02</span> / Surface d’exploration</div>
+                <h2 id="bgp-results-heading">{asnInfo ? 'Identité réseau' : ipInfo ? 'Origine de l’adresse' : searchResults ? 'Systèmes correspondants' : 'Données de routage'}</h2>
+              </div>
+              <div className="bgp-provenance" aria-label="Provenance des données BGP">
+                <span className="bgp-provenance-mark" data-state={bgpStatus ? (bgpStatus.available ? 'available' : 'unavailable') : 'unknown'} aria-hidden="true" />
+                <span className="bgp-provenance-source">{bgpStatus?.primary || 'Source non renseignée'}</span>
+                <span className="bgp-provenance-state">{bgpStatus ? (bgpStatus.available ? 'Disponible' : 'Indisponible') : 'État inconnu'}</span>
+                {bgpStatus?.cache_available && <span className="bgp-provenance-cache">Cache · {Math.max(0, Math.floor(bgpStatus.cache_age_seconds / 60))} min</span>}
+              </div>
             </div>
 
             {loading && <Spinner />}
 
             {!loading && !error && !asnInfo && !ipInfo && !searchResults && (
-              <div className="p-12 text-center">
-                <Database size={40} className="mx-auto text-[#1e2d40] mb-4" />
-                <p className="text-xs font-mono text-[#4a6480]">AWAITING COMMAND INPUT...</p>
+              <div className="bgp-observatory-empty">
+                <div className="bgp-observatory-empty-copy">
+                  <span className="bgp-kicker">En attente d’une requête</span>
+                  <h3>Suivre une annonce<br />jusqu’à son origine.</h3>
+                  <p>Commencez par un ASN, une adresse IP ou une organisation. Les relations affichées proviendront des données retournées par l’API.</p>
+                  <div className="bgp-query-examples" aria-label="Exemples de recherche">
+                    <button type="button" onClick={() => { setMode('asn'); setInputValue('13335') }}>ASN <strong>AS13335</strong></button>
+                    <button type="button" onClick={() => { setMode('ip'); setInputValue('1.1.1.1') }}>IP <strong>1.1.1.1</strong></button>
+                    <button type="button" onClick={() => { setMode('search'); setInputValue('Cloudflare') }}>Organisation <strong>Cloudflare</strong></button>
+                  </div>
+                </div>
+                <div className="bgp-observatory-empty-figure">
+                  <BGPRouteMotif />
+                  <span>Schéma conceptuel · aucun état réseau représenté</span>
+                </div>
               </div>
             )}
 
             {!loading && !error && asnInfo && currentASN !== null && (
-              <div className="p-4">
-                <div className="flex items-center gap-3 mb-4 pb-4 border-b border-[#1e2d40]">
-                  <div className="text-xl font-bold font-mono text-[#00d4ff]">AS{currentASN}</div>
-                  <div>
-                    <div className="text-sm font-bold text-[#f1f5f9]">{asnInfo.name}</div>
-                    <div className="text-[10px] text-[#4a6480] font-mono">{asnInfo.description_short}</div>
+              <div className="bgp-panel-body bgp-result-body">
+                <div className="bgp-asn-summary">
+                  <div className="bgp-asn-number">AS{currentASN}</div>
+                  <div className="bgp-asn-copy">
+                    <strong>{asnInfo.name || 'Nom non renseigné'}</strong>
+                    <span>{asnInfo.description_short}</span>
                   </div>
                   {asnInfo.country_code && (
-                    <span className="ml-auto text-lg">{countryFlag(asnInfo.country_code)}</span>
+                    <span className="bgp-asn-country" aria-label={`Pays ${asnInfo.country_code}`}>{countryFlag(asnInfo.country_code)}</span>
                   )}
+                  <span className="bgp-asn-country-code">{asnInfo.country_code || 'Pays inconnu'}</span>
                 </div>
                 <ASNTabs
                   asn={currentASN}
@@ -698,29 +811,29 @@ export default function BGPLookup() {
             )}
 
             {!loading && !error && ipInfo && ipInfo.data && (
-              <div className="p-4 space-y-3">
+              <div className="bgp-panel-body space-y-3">
                 <div className="flex items-center gap-3 pb-3 border-b border-[#1e2d40]">
                   <Network size={18} className="text-[#00d4ff]" />
                   <div className="text-lg font-bold font-mono text-[#00d4ff]">{ipInfo.data.ip}</div>
                 </div>
-                <div className="grid grid-cols-2 gap-2">
+                <dl className="bgp-asn-facts">
                   {[
                     { label: 'PTR', value: ipInfo.data.ptr_record || '—' },
                     { label: 'RIR', value: ipInfo.data.rir_allocation?.rir_name || '—' },
                     { label: 'Allocation', value: ipInfo.data.rir_allocation?.prefix || '—' },
                     { label: 'Country', value: ipInfo.data.rir_allocation?.country_code || '—' },
                   ].map(({ label, value }) => (
-                    <div key={label} className="bg-[#0d131f] border border-[#1e2d40] p-3">
-                      <div className="text-[9px] font-bold text-[#4a6480] uppercase tracking-widest mb-1">{label}</div>
-                      <div className="text-xs font-mono text-[#f1f5f9] truncate">{value}</div>
+                    <div key={label} className="bgp-fact">
+                      <dt>{label}</dt>
+                      <dd>{value}</dd>
                     </div>
                   ))}
-                </div>
+                </dl>
 
                 <div>
                   <div className="text-[10px] font-bold text-[#4a6480] uppercase tracking-widest mb-2">Préfixes associés</div>
                   {ipInfo.data.prefixes && ipInfo.data.prefixes.length > 0 ? (
-                    <div className="space-y-2">
+                    <div className="bgp-search-results">
                       {ipInfo.data.prefixes.map((p, i) => (
                         <div key={i} className="flex items-center justify-between bg-[#0d131f] border border-[#1e2d40] px-3 py-2">
                           <div>
@@ -759,23 +872,24 @@ export default function BGPLookup() {
             )}
 
             {!loading && !error && searchResults && (
-              <div className="p-4">
-                <div className="text-[10px] font-mono text-[#4a6480] uppercase tracking-widest mb-3">
+              <div className="bgp-panel-body">
+                <div className="bgp-tab-count">
                   {searchResults.length} résultat(s)
                 </div>
                 {searchResults.length === 0 ? (
                   <EmptyState label="Aucun ASN trouvé" />
                 ) : (
-                  <div className="space-y-2">
+                    <div className="bgp-search-results">
                     {searchResults.map((a) => (
-                      <div
+                      <button
+                        type="button"
                         key={a.asn}
-                        className="flex items-center justify-between bg-[#0d131f] border border-[#1e2d40] hover:border-[#00d4ff]/30 px-3 py-2 cursor-pointer transition-colors"
+                        className="bgp-search-result"
                         onClick={() => navigateToASN(a.asn)}
                       >
-                        <div>
-                          <span className="font-mono text-xs text-[#00d4ff]">AS{a.asn}</span>
-                          <span className="ml-3 text-xs text-[#8a9ab0]">{a.name}</span>
+                        <div className="bgp-search-result__identity">
+                          <strong>AS{a.asn}</strong>
+                          <span>{a.name}</span>
                         </div>
                         <div className="flex items-center gap-2 text-[10px] text-[#4a6480]">
                           {a.country_code && (
@@ -783,46 +897,14 @@ export default function BGPLookup() {
                           )}
                           <ChevronRight size={12} className="text-[#4a6480]" />
                         </div>
-                      </div>
+                      </button>
                     ))}
                   </div>
                 )}
               </div>
             )}
-          </div>
+          </section>
 
-          <div className="col-span-12 lg:col-span-4 space-y-4">
-            <div className="bg-[#0a0f16] border border-[#1e2d40] p-4">
-              <h3 className="text-[10px] font-bold text-[#64748b] mb-4 uppercase tracking-tighter flex items-center gap-2">
-                <ShieldCheck size={14} className="text-[#10b981]" /> RPKI VALIDATION STATUS
-              </h3>
-              <div className="space-y-3">
-                <div className="flex justify-between text-[11px] font-mono">
-                  <span className="text-[#8a9ab0]">VALID</span>
-                  <span className="text-[#10b981]">98.2%</span>
-                </div>
-                <div className="w-full bg-[#1e2d40] h-1 overflow-hidden">
-                  <div className="bg-[#10b981] h-full shadow-[0_0_8px_#10b981]" style={{ width: '98%' }} />
-                </div>
-              </div>
-            </div>
-
-            <div className="bg-[#0a0f16] border border-[#1e2d40] p-4">
-              <h3 className="text-[10px] font-bold text-[#64748b] mb-4 uppercase tracking-tighter">TRANSIT_DIVERSITY</h3>
-              <div className="flex flex-wrap gap-2">
-                {['LEVEL3', 'COGENT', 'GTT', 'HE'].map(isp => (
-                  <span key={isp} className="text-[9px] font-mono px-2 py-1 bg-[#1e2d40] text-[#8a9ab0] border border-[#2a3f55]">
-                    {isp}
-                  </span>
-                ))}
-              </div>
-            </div>
-
-            <div className="bg-[#0a0f16] border border-[#1e2d40] p-4 font-mono text-[10px] text-[#4a6480]">
-              <p className="uppercase tracking-widest">Powered by BGPView</p>
-              <p className="mt-1 text-[9px]">usage légal uniquement</p>
-            </div>
-          </div>
         </div>
       </div>
     </div>
