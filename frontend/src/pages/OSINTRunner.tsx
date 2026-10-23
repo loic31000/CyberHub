@@ -144,6 +144,8 @@ export default function OSINTRunner() {
   const pollRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   // Each follow-up is a session: an answer from a stopped or replaced one is ignored.
   const pollSession = useRef(0)
+  // A run request may resolve after unmount or after another run was accepted.
+  const runSession = useRef(0)
   // The polling request in flight, cancelled with its session.
   const pollAbort = useRef<AbortController | null>(null)
   // The latest opening from the history: a newer one (or a new search) cancels it.
@@ -236,7 +238,11 @@ export default function OSINTRunner() {
     pollRef.current = setTimeout(poll, 1000)
   }, [stopPolling, showReport])
 
-  useEffect(() => () => { stopPolling(); reviewAbort.current?.abort() }, [stopPolling])
+  useEffect(() => () => {
+    runSession.current += 1
+    stopPolling()
+    reviewAbort.current?.abort()
+  }, [stopPolling])
 
   const trimmed = username.trim()
   const invalid = trimmed.length > 0 && !USERNAME_RE.test(trimmed)
@@ -249,6 +255,7 @@ export default function OSINTRunner() {
       toast.error('Pseudonyme invalide : lettres, chiffres, tirets et underscores, 50 caractères au plus')
       return
     }
+    const session = ++runSession.current
     // An opening still loading from the history must not take over the new search.
     reviewAbort.current?.abort()
     setRunning(true)
@@ -259,6 +266,7 @@ export default function OSINTRunner() {
     setReportHidden(false)
     try {
       const { job_id } = await osintWmnApi.run(target, scope)
+      if (session !== runSession.current) return
       setActiveJobId(job_id)
       setJobs(prev => [{
         id: job_id, username: target, status: 'running',
@@ -267,6 +275,7 @@ export default function OSINTRunner() {
       }, ...prev])
       startPolling(job_id)
     } catch {
+      if (session !== runSession.current) return
       toast.error('Impossible de lancer la recherche')
       setRunning(false)
     }

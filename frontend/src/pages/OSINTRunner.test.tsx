@@ -370,3 +370,58 @@ describe('OSINT — ouverture depuis l’historique', () => {
     expect(polls(1)).toBe(1)
   })
 })
+
+describe('OSINT — lancement en attente', () => {
+  beforeEach(() => {
+    vi.useFakeTimers()
+    answers.clear()
+    api.getMeta.mockResolvedValue({ last_updated: '', site_count: 10, categories: [] })
+    api.listJobs.mockResolvedValue({ jobs: [], total: 0 })
+    api.getJob.mockImplementation(nextAnswer)
+  })
+  afterEach(() => { cleanup(); vi.useRealTimers(); vi.clearAllMocks() })
+
+  it('ignore la réponse de lancement qui arrive après le démontage', async () => {
+    const { unmount } = renderPage()
+    await advance(0)
+    const pendingRun = deferred<{ job_id: number }>()
+    api.run.mockReturnValue(pendingRun.promise)
+    fireEvent.change(screen.getByLabelText('Pseudonyme ciblé'), { target: { value: 'alice_1' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Lancer la recherche' }))
+    expect(api.run).toHaveBeenCalledOnce()
+
+    unmount()
+    pendingRun.resolve({ job_id: 7 })
+    await advance(5000)
+
+    expect(api.getJob).not.toHaveBeenCalled()
+    expect(vi.getTimerCount()).toBe(0)
+    expect(toast.success).not.toHaveBeenCalled()
+    expect(toast.error).not.toHaveBeenCalled()
+  })
+
+  it('ignore une ancienne réponse de lancement après acceptation d’une nouvelle', async () => {
+    renderPage()
+    await advance(0)
+    const firstRun = deferred<{ job_id: number }>()
+    const latestRun = deferred<{ job_id: number }>()
+    api.run.mockReturnValueOnce(firstRun.promise).mockReturnValueOnce(latestRun.promise)
+    answer(2, job(2, 'alice_1', 'running', 2))
+    fireEvent.change(screen.getByLabelText('Pseudonyme ciblé'), { target: { value: 'alice_1' } })
+    const button = screen.getByRole('button', { name: 'Lancer la recherche' })
+
+    // Both handlers run in one React batch, before the disabled/running state is committed.
+    await act(async () => { fireEvent.click(button); fireEvent.click(button) })
+    expect(api.run).toHaveBeenCalledTimes(2)
+
+    latestRun.resolve({ job_id: 2 })
+    await advance(0)
+    firstRun.resolve({ job_id: 1 })
+    await advance(0)
+    await advance(1000)
+
+    expect(api.getJob.mock.calls.map(([id]) => id)).toEqual([2])
+    // One timer updates the elapsed-time label; one schedules the active poll.
+    expect(vi.getTimerCount()).toBe(2)
+  })
+})
