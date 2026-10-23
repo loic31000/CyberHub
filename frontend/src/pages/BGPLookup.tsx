@@ -17,6 +17,7 @@ import {
   type RelationGroup, type VisitLens,
 } from '@/bgp/LookupParts'
 import { readVisits, recordVisit, writeVisits } from '@/bgp/visits'
+import { rememberSnapshotASN } from '@/bgp/snapshotShortcuts'
 import '@/bgp/bgp.css'
 
 type SearchMode = 'asn' | 'ip' | 'search'
@@ -118,6 +119,7 @@ function ASNDossier({ asn, info, cache, visited, onOpenASN }: {
     setSnapping(true)
     try {
       const result = await bgpApi.takeSnapshot(asn)
+      rememberSnapshotASN({ asn, last: new Date().toISOString() })
       const alertCount = result.alerts?.length ?? 0
       if (alertCount > 0) toast.warning(`Snapshot pris — ${alertCount} changement(s) détecté(s) !`)
       else toast.success('Snapshot pris avec succès')

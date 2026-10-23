@@ -14,12 +14,23 @@ export const asnSearchListScenario: SearchASN[] = [
   { asn: 64501, name: 'Example Peering Lab', country_code: 'LU', description: '', email: '', rir_name: 'TEST' },
 ]
 
+// Same shape as the backend stores: the whole section before and after ({status, data: {...}}).
+const section = (data: Record<string, unknown[]>) => JSON.stringify({ status: 'ok', status_message: 'fixture', data })
+const pfx = (prefix: string) => ({ prefix, ip: prefix, cidr: Number(prefix.split('/')[1]), name: '', country_code: '', description: '' })
+const rel = (asn: number) => ({ asn, name: `AS${asn}`, description: '', country_code: '' })
+
 export const alertFeedScenario: BGPAlert[] = [
-  { id: 101, created_at: '2026-10-23T11:30:00Z', detected_at: '2026-10-23T11:30:00Z', asn: 64496, alert_type: 'prefix_change', old_value: '{"prefixes":["198.51.100.0/24"]}', new_value: '{"prefixes":["203.0.113.0/24"]}', acknowledged: false },
-  { id: 102, created_at: '2026-10-23T10:15:00Z', detected_at: '2026-10-23T10:15:00Z', asn: 64497, alert_type: 'peer_change', old_value: '{"peers":[]}', new_value: '{"peers":[64496]}', acknowledged: false },
-  { id: 103, created_at: '2026-10-22T17:45:00Z', detected_at: '2026-10-22T17:45:00Z', asn: 64498, alert_type: 'upstream_change', old_value: '{"upstreams":[64496]}', new_value: '{"upstreams":[]}', acknowledged: false },
-  { id: 104, created_at: '2026-10-22T09:00:00Z', detected_at: '2026-10-22T09:00:00Z', asn: 64499, alert_type: 'downstream_change', old_value: '{"downstreams":[]}', new_value: '{"downstreams":[64500]}', acknowledged: false },
-  { id: 105, created_at: '2026-10-21T14:20:00Z', detected_at: '2026-10-21T14:20:00Z', asn: 64501, alert_type: 'prefix_change', old_value: '{"prefixes":[]}', new_value: '{"prefixes":["192.0.2.0/24"]}', acknowledged: false },
+  { id: 101, created_at: '2026-10-23T11:30:00Z', detected_at: '2026-10-23T11:30:00Z', asn: 64496, alert_type: 'prefix_change',
+    old_value: section({ ipv4_prefixes: [pfx('198.51.100.0/24'), pfx('192.0.2.0/24')], ipv6_prefixes: [] }),
+    new_value: section({ ipv4_prefixes: [pfx('198.51.100.0/24'), pfx('203.0.113.0/24'), pfx('203.0.113.128/25')], ipv6_prefixes: [pfx('2001:db8:10::/48')] }), acknowledged: false },
+  { id: 102, created_at: '2026-10-23T10:15:00Z', detected_at: '2026-10-23T10:15:00Z', asn: 64497, alert_type: 'peer_change',
+    old_value: section({ ipv4_peers: [rel(64498)], ipv6_peers: [] }), new_value: section({ ipv4_peers: [rel(64498), rel(64496)], ipv6_peers: [] }), acknowledged: false },
+  { id: 103, created_at: '2026-10-22T17:45:00Z', detected_at: '2026-10-22T17:45:00Z', asn: 64498, alert_type: 'upstream_change',
+    old_value: section({ ipv4_upstreams: [rel(64496)], ipv6_upstreams: [] }), new_value: section({ ipv4_upstreams: [], ipv6_upstreams: [] }), acknowledged: false },
+  { id: 104, created_at: '2026-10-22T09:00:00Z', detected_at: '2026-10-22T09:00:00Z', asn: 64499, alert_type: 'downstream_change',
+    old_value: section({ ipv4_downstreams: [], ipv6_downstreams: [] }), new_value: section({ ipv4_downstreams: [rel(64500)], ipv6_downstreams: [] }), acknowledged: false },
+  { id: 105, created_at: '2026-10-21T14:20:00Z', detected_at: '2026-10-21T14:20:00Z', asn: 64501, alert_type: 'prefix_change',
+    old_value: section({ ipv4_prefixes: [], ipv6_prefixes: [] }), new_value: section({ ipv4_prefixes: [pfx('192.0.2.0/24')], ipv6_prefixes: [] }), acknowledged: false },
 ]
 
 export const snapshotTimelineScenario: BGPSnapshot[] = Array.from({ length: 12 }, (_, index) => {
@@ -32,6 +43,50 @@ export const snapshotTimelineScenario: BGPSnapshot[] = Array.from({ length: 12 }
     taken_by: index % 2 ? 'fixture analyst B' : 'fixture analyst A',
   }
 })
+
+/** 120 fictional observations over about two years, irregularly spaced (preview only). */
+export const snapshotLongHistoryScenario: BGPSnapshot[] = Array.from({ length: 120 }, (_, index) => {
+  const at = new Date(Date.UTC(2026, 9, 23, 12) - (index * 6 + (index % 7) * 1.5) * 86_400_000)
+  return { id: 900 - index, created_at: at.toISOString(), asn: 64496, snapshot_date: at.toISOString(), taken_by: 'local' }
+})
+
+/** Empty diff payload: the API omits unreported lists, so this does not prove equality. */
+export const snapshotEmptyDiffScenario: BGPDiffResponse = {
+  older: { id: 211, created_at: '2026-10-22T12:00:00Z', asn: 64496 },
+  newer: { id: 212, created_at: '2026-10-23T12:00:00Z', asn: 64496 },
+  diff: { changed_fields: [], changes: {} },
+}
+
+/** Object items as stored by the backend, including one peer whose attributes changed. */
+export const snapshotObjectDiffScenario: BGPDiffResponse = {
+  older: { id: 201, created_at: '2026-10-12T12:00:00Z', asn: 64496 },
+  newer: { id: 212, created_at: '2026-10-23T12:00:00Z', asn: 64496 },
+  diff: {
+    changed_fields: ['prefixes', 'peers', 'upstreams'],
+    changes: {
+      prefixes: {
+        ipv4_prefixes: {
+          old: [pfx('198.51.100.0/24'), pfx('192.0.2.0/24'), pfx('198.51.100.128/25')],
+          new: [pfx('198.51.100.0/24'), pfx('203.0.113.0/24'), pfx('203.0.113.128/25'), pfx('198.51.100.128/25')],
+          added: [pfx('203.0.113.0/24'), pfx('203.0.113.128/25')],
+          removed: [pfx('192.0.2.0/24')],
+        },
+        ipv6_prefixes: { old: [], new: [pfx('2001:db8:10::/48')], added: [pfx('2001:db8:10::/48')], removed: [] },
+      },
+      peers: {
+        ipv4_peers: {
+          old: [rel(64497), { ...rel(64498), name: 'EXAMPLE-RESEARCH' }],
+          new: [rel(64497), rel(64498), rel(64500)],
+          added: [rel(64498), rel(64500)],
+          removed: [{ ...rel(64498), name: 'EXAMPLE-RESEARCH' }],
+        },
+      },
+      upstreams: {
+        ipv4_upstreams: { old: [rel(64501)], new: [], added: [], removed: [rel(64501)] },
+      },
+    },
+  },
+}
 
 export const asnInfoScenario: ASNInfo = {
   asn: 64496,

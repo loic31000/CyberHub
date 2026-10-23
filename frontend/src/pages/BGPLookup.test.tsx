@@ -54,6 +54,7 @@ describe('BGP Lookup presentation and navigation', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     sessionStorage.clear()
+    localStorage.clear()
     api.getStatus.mockResolvedValue({ available: true, primary: 'BGPView', message: '', cache_available: false, cache_age_seconds: 0 })
     api.lookupASNPeers.mockResolvedValue(envelope({ ipv4_peers: [], ipv6_peers: [] }))
     api.lookupASNUpstreams.mockResolvedValue(envelope({ ipv4_upstreams: [], ipv6_upstreams: [] }))
@@ -362,6 +363,16 @@ describe('BGP Lookup presentation and navigation', () => {
     renderPage('/bgp?asn=22773')
     expect(await screen.findByRole('button', { name: 'Ouvrir AS1299 Arelion, déjà visité' })).toBeTruthy()
     expect(screen.getByRole('button', { name: 'Retour à AS1299' })).toBeTruthy()
+  })
+
+  it('remembers an ASN once a snapshot is taken, for the Historian shortcuts', async () => {
+    api.lookupASN.mockResolvedValue(envelope(asnInfo))
+    api.lookupASNPrefixes.mockResolvedValue(envelope({ ipv4_prefixes: [], ipv6_prefixes: [] }))
+    api.takeSnapshot.mockResolvedValue({ snapshot: { id: 1, created_at: '', asn: 13335, snapshot_date: '', taken_by: 'local' }, alerts: [] })
+    renderPage('/bgp?asn=13335')
+
+    fireEvent.click(await screen.findByRole('button', { name: /Prendre un snapshot/ }))
+    await waitFor(() => expect(JSON.parse(localStorage.getItem('cyberhub.bgp.snapshot-asns') ?? '[]')[0]?.asn).toBe(13335))
   })
 
   it('shows the BGP source state in the hero status line', async () => {

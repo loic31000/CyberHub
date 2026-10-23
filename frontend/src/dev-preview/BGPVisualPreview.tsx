@@ -11,6 +11,7 @@ import type { ASNInfo, BGPAlert, BGPDiffResponse, BGPSnapshot } from '@/types/bg
 import {
   alertFeedScenario, asnInfoScenario, asnSearchListScenario,
   downstreamScenario, peerScenario, prefixScenario, snapshotDiffScenario,
+  snapshotLongHistoryScenario, snapshotObjectDiffScenario, snapshotEmptyDiffScenario,
   snapshotTimelineScenario, upstreamScenario,
 } from '@/pages/__fixtures__/bgpVisualScenarios'
 import '@/index.css'
@@ -20,6 +21,7 @@ type PreviewScenario =
   | 'lookup-empty' | 'lookup-asn' | 'lookup-prefixes' | 'lookup-peers'
   | 'lookup-loading' | 'lookup-error' | 'lookup-partial' | 'historian-snapshots'
   | 'historian-diff' | 'historian-empty' | 'historian-loading' | 'historian-error'
+  | 'historian-stable' | 'historian-changes' | 'historian-long' | 'historian-direct'
 
 const scenarios: { id: PreviewScenario; label: string }[] = [
   { id: 'lookup-empty', label: 'Lookup · initial' },
@@ -34,6 +36,10 @@ const scenarios: { id: PreviewScenario; label: string }[] = [
   { id: 'historian-empty', label: 'Historian · vide' },
   { id: 'historian-loading', label: 'Historian · chargement' },
   { id: 'historian-error', label: 'Historian · erreur réseau' },
+  { id: 'historian-stable', label: 'Historian · aucune différence renvoyée' },
+  { id: 'historian-changes', label: 'Historian · changements détaillés' },
+  { id: 'historian-long', label: 'Historian · 120 snapshots / 2 ans' },
+  { id: 'historian-direct', label: 'Historian · ouvert depuis Lookup (?asn)' },
 ]
 
 const query = new URLSearchParams(window.location.search)
@@ -80,13 +86,24 @@ Object.assign(bgpApi, {
     return { items, total: items.length, limit: 100, offset: 0 }
   },
   ackAlert: async () => ({}),
-  getSnapshots: async (): Promise<{ items: BGPSnapshot[]; total: number; limit: number; offset: number }> => {
+  getSnapshots: async (_asn: number, limit = 50, offset = 0): Promise<{ items: BGPSnapshot[]; total: number; limit: number; offset: number }> => {
     if (isHistorian && isLoading) return never
     if (scenario === 'historian-error') throw new Error('Échec réseau simulé · snapshots')
-    const items = scenario === 'historian-empty' ? [] : snapshotTimelineScenario
-    return { items, total: items.length, limit: 50, offset: 0 }
+    const items = scenario === 'historian-empty' ? [] : scenario === 'historian-long' ? snapshotLongHistoryScenario : snapshotTimelineScenario
+    return { items: items.slice(offset, offset + limit), total: items.length, limit, offset }
   },
-  getDiff: async (): Promise<BGPDiffResponse> => snapshotDiffScenario,
+  // Like the backend, the answer names the two requested snapshots (older first).
+  getDiff: async (_asn: number, idA: number, idB: number): Promise<BGPDiffResponse> => {
+    const base = scenario === 'historian-stable' ? snapshotEmptyDiffScenario
+      : scenario === 'historian-changes' || scenario === 'historian-long' || scenario === 'historian-direct' ? snapshotObjectDiffScenario : snapshotDiffScenario
+    const all = scenario === 'historian-long' ? snapshotLongHistoryScenario : snapshotTimelineScenario
+    const [older, newer] = [idA, idB].sort((a, b) => a - b).map(id => all.find(s => s.id === id))
+    return {
+      ...base,
+      older: older ? { id: older.id, created_at: older.created_at, asn: older.asn } : base.older,
+      newer: newer ? { id: newer.id, created_at: newer.created_at, asn: newer.asn } : base.newer,
+    }
+  },
 })
 
 function PreviewHarness() {
@@ -106,7 +123,7 @@ function PreviewHarness() {
           </select>
         </label>
       </aside>
-      <MemoryRouter initialEntries={[isHistorian ? '/bgp/historian' : scenario === 'lookup-empty' ? '/bgp' : '/bgp?asn=64496']}>
+      <MemoryRouter initialEntries={[isHistorian ? (scenario === 'historian-direct' ? '/bgp/historian?asn=64496' : '/bgp/historian') : scenario === 'lookup-empty' ? '/bgp' : '/bgp?asn=64496']}>
         {isHistorian ? <BGPHistorian /> : <BGPLookup />}
       </MemoryRouter>
     </>

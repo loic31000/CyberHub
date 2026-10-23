@@ -1,11 +1,13 @@
 // @vitest-environment jsdom
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { cleanup, fireEvent, render, screen } from '@testing-library/react'
+import { cleanup, fireEvent, render, screen, within } from '@testing-library/react'
 import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom'
 import BGPHistorian from './BGPHistorian'
 import { bgpApi } from '@/api/client'
-import type { BGPAlert, BGPSnapshot } from '@/types/bgp'
-import { alertFeedScenario, snapshotTimelineScenario } from './__fixtures__/bgpVisualScenarios'
+import type { BGPAlert, BGPDiffResponse, BGPSnapshot } from '@/types/bgp'
+import {
+  alertFeedScenario, snapshotEmptyDiffScenario, snapshotObjectDiffScenario, snapshotTimelineScenario,
+} from './__fixtures__/bgpVisualScenarios'
 
 vi.mock('@/api/client', () => ({
   bgpApi: {
@@ -26,6 +28,11 @@ const alert: BGPAlert = {
   id: 9, created_at: '2026-10-23T12:00:00Z', detected_at: '2026-10-23T12:00:00Z',
   asn: 64500, alert_type: 'prefix_change', old_value: '[]', new_value: '[]', acknowledged: false,
 }
+function HistorianURL() {
+  const location = useLocation()
+  return <span data-testid="url">{location.search}</span>
+}
+
 function RouteProbe() {
   const location = useLocation()
   return <p>Lookup route: {location.search}</p>
@@ -34,6 +41,7 @@ function RouteProbe() {
 describe('BGP Historian presentation and navigation', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    localStorage.clear()
     api.getAlerts.mockResolvedValue({ items: [], total: 0, limit: 100, offset: 0 })
   })
   afterEach(cleanup)
@@ -60,8 +68,8 @@ describe('BGP Historian presentation and navigation', () => {
     api.getSnapshots.mockResolvedValue({ items: [], total: 0, limit: 50, offset: 0 })
     render(<MemoryRouter initialEntries={['/bgp/historian']}><BGPHistorian /></MemoryRouter>)
 
-    expect(await screen.findByRole('heading', { name: 'Aucune alerte retournée' })).toBeTruthy()
-    expect(screen.getByText(/ne permet pas de conclure qu’aucun snapshot n’existe/i)).toBeTruthy()
+    expect(await screen.findByRole('heading', { name: 'Aucune alerte non acquittée' })).toBeTruthy()
+    expect(screen.getByText(/Un flux vide ne prouve pas qu’aucun changement n’a eu lieu/i)).toBeTruthy()
     fireEvent.click(screen.getByRole('button', { name: /Consulter les snapshots/ }))
     fireEvent.change(screen.getByLabelText('Numéro ASN'), { target: { value: 'AS64496' } })
     fireEvent.click(screen.getByRole('button', { name: /Charger l.historique/ }))
@@ -87,7 +95,7 @@ describe('BGP Historian presentation and navigation', () => {
 
     expect((await screen.findByRole('alert')).textContent).toContain('Historian indisponible')
     expect(screen.getByRole('button', { name: 'Actualiser' })).toBeTruthy()
-    expect(screen.queryByRole('heading', { name: 'Aucune alerte retournée' })).toBeNull()
+    expect(screen.queryByRole('heading', { name: 'Aucune alerte non acquittée' })).toBeNull()
   })
 
   it('loads snapshots and compares additions and removals', async () => {
@@ -141,6 +149,7 @@ describe('BGP Historian presentation and navigation', () => {
     expect(await screen.findByLabelText('Comparer le snapshot 212')).toBeTruthy()
     expect(document.querySelectorAll('.bgp-snapshot-item')).toHaveLength(snapshotTimelineScenario.length)
     expect(screen.getByText('12 snapshot(s) · AS64496')).toBeTruthy()
+    expect(screen.getByText(/ne fournit ni leur âge ni l’heure de collecte source/)).toBeTruthy()
   })
 
   it('orders the comparison by snapshot date, whatever the selection order', async () => {
@@ -161,7 +170,7 @@ describe('BGP Historian presentation and navigation', () => {
     expect(screen.getByText('avant').closest('label')?.textContent).toContain('#1')
     expect(screen.getByText('après').closest('label')?.textContent).toContain('#2')
     fireEvent.click(screen.getByRole('button', { name: 'Comparer les snapshots' }))
-    expect(await screen.findByText('Aucun changement entre ces deux snapshots.')).toBeTruthy()
+    expect(await screen.findByText('Aucune différence n’est renvoyée par l’API.')).toBeTruthy()
     expect(api.getDiff).toHaveBeenCalledWith(13335, 1, 2)
   })
 
@@ -179,12 +188,163 @@ describe('BGP Historian presentation and navigation', () => {
     api.getAlerts.mockResolvedValue({ items: alertFeedScenario, total: alertFeedScenario.length, limit: 100, offset: 0 })
     render(<MemoryRouter initialEntries={['/bgp/historian?asn=64496']}><BGPHistorian /></MemoryRouter>)
     api.getSnapshots.mockResolvedValue({ items: [], total: 0, limit: 50, offset: 0 })
-    expect(await screen.findByText(`${alertFeedScenario.length} ALERTES`)).toBeTruthy()
+    expect(await screen.findByText(`${alertFeedScenario.length} ALERTES NON ACQUITTÉES`)).toBeTruthy()
 
     cleanup()
     api.getAlerts.mockRejectedValue(new Error('down'))
     render(<MemoryRouter initialEntries={['/bgp/historian']}><BGPHistorian /></MemoryRouter>)
     expect(await screen.findByText('FLUX INDISPONIBLE')).toBeTruthy()
+  })
+
+  it('shows alerts sent with the Go field names and opens their exact changes', async () => {
+    // Go's encoding/json uses these exported field names: BGPAlert has no json tags.
+    const goShaped = {
+      ID: 41, CreatedAt: '2026-10-23T12:00:00Z', ASN: 64496, AlertType: 'prefix_change', Acknowledged: false, DetectedAt: '2026-10-23T12:00:00Z',
+      OldValue: JSON.stringify({ status: 'ok', data: { ipv4_prefixes: [{ prefix: '192.0.2.0/24' }], ipv6_prefixes: [] } }),
+      NewValue: JSON.stringify({ status: 'ok', data: { ipv4_prefixes: [{ prefix: '203.0.113.0/24' }], ipv6_prefixes: [] } }),
+    }
+    api.getAlerts.mockResolvedValue({ items: [goShaped as unknown as BGPAlert], total: 1, limit: 100, offset: 0 })
+    render(<MemoryRouter initialEntries={['/bgp/historian']}><BGPHistorian /></MemoryRouter>)
+
+    expect(await screen.findByText('AS64496')).toBeTruthy()
+    expect(screen.getByText('+1')).toBeTruthy()
+    expect(screen.getByText('−1')).toBeTruthy()
+    fireEvent.click(screen.getByRole('button', { name: 'Détails' }))
+    expect(screen.getByText('+ 203.0.113.0/24')).toBeTruthy()
+    expect(screen.getByText('- 192.0.2.0/24')).toBeTruthy()
+    expect(api.ackAlert).not.toHaveBeenCalled()
+  })
+
+  it('labels the API total as unacknowledged and distinguishes it from loaded rows', async () => {
+    api.getAlerts.mockResolvedValue({ items: [alert], total: 101, limit: 100, offset: 0 })
+    render(<MemoryRouter initialEntries={['/bgp/historian']}><BGPHistorian /></MemoryRouter>)
+
+    expect(await screen.findByText(/1 affichée sur 101 alertes non acquittées/)).toBeTruthy()
+    expect(screen.getByText('101 ALERTES NON ACQUITTÉES')).toBeTruthy()
+  })
+
+  it('filters the alert stream by change type', async () => {
+    api.getAlerts.mockResolvedValue({ items: alertFeedScenario, total: alertFeedScenario.length, limit: 100, offset: 0 })
+    render(<MemoryRouter initialEntries={['/bgp/historian']}><BGPHistorian /></MemoryRouter>)
+    await screen.findByText('AS64496')
+
+    fireEvent.click(screen.getByRole('button', { name: /^Préfixes/ }))
+    expect(screen.getByRole('button', { name: /^Préfixes/ }).getAttribute('aria-pressed')).toBe('false')
+    expect(document.querySelectorAll('.bgp-event[data-alert-type="prefix_change"]')).toHaveLength(0)
+    expect(document.querySelectorAll('.bgp-event')).toHaveLength(3)
+  })
+
+  it('opens the snapshots of an alert ASN and keeps it in the URL', async () => {
+    api.getAlerts.mockResolvedValue({ items: [alert], total: 1, limit: 100, offset: 0 })
+    api.getSnapshots.mockResolvedValue({ items: [snapshot(1)], total: 1, limit: 50, offset: 0 })
+    render(
+      <MemoryRouter initialEntries={['/bgp/historian']}>
+        <Routes><Route path="/bgp/historian" element={<><BGPHistorian /><HistorianURL /></>} /></Routes>
+      </MemoryRouter>,
+    )
+    fireEvent.click(await screen.findByRole('button', { name: 'Snapshots de AS64500' }))
+    expect(await screen.findByLabelText('Comparer le snapshot 1')).toBeTruthy()
+    expect(api.getSnapshots).toHaveBeenCalledWith(64500, 50, 0)
+    expect(screen.getByTestId('url').textContent).toBe('?asn=64500')
+    expect(screen.getByRole('button', { name: 'Explorer AS64500 dans Network Atlas' })).toBeTruthy()
+  })
+
+  it('does not treat omitted diff lists as proof that snapshots are identical', async () => {
+    api.getSnapshots.mockResolvedValue({ items: [snapshot(2), snapshot(1)], total: 2, limit: 50, offset: 0 })
+    api.getDiff.mockResolvedValue(snapshotEmptyDiffScenario)
+    render(<MemoryRouter initialEntries={['/bgp/historian?asn=64496']}><BGPHistorian /></MemoryRouter>)
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Comparer les deux plus récentes' }))
+    expect(await screen.findByText('Aucune différence n’est renvoyée par l’API.')).toBeTruthy()
+    expect(screen.getByText(/ne peuvent pas être déclarées identiques ou absentes/)).toBeTruthy()
+    expect(screen.getByText(/Non renseignées dans ce diff/).parentElement?.textContent).toContain('Préfixes IPv4')
+    expect(screen.getByText('AVANT · #211')).toBeTruthy()
+    expect(screen.getByText('APRÈS · #212')).toBeTruthy()
+    expect(screen.getByText(/Non comparés par l’API/)).toBeTruthy()
+  })
+
+  it('compares an observation with the previous one and shows volumes and attribute changes', async () => {
+    api.getSnapshots.mockResolvedValue({ items: [snapshot(3), snapshot(2), snapshot(1)], total: 3, limit: 50, offset: 0 })
+    api.getDiff.mockResolvedValue(snapshotObjectDiffScenario)
+    render(<MemoryRouter initialEntries={['/bgp/historian?asn=64496']}><BGPHistorian /></MemoryRouter>)
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Comparer le snapshot 3 au précédent (#2) · AS64496' }))
+    expect(api.getDiff).toHaveBeenCalledWith(64496, 2, 3)
+    expect(await screen.findByRole('region', { name: 'Comparaison des snapshots' })).toBeTruthy()
+    expect(screen.getByLabelText('Volume : 3 avant, 4 après')).toBeTruthy()
+    expect(screen.getByText('~ AS64498')).toBeTruthy()
+    expect(screen.getByText('+ AS64500')).toBeTruthy()
+    expect(screen.getByText(/Non renseignées dans ce diff/).parentElement?.textContent).toContain('Downstreams IPv4')
+    expect(screen.getByLabelText('Comparer le snapshot 3')).toHaveProperty('checked', true)
+    expect(screen.getByLabelText('Comparer le snapshot 2')).toHaveProperty('checked', true)
+  })
+
+  it('ignores a comparison that answers after the selection changed', async () => {
+    let answer: (value: BGPDiffResponse) => void = () => {}
+    api.getSnapshots.mockResolvedValue({ items: [snapshot(3), snapshot(2), snapshot(1)], total: 3, limit: 50, offset: 0 })
+    api.getDiff.mockImplementation(() => new Promise(resolve => { answer = resolve }))
+    render(<MemoryRouter initialEntries={['/bgp/historian?asn=64496']}><BGPHistorian /></MemoryRouter>)
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Comparer les deux plus récentes' }))
+    fireEvent.click(screen.getByLabelText('Comparer le snapshot 1'))
+    answer(snapshotObjectDiffScenario)
+    await Promise.resolve()
+    expect(screen.queryByRole('region', { name: 'Comparaison des snapshots' })).toBeNull()
+  })
+
+  it('loads older observations on demand without losing the selection', async () => {
+    const page1 = Array.from({ length: 50 }, (_, i) => ({ ...snapshot(1), id: 200 - i, created_at: new Date(Date.UTC(2026, 9, 23) - i * 86_400_000).toISOString() }))
+    const page2 = [{ ...snapshot(1), id: 100, created_at: '2026-01-01T00:00:00Z' }]
+    api.getSnapshots.mockResolvedValueOnce({ items: page1, total: 51, limit: 50, offset: 0 }).mockResolvedValueOnce({ items: page2, total: 51, limit: 50, offset: 50 })
+    render(<MemoryRouter initialEntries={['/bgp/historian?asn=64496']}><BGPHistorian /></MemoryRouter>)
+
+    fireEvent.click(await screen.findByLabelText('Comparer le snapshot 200'))
+    expect(screen.getByText('50 plus récentes sur 51')).toBeTruthy()
+    fireEvent.click(screen.getByRole('button', { name: /Charger 1 observation/ }))
+    expect(await screen.findByLabelText('Comparer le snapshot 100')).toBeTruthy()
+    expect(api.getSnapshots).toHaveBeenLastCalledWith(64496, 50, 50)
+    expect(screen.getByLabelText('Comparer le snapshot 200')).toHaveProperty('checked', true)
+  })
+
+  it('lets the keyboard walk the timeline and select observations', async () => {
+    api.getSnapshots.mockResolvedValue({ items: [snapshot(3), snapshot(2), snapshot(1)], total: 3, limit: 50, offset: 0 })
+    render(<MemoryRouter initialEntries={['/bgp/historian?asn=64496']}><BGPHistorian /></MemoryRouter>)
+
+    const newest = await screen.findByRole('button', { name: /^Observation #3,/ })
+    expect(newest.getAttribute('tabindex')).toBe('0')
+    newest.focus()
+    fireEvent.keyDown(newest, { key: 'ArrowLeft' })
+    const middle = screen.getByRole('button', { name: /^Observation #2,/ })
+    expect(document.activeElement).toBe(middle)
+    fireEvent.click(middle)
+    fireEvent.click(screen.getByRole('button', { name: /^Observation #3,/ }))
+    expect(screen.getByRole('button', { name: /^Observation #2, .*, avant$/ }).getAttribute('aria-pressed')).toBe('true')
+    expect(screen.getByRole('button', { name: /^Observation #3, .*, après$/ })).toBeTruthy()
+  })
+
+  it('offers one-click shortcuts to ASNs whose snapshots were loaded or that appear in alerts', async () => {
+    api.getAlerts.mockResolvedValue({ items: [alert], total: 1, limit: 100, offset: 0 })
+    api.getSnapshots.mockResolvedValue({ items: [snapshot(2), snapshot(1)], total: 2, limit: 50, offset: 0 })
+    const first = render(<MemoryRouter initialEntries={['/bgp/historian?asn=13335']}><BGPHistorian /></MemoryRouter>)
+    await screen.findByLabelText('Comparer le snapshot 2')
+    first.unmount()
+
+    render(
+      <MemoryRouter initialEntries={['/bgp/historian']}>
+        <Routes><Route path="/bgp/historian" element={<><BGPHistorian /><HistorianURL /></>} /></Routes>
+      </MemoryRouter>,
+    )
+    await screen.findByText('AS64500')
+    fireEvent.click(screen.getByRole('button', { name: 'Snapshots' }))
+    const shortcuts = screen.getByRole('navigation', { name: 'Accès rapide aux snapshots' })
+    expect(shortcuts.textContent).toContain('AS13335')
+    expect(shortcuts.textContent).toContain('2 snapshots')
+    expect(shortcuts.textContent).toContain('AS64500')
+    expect(shortcuts.textContent).toContain('alerte')
+
+    fireEvent.click(within(shortcuts).getByRole('button', { name: /AS13335/ }))
+    expect(await screen.findByLabelText('Comparer le snapshot 2')).toBeTruthy()
+    expect(screen.getByTestId('url').textContent).toBe('?asn=13335')
   })
 
   it('keeps the alert list on screen while it refreshes', async () => {
