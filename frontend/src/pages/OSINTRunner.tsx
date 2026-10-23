@@ -141,7 +141,15 @@ export default function OSINTRunner() {
   const [importing, setImporting] = useState(false)
   const [imported, setImported] = useState<{ jobId: number; created: number; skipped: number } | null>(null)
   const [deleteTarget, setDeleteTarget] = useState<OSINTJobSummary | null>(null)
-  const pollRef = useRef<ReturnType<typeof setInterval> | null>(null)
+  const pollRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  // Each follow-up is a session: an answer from a stopped or replaced one is ignored.
+  const pollSession = useRef(0)
+  // A run request may resolve after unmount or after another run was accepted.
+  const runSession = useRef(0)
+  // The polling request in flight, cancelled with its session.
+  const pollAbort = useRef<AbortController | null>(null)
+  // The latest opening from the history: a newer one (or a new search) cancels it.
+  const reviewAbort = useRef<AbortController | null>(null)
   const failures = useRef(0)
   const reportRef = useRef<HTMLElement>(null)
   const commandRef = useRef<HTMLElement>(null)
@@ -168,7 +176,10 @@ export default function OSINTRunner() {
   }, [loadJobs])
 
   const stopPolling = useCallback(() => {
-    if (pollRef.current !== null) { clearInterval(pollRef.current); pollRef.current = null }
+    pollSession.current += 1
+    pollAbort.current?.abort()
+    pollAbort.current = null
+    if (pollRef.current !== null) { clearTimeout(pollRef.current); pollRef.current = null }
   }, [])
 
   // A new report: its explorer starts on the profiles found, unfiltered.
@@ -184,11 +195,17 @@ export default function OSINTRunner() {
 
   const startPolling = useCallback((jobId: number) => {
     stopPolling()
+    const session = pollSession.current
     failures.current = 0
     setTrackingLost(false)
-    pollRef.current = setInterval(async () => {
+    // One request at a time: the next one is scheduled once the previous one has answered.
+    const poll = async () => {
+      pollRef.current = null
+      const controller = new AbortController()
+      pollAbort.current = controller
       try {
-        const job = await osintWmnApi.getJob(jobId)
+        const job = await osintWmnApi.getJob(jobId, controller.signal)
+        if (session !== pollSession.current) return
         failures.current = 0
         setTrackingLost(false)
         setProgress({
@@ -209,14 +226,23 @@ export default function OSINTRunner() {
           else toast.error('La recherche s’est terminée en échec')
         }
       } catch {
+        // A cancellation always comes with a stopped session: it is never counted as a failure.
+        if (session !== pollSession.current) return
         // Keep polling; after a few failed attempts in a row, say the tracking is interrupted.
         failures.current += 1
         if (failures.current >= 3) setTrackingLost(true)
       }
-    }, 1000)
+      if (pollAbort.current === controller) pollAbort.current = null
+      if (session === pollSession.current) pollRef.current = setTimeout(poll, 1000)
+    }
+    pollRef.current = setTimeout(poll, 1000)
   }, [stopPolling, showReport])
 
-  useEffect(() => () => stopPolling(), [stopPolling])
+  useEffect(() => () => {
+    runSession.current += 1
+    stopPolling()
+    reviewAbort.current?.abort()
+  }, [stopPolling])
 
   const trimmed = username.trim()
   const invalid = trimmed.length > 0 && !USERNAME_RE.test(trimmed)
@@ -229,6 +255,9 @@ export default function OSINTRunner() {
       toast.error('Pseudonyme invalide : lettres, chiffres, tirets et underscores, 50 caractères au plus')
       return
     }
+    const session = ++runSession.current
+    // An opening still loading from the history must not take over the new search.
+    reviewAbort.current?.abort()
     setRunning(true)
     setRunUsername(target)
     setProgress(null)
@@ -237,6 +266,7 @@ export default function OSINTRunner() {
     setReportHidden(false)
     try {
       const { job_id } = await osintWmnApi.run(target, scope)
+      if (session !== runSession.current) return
       setActiveJobId(job_id)
       setJobs(prev => [{
         id: job_id, username: target, status: 'running',
@@ -245,6 +275,7 @@ export default function OSINTRunner() {
       }, ...prev])
       startPolling(job_id)
     } catch {
+      if (session !== runSession.current) return
       toast.error('Impossible de lancer la recherche')
       setRunning(false)
     }
@@ -292,8 +323,13 @@ export default function OSINTRunner() {
   }, [historyOpen, closeHistory, deleteTarget])
 
   const handleReview = async (job: OSINTJobSummary) => {
+    reviewAbort.current?.abort()
+    const controller = new AbortController()
+    reviewAbort.current = controller
     try {
-      const d = await osintWmnApi.getJob(job.id)
+      const d = await osintWmnApi.getJob(job.id, controller.signal)
+      // Only the latest opening applies, even if the transport answered despite the cancellation.
+      if (controller.signal.aborted) return
       setImported(null)
       setHistoryOpen(false) // the report opens with the history closed
       if (d.status === 'running' || d.status === 'pending') {
@@ -311,6 +347,7 @@ export default function OSINTRunner() {
         focusReport()
       }
     } catch {
+      if (controller.signal.aborted) return
       toast.error('Impossible de charger cette opération')
     }
   }
