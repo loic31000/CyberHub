@@ -142,4 +142,61 @@ describe('BGP Historian presentation and navigation', () => {
     expect(document.querySelectorAll('.bgp-snapshot-item')).toHaveLength(snapshotTimelineScenario.length)
     expect(screen.getByText('12 snapshot(s) · AS64496')).toBeTruthy()
   })
+
+  it('orders the comparison by snapshot date, whatever the selection order', async () => {
+    api.getSnapshots.mockResolvedValue({ items: [snapshot(2), snapshot(1)], total: 2, limit: 50, offset: 0 })
+    api.getDiff.mockResolvedValue({
+      older: { id: 1, created_at: snapshot(1).created_at, asn: 13335 },
+      newer: { id: 2, created_at: snapshot(2).created_at, asn: 13335 },
+      diff: { changed_fields: [], changes: {} },
+    })
+    render(<MemoryRouter initialEntries={['/bgp/historian']}><BGPHistorian /></MemoryRouter>)
+
+    fireEvent.click(screen.getByRole('button', { name: 'Snapshots' }))
+    fireEvent.change(screen.getByLabelText('Numéro ASN'), { target: { value: '13335' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Charger l’historique' }))
+    fireEvent.click(await screen.findByLabelText('Comparer le snapshot 2'))
+    fireEvent.click(screen.getByLabelText('Comparer le snapshot 1'))
+
+    expect(screen.getByText('avant').closest('label')?.textContent).toContain('#1')
+    expect(screen.getByText('après').closest('label')?.textContent).toContain('#2')
+    fireEvent.click(screen.getByRole('button', { name: 'Comparer les snapshots' }))
+    expect(await screen.findByText('Aucun changement entre ces deux snapshots.')).toBeTruthy()
+    expect(api.getDiff).toHaveBeenCalledWith(13335, 1, 2)
+  })
+
+  it('opens the snapshots of the ASN given in the URL', async () => {
+    api.getSnapshots.mockResolvedValue({ items: [snapshot(1)], total: 1, limit: 50, offset: 0 })
+    render(<MemoryRouter initialEntries={['/bgp/historian?asn=AS13335']}><BGPHistorian /></MemoryRouter>)
+
+    expect(await screen.findByLabelText('Comparer le snapshot 1')).toBeTruthy()
+    expect(screen.getByRole('button', { name: 'Snapshots' }).getAttribute('aria-pressed')).toBe('true')
+    expect((screen.getByLabelText('Numéro ASN') as HTMLInputElement).value).toBe('13335')
+    expect(api.getSnapshots).toHaveBeenCalledWith(13335, 50, 0)
+  })
+
+  it('reports the real alert feed in the hero status, also from the Snapshots tab', async () => {
+    api.getAlerts.mockResolvedValue({ items: alertFeedScenario, total: alertFeedScenario.length, limit: 100, offset: 0 })
+    render(<MemoryRouter initialEntries={['/bgp/historian?asn=64496']}><BGPHistorian /></MemoryRouter>)
+    api.getSnapshots.mockResolvedValue({ items: [], total: 0, limit: 50, offset: 0 })
+    expect(await screen.findByText(`${alertFeedScenario.length} ALERTES`)).toBeTruthy()
+
+    cleanup()
+    api.getAlerts.mockRejectedValue(new Error('down'))
+    render(<MemoryRouter initialEntries={['/bgp/historian']}><BGPHistorian /></MemoryRouter>)
+    expect(await screen.findByText('FLUX INDISPONIBLE')).toBeTruthy()
+  })
+
+  it('keeps the alert list on screen while it refreshes', async () => {
+    api.getAlerts.mockResolvedValueOnce({ items: alertFeedScenario, total: alertFeedScenario.length, limit: 100, offset: 0 })
+    render(<MemoryRouter initialEntries={['/bgp/historian']}><BGPHistorian /></MemoryRouter>)
+    expect(await screen.findByText('AS64496')).toBeTruthy()
+
+    api.getAlerts.mockReturnValueOnce(new Promise(() => {}))
+    fireEvent.click(screen.getByRole('button', { name: 'Actualiser' }))
+
+    expect(screen.getByText('AS64496')).toBeTruthy()
+    expect(screen.queryByText('Chargement des données BGP…')).toBeNull()
+    expect(document.querySelectorAll('.bgp-event')).toHaveLength(alertFeedScenario.length)
+  })
 })
