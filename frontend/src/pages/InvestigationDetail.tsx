@@ -1,485 +1,276 @@
-import { useState, useEffect, useCallback } from 'react'
-import { useNavigate, useParams } from 'react-router-dom'
+import { useEffect, useId, useRef, useState } from 'react'
+import { Link, useParams } from 'react-router-dom'
+import { AlertCircle, ArrowDownUp, ArrowLeft, FolderX, ListPlus, PenLine, RefreshCw } from 'lucide-react'
 import { investigationApi } from '@/api/client'
-import type {
-  Investigation,
-  InvestigationEvent,
-  InvestigationStatus,
-  EventType,
-  EventSeverity,
-  EventCreatePayload,
-  EventFilter,
-} from '@/types/investigation'
+import type { EventFilter, EventSeverity, EventType, Investigation, InvestigationEvent, InvestigationStatus } from '@/types/investigation'
 import { toast } from '@/store/toast'
+import InvHero from '@/inv26/InvHero'
+import ConfirmDialog from '@/inv26/ConfirmDialog'
+import EventDialog from '@/inv26/EventDialog'
+import Timeline from '@/inv26/Timeline'
 import {
-  Activity, ArrowLeft, Plus, Trash2, X, ShieldBan, StickyNote,
-  ShieldAlert, Network, Terminal, BookOpen, Edit, Circle,
-} from 'lucide-react'
+  EVENT_TYPES, EVENT_TYPE_LABEL, SEVERITIES, SEVERITY_LABEL, STATUSES, STATUS_LABEL, StatusBadge, Tags,
+  formatDay, formatDayTime, splitTags, validDate,
+} from '@/inv26/parts'
+import '@/inv26/inv.css'
 
-const STATUS_COLORS: Record<InvestigationStatus, string> = {
-  open:     'text-[#10b981] border-[#10b981]/30 bg-[#10b981]/10',
-  closed:   'text-[#64748b] border-[#64748b]/30 bg-[#64748b]/10',
-  archived: 'text-[#eab308] border-[#eab308]/30 bg-[#eab308]/10',
+type CaseState = { status: 'loading' } | { status: 'missing' } | { status: 'error' } | { status: 'ready'; inv: Investigation }
+type EventsState = { status: 'loading' } | { status: 'error' } | { status: 'ready'; items: InvestigationEvent[] }
+
+const byTime = (order: 'asc' | 'desc') => (a: InvestigationEvent, b: InvestigationEvent) =>
+  (order === 'asc' ? 1 : -1) * (Date.parse(a.timestamp) - Date.parse(b.timestamp) || a.id - b.id)
+
+/* The case summary: dates and counts from the loaded case and events only. */
+function Facts({ inv, events, filtered }: { inv: Investigation; events: InvestigationEvent[]; filtered: boolean }) {
+  const times = events.map(e => validDate(e.timestamp)).filter((d): d is Date => d !== null).sort((a, b) => a.getTime() - b.getTime())
+  const notable = events.filter(e => e.severity === 'critical' || e.severity === 'high').length
+  return (
+    <dl className="iv26-facts">
+      <div><dt>Ouvert le</dt><dd>{formatDay(inv.created_at)}</dd></div>
+      <div><dt>Mis à jour</dt><dd>{formatDayTime(inv.updated_at)}</dd></div>
+      <div><dt>Événements{filtered ? ' (filtrés)' : ''}</dt><dd>{events.length}</dd></div>
+      <div><dt>Période couverte</dt><dd>{times.length ? `${formatDay(times[0].toISOString())} → ${formatDay(times[times.length - 1].toISOString())}` : '—'}</dd></div>
+      <div><dt>Élevés ou critiques</dt><dd data-notable={notable > 0}>{notable}</dd></div>
+    </dl>
+  )
 }
 
-const STATUS_LABELS: Record<InvestigationStatus, string> = {
-  open: 'OUVERT', closed: 'CLÔTURÉ', archived: 'ARCHIVÉ',
-}
-
-const SEVERITY_COLORS: Record<EventSeverity, string> = {
-  info:     'text-[#64748b] border-[#64748b]/30',
-  low:      'text-[#00d4ff] border-[#00d4ff]/30',
-  medium:   'text-[#eab308] border-[#eab308]/30',
-  high:     'text-[#f97316] border-[#f97316]/30',
-  critical: 'text-[#ef4444] border-[#ef4444]/30',
-}
-
-const SEVERITY_DOT: Record<EventSeverity, string> = {
-  info:     'bg-[#64748b]',
-  low:      'bg-[#00d4ff]',
-  medium:   'bg-[#eab308]',
-  high:     'bg-[#f97316]',
-  critical: 'bg-[#ef4444]',
-}
-
-const EVENT_TYPE_LABELS: Record<EventType, string> = {
-  ioc:      'IOC',
-  note:     'NOTE',
-  cve:      'CVE',
-  bgp:      'BGP',
-  mitre:    'MITRE',
-  playbook: 'PLAYBOOK',
-  manual:   'MANUEL',
-}
-
-function eventTypeIcon(t: EventType) {
-  const cls = 'shrink-0'
-  switch (t) {
-    case 'ioc':      return <ShieldBan   size={13} className={cls} />
-    case 'note':     return <StickyNote  size={13} className={cls} />
-    case 'cve':      return <ShieldAlert size={13} className={cls} />
-    case 'bgp':      return <Network     size={13} className={cls} />
-    case 'mitre':    return <Terminal    size={13} className={cls} />
-    case 'playbook': return <BookOpen    size={13} className={cls} />
-    case 'manual':   return <Edit        size={13} className={cls} />
-  }
-}
-
-const inputCls = 'w-full bg-[#0d131f] border border-[#1e2d40] rounded px-3 py-2 font-mono text-sm text-[#f1f5f9] placeholder-[#334155] focus:outline-none focus:border-[#00d4ff]/60'
-
-interface EventFormProps {
-  investigationId: number
-  onCreated: (ev: InvestigationEvent) => void
-  onCancel: () => void
-}
-
-function EventForm({ investigationId, onCreated, onCancel }: EventFormProps) {
-  const [title, setTitle] = useState('')
-  const [description, setDescription] = useState('')
-  const [eventType, setEventType] = useState<EventType>('manual')
-  const [severity, setSeverity] = useState<EventSeverity>('info')
-  const [timestamp, setTimestamp] = useState(() => new Date().toISOString().slice(0, 16))
-  const [sourceModule, setSourceModule] = useState('')
-  const [sourceEntityId, setSourceEntityId] = useState('')
-  const [metadata, setMetadata] = useState('')
+/* Inline edition of the case itself; the backend's error is shown as is. */
+function EditCase({ inv, onSaved, onCancel }: { inv: Investigation; onSaved: (inv: Investigation) => void; onCancel: () => void }) {
+  const [title, setTitle] = useState(inv.title)
+  const [description, setDescription] = useState(inv.description)
+  const [status, setStatus] = useState<InvestigationStatus>(inv.status)
+  const [tags, setTags] = useState(inv.tags)
   const [saving, setSaving] = useState(false)
+  const [error, setError] = useState('')
+  const ids = { title: useId(), description: useId(), status: useId(), tags: useId(), error: useId() }
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const submit = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!title.trim()) { toast.error('Le titre est requis'); return }
+    if (!title.trim()) { setError('Le titre est requis'); return }
     setSaving(true)
+    setError('')
     try {
-      const payload: EventCreatePayload = {
-        title: title.trim(),
-        description: description.trim(),
-        event_type: eventType,
-        severity,
-        timestamp: timestamp ? new Date(timestamp).toISOString() : undefined,
-        source_module: sourceModule.trim() || undefined,
-        source_entity_id: sourceEntityId.trim() || undefined,
-        metadata: metadata.trim() || undefined,
-      }
-      const ev = await investigationApi.createEvent(investigationId, payload)
-      toast.success('Événement ajouté')
-      onCreated(ev)
-    } catch {
-      toast.error('Erreur lors de l\'ajout')
-    } finally {
+      const updated = await investigationApi.update(inv.id, { title: title.trim(), description: description.trim(), status, tags: splitTags(tags).join(', ') })
+      toast.success('Investigation mise à jour')
+      onSaved(updated)
+    } catch (err: unknown) {
+      const e = err as { response?: { data?: { error?: string } } }
+      setError(e?.response?.data?.error ?? 'Erreur lors de la mise à jour')
       setSaving(false)
     }
   }
 
   return (
-    <div className="border border-[#00d4ff]/20 bg-[#0a0f16] p-5">
-      <div className="flex items-center justify-between mb-4">
-        <h3 className="text-xs font-mono font-bold uppercase tracking-wider text-[#00d4ff]">NOUVEL ÉVÉNEMENT</h3>
-        <button onClick={onCancel} className="p-1 rounded hover:bg-[#1e2d40] text-[#64748b] hover:text-[#f1f5f9] transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-[#00d4ff]" aria-label="Fermer">
-          <X size={14} />
-        </button>
+    <form className="iv26-dialog-form" onSubmit={submit} aria-label="Modifier l’investigation" aria-describedby={error ? ids.error : undefined} noValidate>
+      {error && <p id={ids.error} role="alert" className="iv26-form-error">{error}</p>}
+      <div className="iv26-field">
+        <label htmlFor={ids.title}>TITRE *</label>
+        <input id={ids.title} value={title} onChange={e => setTitle(e.target.value)} required autoFocus aria-invalid={error === 'Le titre est requis' || undefined} />
       </div>
-      <form onSubmit={handleSubmit} className="space-y-3">
-        <div className="grid grid-cols-2 gap-3">
-          <div>
-            <label className="text-[10px] font-mono text-[#4a6480] uppercase tracking-wider block mb-1">HORODATAGE</label>
-            <input type="datetime-local" value={timestamp} onChange={e => setTimestamp(e.target.value)} className={inputCls} />
-          </div>
-          <div>
-            <label className="text-[10px] font-mono text-[#4a6480] uppercase tracking-wider block mb-1">TYPE</label>
-            <select value={eventType} onChange={e => setEventType(e.target.value as EventType)} className={inputCls}>
-              {(Object.keys(EVENT_TYPE_LABELS) as EventType[]).map(t => (
-                <option key={t} value={t}>{EVENT_TYPE_LABELS[t]}</option>
-              ))}
-            </select>
-          </div>
-        </div>
-        <div>
-          <label className="text-[10px] font-mono text-[#4a6480] uppercase tracking-wider block mb-1">TITRE *</label>
-          <input value={title} onChange={e => setTitle(e.target.value)} placeholder="ex: IP malveillante détectée sur AS13335…" className={inputCls} />
-        </div>
-        <div>
-          <label className="text-[10px] font-mono text-[#4a6480] uppercase tracking-wider block mb-1">SÉVÉRITÉ</label>
-          <select value={severity} onChange={e => setSeverity(e.target.value as EventSeverity)} className={inputCls}>
-            <option value="info">INFO</option>
-            <option value="low">LOW</option>
-            <option value="medium">MEDIUM</option>
-            <option value="high">HIGH</option>
-            <option value="critical">CRITICAL</option>
+      <div className="iv26-field">
+        <label htmlFor={ids.description}>DESCRIPTION</label>
+        <textarea id={ids.description} value={description} onChange={e => setDescription(e.target.value)} rows={4} />
+      </div>
+      <div className="iv26-form-grid">
+        <div className="iv26-field">
+          <label htmlFor={ids.status}>STATUT</label>
+          <select id={ids.status} value={status} onChange={e => setStatus(e.target.value as InvestigationStatus)}>
+            {STATUSES.map(s => <option key={s} value={s}>{STATUS_LABEL[s]}</option>)}
           </select>
         </div>
-        <div>
-          <label className="text-[10px] font-mono text-[#4a6480] uppercase tracking-wider block mb-1">DESCRIPTION</label>
-          <textarea value={description} onChange={e => setDescription(e.target.value)} rows={3} placeholder="Observations, contexte, liens…" className={inputCls + ' resize-none'} />
+        <div className="iv26-field">
+          <label htmlFor={ids.tags}>TAGS</label>
+          <input id={ids.tags} value={tags} onChange={e => setTags(e.target.value)} placeholder="Séparés par des virgules" />
         </div>
-        <div className="grid grid-cols-2 gap-3">
-          <div>
-            <label className="text-[10px] font-mono text-[#4a6480] uppercase tracking-wider block mb-1">MODULE SOURCE</label>
-            <input value={sourceModule} onChange={e => setSourceModule(e.target.value)} placeholder="ex: ioc, bgp, osint…" className={inputCls} />
-          </div>
-          <div>
-            <label className="text-[10px] font-mono text-[#4a6480] uppercase tracking-wider block mb-1">ID ENTITÉ SOURCE</label>
-            <input value={sourceEntityId} onChange={e => setSourceEntityId(e.target.value)} placeholder="ex: 42, CVE-2024-1234…" className={inputCls} />
-          </div>
-        </div>
-        <div>
-          <label className="text-[10px] font-mono text-[#4a6480] uppercase tracking-wider block mb-1">MÉTADONNÉES <span className="normal-case">(JSON ou texte libre)</span></label>
-          <input value={metadata} onChange={e => setMetadata(e.target.value)} placeholder='ex: {"asn":13335,"prefix":"1.1.1.0/24"}' className={inputCls} />
-        </div>
-        <div className="flex gap-3 justify-end pt-1">
-          <button type="button" onClick={onCancel} className="px-4 py-2 text-xs font-mono border border-[#1e2d40] text-[#64748b] hover:text-[#f1f5f9] transition-colors">
-            ANNULER
-          </button>
-          <button type="submit" disabled={saving} className="px-4 py-2 text-xs font-mono font-bold bg-[#00d4ff] text-[#06080f] rounded hover:bg-[#00d4ff]/80 disabled:opacity-50 transition-colors">
-            {saving ? 'AJOUT...' : 'AJOUTER'}
-          </button>
-        </div>
-      </form>
-    </div>
+      </div>
+      <div className="iv26-dialog-actions">
+        <button type="button" className="iv26-btn" onClick={onCancel} disabled={saving}>Annuler</button>
+        <button type="submit" className="iv26-btn is-primary" disabled={saving}>{saving ? 'Enregistrement…' : 'Enregistrer'}</button>
+      </div>
+    </form>
   )
-}
-
-function formatTs(ts: string) {
-  const d = new Date(ts)
-  return d.toLocaleDateString('fr-FR') + ' ' + d.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })
 }
 
 export default function InvestigationDetail() {
   const { id } = useParams<{ id: string }>()
-  const navigate = useNavigate()
   const invId = Number(id)
-
-  const [inv, setInv] = useState<Investigation | null>(null)
-  const [events, setEvents] = useState<InvestigationEvent[]>([])
-  const [loading, setLoading] = useState(true)
-  const [showForm, setShowForm] = useState(false)
+  const validId = Number.isSafeInteger(invId) && invId > 0
+  const [state, setState] = useState<CaseState>({ status: 'loading' })
+  const [events, setEvents] = useState<EventsState>({ status: 'loading' })
   const [filter, setFilter] = useState<EventFilter>({ order: 'asc' })
   const [editing, setEditing] = useState(false)
-
-  const [editTitle, setEditTitle] = useState('')
-  const [editDesc, setEditDesc] = useState('')
-  const [editStatus, setEditStatus] = useState<InvestigationStatus>('open')
-  const [editTags, setEditTags] = useState('')
-  const [saving, setSaving] = useState(false)
-
-  const loadEvents = useCallback(() => {
-    investigationApi.listEvents(invId, filter)
-      .then(r => setEvents(r.items))
-      .catch(() => toast.error('Erreur chargement des événements'))
-  }, [invId, filter])
+  const [adding, setAdding] = useState(false)
+  const [toDelete, setToDelete] = useState<InvestigationEvent | null>(null)
+  const [deleting, setDeleting] = useState(false)
+  const [attempt, setAttempt] = useState(0)
+  const eventsSequence = useRef(0)
+  const addTrigger = useRef<HTMLButtonElement>(null)
 
   useEffect(() => {
-    setLoading(true)
-    Promise.all([
-      investigationApi.get(invId),
-      investigationApi.listEvents(invId, filter),
-    ])
-      .then(([i, evs]) => {
-        setInv(i)
-        setEvents(evs.items)
-        setEditTitle(i.title)
-        setEditDesc(i.description)
-        setEditStatus(i.status)
-        setEditTags(i.tags)
-      })
-      .catch(() => toast.error('Investigation introuvable'))
-      .finally(() => setLoading(false))
-  }, [invId])
+    if (!validId) { setState({ status: 'missing' }); return }
+    let current = true
+    setState({ status: 'loading' })
+    investigationApi.get(invId)
+      .then(inv => { if (current) setState({ status: 'ready', inv }) })
+      .catch((err: { response?: { status?: number } }) => { if (current) setState({ status: err?.response?.status === 404 ? 'missing' : 'error' }) })
+    return () => { current = false }
+  }, [invId, validId, attempt])
 
+  // Filters are applied by the API; an answer to an older filter is ignored.
   useEffect(() => {
-    if (!loading) loadEvents()
-  }, [filter])
+    if (!validId) return
+    const request = ++eventsSequence.current
+    setEvents({ status: 'loading' })
+    investigationApi.listEvents(invId, { event_type: filter.event_type || undefined, severity: filter.severity || undefined, order: filter.order })
+      .then(r => { if (request === eventsSequence.current) setEvents({ status: 'ready', items: r.items ?? [] }) })
+      .catch(() => { if (request === eventsSequence.current) setEvents({ status: 'error' }) })
+  }, [invId, validId, filter, attempt])
 
-  const handleSaveEdit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    if (!editTitle.trim()) { toast.error('Le titre est requis'); return }
-    setSaving(true)
+  const confirmDelete = async () => {
+    if (!toDelete) return
+    setDeleting(true)
     try {
-      const updated = await investigationApi.update(invId, {
-        title: editTitle.trim(),
-        description: editDesc.trim(),
-        status: editStatus,
-        tags: editTags.trim(),
-      })
-      setInv(updated)
-      setEditing(false)
-      toast.success('Investigation mise à jour')
-    } catch {
-      toast.error('Erreur lors de la mise à jour')
-    } finally {
-      setSaving(false)
-    }
-  }
-
-  const handleDeleteEvent = async (ev: InvestigationEvent) => {
-    if (!confirm(`Supprimer l'événement "${ev.title}" ?`)) return
-    try {
-      await investigationApi.deleteEvent(ev.id)
-      setEvents(prev => prev.filter(e => e.id !== ev.id))
+      await investigationApi.deleteEvent(toDelete.id)
+      setEvents(prev => prev.status === 'ready' ? { status: 'ready', items: prev.items.filter(e => e.id !== toDelete.id) } : prev)
       toast.success('Événement supprimé')
+      setToDelete(null)
     } catch {
       toast.error('Erreur lors de la suppression')
+    } finally {
+      setDeleting(false)
     }
   }
 
-  if (loading) {
+  const back = <nav className="iv26-crumbs" aria-label="Navigation"><Link to="/investigations" className="iv26-link"><ArrowLeft size={14} aria-hidden="true" /> Index des investigations</Link></nav>
+
+  if (state.status !== 'ready') {
     return (
-      <div className="flex h-full items-center justify-center bg-[#06080f] text-[#64748b] font-mono text-sm">
-        CHARGEMENT...
+      <div className="iv26">
+        <div className="iv26-frame">
+          <InvHero status={state.status === 'error' ? { text: 'DONNÉES INDISPONIBLES', tone: 'warn' } : undefined} />
+          {back}
+          {state.status === 'loading' && <div className="iv26-loading" role="status">Chargement du dossier…</div>}
+          {state.status === 'missing' && (
+            <div className="iv26-state">
+              <FolderX size={28} aria-hidden="true" />
+              <h2>Investigation introuvable</h2>
+              <p>Ce dossier n’existe pas ou a été supprimé.</p>
+              <Link to="/investigations" className="iv26-btn">Retour à l’index</Link>
+            </div>
+          )}
+          {state.status === 'error' && (
+            <div className="iv26-state is-error" role="alert">
+              <AlertCircle size={26} aria-hidden="true" />
+              <h2>Impossible de charger ce dossier</h2>
+              <p>Le backend n’a pas répondu.</p>
+              <button type="button" className="iv26-btn" onClick={() => setAttempt(n => n + 1)}><RefreshCw size={14} aria-hidden="true" /> Réessayer</button>
+            </div>
+          )}
+        </div>
       </div>
     )
   }
 
-  if (!inv) {
-    return (
-      <div className="flex h-full items-center justify-center bg-[#06080f] text-[#64748b] font-mono text-sm">
-        INVESTIGATION INTROUVABLE
-      </div>
-    )
-  }
+  const { inv } = state
+  const items = events.status === 'ready' ? events.items : []
+  const filtered = Boolean(filter.event_type || filter.severity)
 
   return (
-    <div className="flex flex-col h-full bg-[#06080f] text-[#f1f5f9]">
-      <div className="flex items-center justify-between px-6 py-4 border-b border-[#1e2d40] bg-[#0a0f16]/50">
-        <div className="flex items-center gap-3">
-          <button
-            onClick={() => navigate('/investigations')}
-            className="p-1.5 rounded hover:bg-[#1e2d40] text-[#64748b] hover:text-[#f1f5f9] transition-colors"
-          >
-            <ArrowLeft size={16} />
-          </button>
-          <Activity className="text-[#00d4ff]" size={18} />
-          <div>
-            <h1 className="text-sm font-bold tracking-[0.15em] uppercase font-mono">{inv.title}</h1>
-            <p className="text-[10px] text-[#64748b] font-mono">
-              {events.length} événement{events.length > 1 ? 's' : ''} · créée le {new Date(inv.created_at).toLocaleDateString('fr-FR')}
-            </p>
-          </div>
-          <span className={`text-[10px] px-1.5 py-0.5 border font-mono uppercase tracking-wider ml-2 ${STATUS_COLORS[inv.status]}`}>
-            {STATUS_LABELS[inv.status]}
-          </span>
-        </div>
-        <div className="flex items-center gap-2">
-          <button
-            onClick={() => setEditing(v => !v)}
-            className="flex items-center gap-2 px-3 py-1.5 text-[10px] font-mono font-bold border border-[#1e2d40] text-[#64748b] hover:text-[#f1f5f9] transition-colors"
-          >
-            <Edit size={11} /> MODIFIER
-          </button>
-          <button
-            onClick={() => setShowForm(v => !v)}
-            className="flex items-center gap-2 px-3 py-1.5 bg-[#1e2d40] hover:bg-[#2a3f55] text-[10px] font-bold border border-[#334155] transition-colors font-mono"
-          >
-            <Plus size={12} /> AJOUTER ÉVÉNEMENT
-          </button>
-        </div>
-      </div>
+    <div className="iv26">
+      <div className="iv26-frame">
+        <InvHero status={{ text: STATUS_LABEL[inv.status].toUpperCase(), mark: `DOSSIER #${inv.id}`, tone: inv.status === 'open' ? 'ok' : 'busy' }} />
+        {back}
 
-      <div className="flex-1 overflow-auto p-6 space-y-6">
-        {editing && (
-          <div className="border border-[#1e2d40] bg-[#0a0f16] p-5">
-            <h3 className="text-xs font-mono font-bold uppercase tracking-wider text-[#f1f5f9] mb-4">MODIFIER L'INVESTIGATION</h3>
-            <form onSubmit={handleSaveEdit} className="space-y-3">
-              <div>
-                <label className="text-[10px] font-mono text-[#4a6480] uppercase tracking-wider block mb-1">TITRE *</label>
-                <input value={editTitle} onChange={e => setEditTitle(e.target.value)} className={inputCls} />
-              </div>
-              <div>
-                <label className="text-[10px] font-mono text-[#4a6480] uppercase tracking-wider block mb-1">DESCRIPTION</label>
-                <textarea value={editDesc} onChange={e => setEditDesc(e.target.value)} rows={2} className={inputCls + ' resize-none'} />
-              </div>
-              <div className="grid grid-cols-2 gap-3">
+        <section className="iv26-dossier" aria-labelledby="iv26-case-title" data-status={inv.status}>
+          {editing ? (
+            <EditCase inv={inv} onCancel={() => setEditing(false)} onSaved={updated => { setState({ status: 'ready', inv: updated }); setEditing(false) }} />
+          ) : (
+            <>
+              <div className="iv26-dossier-head">
                 <div>
-                  <label className="text-[10px] font-mono text-[#4a6480] uppercase tracking-wider block mb-1">STATUT</label>
-                  <select value={editStatus} onChange={e => setEditStatus(e.target.value as InvestigationStatus)} className={inputCls}>
-                    <option value="open">OUVERT</option>
-                    <option value="closed">CLÔTURÉ</option>
-                    <option value="archived">ARCHIVÉ</option>
-                  </select>
+                  <h2 id="iv26-case-title">{inv.title}</h2>
+                  <div className="iv26-dossier-tags"><StatusBadge status={inv.status} /><Tags tags={inv.tags} max={8} /></div>
                 </div>
-                <div>
-                  <label className="text-[10px] font-mono text-[#4a6480] uppercase tracking-wider block mb-1">TAGS</label>
-                  <input value={editTags} onChange={e => setEditTags(e.target.value)} className={inputCls} />
+                <div className="iv26-dossier-actions">
+                  <button type="button" className="iv26-btn" onClick={() => setEditing(true)}><PenLine size={14} aria-hidden="true" /> Modifier</button>
+                  <button ref={addTrigger} type="button" className="iv26-btn is-primary" onClick={() => setAdding(true)}><ListPlus size={15} aria-hidden="true" /> Ajouter un événement</button>
                 </div>
               </div>
-              <div className="flex gap-3 justify-end">
-                <button type="button" onClick={() => setEditing(false)} className="px-4 py-2 text-xs font-mono border border-[#1e2d40] text-[#64748b] hover:text-[#f1f5f9] transition-colors">
-                  ANNULER
-                </button>
-                <button type="submit" disabled={saving} className="px-4 py-2 text-xs font-mono font-bold bg-[#00d4ff] text-[#06080f] rounded hover:bg-[#00d4ff]/80 disabled:opacity-50 transition-colors">
-                  {saving ? 'SAUVEGARDE...' : 'SAUVEGARDER'}
-                </button>
-              </div>
-            </form>
-          </div>
-        )}
+              {inv.description
+                ? <p className="iv26-desc-full">{inv.description}</p>
+                : <p className="iv26-desc-full iv26-muted">Aucune description enregistrée.</p>}
+              <Facts inv={inv} events={items} filtered={filtered} />
+            </>
+          )}
+        </section>
 
-        {inv.description && !editing && (
-          <div className="border border-[#1e2d40] bg-[#0a0f16] px-5 py-3">
-            <p className="text-xs font-mono text-[#8a9ab0] whitespace-pre-wrap">{inv.description}</p>
-            {inv.tags && (
-              <p className="text-[10px] font-mono text-[#4a6480] mt-2">{inv.tags}</p>
-            )}
-          </div>
-        )}
-
-        {showForm && (
-          <EventForm
-            investigationId={invId}
-            onCreated={ev => {
-              setShowForm(false)
-              setEvents(prev => {
-                const next = [...prev, ev]
-                return filter.order === 'desc'
-                  ? next.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
-                  : next.sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime())
-              })
-            }}
-            onCancel={() => setShowForm(false)}
-          />
-        )}
-
-        <div className="flex flex-wrap gap-3 items-center">
-          <span className="text-[10px] font-mono text-[#4a6480] uppercase tracking-wider">FILTRES :</span>
-          <select
-            value={filter.event_type ?? ''}
-            onChange={e => setFilter(f => ({ ...f, event_type: (e.target.value as EventType) || undefined }))}
-            className="bg-[#0d131f] border border-[#1e2d40] px-3 py-1.5 font-mono text-xs text-[#f1f5f9] focus:outline-none focus:border-[#00d4ff]/40"
-          >
-            <option value="">TOUS LES TYPES</option>
-            {(Object.keys(EVENT_TYPE_LABELS) as EventType[]).map(t => (
-              <option key={t} value={t}>{EVENT_TYPE_LABELS[t]}</option>
-            ))}
-          </select>
-          <select
-            value={filter.severity ?? ''}
-            onChange={e => setFilter(f => ({ ...f, severity: (e.target.value as EventSeverity) || undefined }))}
-            className="bg-[#0d131f] border border-[#1e2d40] px-3 py-1.5 font-mono text-xs text-[#f1f5f9] focus:outline-none focus:border-[#00d4ff]/40"
-          >
-            <option value="">TOUTES SÉVÉRITÉS</option>
-            <option value="info">INFO</option>
-            <option value="low">LOW</option>
-            <option value="medium">MEDIUM</option>
-            <option value="high">HIGH</option>
-            <option value="critical">CRITICAL</option>
-          </select>
-          <select
-            value={filter.order ?? 'asc'}
-            onChange={e => setFilter(f => ({ ...f, order: e.target.value as 'asc' | 'desc' }))}
-            className="bg-[#0d131f] border border-[#1e2d40] px-3 py-1.5 font-mono text-xs text-[#f1f5f9] focus:outline-none focus:border-[#00d4ff]/40"
-          >
-            <option value="asc">CHRONOLOGIQUE ↑</option>
-            <option value="desc">CHRONOLOGIQUE ↓</option>
-          </select>
-        </div>
-
-        {events.length === 0 ? (
-          <div className="flex flex-col items-center justify-center border border-[#1e2d40] bg-[#0a0f16] py-16 text-center">
-            <Circle size={32} className="mb-3 text-[#1e2d40]" />
-            <p className="font-mono text-sm uppercase tracking-widest text-[#64748b]">AUCUN ÉVÉNEMENT</p>
-            <button onClick={() => setShowForm(true)} className="mt-2 font-mono text-xs text-[#00d4ff] hover:underline">
-              AJOUTER LE PREMIER ÉVÉNEMENT
-            </button>
-          </div>
-        ) : (
-          <div className="relative">
-            <div className="absolute left-[19px] top-0 bottom-0 w-px bg-[#1e2d40]" />
-            <div className="space-y-0">
-              {events.map((ev, idx) => (
-                <div key={ev.id} className="relative flex gap-4 group">
-                  <div className="relative z-10 flex flex-col items-center">
-                    <div className={`w-[9px] h-[9px] rounded-full mt-4 shrink-0 shadow-sm ${SEVERITY_DOT[ev.severity]}`} />
-                    {idx < events.length - 1 && <div className="w-px flex-1 bg-transparent" />}
-                  </div>
-
-                  <div className={`flex-1 border bg-[#0a0f16] p-4 mb-3 transition-colors group-hover:border-[#2a3f55] ${
-                    ev.severity === 'critical' ? 'border-[#ef4444]/30' :
-                    ev.severity === 'high'     ? 'border-[#f97316]/20' :
-                    'border-[#1e2d40]'
-                  }`}>
-                    <div className="flex items-start justify-between gap-3">
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <span className="text-[10px] font-mono text-[#4a6480]">{formatTs(ev.timestamp)}</span>
-                        <span className={`text-[10px] px-1.5 py-0.5 border font-mono uppercase flex items-center gap-1 ${SEVERITY_COLORS[ev.severity]}`}>
-                          {eventTypeIcon(ev.event_type)} {EVENT_TYPE_LABELS[ev.event_type]}
-                        </span>
-                        <span className={`text-[10px] px-1.5 py-0.5 border font-mono uppercase ${SEVERITY_COLORS[ev.severity]}`}>
-                          {ev.severity.toUpperCase()}
-                        </span>
-                      </div>
-                      <button
-                        onClick={() => handleDeleteEvent(ev)}
-                        className="p-1 rounded opacity-0 group-hover:opacity-100 hover:bg-red-500/10 text-[#64748b] hover:text-red-400 transition-all shrink-0"
-                        title="Supprimer"
-                      >
-                        <Trash2 size={12} />
-                      </button>
-                    </div>
-
-                    <h4 className="text-sm font-mono font-medium text-[#f1f5f9] mt-2">{ev.title}</h4>
-
-                    {ev.description && (
-                      <p className="text-xs font-mono text-[#8a9ab0] mt-1.5 whitespace-pre-wrap">{ev.description}</p>
-                    )}
-
-                    {(ev.source_module || ev.source_entity_id || ev.metadata) && (
-                      <div className="mt-2 pt-2 border-t border-[#1e2d40] flex flex-wrap gap-x-4 gap-y-1 text-[10px] font-mono text-[#4a6480]">
-                        {ev.source_module && (
-                          <span>MODULE <span className="text-[#64748b]">{ev.source_module}</span></span>
-                        )}
-                        {ev.source_entity_id && (
-                          <span>REF <span className="text-[#64748b]">{ev.source_entity_id}</span></span>
-                        )}
-                        {ev.metadata && (
-                          <span className="truncate max-w-[400px]">META <span className="text-[#64748b]">{ev.metadata}</span></span>
-                        )}
-                      </div>
-                    )}
-                  </div>
-                </div>
-              ))}
+        <section className="iv26-chrono" aria-labelledby="iv26-chrono-title">
+          <div className="iv26-chrono-head">
+            <h2 id="iv26-chrono-title">Chronologie</h2>
+            <div className="iv26-chrono-tools">
+              <label className="iv26-select">
+                <span className="iv26-sr">Filtrer par type</span>
+                <select value={filter.event_type ?? ''} onChange={e => setFilter(f => ({ ...f, event_type: (e.target.value as EventType) || '' }))}>
+                  <option value="">Tous les types</option>
+                  {EVENT_TYPES.map(t => <option key={t} value={t}>{EVENT_TYPE_LABEL[t]}</option>)}
+                </select>
+              </label>
+              <label className="iv26-select">
+                <span className="iv26-sr">Filtrer par sévérité</span>
+                <select value={filter.severity ?? ''} onChange={e => setFilter(f => ({ ...f, severity: (e.target.value as EventSeverity) || '' }))}>
+                  <option value="">Toutes sévérités</option>
+                  {SEVERITIES.map(s => <option key={s} value={s}>{SEVERITY_LABEL[s]}</option>)}
+                </select>
+              </label>
+              <button type="button" className="iv26-btn" onClick={() => setFilter(f => ({ ...f, order: f.order === 'asc' ? 'desc' : 'asc' }))} aria-label={filter.order === 'asc' ? 'Ordre : plus anciens d’abord. Inverser' : 'Ordre : plus récents d’abord. Inverser'}>
+                <ArrowDownUp size={14} aria-hidden="true" /> {filter.order === 'asc' ? 'Plus anciens d’abord' : 'Plus récents d’abord'}
+              </button>
             </div>
           </div>
-        )}
+
+          {events.status === 'loading' && <div className="iv26-loading is-compact" role="status">Chargement de la chronologie…</div>}
+          {events.status === 'error' && (
+            <div className="iv26-state is-error" role="alert">
+              <AlertCircle size={22} aria-hidden="true" />
+              <h2>Chronologie indisponible</h2>
+              <p>Les événements n’ont pas pu être chargés.</p>
+              <button type="button" className="iv26-btn" onClick={() => setAttempt(n => n + 1)}><RefreshCw size={14} aria-hidden="true" /> Réessayer</button>
+            </div>
+          )}
+          {events.status === 'ready' && items.length === 0 && (
+            <div className="iv26-state">
+              <h2>{filtered ? 'Aucun événement ne correspond' : 'Aucun événement'}</h2>
+              <p>{filtered ? 'Modifiez le type ou la sévérité.' : 'Ajoutez les faits au fil de l’enquête : alertes, IOC, notes, décisions.'}</p>
+              {filtered
+                ? <button type="button" className="iv26-btn" onClick={() => setFilter(f => ({ order: f.order }))}>Effacer les filtres</button>
+                : <button type="button" className="iv26-btn is-primary" onClick={() => setAdding(true)}><ListPlus size={15} aria-hidden="true" /> Ajouter le premier événement</button>}
+            </div>
+          )}
+          {events.status === 'ready' && items.length > 0 && <Timeline events={items} onDelete={setToDelete} />}
+        </section>
       </div>
+
+      {adding && (
+        <EventDialog
+          investigationId={inv.id}
+          onClose={() => { setAdding(false); addTrigger.current?.focus() }}
+          onCreated={created => {
+            setAdding(false)
+            const matches = (!filter.event_type || created.event_type === filter.event_type) && (!filter.severity || created.severity === filter.severity)
+            if (matches) setEvents(prev => prev.status === 'ready' ? { status: 'ready', items: [...prev.items, created].sort(byTime(filter.order ?? 'asc')) } : prev)
+          }}
+        />
+      )}
+      <ConfirmDialog
+        open={Boolean(toDelete)}
+        title="Supprimer l’événement ?"
+        message={toDelete ? `« ${toDelete.title} » sera retiré de la chronologie.` : ''}
+        confirmLabel="Supprimer"
+        busy={deleting}
+        onConfirm={confirmDelete}
+        onCancel={() => setToDelete(null)}
+      />
     </div>
   )
 }
