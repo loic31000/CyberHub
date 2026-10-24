@@ -179,6 +179,8 @@
 .lb26-desc { margin: 0; color: var(--c-ink); font-size: .92rem; line-height: 1.6; overflow-wrap: anywhere; }
 .lb26-mitre { display: flex; flex-wrap: wrap; gap: 6px; margin: 0; padding: 0; list-style: none; }
 .lb26-mitre li { padding: 5px 10px; border: 1px solid color-mix(in srgb, var(--c-mitre) 40%, transparent); border-radius: 7px; background: rgb(185 164 255 / .1); color: #d6ccff; font: 600 .78rem/1.2 var(--c-mono); }
+.lb26-mitre-link { color: inherit; text-decoration-color: color-mix(in srgb, currentColor 55%, transparent); text-underline-offset: 2px; }
+.lb26-mitre-link:focus-visible { outline: 2px solid #c9baff; outline-offset: 2px; }
 .lb26-tags { display: flex; flex-wrap: wrap; gap: 5px; margin: 0; padding: 0; list-style: none; }
 .lb26-tags li { padding: 3px 8px; border: 1px solid var(--c-line); border-radius: 5px; color: var(--c-muted); font: 500 .72rem/1.3 var(--c-mono); }
 .lb26-empty-inline { margin: 0; color: var(--c-muted); font-size: .86rem; }

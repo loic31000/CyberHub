@@ -1,6 +1,7 @@
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Check, Copy, Cpu, ShieldAlert, Terminal } from 'lucide-react'
 import type { LOLBin, LOLBinCommand } from '@/types/lolbins'
+import { toast } from '@/store/toast'
 
 /*
  * Shared pieces for the LOLBins / GTFOBins catalog (styles in
@@ -12,22 +13,43 @@ import type { LOLBin, LOLBinCommand } from '@/types/lolbins'
 
 /* Robust JSON parse: a malformed field falls back instead of throwing. */
 export function parseJSON<T>(str: string | undefined, fallback: T): T {
-  if (!str) return fallback
+  if (typeof str !== 'string' || !str.trim()) return fallback
   try {
-    const value = JSON.parse(str)
-    return value == null ? fallback : (value as T)
+    const value: unknown = JSON.parse(str)
+    if (value == null) return fallback
+    if (Array.isArray(fallback)) return (Array.isArray(value) ? value : fallback) as T
+    return typeof value === typeof fallback ? value as T : fallback
   } catch {
     return fallback
   }
 }
-export const parseMitre = (raw?: string) => parseJSON<string[]>(raw, []).filter(Boolean)
-export const parseCommands = (raw?: string) => parseJSON<LOLBinCommand[]>(raw, []).filter(c => getCommandText(c))
-export const parseTags = (raw?: string) => parseJSON<string[]>(raw, []).filter(Boolean)
 
-export const getCommandText = (cmd: LOLBinCommand): string => cmd.Command ?? cmd.commands ?? ''
-export const getCommandDesc = (cmd: LOLBinCommand): string => cmd.Description ?? cmd.description ?? ''
-export const getCommandType = (cmd: LOLBinCommand): string => cmd.type ?? cmd.Usecase ?? cmd.Category ?? ''
-export const getCommandPriv = (cmd: LOLBinCommand): string => cmd.Privileges ?? ''
+const isRecord = (value: unknown): value is Record<string, unknown> =>
+  typeof value === 'object' && value !== null && !Array.isArray(value)
+
+const firstText = (...values: unknown[]): string => {
+  for (const value of values) if (typeof value === 'string' && value.trim()) return value
+  return ''
+}
+
+export const isMitreId = (value: string): boolean => /^T\d{4}(?:\.\d{3})?$/i.test(value)
+
+export const parseMitre = (raw?: string) =>
+  parseJSON<unknown[]>(raw, []).filter((value): value is string => typeof value === 'string' && Boolean(value.trim())).map(value => value.trim())
+
+export const parseCommands = (raw?: string) =>
+  parseJSON<unknown[]>(raw, [])
+    .filter(isRecord)
+    .map(command => command as LOLBinCommand)
+    .filter(command => Boolean(getCommandText(command)))
+
+export const parseTags = (raw?: string) =>
+  parseJSON<unknown[]>(raw, []).filter((value): value is string => typeof value === 'string' && Boolean(value.trim())).map(value => value.trim())
+
+export const getCommandText = (cmd: LOLBinCommand): string => firstText(cmd?.Command, cmd?.commands)
+export const getCommandDesc = (cmd: LOLBinCommand): string => firstText(cmd?.Description, cmd?.description)
+export const getCommandType = (cmd: LOLBinCommand): string => firstText(cmd?.type, cmd?.Usecase, cmd?.Category)
+export const getCommandPriv = (cmd: LOLBinCommand): string => firstText(cmd?.Privileges)
 
 export const OS_LABEL: Record<LOLBin['os'], string> = { windows: 'Windows', linux: 'Linux' }
 export const OS_SHORT: Record<LOLBin['os'], string> = { windows: 'WIN', linux: 'LIN' }
@@ -54,10 +76,26 @@ export function PrivMark({ priv }: { priv: string }) {
 
 export function CopyButton({ text, label = 'Copier la commande' }: { text: string; label?: string }) {
   const [copied, setCopied] = useState(false)
-  const copy = () => {
-    navigator.clipboard?.writeText(text)
-      .then(() => { setCopied(true); window.setTimeout(() => setCopied(false), 1800) })
-      .catch(() => {})
+  const timeoutRef = useRef<number | undefined>(undefined)
+  const requestRef = useRef(0)
+  useEffect(() => () => {
+    requestRef.current++
+    window.clearTimeout(timeoutRef.current)
+  }, [])
+  const copy = async () => {
+    const requestId = ++requestRef.current
+    setCopied(false)
+    window.clearTimeout(timeoutRef.current)
+    try {
+      const clipboard = navigator.clipboard
+      if (typeof clipboard?.writeText !== 'function') throw new Error('Clipboard API indisponible')
+      await clipboard.writeText(text)
+      if (requestId !== requestRef.current) return
+      setCopied(true)
+      timeoutRef.current = window.setTimeout(() => setCopied(false), 1800)
+    } catch {
+      if (requestId === requestRef.current) toast.error('Impossible de copier la commande')
+    }
   }
   return (
     <button type="button" className="lb26-copy" data-copied={copied || undefined} onClick={copy} aria-label={copied ? 'Copié' : label}>

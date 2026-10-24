@@ -1,10 +1,11 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import { AlertTriangle, ChevronRight, FolderTree, Search, Terminal, X } from 'lucide-react'
+import { Link } from 'react-router-dom'
 import { lolbinsApi } from '@/api/client'
 import type { LOLBin, LOLBinsResponse, LOLBinCategory } from '@/types/lolbins'
 import { toast } from '@/store/toast'
 import LolbinsHero from '@/lolbins26/LolbinsHero'
-import { CommandCard, OsMark, parseCommands, parseMitre, parseTags } from '@/lolbins26/parts'
+import { CommandCard, isMitreId, OsMark, parseCommands, parseMitre, parseTags } from '@/lolbins26/parts'
 import '@/lolbins26/lolbins.css'
 
 const OSES: LOLBin['os'][] = ['windows', 'linux']
@@ -15,10 +16,12 @@ const OS_TAB_LABEL: Record<LOLBin['os'], string> = { windows: 'Windows (LOLBAS)'
  * list item (JSON fields parsed with a safe fallback). It opens below the
  * global topbar so its header and close stay visible, closes on Escape / scrim
  * / button, locks page scroll while open and returns focus on close. A strict
- * focus trap is left for Codex (noted in the report).
+ * focus containment and background inertness keep interaction inside the panel.
  */
 function LolbinPanel({ item, onClose }: { item: LOLBin; onClose: () => void }) {
   const panelRef = useRef<HTMLDivElement>(null)
+  const onCloseRef = useRef(onClose)
+  onCloseRef.current = onClose
   const mitre = useMemo(() => parseMitre(item.mitre_tech), [item.mitre_tech])
   const commands = useMemo(() => parseCommands(item.commands), [item.commands])
   const tags = useMemo(() => parseTags(item.tags), [item.tags])
@@ -26,16 +29,51 @@ function LolbinPanel({ item, onClose }: { item: LOLBin; onClose: () => void }) {
   useEffect(() => {
     const opener = document.activeElement as HTMLElement | null
     const { overflow } = document.body.style
+    const inerted: Array<[HTMLElement, boolean]> = []
+    let activeBranch = panelRef.current?.parentElement ?? null
+    while (activeBranch?.parentElement && activeBranch.parentElement !== document.body) {
+      const parent = activeBranch.parentElement
+      for (const sibling of Array.from(parent.children)) {
+        if (sibling !== activeBranch && sibling instanceof HTMLElement) {
+          inerted.push([sibling, Boolean(sibling.inert)])
+          sibling.inert = true
+        }
+      }
+      activeBranch = parent
+    }
     document.body.style.overflow = 'hidden'
-    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose() }
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        e.preventDefault()
+        onCloseRef.current()
+        return
+      }
+      if (e.key !== 'Tab' || !panelRef.current) return
+      const focusable = Array.from(panelRef.current.querySelectorAll<HTMLElement>(
+        'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])',
+      )).filter(el => !el.hidden && el.getAttribute('aria-hidden') !== 'true')
+      const first = focusable[0]
+      const last = focusable[focusable.length - 1]
+      if (!first || !last) {
+        e.preventDefault()
+        panelRef.current.focus()
+      } else if (e.shiftKey && (document.activeElement === first || document.activeElement === panelRef.current)) {
+        e.preventDefault()
+        last.focus()
+      } else if (!e.shiftKey && (document.activeElement === last || document.activeElement === panelRef.current)) {
+        e.preventDefault()
+        first.focus()
+      }
+    }
     document.addEventListener('keydown', onKey)
     panelRef.current?.focus()
     return () => {
       document.removeEventListener('keydown', onKey)
       document.body.style.overflow = overflow
+      for (const [element, wasInert] of inerted) element.inert = wasInert
       opener?.focus?.()
     }
-  }, [onClose])
+  }, [])
 
   const titleId = 'lb26-panel-title'
   return (
@@ -72,7 +110,11 @@ function LolbinPanel({ item, onClose }: { item: LOLBin; onClose: () => void }) {
             <section className="lb26-field">
               <h3>Techniques MITRE ATT&amp;CK</h3>
               <ul className="lb26-mitre" aria-label="Techniques MITRE ATT&CK">
-                {mitre.map(t => <li key={t}>{t}</li>)}
+                {mitre.map(t => <li key={t}>
+                  {isMitreId(t)
+                    ? <Link to={`/mitre?id=${encodeURIComponent(t.toUpperCase())}`} className="lb26-mitre-link">{t}</Link>
+                    : t}
+                </li>)}
               </ul>
             </section>
           )}
@@ -95,6 +137,7 @@ function LolbinPanel({ item, onClose }: { item: LOLBin; onClose: () => void }) {
 }
 
 export default function LOLBinsPage() {
+  const requestRef = useRef(0)
   const [data, setData] = useState<LOLBinsResponse | null>(null)
   const [categories, setCategories] = useState<LOLBinCategory[]>([])
   const [loading, setLoading] = useState(true)
@@ -107,52 +150,77 @@ export default function LOLBinsPage() {
   const [mitreFilter, setMitreFilter] = useState('')
 
   const fetchData = useCallback(async () => {
+    const requestId = ++requestRef.current
     setLoading(true)
     setListError(false)
     try {
       const result = await lolbinsApi.list({
         os: activeOS,
-        search: search || undefined,
+        search: search.trim() || undefined,
         category: activeCategory || undefined,
-        mitre: mitreFilter || undefined,
+        mitre: mitreFilter.trim() || undefined,
       })
+      if (requestId !== requestRef.current) return
       setData(result)
     } catch {
+      if (requestId !== requestRef.current) return
       setListError(true)
       toast.error('Erreur de chargement des LOLBins')
     } finally {
-      setLoading(false)
+      if (requestId === requestRef.current) setLoading(false)
     }
   }, [activeOS, search, activeCategory, mitreFilter])
 
   useEffect(() => {
-    lolbinsApi.getCategories().then(setCategories).catch(() => {})
+    let mounted = true
+    lolbinsApi.getCategories().then(result => {
+      if (!mounted) return
+      setCategories(Array.isArray(result) ? result.filter((value): value is LOLBinCategory =>
+        typeof value === 'object' && value !== null && typeof value.os === 'string' &&
+        typeof value.category === 'string' && Number.isFinite(value.count) && value.count >= 0,
+      ) : [])
+    }).catch(() => {})
+    return () => { mounted = false }
   }, [])
 
   useEffect(() => {
+    setLoading(true)
+    setListError(false)
     const t = setTimeout(fetchData, 300)
-    return () => clearTimeout(t)
+    return () => {
+      clearTimeout(t)
+      requestRef.current++
+    }
   }, [fetchData])
+
+  useEffect(() => { setSelected(null) }, [activeOS, search, activeCategory, mitreFilter])
 
   const osCategories = useMemo(() => categories.filter(c => c.os === activeOS), [categories, activeOS])
   const hasActiveFilters = Boolean(search.trim() || activeCategory || mitreFilter.trim())
   const items = data?.items ?? []
 
   const switchOS = (os: LOLBin['os']) => {
-    setActiveOS(os); setActiveCategory(''); setSelected(null)
+    setLoading(true); setListError(false); setActiveOS(os); setActiveCategory(''); setSelected(null)
   }
-  const resetFilters = () => { setSearch(''); setActiveCategory(''); setMitreFilter('') }
+  const updateSearch = (value: string) => { setLoading(true); setListError(false); setSelected(null); setSearch(value) }
+  const updateMitre = (value: string) => { setLoading(true); setListError(false); setSelected(null); setMitreFilter(value) }
+  const updateCategory = (value: string) => { setLoading(true); setListError(false); setSelected(null); setActiveCategory(value) }
+  const resetFilters = () => {
+    setLoading(true); setListError(false); setSelected(null)
+    setSearch(''); setActiveCategory(''); setMitreFilter('')
+  }
 
   // One clean status string (strong + span collide when the OS split is wide).
-  const winTotal = data?.win_count ?? 0
-  const linTotal = data?.linux_count ?? 0
+  const countOrZero = (value: number | undefined) => Number.isFinite(value) && (value ?? -1) >= 0 ? value as number : 0
+  const winTotal = countOrZero(data?.win_count)
+  const linTotal = countOrZero(data?.linux_count)
   const status = loading ? { text: 'ANALYSE', tone: 'busy' as const }
     : listError ? { text: 'CATALOGUE INDISPONIBLE', tone: 'warn' as const }
     : { text: `${winTotal + linTotal} BINAIRES · WIN ${winTotal} · LIN ${linTotal}` }
 
   // The response may return a page of a larger set: say so rather than contradict the tab.
   const shownCount = items.length
-  const totalCount = Number(data?.total ?? shownCount)
+  const totalCount = countOrZero(data?.total ?? shownCount)
   const isPartial = totalCount > shownCount
 
   return (
@@ -163,8 +231,21 @@ export default function LOLBinsPage() {
         <section className="lb26-console" aria-label="Filtres du catalogue">
           <div className="lb26-ostabs" role="tablist" aria-label="Système">
             {OSES.map(os => (
-              <button key={os} type="button" role="tab" aria-selected={activeOS === os} data-os={os}
-                className="lb26-ostab" onClick={() => switchOS(os)}>
+              <button key={os} id={`lb26-tab-${os}`} type="button" role="tab" aria-controls="lb26-catalog-panel"
+                aria-selected={activeOS === os} tabIndex={activeOS === os ? 0 : -1} data-os={os}
+                className="lb26-ostab" onClick={() => switchOS(os)}
+                onKeyDown={event => {
+                  let target: LOLBin['os'] | undefined
+                  if (event.key === 'Home') target = OSES[0]
+                  else if (event.key === 'End') target = OSES[OSES.length - 1]
+                  else if (event.key === 'ArrowRight') target = OSES[(OSES.indexOf(os) + 1) % OSES.length]
+                  else if (event.key === 'ArrowLeft') target = OSES[(OSES.indexOf(os) + OSES.length - 1) % OSES.length]
+                  if (target) {
+                    event.preventDefault()
+                    switchOS(target)
+                    document.getElementById(`lb26-tab-${target}`)?.focus()
+                  }
+                }}>
                 <Terminal size={14} aria-hidden="true" />{OS_TAB_LABEL[os]}
                 <span className="lb26-ostab-count">{os === 'windows' ? data?.win_count ?? 0 : data?.linux_count ?? 0}</span>
               </button>
@@ -175,17 +256,17 @@ export default function LOLBinsPage() {
             <label className="lb26-search">
               <Search size={18} aria-hidden="true" />
               <span className="lb26-sr">Rechercher un binaire</span>
-              <input type="search" value={search} onChange={e => setSearch(e.target.value)}
+              <input type="search" value={search} onChange={e => updateSearch(e.target.value)}
                 placeholder="Rechercher un binaire, une description…" autoComplete="off" spellCheck={false} />
             </label>
             <label className="lb26-mitre-field">
               <span className="lb26-sr">Filtrer par technique MITRE</span>
-              <input type="search" value={mitreFilter} onChange={e => setMitreFilter(e.target.value)}
+              <input type="search" value={mitreFilter} onChange={e => updateMitre(e.target.value)}
                 placeholder="MITRE (ex : T1105)" autoComplete="off" spellCheck={false} />
             </label>
             <label className="lb26-cat-select">
               <span className="lb26-sr">Catégorie</span>
-              <select value={activeCategory} onChange={e => setActiveCategory(e.target.value)} aria-label="Catégorie">
+              <select value={activeCategory} onChange={e => updateCategory(e.target.value)} aria-label="Catégorie">
                 <option value="">Toutes les catégories</option>
                 {osCategories.map(c => <option key={c.category} value={c.category}>{c.category} ({c.count})</option>)}
               </select>
@@ -199,26 +280,28 @@ export default function LOLBinsPage() {
         </section>
 
         {loading ? (
-          <div className="lb26-register" aria-busy="true">
+          <div id="lb26-catalog-panel" className="lb26-register" role="tabpanel" aria-labelledby={`lb26-tab-${activeOS}`} aria-busy="true">
             <p className="lb26-sr" role="status">Chargement du catalogue…</p>
             <div className="lb26-skeleton" aria-hidden="true">{Array.from({ length: 8 }, (_, i) => <div key={i} />)}</div>
           </div>
         ) : listError ? (
-          <div className="lb26-state is-error" role="alert">
-            <AlertTriangle size={30} aria-hidden="true" />
-            <h2>Impossible de charger le catalogue</h2>
+          <div id="lb26-catalog-panel" className="lb26-state is-error" role="tabpanel" aria-labelledby={`lb26-tab-${activeOS}`}>
+            <div role="alert">
+              <AlertTriangle size={30} aria-hidden="true" />
+              <h2>Impossible de charger le catalogue</h2>
             <p>Les binaires n'ont pas répondu. Réessaie dans un instant.</p>
-            <button type="button" className="lb26-btn" onClick={fetchData}>Réessayer</button>
+              <button type="button" className="lb26-btn" onClick={fetchData}>Réessayer</button>
+            </div>
           </div>
         ) : items.length === 0 ? (
-          <div className="lb26-state">
+          <div id="lb26-catalog-panel" className="lb26-state" role="tabpanel" aria-labelledby={`lb26-tab-${activeOS}`}>
             <FolderTree size={30} aria-hidden="true" />
             <h2>Aucun binaire trouvé</h2>
             <p>{hasActiveFilters ? 'Aucun binaire ne correspond à ces filtres.' : 'Ce catalogue est vide.'}</p>
             {hasActiveFilters && <button type="button" className="lb26-btn" onClick={resetFilters}>Réinitialiser les filtres</button>}
           </div>
         ) : (
-          <section className="lb26-register" aria-labelledby="lb26-register-title">
+          <section id="lb26-catalog-panel" className="lb26-register" role="tabpanel" aria-labelledby={`lb26-tab-${activeOS}`}>
             <header className="lb26-register-head">
               <h2 id="lb26-register-title">Catalogue {activeOS === 'windows' ? 'Windows' : 'Linux'}</h2>
               <p>
