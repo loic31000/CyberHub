@@ -35,14 +35,14 @@ export default function CorrelationPage() {
   const typeRefs = useRef(new Map<IOCType, HTMLButtonElement>())
   const valueRef = useRef<HTMLInputElement>(null)
 
-  const handleAnalyze = async () => {
-    const val = iocValue.trim()
+  const handleAnalyze = async (selectedType: IOCType = iocType, selectedValue: string = iocValue) => {
+    const val = selectedValue.trim()
     if (!val) return
     setLoading(true)
     setError(null)
     setResult(null)
     try {
-      const res = await correlationApi.correlationAnalyze(iocType, val)
+      const res = await correlationApi.correlationAnalyze(selectedType, val)
       setResult(res)
     } catch {
       setError('Erreur lors de l\'analyse. Vérifiez la valeur saisie.')
@@ -70,7 +70,7 @@ export default function CorrelationPage() {
     setSaving(true)
     try {
       const payload: IOCCreatePayload = {
-        type:        iocType,
+        type:        result.ioc_type as IOCType,
         value:       result.ioc_value,
         notes: `Analysé via Corrélation — ${result.techniques.length} technique(s) MITRE`,
         tlp:         'amber',
@@ -133,13 +133,13 @@ export default function CorrelationPage() {
       <button type="button" className="cr26-btn is-soft" onClick={handleSaveAsIOC} disabled={saving}>
         <ShieldPlus size={15} aria-hidden="true" /> {saving ? 'Sauvegarde…' : 'Sauvegarder comme IOC'}
       </button>
-      {(iocType === 'ip' || iocType === 'cidr') && (
-        <button type="button" className="cr26-btn" onClick={() => navigate(`/bgp?prefill=${encodeURIComponent(iocValue)}`)}>
+      {(result.ioc_type === 'ip' || result.ioc_type === 'cidr') && (
+        <button type="button" className="cr26-btn" onClick={() => navigate(`/bgp?prefill=${encodeURIComponent(result.ioc_value)}`)}>
           <Globe size={15} aria-hidden="true" /> BGP Lookup
         </button>
       )}
-      {iocType === 'hash' && (
-        <button type="button" className="cr26-btn" onClick={() => navigate(`/ioc?search=${encodeURIComponent(iocValue)}`)}>
+      {result.ioc_type === 'hash' && (
+        <button type="button" className="cr26-btn" onClick={() => navigate(`/ioc?search=${encodeURIComponent(result.ioc_value)}`)}>
           <Search size={15} aria-hidden="true" /> Rechercher dans IOC
         </button>
       )}
@@ -189,7 +189,7 @@ export default function CorrelationPage() {
                 </button>
               )}
             </div>
-            <button type="button" className="cr26-btn is-primary is-lg" onClick={handleAnalyze} disabled={loading || !iocValue.trim()}>
+            <button type="button" className="cr26-btn is-primary is-lg" onClick={() => void handleAnalyze()} disabled={loading || !iocValue.trim()}>
               <Search size={17} aria-hidden="true" /> {loading ? 'Analyse…' : 'Analyser'}
             </button>
           </div>
@@ -214,8 +214,7 @@ export default function CorrelationPage() {
                         setIocValue(item.ioc_value)
                         setResult(null)
                         setError(null)
-                        // Lancer l'analyse automatiquement après un court délai pour laisser l'UI se mettre à jour
-                        setTimeout(() => handleAnalyze(), 50)
+                        void handleAnalyze(item.ioc_type as IOCType, item.ioc_value)
                       }}
                     >
                       <span className="cr26-recent-type">{typeLabel(item.ioc_type)}</span>
@@ -241,7 +240,7 @@ export default function CorrelationPage() {
               <AlertCircle size={26} aria-hidden="true" />
               <h2>L’analyse a échoué</h2>
               <p>{error}</p>
-              <button type="button" className="cr26-btn" onClick={handleAnalyze} disabled={!iocValue.trim()}><RefreshCw size={14} aria-hidden="true" /> Réessayer</button>
+              <button type="button" className="cr26-btn" onClick={() => void handleAnalyze()} disabled={!iocValue.trim()}><RefreshCw size={14} aria-hidden="true" /> Réessayer</button>
             </div>
           )}
 

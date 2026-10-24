@@ -41,7 +41,6 @@
 .cr26-frame { --content: 1180px; display: grid; grid-template-columns: minmax(0, 1fr); gap: 28px; min-width: 0; padding: 24px 28px 48px; }
 /* The hero keeps the width every module shares; the content sits in a centred column. */
 .cr26-frame > :not(.chh) { width: 100%; max-width: var(--content); justify-self: center; }
-.cr26 .chh { width: 100%; min-width: 0; max-width: 100%; }
 
 /* ---------- hero motif (static) ---------- */
 .chh .cr26-m-diamond { fill: rgb(0 212 255 / .22); stroke: #9eeefa; stroke-width: 1.3; }

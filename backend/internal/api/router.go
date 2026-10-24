@@ -29,14 +29,7 @@ func NewRouter(correlationEngine *correlation.CorrelationEngine) *gin.Engine {
 		c.Next()
 	})
 
-	r.Use(cors.New(cors.Config{
-		AllowOrigins:     []string{"http://localhost:7743", "http://127.0.0.1:7743", "http://localhost:5173"},
-		AllowMethods:     []string{"GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"},
-		AllowHeaders:     []string{"Origin", "Content-Type", "Authorization"},
-		ExposeHeaders:    []string{"Content-Length", "Content-Disposition"},
-		AllowCredentials: false,
-		MaxAge:           12 * time.Hour,
-	}))
+	r.Use(cors.New(corsConfig()))
 
 	getSecret := func() string {
 		s, _ := store.GetSettings()
@@ -293,4 +286,15 @@ func getDBPath() string {
 		return p
 	}
 	return filepath.Join(".", "cyber_hub.db")
+}
+
+func corsConfig() cors.Config {
+	return cors.Config{
+		AllowOrigins:     []string{"http://localhost:7743", "http://127.0.0.1:7743", "http://localhost:5173", "http://127.0.0.1:5173"},
+		AllowMethods:     []string{"GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"},
+		AllowHeaders:     []string{"Origin", "Content-Type", "Authorization"},
+		ExposeHeaders:    []string{"Content-Length", "Content-Disposition"},
+		AllowCredentials: false,
+		MaxAge:           12 * time.Hour,
+	}
 }

@@ -39,7 +39,7 @@
 :where(.iv26, .iv26-layer) :where(button) { font: inherit; color: inherit; cursor: pointer; }
 .iv26-sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
 /* Same page frame as the other 2026 modules: full width, 24 / 28 px, 16 px on phones. */
-.iv26-frame { display: grid; gap: 16px; min-width: 0; padding: 24px 28px 32px; }
+.iv26-frame { display: grid; grid-template-columns: minmax(0, 1fr); gap: 16px; min-width: 0; padding: 24px 28px 32px; }
 .iv26 .chh { width: 100%; }
 .iv26-muted { color: var(--i-faint); }
 

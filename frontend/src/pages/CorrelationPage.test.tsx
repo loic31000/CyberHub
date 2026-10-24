@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
-import { MemoryRouter, Route, Routes } from 'react-router-dom'
+import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom'
 import CorrelationPage from './CorrelationPage'
 import { correlationApi, iocApi } from '@/api/client'
 import { toast } from '@/store/toast'
@@ -19,10 +19,12 @@ const renderPage = () => render(
   <MemoryRouter initialEntries={['/correlation']}>
     <Routes>
       <Route path="/correlation" element={<CorrelationPage />} />
-      <Route path="/bgp" element={<p>BGP</p>} />
+      <Route path="/bgp" element={<LocationSearch />} />
+      <Route path="/ioc" element={<LocationSearch />} />
     </Routes>
   </MemoryRouter>,
 )
+function LocationSearch() { return <p data-testid="location-search">{useLocation().search}</p> }
 const field = () => screen.getByLabelText(/^Valeur de l’indicateur/) as HTMLInputElement
 const analyze = async (value = ' 203.0.113.42 ') => {
   fireEvent.change(field(), { target: { value } })
@@ -86,6 +88,8 @@ describe('Corrélation 2026', () => {
     vi.mocked(iocApi.create).mockResolvedValue({} as never)
     renderPage()
     await analyze()
+    fireEvent.click(screen.getByRole('radio', { name: 'Domaine' }))
+    fireEvent.change(field(), { target: { value: 'autre-domaine.test' } })
     fireEvent.click(await screen.findByRole('button', { name: /Sauvegarder comme IOC/ }))
     await waitFor(() => expect(iocApi.create).toHaveBeenCalledWith({
       type: 'ip', value: '203.0.113.42', notes: 'Analysé via Corrélation — 2 technique(s) MITRE', tlp: 'amber', status: 'active', tags: 'T1071,T1041',
@@ -102,14 +106,28 @@ describe('Corrélation 2026', () => {
     await waitFor(() => expect(screen.getByRole('heading', { name: 'Analysez un indicateur' })).toBeTruthy())
     expect(api.correlationInvalidateCache).toHaveBeenCalledWith('203.0.113.42')
     await analyze()
+    fireEvent.click(screen.getByRole('radio', { name: 'Domaine' }))
+    fireEvent.change(field(), { target: { value: 'autre-domaine.test' } })
     fireEvent.click(await screen.findByRole('button', { name: /BGP Lookup/ }))
-    expect(await screen.findByText('BGP')).toBeTruthy()
+    expect((await screen.findByTestId('location-search')).textContent).toBe('?prefill=203.0.113.42')
+  })
+
+  it('recherche dans IOC avec le hash du résultat même si le formulaire a changé', async () => {
+    const hash = 'a'.repeat(64)
+    api.correlationAnalyze.mockResolvedValue(correlationResult({ ioc_type: 'hash', ioc_value: hash }))
+    renderPage()
+    await analyze(' ' + hash + ' ')
+    fireEvent.click(screen.getByRole('radio', { name: 'IP' }))
+    fireEvent.change(field(), { target: { value: '198.51.100.4' } })
+    fireEvent.click(await screen.findByRole('button', { name: /Rechercher dans IOC/ }))
+    expect((await screen.findByTestId('location-search')).textContent).toBe(`?search=${hash}`)
   })
 
   it('charge l’historique à la demande, avec états vide et liste', async () => {
     api.correlationHistory.mockResolvedValueOnce([]).mockResolvedValueOnce([
       { ioc_type: 'domain', ioc_value: 'exemple-malveillant.test', generated_at: '2026-10-22T08:00:00Z', from_cache: true },
     ])
+    api.correlationAnalyze.mockResolvedValue(correlationResult({ ioc_type: 'domain', ioc_value: 'exemple-malveillant.test' }))
     renderPage()
     fireEvent.click(screen.getByRole('button', { name: 'Charger l’historique' }))
     expect(await screen.findByText('Aucune analyse en cache.')).toBeTruthy()
@@ -120,6 +138,8 @@ describe('Corrélation 2026', () => {
     fireEvent.click(item)
     expect(field().value).toBe('exemple-malveillant.test')
     expect(screen.getByRole('radio', { name: 'Domaine' }).getAttribute('aria-checked')).toBe('true')
+    expect(api.correlationAnalyze).toHaveBeenCalledWith('domain', 'exemple-malveillant.test')
+    expect(await screen.findByRole('heading', { name: 'exemple-malveillant.test' })).toBeTruthy()
   })
 
   it('signale une analyse sans aucune correspondance', async () => {
