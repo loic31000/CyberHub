@@ -53,6 +53,21 @@ describe('CVE Watch — formulaire', () => {
     expect(cveApi.create).toHaveBeenCalledTimes(2)
   })
 
+  it('suggère la sévérité CVSS v3 du score saisi sans la changer d’office', async () => {
+    vi.mocked(cveApi.create).mockResolvedValue(ENTRY)
+    renderAt('/cve/new')
+    fireEvent.change(screen.getByLabelText('CVE-ID *'), { target: { value: 'CVE-2026-0007' } })
+    fireEvent.change(screen.getByLabelText('CVSS SCORE'), { target: { value: '9.3' } })
+    expect((screen.getByLabelText('SÉVÉRITÉ') as HTMLSelectElement).value).toBe('none')
+    expect(screen.getByText(/correspond à « Critique »/)).toBeTruthy()
+    fireEvent.click(screen.getByRole('button', { name: 'Appliquer' }))
+    expect((screen.getByLabelText('SÉVÉRITÉ') as HTMLSelectElement).value).toBe('critical')
+    expect(screen.queryByText(/correspond à/)).toBeNull()
+    fireEvent.click(screen.getByRole('button', { name: /CRÉER LA CVE/ }))
+    await screen.findByText('Fiche CVE')
+    expect(vi.mocked(cveApi.create).mock.calls[0][0]).toMatchObject({ cvss_score: 9.3, severity: 'critical' })
+  })
+
   it("modifie une CVE existante, et Annuler ramène à sa fiche", async () => {
     vi.mocked(cveApi.get).mockResolvedValue(ENTRY)
     vi.mocked(cveApi.update).mockResolvedValue(ENTRY)

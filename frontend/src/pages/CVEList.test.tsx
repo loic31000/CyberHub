@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 import CVEList from './CVEList'
 import { cveApi, cisaApi } from '@/api/client'
@@ -41,7 +41,7 @@ describe('CVE Watch — liste', () => {
     const stale = deferred<ReturnType<typeof page>>()
     list.mockReturnValueOnce(stale.promise as never).mockResolvedValueOnce(page([cve(2, 'CVE-2026-0002')]) as never)
     renderList()
-    fireEvent.change(screen.getByLabelText('Filtrer par sévérité'), { target: { value: 'critical' } })
+    fireEvent.click(within(screen.getByRole('group', { name: 'Filtrer par sévérité' })).getByRole('button', { name: 'Critique' }))
     await screen.findByText('CVE-2026-0002')
     // The first request was cancelled, then answers late anyway.
     expect((list.mock.calls[0][1] as AbortSignal).aborted).toBe(true)
@@ -112,6 +112,22 @@ describe('CVE Watch — liste', () => {
     expect(list).toHaveBeenCalledTimes(1)
     expect(list.mock.calls[0][0]).toMatchObject({ search: 'CVE-2026-0001', page: 1 })
     expect((screen.getByLabelText('Rechercher une CVE') as HTMLInputElement).value).toBe('CVE-2026-0001')
+  })
+
+  it('résume la page affichée à partir des lignes reçues, sans métrique globale inventée', async () => {
+    const critical = { ...cve(1, 'CVE-2026-0001'), severity: 'critical', cvss_score: 9.8 } as CVEEntry
+    list.mockResolvedValue({ cves: [critical, cve(2, 'CVE-2026-0002'), cve(3, 'CVE-2026-0003')], count: 57, total_pages: 3 } as never)
+    batch.mockResolvedValue({ 'CVE-2026-0001': true })
+    renderList()
+    const summary = await screen.findByRole('list', { name: 'Composition de cette page' })
+    await waitFor(() => expect(summary.textContent).toContain('Exploitées (KEV) 1'))
+    expect(summary.textContent).toContain('Critique 1')
+    expect(summary.textContent).toContain('Élevée 2')
+    expect(screen.getByText('57')).toBeTruthy()
+    expect(screen.getByText('page 1 / 3')).toBeTruthy()
+    // The badge still reads "KEV"; its meaning is spelled out for screen readers.
+    expect(screen.getByText('KEV').closest('.cv26-kev-wrap')?.textContent).toContain('exploitée activement selon CISA')
+    expect(screen.getByLabelText('CVSS 9.8 sur 10')).toBeTruthy()
   })
 
   it('envoie une seule requête pour une saisie rapide dans la recherche', async () => {

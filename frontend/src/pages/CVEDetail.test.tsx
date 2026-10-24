@@ -72,6 +72,17 @@ describe('CVE Watch — fiche', () => {
     expect(screen.getByText('Apply update')).toBeTruthy()
   })
 
+  it('garde CVSS, KEV et EPSS dans trois panneaux distincts et ne pousse jamais le percentile à 100', async () => {
+    vi.mocked(cisaApi.getEPSS).mockResolvedValue({ cve_id: ENTRY.cve_id, score: 0.942, percentile: 0.998, date: '2026-10-22' })
+    renderDetail()
+    expect(await screen.findByText('94.2%')).toBeTruthy()
+    expect(screen.getByRole('region', { name: 'Gravité CVSS' }).textContent).toContain('9.1')
+    expect(screen.getByRole('region', { name: 'Exploitation CISA KEV' }).textContent).toContain('Absente du catalogue CISA KEV local.')
+    const epss = screen.getByRole('region', { name: 'Probabilité EPSS' })
+    expect(epss.textContent).toContain('99,8')
+    expect(epss.textContent).not.toContain('100')
+  })
+
   it("propose de réessayer quand la fiche ne charge pas, et revient à l'index si elle n'existe pas", async () => {
     vi.mocked(cveApi.get).mockRejectedValueOnce(httpError(500)).mockResolvedValueOnce(ENTRY)
     renderDetail()

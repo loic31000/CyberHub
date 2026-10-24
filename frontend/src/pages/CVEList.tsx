@@ -1,18 +1,22 @@
-import { useState, useEffect, useRef, useCallback } from 'react'
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { cveApi, cisaApi } from '@/api/client'
 import type { CVEEntry, CVEFilter, CVESeverity, CVEStatus } from '@/types'
 import type { CISAKEVEntry } from '@/types/threat_intel'
-import { RowListSkeleton } from '@/components/Skeleton'
 import Pagination from '@/components/Pagination'
-import { Plus, Search, Upload, ShieldAlert, Flame, AlertTriangle, CloudDownload } from 'lucide-react'
+import { AlertTriangle, CloudDownload, Database, Flame, Plus, Search, Upload } from 'lucide-react'
 import { toast } from '@/store/toast'
 import NVDImportModal from '@/components/NVDImportModal'
+import CveHero from '@/cve26/CveHero'
+import {
+  CvssMeter, KevBadge, SEVERITIES, SEVERITY_LABEL, STATUSES, STATUS_LABELS, SeverityBadge, StatusBadge,
+  formatDay, splitProducts,
+} from '@/cve26/parts'
+import '@/cve26/cve.css'
 
-const SEVERITIES: CVESeverity[] = ['critical', 'high', 'medium', 'low', 'none']
-const STATUSES: CVEStatus[] = ['new', 'analyzed', 'patched', 'na']
 const LIMIT = 20
 const SEARCH_DELAY = 300 // ms: one request once typing pauses, not one per key
+const PRODUCTS_SHOWN = 2
 
 /*
  * KEV enrichment, separate from the list: the list shows as soon as it
@@ -21,28 +25,6 @@ const SEARCH_DELAY = 300 // ms: one request once typing pauses, not one per key
  */
 type KevState = { status: 'idle' | 'loading' | 'ready' | 'error'; flagged: Set<string>; entries: Map<string, CISAKEVEntry> }
 const kevState = (status: KevState['status'], flagged = new Set<string>()): KevState => ({ status, flagged, entries: new Map() })
-
-const SEV_COLORS: Record<CVESeverity, string> = {
-  critical: 'border-[#ef4444]/30 bg-[#ef4444]/10 text-[#ef4444]',
-  high:     'border-[#f97316]/30 bg-[#f97316]/10 text-[#f97316]',
-  medium:   'border-[#eab308]/30 bg-[#eab308]/10 text-[#eab308]',
-  low:      'border-[#3b82f6]/30 bg-[#3b82f6]/10 text-[#3b82f6]',
-  none:     'border-[#64748b]/30 bg-[#64748b]/10 text-[#64748b]',
-}
-
-const STATUS_LABELS: Record<CVEStatus, string> = {
-  new:      'NOUVEAU',
-  analyzed: 'ANALYSÉ',
-  patched:  'PATCHÉ',
-  na:       'N/A',
-}
-
-const STATUS_COLORS: Record<CVEStatus, string> = {
-  new:      'text-[#00d4ff]',
-  analyzed: 'text-[#eab308]',
-  patched:  'text-[#10b981]',
-  na:       'text-[#64748b]',
-}
 
 export default function CVEList() {
   const navigate = useNavigate()
@@ -157,190 +139,163 @@ export default function CVEList() {
     }
   }
 
-  return (
-    <>
-      <div className="flex flex-col h-full bg-[#06080f] text-[#f1f5f9]">
-        {/* Bandeau d'en-tête style BGPLookup */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-[#1e2d40] bg-[#0a0f16]/50">
-          <div className="flex items-center gap-3">
-            <div className="relative">
-              <ShieldAlert className="text-[#00d4ff]" size={20} />
-              <div className="absolute -top-1 -right-1 w-2 h-2 bg-[#10b981] rounded-full animate-pulse shadow-[0_0_8px_#10b981]" />
-            </div>
-            <div>
-              <h1 className="text-sm font-bold tracking-[0.2em] uppercase">CVE WATCH // INDEX</h1>
-              <p className="text-[10px] text-[#64748b] font-mono">
-                {count} vulnérabilité{count > 1 ? 's' : ''} indexée{count > 1 ? 's' : ''}
-              </p>
-            </div>
-          </div>
-          <div className="flex items-center gap-4 font-mono text-[10px]">
-            <span className="text-[#64748b]">SOURCE</span>
-            <span className="text-[#10b981]">NVD + CISA KEV</span>
-            <button
-              onClick={() => setShowNVDModal(true)}
-              className="flex items-center gap-2 px-3 py-1.5 bg-[#1e2d40] hover:bg-[#2a3f55] text-[10px] font-bold border border-[#334155] transition-colors"
-            >
-              <CloudDownload size={12} /> NVD ONLINE
-            </button>
-            <button
-              onClick={() => fileRef.current?.click()}
-              disabled={importing}
-              className="flex items-center gap-2 px-3 py-1.5 bg-[#1e2d40] hover:bg-[#2a3f55] text-[10px] font-bold border border-[#334155] transition-colors disabled:opacity-50"
-            >
-              <Upload size={12} />
-              {importing ? 'IMPORT...' : 'IMPORT NVD'}
-            </button>
-            <Link
-              to="/cve/new"
-              className="flex items-center gap-2 px-3 py-1.5 bg-[#1e2d40] hover:bg-[#2a3f55] text-[10px] font-bold border border-[#334155] transition-colors"
-            >
-              <Plus size={12} /> NEW ENTRY
-            </Link>
-          </div>
-        </div>
+  // What this page shows, counted from the rows actually listed (not the whole index).
+  const pageSummary = useMemo(() => SEVERITIES
+    .map(severity => ({ severity, n: cves.filter(c => c.severity === severity).length }))
+    .filter(s => s.n > 0), [cves])
+  const filtered = Boolean(filters.search || filters.severity || filters.status)
 
-        {/* Zone de contenu scrollable */}
-        <div className="flex-1 overflow-auto p-6 space-y-6">
-          {/* Filtres */}
-          <div className="flex flex-wrap gap-3">
-            <div className="relative flex-1 min-w-[260px]">
-              <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#4a6480]" />
+  return (
+    <div className="cv26">
+      <div className="cv26-frame">
+        <CveHero status={loading ? { text: 'CHARGEMENT', tone: 'busy' } : listError ? { text: 'INDEX INDISPONIBLE', tone: 'warn' }
+          : { text: `${count.toLocaleString('fr-FR')} CVE`, mark: filtered ? 'FILTRÉES' : 'INDEX LOCAL' }} />
+
+        <section className="cv26-console" aria-label="Recherche et filtres">
+          <div className="cv26-console-top">
+            <label className="cv26-search">
+              <Search size={18} aria-hidden="true" />
+              <span className="cv26-sr">Rechercher une CVE</span>
               <input
                 type="text"
-                placeholder="Rechercher CVE-ID, description, produit..."
+                placeholder="CVE-ID, description, produit…"
                 aria-label="Rechercher une CVE"
-                className="w-full bg-[#0d131f] border border-[#1e2d40] pl-9 pr-4 py-2.5 font-mono text-sm text-[#f1f5f9] placeholder-[#2a3f55] outline-none focus:border-[#00d4ff]/40"
                 value={searchInput}
                 onChange={(e) => setSearchInput(e.target.value)}
+                autoComplete="off"
+                spellCheck={false}
               />
-            </div>
-            <select
-              aria-label="Filtrer par sévérité"
-              className="bg-[#0d131f] border border-[#1e2d40] px-3 py-2.5 font-mono text-sm text-[#f1f5f9] focus:border-[#00d4ff]/40 outline-none"
-              value={filters.severity ?? ''}
-              onChange={(e) => updateFilter('severity', e.target.value as CVESeverity | '')}
-            >
-              <option value="">Toutes sévérités</option>
-              {SEVERITIES.map(s => <option key={s} value={s}>{s.toUpperCase()}</option>)}
-            </select>
-            <select
-              aria-label="Filtrer par statut"
-              className="bg-[#0d131f] border border-[#1e2d40] px-3 py-2.5 font-mono text-sm text-[#f1f5f9] focus:border-[#00d4ff]/40 outline-none"
-              value={filters.status ?? ''}
-              onChange={(e) => updateFilter('status', e.target.value as CVEStatus | '')}
-            >
-              <option value="">Tous status</option>
-              {STATUSES.map(s => <option key={s} value={s}>{STATUS_LABELS[s]}</option>)}
-            </select>
-          </div>
-
-          {/* Tableau des CVE */}
-          {loading ? (
-            <RowListSkeleton count={8} />
-          ) : listError ? (
-            <div role="alert" className="flex flex-col items-center justify-center border border-[#ef4444]/30 bg-[#0a0f16] py-24 text-center">
-              <AlertTriangle size={40} className="mb-4 text-[#ef4444]/60" aria-hidden="true" />
-              <p className="font-mono text-sm uppercase tracking-widest text-[#f1f5f9]">Impossible de charger les CVE</p>
-              <p className="mt-2 font-mono text-xs text-[#8a9ab0]">Le backend local n’a pas répondu. Vérifiez qu’il est lancé, puis réessayez.</p>
-              <button type="button" onClick={reload}
-                className="mt-5 border border-[#334155] bg-[#1e2d40] px-4 py-2 font-mono text-[10px] font-bold uppercase tracking-widest hover:bg-[#2a3f55] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#00d4ff]">
-                Réessayer
+            </label>
+            <div className="cv26-actions">
+              <button type="button" className="cv26-btn is-primary" onClick={() => setShowNVDModal(true)}>
+                <CloudDownload size={15} aria-hidden="true" /> Import NVD en ligne
               </button>
+              <button type="button" className="cv26-btn" onClick={() => fileRef.current?.click()} disabled={importing}>
+                <Upload size={15} aria-hidden="true" /> {importing ? 'Import…' : 'Fichier NVD JSON'}
+              </button>
+              <Link to="/cve/new" className="cv26-btn"><Plus size={15} aria-hidden="true" /> Nouvelle CVE</Link>
             </div>
-          ) : cves.length === 0 ? (
-            <div className="flex flex-col items-center justify-center border border-[#1e2d40] bg-[#0a0f16] py-24 text-center">
-              <AlertTriangle size={40} className="mb-4 text-[#1e2d40]" />
-              <p className="font-mono text-sm uppercase tracking-widest text-[#64748b]">Aucune CVE trouvée</p>
-              <p className="mt-2 font-mono text-xs text-[#334155]">
-                Importez un fichier NVD JSON ou créez une entrée manuellement
-              </p>
+          </div>
+          <div className="cv26-filters">
+            <span className="cv26-filter-label">Sévérité</span>
+            <div className="cv26-spectrum" role="group" aria-label="Filtrer par sévérité">
+              <button type="button" aria-pressed={!filters.severity} onClick={() => updateFilter('severity', '')}>Toutes</button>
+              {SEVERITIES.map(s => (
+                <button type="button" key={s} data-severity={s} aria-pressed={filters.severity === s} onClick={() => updateFilter('severity', s as CVESeverity)}>
+                  <i aria-hidden="true" />{SEVERITY_LABEL[s]}
+                </button>
+              ))}
             </div>
-          ) : (
-            <>
-              {kev.status === 'error' && (
-                <div role="status" className="flex flex-wrap items-center justify-between gap-3 border border-[#f97316]/30 bg-[#f97316]/5 px-4 py-2 font-mono text-[11px] text-[#fdba74]">
-                  <span>Statut CISA KEV indisponible pour cette page : l’absence de badge ne signifie pas « non exploitée ».</span>
-                  <button type="button" onClick={reload}
-                    className="border border-[#f97316]/30 px-3 py-1 text-[10px] font-bold uppercase tracking-widest hover:bg-[#f97316]/10 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#00d4ff]">
-                    Réessayer
-                  </button>
-                </div>
-              )}
-              <div className="overflow-x-auto border border-[#1e2d40]">
-                <table className="w-full text-sm font-mono">
-                  <thead className="bg-[#0a0f16] border-b border-[#1e2d40]">
-                    <tr className="text-[10px] font-bold uppercase tracking-widest text-[#4a6480]">
-                      <th className="px-4 py-3 text-left">CVE-ID</th>
-                      <th className="px-4 py-3 text-left">Sévérité</th>
-                      <th className="px-4 py-3 text-left">Score</th>
-                      <th className="px-4 py-3 text-left">Produits</th>
-                      <th className="px-4 py-3 text-left">Statut</th>
-                      <th className="px-4 py-3 text-left">Publié</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {cves.map((cve) => (
-                      <tr
-                        key={cve.id}
-                        className="border-b border-[#1e2d40] hover:bg-[#0a0f16]/70 transition-colors cursor-pointer"
-                        onClick={() => navigate(`/cve/${cve.id}`)}
-                      >
-                        <td className="px-4 py-3">
-                          <div className="flex items-center gap-2 flex-wrap">
-                            <Link
-                              to={`/cve/${cve.id}`}
-                              className="text-[#00d4ff] hover:underline font-mono text-sm"
-                              onClick={(e) => e.stopPropagation()}
-                            >
-                              {cve.cve_id}
-                            </Link>
-                            {kev.flagged.has(cve.cve_id) && (
-                              <span
-                                className="inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 border border-[#ef4444]/50 bg-[#ef4444]/20 text-[#ef4444] animate-pulse font-mono uppercase tracking-wider"
-                                title={kev.entries.get(cve.cve_id)?.vulnerability_name
-                                  ? `Exploitée activement — ${kev.entries.get(cve.cve_id)?.vulnerability_name}`
-                                  : 'Exploitée activement — catalogue CISA KEV'}
-                              >
-                                <Flame size={10} /> KEV
-                              </span>
-                            )}
-                          </div>
-                          <p className="text-[11px] text-[#8a9ab0] mt-1 max-w-xs truncate">{cve.description}</p>
-                         </td>
-                        <td className="px-4 py-3">
-                          <span className={`border px-2 py-0.5 font-mono text-[10px] uppercase tracking-widest ${SEV_COLORS[cve.severity]}`}>
-                            {cve.severity}
-                          </span>
-                        </td>
-                        <td className="px-4 py-3 text-[#f1f5f9] font-mono text-sm">
-                          {cve.cvss_score > 0 ? cve.cvss_score.toFixed(1) : '—'}
-                        </td>
-                        <td className="px-4 py-3 text-xs text-[#8a9ab0] max-w-xs truncate">
-                          {cve.products || '—'}
-                        </td>
-                        <td className="px-4 py-3">
-                          <span className={`text-[11px] font-mono font-bold uppercase tracking-wider ${STATUS_COLORS[cve.status]}`}>
-                            {STATUS_LABELS[cve.status]}
-                          </span>
-                        </td>
-                        <td className="px-4 py-3 text-[11px] text-[#64748b]">
-                          {cve.published_at ? new Date(cve.published_at).toLocaleDateString('fr-FR') : '—'}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+            <label className="cv26-select">
+              <span className="cv26-filter-label">Statut</span>
+              <select aria-label="Filtrer par statut" value={filters.status ?? ''} onChange={(e) => updateFilter('status', e.target.value as CVEStatus | '')}>
+                <option value="">Tous</option>
+                {STATUSES.map(s => <option key={s} value={s}>{STATUS_LABELS[s]}</option>)}
+              </select>
+            </label>
+            {!loading && !listError && (
+              <span className="cv26-result-line" aria-live="polite">
+                <span><b>{count.toLocaleString('fr-FR')}</b> CVE {filtered ? 'correspondent' : 'indexées'}</span>
+                {totalPages > 1 && <span>page {page} / {totalPages}</span>}
+              </span>
+            )}
+          </div>
+        </section>
+
+        {loading ? (
+          <div className="cv26-board" aria-busy="true" aria-label="Chargement des CVE">
+            <div className="cv26-skeleton">{Array.from({ length: 6 }, (_, i) => <div key={i} />)}</div>
+          </div>
+        ) : listError ? (
+          <div role="alert" className="cv26-state is-error">
+            <AlertTriangle size={30} aria-hidden="true" />
+            <h2>Impossible de charger les CVE</h2>
+            <p>Le backend local n’a pas répondu. Vérifiez qu’il est lancé, puis réessayez.</p>
+            <div className="cv26-actions"><button type="button" className="cv26-btn" onClick={reload}>Réessayer</button></div>
+          </div>
+        ) : cves.length === 0 ? (
+          <div className="cv26-state">
+            <Database size={30} aria-hidden="true" />
+            <h2>Aucune CVE trouvée</h2>
+            <p>{filtered ? 'Aucune entrée locale ne correspond à ces critères.' : 'L’index local est vide : importez des CVE depuis NVD ou créez une entrée manuellement.'}</p>
+            <div className="cv26-actions">
+              <button type="button" className="cv26-btn is-primary" onClick={() => setShowNVDModal(true)}><CloudDownload size={15} aria-hidden="true" /> Import NVD en ligne</button>
+              <Link to="/cve/new" className="cv26-btn"><Plus size={15} aria-hidden="true" /> Nouvelle CVE</Link>
+            </div>
+          </div>
+        ) : (
+          <>
+            {kev.status === 'error' && (
+              <div role="status" className="cv26-note is-warn">
+                <span>Statut CISA KEV indisponible pour cette page : l’absence de badge ne signifie pas « non exploitée ».</span>
+                <button type="button" className="cv26-btn" onClick={reload}>Réessayer</button>
               </div>
-              <div className="border-t border-[#1e2d40] bg-[#0a0f16] p-4">
+            )}
+
+            <ul className="cv26-page-summary" aria-label="Composition de cette page">
+              <span>Cette page</span>
+              {pageSummary.map(s => (
+                <li key={s.severity} data-severity={s.severity}><i aria-hidden="true" />{SEVERITY_LABEL[s.severity]} <b>{s.n}</b></li>
+              ))}
+              {kev.status === 'ready' && kev.flagged.size > 0 && (
+                <li className="is-kev"><Flame size={12} aria-hidden="true" />Exploitées (KEV) <b>{kev.flagged.size}</b></li>
+              )}
+            </ul>
+
+            <div className="cv26-board">
+              <div className="cv26-board-head" aria-hidden="true">
+                <span />
+                <span>Vulnérabilité</span>
+                <span>CVSS</span>
+                <span>Produits</span>
+                <span>Statut</span>
+                <span>Publiée</span>
+              </div>
+              <ol className="cv26-list" aria-label="CVE">
+                {cves.map((cve) => {
+                  const products = splitProducts(cve.products)
+                  const flagged = kev.flagged.has(cve.cve_id)
+                  return (
+                    <li key={cve.id} className="cv26-row" data-severity={cve.severity} data-kev={flagged} onClick={() => navigate(`/cve/${cve.id}`)}>
+                      <span className="cv26-rail" aria-hidden="true" />
+                      <div className="cv26-ident">
+                        <div className="cv26-ident-top">
+                          <Link to={`/cve/${cve.id}`} className="cv26-id" onClick={(e) => e.stopPropagation()}>{cve.cve_id}</Link>
+                          {flagged && (
+                            <KevBadge title={kev.entries.get(cve.cve_id)?.vulnerability_name
+                              ? `Exploitée activement — ${kev.entries.get(cve.cve_id)?.vulnerability_name}`
+                              : 'Exploitée activement — catalogue CISA KEV'} />
+                          )}
+                        </div>
+                        <p className="cv26-desc" title={cve.description}>{cve.description || <span className="cv26-muted">Sans description</span>}</p>
+                      </div>
+                      <div className="cv26-score">
+                        <CvssMeter score={cve.cvss_score} severity={cve.severity} />
+                        <SeverityBadge severity={cve.severity} />
+                      </div>
+                      <div className="cv26-products">
+                        {products.length === 0 ? <span className="cv26-muted">—</span> : (
+                          <>
+                            {products.slice(0, PRODUCTS_SHOWN).map(p => <span key={p} title={p}>{p}</span>)}
+                            {products.length > PRODUCTS_SHOWN && <small title={products.join(', ')}>+{products.length - PRODUCTS_SHOWN}</small>}
+                          </>
+                        )}
+                      </div>
+                      <div className="cv26-status-cell"><StatusBadge status={cve.status} /></div>
+                      <span className="cv26-date">{formatDay(cve.published_at)}</span>
+                    </li>
+                  )
+                })}
+              </ol>
+              <div className="cv26-board-foot">
                 <Pagination page={page} totalPages={totalPages} onPage={setPage} />
               </div>
-            </>
-          )}
-        </div>
-
-        <input ref={fileRef} type="file" accept=".json" className="hidden" onChange={handleImport} />
+            </div>
+          </>
+        )}
       </div>
+
+      <input ref={fileRef} type="file" accept=".json" className="cv26-sr" tabIndex={-1} aria-hidden="true" onChange={handleImport} />
 
       {showNVDModal && (
         <NVDImportModal
@@ -349,6 +304,6 @@ export default function CVEList() {
           onSuccess={reload}
         />
       )}
-    </>
+    </div>
   )
 }

@@ -1,33 +1,14 @@
 import { useState, useEffect } from 'react'
 import { useParams, useNavigate, Link } from 'react-router-dom'
 import { cveApi, cisaApi } from '@/api/client'
-import type { CVEEntry, CVEStatus } from '@/types'
+import type { CVEEntry } from '@/types'
 import type { CISAKEVEntry, EPSSScore } from '@/types/threat_intel'
-import { ArrowLeft, Edit, Trash2, ExternalLink, Flame, TrendingUp, ShieldAlert, AlertTriangle } from 'lucide-react'
+import { AlertTriangle, ArrowLeft, Edit, ExternalLink, Flame, Trash2 } from 'lucide-react'
 import ConfirmModal from '@/components/ConfirmModal'
 import { toast } from '@/store/toast'
-
-const SEV_COLORS: Record<string, string> = {
-  critical: 'border-[#ef4444]/30 bg-[#ef4444]/10 text-[#ef4444]',
-  high:     'border-[#f97316]/30 bg-[#f97316]/10 text-[#f97316]',
-  medium:   'border-[#eab308]/30 bg-[#eab308]/10 text-[#eab308]',
-  low:      'border-[#3b82f6]/30 bg-[#3b82f6]/10 text-[#3b82f6]',
-  none:     'border-[#64748b]/30 bg-[#64748b]/10 text-[#64748b]',
-}
-
-const STATUS_COLORS: Record<CVEStatus, string> = {
-  new:      'text-[#00d4ff]',
-  analyzed: 'text-[#eab308]',
-  patched:  'text-[#10b981]',
-  na:       'text-[#64748b]',
-}
-
-const STATUS_LABELS: Record<CVEStatus, string> = {
-  new:      'NOUVEAU',
-  analyzed: 'ANALYSÉ',
-  patched:  'PATCHÉ',
-  na:       'N/A',
-}
+import CveHero from '@/cve26/CveHero'
+import { SEVERITY_LABEL, SeverityBadge, SignalPanel, StatusBadge, formatDay, splitProducts } from '@/cve26/parts'
+import '@/cve26/cve.css'
 
 /*
  * An enrichment (CISA KEV, EPSS) has three outcomes the page keeps apart:
@@ -38,20 +19,18 @@ type Enrichment<T> = { status: 'loading' } | { status: 'ready'; value: T | null 
 
 const httpStatus = (err: unknown) => (err as { response?: { status?: number } })?.response?.status
 
+// One decimal, truncated: 0.998 reads 99,8 and never rounds up to 100.
+const formatPercentile = (p: number) => (Math.floor(p * 1000) / 10).toLocaleString('fr-FR', { minimumFractionDigits: 1, maximumFractionDigits: 1 })
+
 function EnrichmentNote({ tone, children, onRetry }: { tone: 'muted' | 'warn'; children: React.ReactNode; onRetry?: () => void }) {
   return (
-    <div role="status" className={`flex flex-wrap items-center justify-between gap-3 border px-4 py-2 font-mono text-[11px] ${
-      tone === 'warn' ? 'border-[#f97316]/30 bg-[#f97316]/5 text-[#fdba74]' : 'border-[#1e2d40] bg-[#0a0f16] text-[#64748b]'}`}>
+    <div role="status" className={`cv26-note${tone === 'warn' ? ' is-warn' : ''}`}>
       <span>{children}</span>
-      {onRetry && (
-        <button type="button" onClick={onRetry}
-          className="border border-[#f97316]/30 px-3 py-1 text-[10px] font-bold uppercase tracking-widest hover:bg-[#f97316]/10 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#00d4ff]">
-          Réessayer
-        </button>
-      )}
+      {onRetry && <button type="button" className="cv26-btn" onClick={onRetry}>Réessayer</button>}
     </div>
   )
 }
+
 
 export default function CVEDetail() {
   const { id } = useParams<{ id: string }>()
@@ -130,256 +109,150 @@ export default function CVEDetail() {
 
   if (loading) {
     return (
-      <div className="flex h-full items-center justify-center bg-[#06080f]">
-        <p className="font-mono text-xs text-[#64748b]">CHARGEMENT...</p>
-      </div>
+      <div className="cv26"><div className="cv26-frame">
+        <CveHero status={{ text: 'CHARGEMENT', tone: 'busy' }} />
+        <div className="cv26-loading" role="status">Chargement de la fiche…</div>
+      </div></div>
     )
   }
   if (loadError) {
     return (
-      <div className="flex h-full flex-col items-center justify-center gap-4 bg-[#06080f] text-center">
-        <div role="alert" className="space-y-2">
-          <AlertTriangle size={32} className="mx-auto text-[#ef4444]/60" aria-hidden="true" />
-          <p className="font-mono text-sm uppercase tracking-widest text-[#f1f5f9]">Impossible de charger cette CVE</p>
-          <p className="font-mono text-xs text-[#8a9ab0]">Le backend local n’a pas répondu.</p>
+      <div className="cv26"><div className="cv26-frame">
+        <CveHero status={{ text: 'FICHE INDISPONIBLE', tone: 'warn' }} />
+        <div role="alert" className="cv26-state is-error">
+          <AlertTriangle size={30} aria-hidden="true" />
+          <h2>Impossible de charger cette CVE</h2>
+          <p>Le backend local n’a pas répondu.</p>
+          <div className="cv26-actions">
+            <button type="button" className="cv26-btn" onClick={() => setLoadAttempt((n) => n + 1)}>Réessayer</button>
+            <Link to="/cve" className="cv26-btn">Retour à l’index</Link>
+          </div>
         </div>
-        <div className="flex gap-3">
-          <button type="button" onClick={() => setLoadAttempt((n) => n + 1)}
-            className="border border-[#334155] bg-[#1e2d40] px-4 py-2 font-mono text-[10px] font-bold uppercase tracking-widest hover:bg-[#2a3f55] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#00d4ff]">
-            Réessayer
-          </button>
-          <Link to="/cve" className="border border-[#334155] px-4 py-2 font-mono text-[10px] font-bold uppercase tracking-widest text-[#8a9ab0] hover:text-[#f1f5f9] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#00d4ff]">
-            Retour à l’index
-          </Link>
-        </div>
-      </div>
+      </div></div>
     )
   }
   if (!cve) return null
+
   const kevEntry = kev.status === 'ready' ? kev.value : null
   const epssScore = epss.status === 'ready' ? epss.value : null
-
-  const products = cve.products ? cve.products.split(',').map(p => p.trim()).filter(Boolean) : []
+  const products = splitProducts(cve.products)
   const nvdUrl = `https://nvd.nist.gov/vuln/detail/${cve.cve_id}`
 
   return (
-    <div className="flex flex-col h-full bg-[#06080f] text-[#f1f5f9]">
-      {/* Bandeau d'en-tête style BGPLookup */}
-      <div className="flex items-center justify-between px-6 py-4 border-b border-[#1e2d40] bg-[#0a0f16]/50">
-        <div className="flex items-center gap-3">
-          <div className="relative">
-            <ShieldAlert className="text-[#00d4ff]" size={20} />
-            <div className="absolute -top-1 -right-1 w-2 h-2 bg-[#10b981] rounded-full animate-pulse shadow-[0_0_8px_#10b981]" />
-          </div>
-          <div>
-            <h1 className="text-sm font-bold tracking-[0.2em] uppercase">CVE WATCH // DETAIL</h1>
-            <p className="text-[10px] text-[#64748b] font-mono">
-              {cve.cve_id} • {cve.severity.toUpperCase()}
-            </p>
-          </div>
-        </div>
-        <div className="flex items-center gap-4">
-          <Link
-            to="/cve"
-            className="flex items-center gap-2 px-3 py-1.5 bg-[#1e2d40] hover:bg-[#2a3f55] text-[10px] font-bold border border-[#334155] transition-colors"
-          >
-            <ArrowLeft size={12} /> BACK TO INDEX
-          </Link>
-        </div>
-      </div>
+    <div className="cv26">
+      <div className="cv26-frame">
+        <CveHero status={{ text: 'FICHE', mark: cve.cve_id }} />
 
-      {/* Zone de contenu scrollable */}
-      <div className="flex-1 overflow-auto p-6 space-y-6">
-        {/* Carte principale */}
-        <div className="border border-[#1e2d40] bg-[#0a0f16] p-6 space-y-5">
-          <div className="flex flex-wrap items-start justify-between gap-3">
-            <div className="flex flex-wrap items-center gap-2">
-              <span className={`border px-2 py-0.5 font-mono text-[9px] uppercase tracking-widest ${SEV_COLORS[cve.severity]}`}>
-                {cve.severity}
-              </span>
-              {cve.cvss_score > 0 && (
-                <span className="text-[11px] font-mono text-[#8a9ab0]">
-                  CVSS <span className="text-[#f1f5f9] font-bold">{cve.cvss_score.toFixed(1)}</span>
-                </span>
+        <nav className="cv26-crumbs" aria-label="Navigation">
+          <Link to="/cve" className="cv26-link"><ArrowLeft size={14} aria-hidden="true" /> Index CVE &amp; KEV</Link>
+          <a href={nvdUrl} target="_blank" rel="noopener noreferrer" className="cv26-link">
+            Fiche NVD <ExternalLink size={13} aria-hidden="true" />
+          </a>
+        </nav>
+
+        <article className="cv26-dossier" data-severity={cve.severity} aria-labelledby="cv26-cve-title">
+          <header className="cv26-dossier-head">
+            <div>
+              <h2 id="cv26-cve-title">{cve.cve_id}</h2>
+              <div className="cv26-dossier-tags">
+                <SeverityBadge severity={cve.severity} />
+                <StatusBadge status={cve.status} />
+                {kevEntry && <span className="cv26-kev"><Flame size={11} aria-hidden="true" />KEV</span>}
+              </div>
+            </div>
+            <div className="cv26-dossier-actions">
+              <Link to={`/cve/${cve.id}/edit`} className="cv26-btn"><Edit size={14} aria-hidden="true" /> Modifier</Link>
+              <button type="button" className="cv26-btn is-danger" onClick={() => setConfirmOpen(true)} disabled={deleting}>
+                <Trash2 size={14} aria-hidden="true" /> {deleting ? 'Suppression…' : 'Supprimer'}
+              </button>
+            </div>
+          </header>
+
+          {cve.description
+            ? <p className="cv26-desc-full">{cve.description}</p>
+            : <p className="cv26-desc-full cv26-muted">Aucune description enregistrée.</p>}
+
+          <div className="cv26-signals">
+            {/* CVSS: technical severity, as recorded in the local entry. */}
+            <SignalPanel kind="cvss" title="Gravité CVSS" source="fiche locale">
+              {cve.cvss_score > 0 ? (
+                <>
+                  <div className="cv26-signal-figure"><b>{cve.cvss_score.toFixed(1)}</b><small>/ 10 · {SEVERITY_LABEL[cve.severity]}</small></div>
+                  <div className="cv26-track" data-severity={cve.severity} aria-hidden="true"><i style={{ width: `${(cve.cvss_score / 10) * 100}%` }} /></div>
+                  <div className="cv26-track-scale" aria-hidden="true">
+                    {[0, 4, 7, 9, 10].map(mark => <span key={mark} style={{ left: `${mark * 10}%` }}>{mark}</span>)}
+                  </div>
+                </>
+              ) : (
+                <p>Aucun score CVSS enregistré pour cette entrée.</p>
               )}
-              <span className={`text-[11px] font-mono font-bold uppercase tracking-wider ${STATUS_COLORS[cve.status]}`}>
-                {STATUS_LABELS[cve.status]}
-              </span>
-            </div>
-            <a
-              href={nvdUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="flex items-center gap-1 text-[10px] font-mono text-[#4a6480] hover:text-[#00d4ff] transition-colors"
-            >
-              <ExternalLink size={12} /> NVD
-            </a>
+            </SignalPanel>
+
+            {/* CISA KEV: confirmed exploitation, independent from CVSS and EPSS. */}
+            <SignalPanel kind="kev" title="Exploitation CISA KEV" source="catalogue KEV local">
+              {kev.status === 'loading' && <EnrichmentNote tone="muted">Vérification CISA KEV…</EnrichmentNote>}
+              {kev.status === 'error' && (
+                <EnrichmentNote tone="warn" onRetry={() => setKevAttempt((n) => n + 1)}>
+                  Statut CISA KEV indisponible : impossible de dire si cette CVE est exploitée activement.
+                </EnrichmentNote>
+              )}
+              {kev.status === 'ready' && !kevEntry && <EnrichmentNote tone="muted">Absente du catalogue CISA KEV local.</EnrichmentNote>}
+              {kevEntry && (
+                <div className="cv26-kev-yes">
+                  <h3><Flame size={15} aria-hidden="true" />EXPLOITATION ACTIVE — CISA KEV</h3>
+                  <dl className="cv26-kev-facts">
+                    <div><dt>Produit</dt><dd>{kevEntry.vendor_project} · {kevEntry.product}</dd></div>
+                    {kevEntry.vulnerability_name && <div><dt>Nom</dt><dd>{kevEntry.vulnerability_name}</dd></div>}
+                    <div><dt>Ajoutée le</dt><dd>{kevEntry.date_added || '—'}</dd></div>
+                    <div><dt>Action</dt><dd>{kevEntry.required_action}</dd></div>
+                    <div><dt>Échéance</dt><dd>{kevEntry.due_date || '—'}</dd></div>
+                  </dl>
+                </div>
+              )}
+            </SignalPanel>
+
+            {/* EPSS: probability of exploitation in the next 30 days, from FIRST.org. */}
+            <SignalPanel kind="epss" title="Probabilité EPSS" source={epssScore?.date ? `FIRST.org · ${epssScore.date}` : 'FIRST.org'}>
+              {epss.status === 'loading' && <EnrichmentNote tone="muted">Récupération du score EPSS…</EnrichmentNote>}
+              {epss.status === 'error' && (
+                <EnrichmentNote tone="warn" onRetry={() => setEpssAttempt((n) => n + 1)}>
+                  Score EPSS indisponible : la récupération auprès de FIRST.org a échoué.
+                </EnrichmentNote>
+              )}
+              {epss.status === 'ready' && !epssScore && (
+                <EnrichmentNote tone="muted">Aucun score EPSS obtenu pour cette CVE : FIRST.org n’en publie peut-être pas, ou sa réponse était inexploitable.</EnrichmentNote>
+              )}
+              {epssScore && (
+                <>
+                  <div className="cv26-signal-figure"><b>{(epssScore.score * 100).toFixed(1)}%</b><small>d’exploitation sur 30 jours</small></div>
+                  <div className="cv26-track" aria-hidden="true"><i style={{ width: `${Math.min(100, epssScore.score * 100)}%` }} /></div>
+                  <p>Percentile <b>{formatPercentile(epssScore.percentile)}</b> : score plus élevé que {formatPercentile(epssScore.percentile)} % des CVE notées par FIRST.org.</p>
+                </>
+              )}
+            </SignalPanel>
           </div>
 
-          <h1 className="break-words font-mono text-2xl font-bold uppercase tracking-[0.15em] text-[#00d4ff]">
-            {cve.cve_id}
-          </h1>
+          <div>
+            <h3 className="cv26-section-title">Produits concernés</h3>
+            {products.length > 0
+              ? <ul className="cv26-product-list">{products.map(p => <li key={p}>{p}</li>)}</ul>
+              : <p className="cv26-pending">Aucun produit renseigné.</p>}
+          </div>
 
-          {cve.description && (
-            <p className="font-mono text-[13px] leading-relaxed text-[#cbd5e1]">
-              {cve.description}
-            </p>
+          <dl className="cv26-facts" aria-label="Dates et provenance">
+            <div><dt>Publiée le</dt><dd>{formatDay(cve.published_at)}</dd></div>
+            <div><dt>Ajoutée à l’index</dt><dd>{formatDay(cve.created_at)}</dd></div>
+            <div><dt>Modifiée le</dt><dd>{formatDay(cve.updated_at)}</dd></div>
+            <div><dt>Référence</dt><dd><a href={nvdUrl} target="_blank" rel="noopener noreferrer" className="cv26-link">nvd.nist.gov <ExternalLink size={12} aria-hidden="true" /></a></dd></div>
+          </dl>
+
+          {cve.notes && (
+            <div>
+              <h3 className="cv26-section-title">Notes &amp; analyse</h3>
+              <p className="cv26-notes">{cve.notes}</p>
+            </div>
           )}
-
-          {/* Barre CVSS */}
-          {cve.cvss_score > 0 && (
-            <div>
-              <div className="flex justify-between text-[10px] font-mono text-[#64748b] mb-1">
-                <span>SCORE CVSS</span>
-                <span className="text-[#f1f5f9] font-bold">{cve.cvss_score.toFixed(1)} / 10</span>
-              </div>
-              <div className="h-1.5 bg-[#1e2d40] rounded-full overflow-hidden">
-                <div
-                  className={`h-full rounded-full transition-all ${
-                    cve.cvss_score >= 9 ? 'bg-[#ef4444]' :
-                    cve.cvss_score >= 7 ? 'bg-[#f97316]' :
-                    cve.cvss_score >= 4 ? 'bg-[#eab308]' : 'bg-[#3b82f6]'
-                  }`}
-                  style={{ width: `${(cve.cvss_score / 10) * 100}%` }}
-                />
-              </div>
-            </div>
-          )}
-
-          {/* Produits */}
-          {products.length > 0 && (
-            <div>
-              <p className="text-[10px] font-mono text-[#4a6480] mb-2 uppercase tracking-widest">PRODUITS AFFECTÉS</p>
-              <div className="flex flex-wrap gap-2">
-                {products.map((p, i) => (
-                  <span key={i} className="text-[11px] font-mono bg-[#0d131f] border border-[#1e2d40] px-2 py-1 text-[#8a9ab0]">
-                    {p}
-                  </span>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* Dates */}
-          <div className="grid grid-cols-2 gap-4 pt-2 border-t border-[#1e2d40]">
-            <div>
-              <p className="text-[10px] font-mono text-[#4a6480] uppercase tracking-widest">PUBLIÉ LE</p>
-              <p className="text-[11px] font-mono text-[#f1f5f9] mt-1">
-                {cve.published_at ? new Date(cve.published_at).toLocaleDateString('fr-FR') : '—'}
-              </p>
-            </div>
-            <div>
-              <p className="text-[10px] font-mono text-[#4a6480] uppercase tracking-widest">AJOUTÉ LE</p>
-              <p className="text-[11px] font-mono text-[#f1f5f9] mt-1">
-                {new Date(cve.created_at).toLocaleDateString('fr-FR')}
-              </p>
-            </div>
-          </div>
-
-          {/* Boutons d'action */}
-          <div className="flex gap-3 pt-2 border-t border-[#1e2d40]">
-            <Link
-              to={`/cve/${cve.id}/edit`}
-              className="flex items-center gap-2 border border-[#00d4ff]/20 bg-[#00d4ff]/10 px-4 py-2 font-mono text-[10px] font-bold uppercase tracking-widest text-[#00d4ff] transition-colors hover:bg-[#00d4ff]/20"
-            >
-              <Edit size={13} /> MODIFIER
-            </Link>
-            <button
-              onClick={() => setConfirmOpen(true)}
-              disabled={deleting}
-              className="flex items-center gap-2 border border-[#ef4444]/20 bg-[#ef4444]/10 px-4 py-2 font-mono text-[10px] font-bold uppercase tracking-widest text-[#ef4444] transition-colors hover:bg-[#ef4444]/20 disabled:opacity-50"
-            >
-              <Trash2 size={13} /> {deleting ? '...' : 'SUPPRIMER'}
-            </button>
-          </div>
-        </div>
-
-        {/* Section CISA KEV */}
-        {kevEntry && (
-          <div className="border-l-2 border-[#ef4444] bg-[#ef4444]/5 p-5">
-            <h2 className="flex items-center gap-2 font-mono text-[11px] font-bold uppercase tracking-[0.2em] text-[#ef4444] mb-3">
-              <Flame size={14} className="animate-pulse" /> EXPLOITATION ACTIVE — CISA KEV
-            </h2>
-            <div className="grid grid-cols-1 gap-3 text-[11px] font-mono sm:grid-cols-2">
-              <div>
-                <span className="text-[#4a6480]">PRODUIT :</span>{' '}
-                <span className="text-[#f1f5f9]">{kevEntry.vendor_project} · {kevEntry.product}</span>
-              </div>
-              <div>
-                <span className="text-[#4a6480]">AJOUTÉ LE :</span>{' '}
-                <span className="text-[#ef4444] font-bold">{kevEntry.date_added}</span>
-              </div>
-              <div>
-                <span className="text-[#4a6480]">ACTION REQUISE :</span>{' '}
-                <span className="text-[#f1f5f9]">{kevEntry.required_action}</span>
-              </div>
-              <div>
-                <span className="text-[#4a6480]">DATE LIMITE :</span>{' '}
-                <span className="text-[#f97316] font-bold">{kevEntry.due_date || '—'}</span>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {kev.status === 'loading' && <EnrichmentNote tone="muted">Vérification CISA KEV…</EnrichmentNote>}
-        {kev.status === 'error' && (
-          <EnrichmentNote tone="warn" onRetry={() => setKevAttempt((n) => n + 1)}>
-            Statut CISA KEV indisponible : impossible de dire si cette CVE est exploitée activement.
-          </EnrichmentNote>
-        )}
-        {kev.status === 'ready' && !kevEntry && (
-          <EnrichmentNote tone="muted">Absente du catalogue CISA KEV local.</EnrichmentNote>
-        )}
-
-        {/* Section EPSS */}
-        {epss.status === 'loading' && <EnrichmentNote tone="muted">Récupération du score EPSS…</EnrichmentNote>}
-        {epss.status === 'error' && (
-          <EnrichmentNote tone="warn" onRetry={() => setEpssAttempt((n) => n + 1)}>
-            Score EPSS indisponible : la récupération auprès de FIRST.org a échoué.
-          </EnrichmentNote>
-        )}
-        {epss.status === 'ready' && !epssScore && (
-          <EnrichmentNote tone="muted">Aucun score EPSS obtenu pour cette CVE : FIRST.org n’en publie peut-être pas, ou sa réponse était inexploitable.</EnrichmentNote>
-        )}
-        {epssScore && (
-          <div className="border border-[#1e2d40] bg-[#0a0f16] p-5">
-            <h2 className="flex items-center gap-2 font-mono text-[11px] font-bold uppercase tracking-[0.2em] text-[#00d4ff] mb-3">
-              <TrendingUp size={14} /> EPSS SCORE
-            </h2>
-            <p className="text-[11px] font-mono text-[#8a9ab0] mb-2">
-              Probabilité d’exploitation dans les 30 prochains jours :
-              <span className={`ml-2 font-bold ${
-                epssScore.score >= 0.7 ? 'text-[#ef4444]' :
-                epssScore.score >= 0.3 ? 'text-[#f97316]' : 'text-[#64748b]'
-              }`}>
-                {(epssScore.score * 100).toFixed(1)}%
-              </span>
-              {' · '}Percentile {(epssScore.percentile * 100).toFixed(0)}e
-            </p>
-            <div className="h-1.5 bg-[#1e2d40] rounded-full overflow-hidden">
-              <div
-                className={`h-full rounded-full transition-all ${
-                  epssScore.score >= 0.7 ? 'bg-[#ef4444]' :
-                  epssScore.score >= 0.3 ? 'bg-[#f97316]' : 'bg-[#64748b]'
-                }`}
-                style={{ width: `${epssScore.score * 100}%` }}
-              />
-            </div>
-            <p className="text-[10px] font-mono text-[#4a6480] mt-2">Source : FIRST.org · {epssScore.date}</p>
-          </div>
-        )}
-
-        {/* Notes d'analyse */}
-        {cve.notes && (
-          <div className="border border-[#1e2d40] bg-[#0a0f16] p-5">
-            <h2 className="font-mono text-[11px] font-bold uppercase tracking-[0.2em] text-[#8a9ab0] mb-3">
-              📝 NOTES & ANALYSE
-            </h2>
-            <div className="prose prose-invert prose-sm max-w-none text-[#cbd5e1] [&_code]:bg-[#0d131f] [&_code]:border [&_code]:border-[#1e2d40] [&_code]:px-1.5 [&_code]:py-0.5 [&_code]:text-[#00d4ff] [&_code]:font-mono [&_code]:text-xs">
-              <p className="whitespace-pre-wrap font-mono text-sm">{cve.notes}</p>
-            </div>
-          </div>
-        )}
+        </article>
       </div>
 
       <ConfirmModal
