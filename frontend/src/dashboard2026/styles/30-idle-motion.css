@@ -1,32 +1,14 @@
-/* Decorative movement does not carry live data; keep the Dashboard calm at rest. */
-:where(.cyber-dashboard-2026) .premium-traveler,
-:where(.cyber-dashboard-2026) .premium-halo,
-:where(.cyber-dashboard-2026) .mini-bars i,
-:where(.cyber-dashboard-2026) .dashboard-board .overview-hero .circuit-pulses path,
-:where(.cyber-dashboard-2026) .dashboard-board .overview-hero .circuit-nodes g,
-:where(.cyber-dashboard-2026) .dashboard-board .overview-hero .chip-aura,
-:where(.cyber-dashboard-2026) .dashboard-board .overview-hero .chip-halo,
-:where(.cyber-dashboard-2026) .dashboard-board .overview-hero .chip-scan,
-:where(.cyber-dashboard-2026) .dashboard-board .threat-beacon i,
-:where(.cyber-dashboard-2026) .threat-status,
-:where(.cyber-dashboard-2026) .threat-status::after,
-:where(.cyber-dashboard-2026) .threat-status-led {
+/* Let Chromium skip decorative work only while this tab cannot be seen. */
+:where(.cyber-dashboard-2026[data-motion-paused]) *,
+:where(.cyber-dashboard-2026[data-motion-paused]) *::before,
+:where(.cyber-dashboard-2026[data-motion-paused]) *::after {
   animation-play-state: paused !important;
 }
 
 @media (prefers-reduced-motion: reduce) {
-  :where(.cyber-dashboard-2026) .premium-traveler,
-  :where(.cyber-dashboard-2026) .premium-halo,
-  :where(.cyber-dashboard-2026) .mini-bars i,
-  :where(.cyber-dashboard-2026) .dashboard-board .overview-hero .circuit-pulses path,
-  :where(.cyber-dashboard-2026) .dashboard-board .overview-hero .circuit-nodes g,
-  :where(.cyber-dashboard-2026) .dashboard-board .overview-hero .chip-aura,
-  :where(.cyber-dashboard-2026) .dashboard-board .overview-hero .chip-halo,
-  :where(.cyber-dashboard-2026) .dashboard-board .overview-hero .chip-scan,
-  :where(.cyber-dashboard-2026) .dashboard-board .threat-beacon i,
-  :where(.cyber-dashboard-2026) .threat-status,
-  :where(.cyber-dashboard-2026) .threat-status::after,
-  :where(.cyber-dashboard-2026) .threat-status-led {
+  :where(.cyber-dashboard-2026) *,
+  :where(.cyber-dashboard-2026) *::before,
+  :where(.cyber-dashboard-2026) *::after {
     animation: none !important;
   }
 }
