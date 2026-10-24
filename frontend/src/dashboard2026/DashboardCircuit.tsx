@@ -40,7 +40,7 @@ export { useCircuitGeometry } from "./circuit/useCircuitGeometry";
 export { journeyKeyframes } from "./circuit/animations";
 export { JourneyLayer, LinkLayer } from "./circuit/layers";
 
-export default function DashboardCircuit() {
+export default function DashboardCircuit({ motion = true }: { motion?: boolean }) {
   const hostRef = useRef<HTMLDivElement>(null);
   const { geometry } = useCircuitGeometry(hostRef);
   // The board's own layer: one LED and two tails per journey where the browser can
@@ -48,8 +48,8 @@ export default function DashboardCircuit() {
   // the merged board, per-hop keyframes are kept only for the hops the hero draws.
   const merged = useMemo(() => (geometry && supportsPathAnimation() ? mergeJourneys(geometry.journeys) : null), [geometry]);
   const keyframes = useMemo(
-    () => (geometry ? journeyKeyframes(geometry.journeys, merged ? (ji, hi) => !!geometry.hero && hopIn(geometry.journeys[ji].hops[hi], geometry.hero) : undefined) + heartbeatKeyframes(geometry.heartbeat) + (merged ? mergedKeyframes(geometry.journeys, merged) : "") : ""),
-    [geometry, merged],
+    () => (geometry && motion ? journeyKeyframes(geometry.journeys, merged ? (ji, hi) => !!geometry.hero && hopIn(geometry.journeys[ji].hops[hi], geometry.hero) : undefined) + heartbeatKeyframes(geometry.heartbeat) + (merged ? mergedKeyframes(geometry.journeys, merged) : "") : ""),
+    [geometry, merged, motion],
   );
   const heroElement = geometry?.hero ? hostRef.current?.parentElement?.querySelector(".dashboard-board .overview-hero") : null;
 
@@ -57,7 +57,7 @@ export default function DashboardCircuit() {
   // every journey animation the same start time, so a signal crossing from one
   // layer to the next is at the same place at the same instant.
   useEffect(() => {
-    if (!geometry) return;
+    if (!geometry || !motion) return;
     const frame = requestAnimationFrame(() => {
       const animations = document
         .getAnimations()
@@ -70,7 +70,7 @@ export default function DashboardCircuit() {
       });
     });
     return () => cancelAnimationFrame(frame);
-  }, [geometry]);
+  }, [geometry, motion]);
   const boardElement = heroElement?.parentElement ?? null;
   return (
     <div className="dashboard-circuit-bg" ref={hostRef} aria-hidden="true">
@@ -142,7 +142,7 @@ export default function DashboardCircuit() {
             })()}
           </svg>
 
-          <svg
+          {motion && <svg
             className="dashboard-circuit-motion"
             width={geometry.width}
             height={geometry.height}
@@ -161,9 +161,9 @@ export default function DashboardCircuit() {
               )}
               {merged ? <MergedJourneyLayer journeys={geometry.journeys} merged={merged} /> : <JourneyLayer journeys={geometry.journeys} mode="under" />}
             </g>
-          </svg>
-          {geometry.hero && heroElement && <HeroLayer hero={geometry.hero} journeys={geometry.journeys} target={heroElement} />}
-          {geometry.hero?.link && boardElement && <LinkLayer hero={geometry.hero} link={geometry.hero.link} journeys={geometry.journeys} target={boardElement} />}
+          </svg>}
+          {geometry.hero && heroElement && <HeroLayer hero={geometry.hero} journeys={motion ? geometry.journeys : []} target={heroElement} />}
+          {geometry.hero?.link && boardElement && <LinkLayer hero={geometry.hero} link={geometry.hero.link} journeys={motion ? geometry.journeys : []} target={boardElement} />}
         </>
       )}
     </div>
