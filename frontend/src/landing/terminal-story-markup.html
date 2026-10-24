@@ -1,0 +1,1027 @@
+
+    <a class="skip-link" href="#main">Aller au contenu</a>
+    <header class="story-header">
+      <a
+        class="story-brand"
+        href="/welcome/"
+        aria-label="CyberHub 2026, accueil du showcase"
+        ><img class="story-mark" src="/landing/terminal-mark.svg" alt="" aria-hidden="true"
+        /><span>Cyber<span>Hub</span></span></a
+      >
+      <nav class="story-nav" aria-label="Navigation principale">
+        <a href="#terminal">La commande</a><a href="#relations">Les liens</a
+        ><a href="#mitre">MITRE</a><a href="#investigation">La méthode</a
+        ><a href="#capabilities">Explorer</a>
+      </nav>
+      <div class="header-end">
+        <button type="button" class="motion-control" aria-pressed="false">
+          Arrêter les animations</button
+        ><button
+          type="button"
+          class="menu-control"
+          aria-expanded="false"
+          aria-controls="mobile-nav"
+        >
+          Menu <span aria-hidden="true">☰</span>
+        </button>
+      </div>
+    </header>
+    <nav
+      id="mobile-nav"
+      class="mobile-nav"
+      aria-label="Navigation mobile"
+      hidden
+    >
+      <a href="#terminal">La commande</a><a href="#relations">Les liens</a
+      ><a href="#mitre">MITRE</a><a href="#investigation">La méthode</a
+      ><a href="#capabilities">Explorer les modules</a
+      ><a href="#decouvrir">Découvrir CyberHub</a>
+    </nav>
+    <div class="story-progress" aria-hidden="true"><span></span></div>
+    <div class="story-status" aria-hidden="true">
+      <span class="story-status-step">01 / 08</span>
+      <strong class="story-status-title">Une ligne a été trouvée.</strong>
+      <span class="story-status-detail">La source reste visible.</span>
+    </div>
+
+    <main id="main">
+      <section
+        class="handoff-track"
+        id="terminal"
+        aria-labelledby="story-title"
+      >
+        <p class="pilot-accessible-summary">
+          Démonstration fictive : une commande non exécutée retrouve deux
+          mentions de l'adresse de documentation 198.51.100.42 dans
+          ./demo/events.log, lignes 14 et 31. L'adresse est reprise dans une
+          fiche IOC illustrative avec son type IPv4, sa source, son contexte e
+          ses limites : rôle, réputation et causalité inconnus. Aucune donnée
+          n'est enregistrée et aucune API privée n'est appelée.
+        </p>
+        <div class="handoff-sticky">
+          <div class="hero-heading">
+            <p class="scene-index">
+              <span class="active-cursor" aria-hidden="true"></span> CyberHub /
+              démonstration 01—02
+            </p>
+            <h1 id="story-title">
+              Un indice n'est pas<br /><em>encore une réponse.</em>
+            </h1>
+            <p>
+              Une commande illustrative trouve une adresse dans un journal
+              fictif. CyberHub aide ensuite à en garder la source, le contexte
+              et les questions ouvertes.
+            </p>
+          </div>
+          <div class="handoff-workspace">
+            <div class="terminal-window" aria-label="Terminal illustratif">
+              <div class="terminal-chrome">
+                <span class="terminal-ident">cyberhub / terminal fictif</span
+                ><span class="terminal-counter">01 — repérer</span
+                ><span class="terminal-dots" aria-hidden="true"
+                  ><i></i><i></i><i></i
+                ></span>
+              </div>
+              <div class="terminal-surface" aria-hidden="true">
+                <div class="command-line">
+                  <span class="prompt">❯</span
+                  ><span class="typed-command"
+                    >rg "198.51.100.42" ./demo/events.log</span
+                  ><span class="terminal-caret"></span>
+                </div>
+                <div class="terminal-result result-one">
+                  <span class="result-path">./demo/events.log:14</span
+                  ><span class="result-detail"
+                    >09:14 · référence observée · source A ·
+                    <mark class="source-ip">198.51.100.42</mark></span
+                  >
+                </div>
+                <div class="terminal-result result-two">
+                  <span class="result-path">./demo/events.log:31</span
+                  ><span class="result-detail"
+                    >11:32 · seconde mention · source B · 198.51.100.42</span
+                  >
+                </div>
+                <p class="terminal-copy-note">
+                  Valeur sélectionnée · transfert illustratif vers IOC Manager
+                </p>
+                <p class="terminal-end">
+                  2 lignes dans un fichier d'exemple · aucun réseau
+                  interrogé<span aria-hidden="true">_</span>
+                </p>
+              </div>
+              <div class="terminal-bottom">
+                <span
+                  >Simulation illustrative — aucune commande réellement
+                  exécutée</span
+                ><button
+                  type="button"
+                  id="replay-command"
+                  class="terminal-replay"
+                >
+                  Rejouer ↺
+                </button>
+              </div>
+            </div>
+            <div class="ioc-workspace" id="ioc" aria-labelledby="ioc-title">
+              <div class="ioc-top">
+                <span>CyberHub / IOC Manager</span><span>02 — qualifier</span>
+              </div>
+              <div class="ioc-identity">
+                <span class="ioc-type">Indicateur · IP</span>
+                <h2 id="ioc-title">
+                  Une valeur,<br /><em>avec son histoire.</em>
+                </h2>
+                <p>
+                  On conserve ce que le fichier dit. On laisse visible ce qu'il
+                  ne dit pas.
+                </p>
+              </div>
+              <div class="ioc-value-line">
+                <span>Valeur</span
+                ><span class="ioc-placeholder" aria-hidden="true"
+                  >Adresse IPv4…</span
+                ><strong class="ioc-target">198.51.100.42</strong
+                ><span class="ioc-confirm" aria-hidden="true">↳</span>
+              </div>
+              <p class="ioc-save">✓ Fiche enregistrée dans la simulation</p>
+              <dl class="ioc-facts">
+                <div>
+                  <dt>Type</dt>
+                  <dd>Adresse IPv4 de documentation</dd>
+                </div>
+                <div>
+                  <dt>Provenance</dt>
+                  <dd>./demo/events.log · fichier synthétique</dd>
+                </div>
+                <div>
+                  <dt>Contexte</dt>
+                  <dd>Deux mentions à des heures différentes</dd>
+                </div>
+                <div class="unknown">
+                  <dt>Encore inconnu</dt>
+                  <dd>Rôle, réputation et causalité : non établis</dd>
+                </div>
+              </dl>
+              <p class="ioc-footnote">
+                Fiche de démonstration · aucune création dans la Console privée.
+              </p>
+            </div>
+          </div>
+          <div class="handoff-controls">
+            <a href="#ioc" class="handoff-next"
+              >Passer à la fiche IOC <span aria-hidden="true">↓</span></a
+            ><span id="stage-label">01 / repérer</span
+            ><a href="#relations"
+              >Examiner les liens <span aria-hidden="true">↓</span></a
+            >
+          </div>
+        </div>
+      </section>
+      <div class="static-transcript">
+        <details>
+          <summary>Lire la transcription du terminal et du transfert</summary>
+          <p>
+            Commande illustrative :
+            <code>rg "198.51.100.42" ./demo/events.log</code>. Deux lignes
+            fictives du fichier <code>./demo/events.log</code>, aux lignes 14 e
+            31, mentionnent l'adresse de documentation 198.51.100.42. Aucun
+            processus n'est exécuté. La démonstration reprend la valeur dans une
+            fiche IOC fictive avec sa provenance, ses deux mentions et les
+            inconnues : rôle, réputation, causalité.
+          </p>
+        </details>
+      </div>
+
+      <section class="ecosystem-index story-section" id="capabilities" aria-labelledby="capabilities-title">
+        <div class="section-head">
+          <p class="scene-index">02 / parcourir l'écosystème</p>
+          <h2 id="capabilities-title">Une enquête,<br /><em>plusieurs disciplines.</em></h2>
+          <p>Le récit commence par un indice. Explorez ensuite chaque démonstration, ou suivez la progression scénique en faisant défiler la page.</p>
+        </div>
+        <nav class="ecosystem-nav" aria-label="Accès direct aux démonstrations CyberHub">
+          <a href="#terminal"><span>01</span><strong>Terminal <i>→</i> IOC</strong><small>Repérer et qualifier</small></a>
+          <a href="#relations"><span>02</span><strong>Corrélation</strong><small>Rapprocher sans conclure</small></a>
+          <a href="#mitre"><span>03</span><strong>MITRE ATT&amp;CK</strong><small>Consulter un référentiel</small></a>
+          <a href="#cve"><span>04</span><strong>CVE &amp; KEV</strong><small>Lire une veille fictive</small></a>
+          <a href="#osint-scene"><span>05</span><strong>OSINT Runner</strong><small>Examiner des sources</small></a>
+          <a href="#bgp-scene"><span>06</span><strong>BGP Lookup / Historian</strong><small>Comparer des instantanés</small></a>
+          <a href="#investigation"><span>07</span><strong>Investigations</strong><small>Garder sources et chronologie</small></a>
+          <a href="#playbook"><span>08</span><strong>Playbooks</strong><small>Guider la vérification</small></a>
+          <a class="ecosystem-convergence" href="#decouvrir"><span>→</span><strong>Convergence CyberHub</strong><small>Un espace, plusieurs outils</small></a>
+        </nav>
+        <p class="ecosystem-note">Démonstrations publiques · données synthétiques · aucune connexion à la Console.</p>
+      </section>
+
+      <section
+        class="relations-section story-section"
+        id="relations"
+        aria-labelledby="relations-title"
+      >
+        <div class="section-head">
+          <p class="scene-index">03 / examiner</p>
+          <h2 id="relations-title">
+            Un rapprochement<br /><em>n'est pas une conclusion.</em>
+          </h2>
+          <p>
+            Deux mentions dans un même journal peuvent être rapprochées.
+            L'analyse montre leur source et ce qui reste à vérifier, sans
+            inventer de lien avec un autre module.
+          </p>
+        </div>
+        <p class="pilot-accessible-summary">
+          Démonstration statique de Corrélation : l'adresse de documentation
+          198.51.100.42 est analysée localement. Le fichier fictif
+          ./demo/events.log la mentionne aux lignes 14 et 31. L'inspecteur
+          montre une source, deux observations et aucune attribution MITRE,
+          CLOAK ou CVE. Aucune analyse réelle n'est lancée.
+        </p>
+        <div
+          class="product-shell correlation-shell"
+          aria-label="Simulation du module Corrélation"
+        >
+          <div class="product-shell-head">
+            <div>
+              <span class="product-signal" aria-hidden="true"></span
+              ><strong>CORRELATION ENGINE // ANALYZE</strong
+              ><small>Analyse illustrative · aucune API interrogée</small>
+            </div>
+            <span class="product-head-state">EXEMPLE LOCAL</span>
+          </div>
+          <div class="correlation-query-bar">
+            <p class="product-kicker">Nouvelle analyse</p>
+            <div class="correlation-form">
+              <span class="product-type"
+                >IP <span aria-hidden="true">⌄</span></span
+              >
+              <div
+                class="product-field correlation-field"
+                role="textbox"
+                aria-readonly="true"
+                tabindex="0"
+                aria-label="Adresse IP fictive 198.51.100.42"
+              >
+                <span class="correlation-value" aria-hidden="true"
+                  >198.51.100.42</span
+                ><span class="product-caret" aria-hidden="true"></span>
+              </div>
+              <button type="button" class="correlation-run">
+                Analyser <span aria-hidden="true">↗</span>
+              </button>
+            </div>
+            <p class="product-fineprint">
+              Valeur de documentation · recherche simulée dans les seules lignes
+              affichées.
+            </p>
+          </div>
+          <div
+            class="correlation-loading"
+            role="status"
+            aria-label="Simulation d'analyse en cours"
+          >
+            <span class="product-spinner" aria-hidden="true"></span
+            >Rapprochement des mentions fictives…
+          </div>
+          <div class="correlation-results">
+            <div class="product-subhead">
+              <strong>RÉSULTATS DE CORRÉLATION</strong
+              ><span>1 source · 2 mentions</span>
+            </div>
+            <div class="correlation-grid">
+              <div class="correlation-list">
+                <p class="product-kicker">
+                  ./demo/events.log
+                  <span class="product-tag">SOURCE FICTIVE</span>
+                </p>
+                <button
+                  type="button"
+                  class="correlation-row"
+                  data-line="14"
+                  aria-pressed="true"
+                >
+                  <span class="correlation-row-index">01 / LIGNE 14</span
+                  ><strong>09:14 · 198.51.100.42</strong
+                  ><span>Première mention dans le journal</span>
+                </button>
+                <button
+                  type="button"
+                  class="correlation-row"
+                  data-line="31"
+                  aria-pressed="false"
+                >
+                  <span class="correlation-row-index">02 / LIGNE 31</span
+                  ><strong>11:32 · 198.51.100.42</strong
+                  ><span>Seconde mention dans le même fichier</span>
+                </button>
+              </div>
+              <aside
+                class="correlation-inspector"
+                aria-label="Détail de la mention sélectionnée"
+              >
+                <p class="product-kicker">
+                  INSPECTEUR /
+                  <span class="correlation-selected-line">LIGNE 14</span>
+                </p>
+                <h3>Une même valeur, deux observations.</h3>
+                <dl>
+                  <div>
+                    <dt>Valeur commune</dt>
+                    <dd>198.51.100.42</dd>
+                  </div>
+                  <div>
+                    <dt>Source</dt>
+                    <dd>./demo/events.log</dd>
+                  </div>
+                  <div>
+                    <dt>Observation sélectionnée</dt>
+                    <dd class="correlation-selected-time">09:14 · ligne 14</dd>
+                  </div>
+                </dl>
+                <p class="correlation-limit">
+                  Ce rapprochement confirme seulement deux citations dans le
+                  même exemple. Rôle, trafic, réputation et causalité resten
+                  inconnus.
+                </p>
+              </aside>
+            </div>
+            <div
+              class="correlation-module-status"
+              aria-label="Autres rubriques sans lien établi"
+            >
+              <span>MITRE ATT&amp;CK <b>aucune association</b></span>
+              <span>CLOAK <b>non évalué</b></span>
+              <span>CVE <b>aucune association</b></span>
+            </div>
+          </div>
+        </div>
+        <p class="scene-callout relation-callout">
+          Deux observations. Une source. Une question à vérifier.
+        </p>
+      </section>
+
+      <section
+        class="mitre-demo story-section"
+        id="mitre"
+        aria-labelledby="mitre-title"
+      >
+        <div class="section-head">
+          <p class="scene-index">04 / consulter un référentiel</p>
+          <h2>Décrire une technique,<br /><em>sans l’attribuer.</em></h2>
+          <p>
+            Chercher PowerShell, filtrer les résultats, ouvrir une technique :
+            le référentiel reste indépendant de l’adresse du journal fictif.
+          </p>
+        </div>
+        <p class="pilot-accessible-summary">
+          Démonstration statique MITRE ATT&amp;CK : une recherche PowerShell
+          filtre la liste et sélectionne T1059.001, sous-technique de T1059. La
+          tactique officielle est Exécution et la plateforme indiquée es
+          Windows. La référence publique MITRE est disponible dans le détail.
+          Cette technique n'est pas attribuée à l'adresse du récit.
+        </p>
+        <div class="product-shell mitre-lab" aria-labelledby="mitre-title">
+          <div class="product-shell-head">
+            <div>
+              <span class="product-signal" aria-hidden="true"></span
+              ><strong id="mitre-title">MITRE ATT&amp;CK // MATRIX</strong
+              ><small
+                >Extrait local du référentiel · consultation fictive</small
+              >
+            </div>
+            <span class="product-head-state">RÉFÉRENCE PUBLIQUE</span>
+          </div>
+          <div class="mitre-toolbar">
+            <p class="product-kicker">Rechercher une technique</p>
+            <div
+              class="product-field mitre-search-box"
+              role="textbox"
+              aria-readonly="true"
+              tabindex="0"
+              aria-label="Recherche illustrative PowerShell"
+            >
+              <span class="mitre-query" aria-hidden="true">PowerShell</span
+              ><span class="product-caret" aria-hidden="true"></span>
+            </div>
+            <div
+              class="mitre-platforms"
+              aria-label="Filtres de plateformes illustratifs"
+            >
+              <span>PLATEFORME</span>
+              <button
+                type="button"
+                class="mitre-platform"
+                data-platform="Windows"
+                aria-pressed="true"
+              >
+                Windows
+              </button>
+              <button
+                type="button"
+                class="mitre-platform"
+                data-platform="Linux"
+                aria-pressed="false"
+              >
+                Linux
+              </button>
+              <button
+                type="button"
+                class="mitre-platform"
+                data-platform="macOS"
+                aria-pressed="false"
+              >
+                macOS
+              </button>
+            </div>
+          </div>
+          <div class="mitre-workspace">
+            <div
+              class="mitre-tactics"
+              role="group"
+              aria-label="Tactiques MITRE illustratives"
+            >
+              <span class="product-kicker">TACTIQUES</span>
+              <span class="mitre-tactic-active"
+                >Exécution <b>sélectionnée</b></span
+              >
+              <span>Accès initial</span><span>Persistance</span>
+              <span>Élévation de privilèges</span><span>Défense</span>
+              <span>Découverte</span><span>Mouvement latéral</span>
+              <span>Collecte</span><span>Exfiltration</span>
+            </div>
+            <div class="mitre-results">
+              <div class="product-subhead">
+                <strong>TECHNIQUES</strong
+                ><span class="mitre-result-count"
+                  >3 techniques dans l'extrait</span
+                >
+              </div>
+              <p class="mitre-family">
+                T1059 / INTERPRÉTEUR DE COMMANDES ET DE SCRIPTS
+              </p>
+              <button
+                type="button"
+                class="mitre-card mitre-match"
+                aria-pressed="true"
+              >
+                <span class="mitre-card-id"
+                  >T1059.001 <small>SOUS-TECHNIQUE</small></span
+                >
+                <strong>PowerShell</strong>
+                <span>Exécution · Windows</span>
+              </button>
+              <div class="mitre-card mitre-filtered">
+                <span class="mitre-card-id">T1059.003</span
+                ><strong>Windows Command Shell</strong
+                ><span>Autre sous-technique de T1059</span>
+              </div>
+              <div class="mitre-card mitre-filtered">
+                <span class="mitre-card-id">T1059.004</span
+                ><strong>Unix Shell</strong
+                ><span>Autre sous-technique de T1059</span>
+              </div>
+            </div>
+            <aside
+              class="mitre-detail"
+              aria-label="Détail de la technique sélectionnée"
+            >
+              <p class="product-kicker">FICHE TECHNIQUE / T1059.001</p>
+              <h3>PowerShell</h3>
+              <p class="mitre-detail-intro">
+                Sous-technique de T1059 — Interpréteur de commandes et de
+                scripts.
+              </p>
+              <dl>
+                <div class="mitre-detail-tactic">
+                  <dt>Tactique</dt>
+                  <dd>Exécution</dd>
+                </div>
+                <div class="mitre-detail-platform">
+                  <dt>Plateforme</dt>
+                  <dd>Windows</dd>
+                </div>
+                <div class="mitre-detail-reference">
+                  <dt>Référence</dt>
+                  <dd>
+                    <a
+                      href="https://attack.mitre.org/techniques/T1059/001/"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      >MITRE ATT&amp;CK · T1059.001 ↗</a
+                    >
+                  </dd>
+                </div>
+              </dl>
+              <p class="mitre-detail-limit">
+                Lecture du référentiel uniquement. Aucun indice de cet exemple
+                ne relie PowerShell à l’IP du terminal.
+              </p>
+            </aside>
+          </div>
+        </div>
+      </section>
+
+      <section
+        class="investigation-section story-section"
+        id="investigation"
+        aria-labelledby="investigation-title"
+      >
+        <div class="section-head">
+          <p class="scene-index">05 / conserver la méthode</p>
+          <h2 id="investigation-title">
+            La suite appartient<br /><em>à l'enquête.</em>
+          </h2>
+          <p>
+            CyberHub possède des investigations avec événements horodatés et des
+            playbooks de vérification. Cette scène montre une façon possible de
+            les lire ensemble, sans créer de dossier réel ni simuler une réponse
+            à incident.
+          </p>
+        </div>
+        <div class="investigation-work product-shell">
+          <div class="timeline-area">
+            <p class="mini-label">Dossier conceptuel / CH-DÉMO</p>
+            <p class="timeline-value">
+              198.51.100.42 <span>· valeur de documentation</span>
+            </p>
+            <ol class="investigation-timeline">
+              <li>
+                <span class="timeline-time">09:14</span
+                ><strong>Source A conservée</strong
+                ><small>Ligne 14 du fichier fictif.</small>
+              </li>
+              <li>
+                <span class="timeline-time">11:32</span
+                ><strong>Seconde mention reliée</strong
+                ><small>Même valeur, contexte encore inconnu.</small>
+              </li>
+              <li>
+                <span class="timeline-time">À vérifier</span
+                ><strong>Question ajoutée au dossier</strong
+                ><small>Comparer la provenance avant toute conclusion.</small>
+              </li>
+            </ol>
+            <button type="button" class="attach-source" aria-pressed="false">
+              Rattacher la source au dossier <span aria-hidden="true">↗</span>
+            </button>
+            <p id="source-status" role="status">
+              Démonstration locale · aucune donnée enregistrée.
+            </p>
+          </div>
+          <div class="case-area">
+            <div class="case-envelope">
+              <span class="case-stamp">CH / 26</span>
+              <p>Dossier d'investigation</p>
+              <p class="case-ip">
+                <span class="case-ip-value">198.51.100.42</span>
+                <span>· provenance : ./demo/events.log</span>
+              </p>
+              <h3>Une question<br />à documenter.</h3>
+              <p>
+                Deux mentions · une adresse de documentation · aucune cause
+                établie.
+              </p>
+              <p class="case-question">
+                Prochaine question : pourquoi l'adresse est-elle citée deux fois
+                ?
+              </p>
+              <div class="case-source-slip" aria-hidden="true">
+                l.14 + l.31 <span>→ CH-DÉMO</span>
+              </div>
+              <details class="case-details">
+                <summary>Ouvrir le dossier</summary>
+                <p>
+                  Le dossier fictif garde les lignes 14 et 31 comme sources,
+                  leur date illustrative et la question « pourquoi cette adresse
+                  est-elle citée ? ». Il ne contient aucune observation
+                  opérationnelle.
+                </p>
+              </details>
+            </div>
+            <div class="playbook" id="playbook">
+              <p class="mini-label">Playbook / consultation</p>
+              <h3>Vérifier sans présumer.</h3>
+              <p class="playbook-question">
+                Pourquoi l'adresse
+                <span class="playbook-ip">198.51.100.42</span> apparaît-elle
+                dans les deux lignes ?
+              </p>
+              <p class="playbook-context">
+                Le dossier propose une question à examiner ; aucune vérification
+                n'a été exécutée.
+              </p>
+              <details>
+                <summary><span>01</span> Confirmer la provenance</summary>
+                <p>
+                  Relire le fichier et ses métadonnées ; ne pas attribuer un
+                  événement à une adresse seule.
+                </p>
+              </details>
+              <details>
+                <summary><span>02</span> Comparer les contextes</summary>
+                <p>
+                  Examiner les deux lignes et documenter leurs différences avan
+                  toute hypothèse.
+                </p>
+              </details>
+              <details>
+                <summary><span>03</span> Noter ce qui manque</summary>
+                <p>
+                  Écrire les limites de la preuve et la prochaine source à
+                  consulter.
+                </p>
+              </details>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section
+        class="disciplines-section story-section"
+        id="disciplines"
+        aria-labelledby="disciplines-title"
+      >
+        <div class="section-head">
+          <p class="scene-index">06 / explorer la veille</p>
+          <h2 id="disciplines-title">
+            Lire le risque,<br /><em>remonter à la source.</em>
+          </h2>
+          <p>
+            Les modules s'ouvrent sur des questions différentes. Ici, les
+            données sont synthétiques et n'ont pas été importées dans la
+            Console.
+          </p>
+        </div>
+        <p class="pilot-accessible-summary">
+          Exemple statique de veille : la recherche « serveur » puis le filtre
+          Critique mettent en avant l'entrée synthétique CH-VEILLE-02. La fiche
+          indique sa sévérité et l'absence de référence NVD, CISA KEV ou EPSS
+          vérifiée. Aucun score n'est inventé.
+        </p>
+        <div
+          class="product-shell cve-shell"
+          id="cve"
+          aria-label="Simulation locale de CVE Watch"
+        >
+          <div class="product-shell-head">
+            <div>
+              <span class="product-signal" aria-hidden="true"></span
+              ><strong>CVE WATCH // INDEX</strong
+              ><small>Jeu de démonstration synthétique</small>
+            </div>
+            <span class="product-head-state">SOURCE / AUCUN IMPORT</span>
+          </div>
+          <div class="cve-toolbar">
+            <span
+              class="product-field cve-search"
+              role="textbox"
+              aria-readonly="true"
+              tabindex="0"
+              aria-label="Recherche illustrative serveur"
+              ><span class="cve-query">serveur</span
+              ><span class="product-caret" aria-hidden="true"></span
+            ></span>
+            <button class="cve-severity" type="button" aria-pressed="true">
+              CRITIQUE <span aria-hidden="true">⌄</span>
+            </button>
+            <span class="cve-result-count">1 entrée illustrative</span>
+          </div>
+          <div class="cve-workspace">
+            <div
+              class="cve-index"
+              role="group"
+              aria-label="Entrées synthétiques"
+            >
+              <div class="cve-table-head">
+                <span>RÉFÉRENCE</span><span>SÉVÉRITÉ</span><span>PRODUIT</span
+                ><span>STATUT</span>
+              </div>
+              <button
+                type="button"
+                class="cve-row cve-secondary"
+                data-entry="01"
+              >
+                <span>CH-VEILLE-01<small>Exemple de mise à jour</small></span
+                ><b>MOYENNE</b><span>Client fictif</span><span>À EXAMINER</span>
+              </button>
+              <button
+                type="button"
+                class="cve-row cve-primary"
+                data-entry="02"
+                aria-pressed="true"
+              >
+                <span>CH-VEILLE-02<small>Service serveur fictif</small></span
+                ><b>CRITIQUE</b><span>Serveur fictif</span
+                ><span>À EXAMINER</span>
+              </button>
+              <button
+                type="button"
+                class="cve-row cve-secondary"
+                data-entry="03"
+              >
+                <span>CH-VEILLE-03<small>Exemple de configuration</small></span
+                ><b>ÉLEVÉE</b><span>Serveur fictif</span><span>À EXAMINER</span>
+              </button>
+            </div>
+            <aside
+              class="cve-inspector"
+              aria-label="Fiche de veille sélectionnée"
+            >
+              <p class="product-kicker">FICHE / ENTRÉE SYNTHÉTIQUE</p>
+              <h3>CH-VEILLE-02</h3>
+              <p class="cve-inspector-intro">
+                Une entrée fictive sert à montrer l'ordre de lecture :
+                qualifier, documenter, puis vérifier la source.
+              </p>
+              <dl>
+                <div>
+                  <dt>Sévérité</dt>
+                  <dd>Critique · illustrative</dd>
+                </div>
+                <div>
+                  <dt>Produit</dt>
+                  <dd>Serveur fictif</dd>
+                </div>
+                <div>
+                  <dt>Provenance</dt>
+                  <dd>Jeu local de démonstration</dd>
+                </div>
+                <div>
+                  <dt>NVD / KEV / EPSS</dt>
+                  <dd>Non renseignés · aucune vérification</dd>
+                </div>
+              </dl>
+              <p class="cve-limit">
+                Aucun identifiant CVE public, score CVSS ni statut KEV n'es
+                revendiqué.
+              </p>
+            </aside>
+          </div>
+        </div>
+      </section>
+
+      <section
+        class="osint-scene story-section"
+        id="osint-scene"
+        aria-labelledby="osint-title"
+      >
+        <div class="section-head">
+          <p class="scene-index">07 / examiner une piste</p>
+          <h2 id="osint-title">
+            Un pseudonyme.<br /><em>Des sources distinctes.</em>
+          </h2>
+          <p>
+            Le vrai OSINT Runner organise une recherche WhatsMyName, ses
+            résultats et son historique. Ici, aucun site n'est interrogé.
+          </p>
+        </div>
+        <p class="pilot-accessible-summary">
+          Simulation locale : le pseudonyme fictif exemple_26 donne trois lignes
+          illustratives. Une mention, un nom ressemblant et une source
+          indisponible ne permettent aucune attribution d'identité.
+        </p>
+        <div
+          class="product-shell osint-shell"
+          aria-label="Simulation locale d'OSINT Runner"
+        >
+          <div class="product-shell-head">
+            <div>
+              <span class="product-signal" aria-hidden="true"></span
+              ><strong>OSINT RUNNER // RECON</strong
+              ><small>Simulation locale · zéro requête</small>
+            </div>
+            <span class="product-head-state">SOURCE / FICTIVE</span>
+          </div>
+          <div class="osint-command">
+            <span class="product-kicker">PSEUDONYME</span
+            ><span
+              class="product-field osint-field"
+              role="textbox"
+              aria-label="Pseudonyme fictif"
+              aria-readonly="true"
+              tabindex="0"
+              ><span class="osint-query">exemple_26</span
+              ><span class="product-caret" aria-hidden="true"></span></span
+            ><span class="osint-run">RECHERCHE ILLUSTRÉE ↗</span>
+          </div>
+          <div class="osint-scan-track" aria-hidden="true"><span></span></div>
+          <div class="osint-body">
+            <div class="osint-ledger">
+              <div class="product-subhead">
+                <strong>SOURCES DE DÉMONSTRATION</strong
+                ><span>3 pistes · 0 identité confirmée</span>
+              </div>
+              <button
+                type="button"
+                class="osint-source"
+                data-source="a"
+                aria-pressed="true"
+              >
+                <span>01 / ANNUAIRE A</span><strong>Mention fictive</strong
+                ><small>À vérifier à la source</small></button
+              ><button type="button" class="osint-source" data-source="b">
+                <span>02 / PLATEFORME B</span><strong>Nom ressemblant</strong
+                ><small>Identité non établie</small></button
+              ><button type="button" class="osint-source" data-source="c">
+                <span>03 / SOURCE C</span><strong>Indisponible</strong
+                ><small>Aucune donnée à conclure</small>
+              </button>
+            </div>
+            <aside class="osint-inspector">
+              <p class="product-kicker">INSPECTION / SOURCE A</p>
+              <h3>Une mention<br />n'est pas une preuve.</h3>
+              <p class="osint-source-detail">
+                Annuaire illustratif : pseudonyme mentionné. L'origine et la
+                propriété du compte restent à confirmer.
+              </p>
+              <p class="osint-warning">
+                Aucun profil réel consulté · aucune attribution automatique.
+              </p>
+            </aside>
+          </div>
+        </div>
+      </section>
+
+      <section
+        class="bgp-scene story-section"
+        id="bgp-scene"
+        aria-labelledby="bgp-title"
+      >
+        <div class="section-head">
+          <p class="scene-index">08 / comparer le réseau</p>
+          <h2 id="bgp-title">
+            Le routage change.<br /><em>La trace reste.</em>
+          </h2>
+          <p>
+            Lookup recherche un AS ou une IP ; Historian compare des
+            instantanés. Cette comparaison emploie des ASN privés et un préfixe
+            réservé à la documentation.
+          </p>
+        </div>
+        <p class="pilot-accessible-summary">
+          Simulation locale : pour AS64512 et le préfixe de documentation
+          198.51.100.0/24, l'état t0 contient un chemin par AS64513. L'état t1
+          illustre un retrait de ce chemin et un chemin par AS64514. Aucun éta
+          réseau réel n'est observé.
+        </p>
+        <div
+          class="product-shell bgp-shell"
+          aria-label="Simulation locale de BGP Lookup et Historian"
+        >
+          <div class="product-shell-head">
+            <div>
+              <span class="product-signal" aria-hidden="true"></span
+              ><strong>BGP HISTORIAN // SNAPSHOTS</strong
+              ><small>États illustratifs · aucune collecte</small>
+            </div>
+            <span class="product-head-state">AS64512 / PRIVÉ</span>
+          </div>
+          <div class="bgp-lookup">
+            <span class="product-kicker">LOOKUP</span><strong>AS64512</strong
+            ><span>198.51.100.0/24 · préfixe de documentation</span>
+          </div>
+          <div class="bgp-comparison">
+            <div
+              class="bgp-snapshots"
+              role="group"
+              aria-label="Choisir un instantané"
+            >
+              <div class="bgp-time-axis" aria-hidden="true">
+                <span>t0 / initial</span><i>→</i><span>t1 / suivant</span>
+              </div>
+              <button
+                type="button"
+                class="bgp-snapshot"
+                data-snapshot="t0"
+                aria-pressed="true"
+              >
+                <span>t0 / ÉTAT INITIAL</span><strong>AS64512 → AS64513</strong
+                ><small>Chemin illustratif</small></button
+              ><button
+                type="button"
+                class="bgp-snapshot"
+                data-snapshot="t1"
+                aria-pressed="true"
+              >
+                <span>t1 / ÉTAT SUIVANT</span><strong>AS64512 → AS64514</strong
+                ><small>Chemin illustratif</small>
+              </button>
+            </div>
+            <div class="bgp-diff">
+              <p class="product-kicker">DIFF / DEUX INSTANTANÉS</p>
+              <p class="bgp-diff-empty" hidden>
+                Sélectionnez les deux instantanés pour comparer leurs chemins.
+              </p>
+              <div class="bgp-diff-line bgp-removed">
+                <span>−</span><strong>via AS64513</strong
+                ><small>Retiré dans l'exemple</small>
+              </div>
+              <div class="bgp-diff-line bgp-added">
+                <span>+</span><strong>via AS64514</strong
+                ><small>Ajouté dans l'exemple</small>
+              </div>
+              <p>Aucun changement de routage réel n'est affirmé.</p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section
+        class="final-section story-section"
+        id="decouvrir"
+        aria-labelledby="final-title"
+      >
+        <p class="scene-index">09 / découvrir CyberHub</p>
+        <h2 id="final-title">Rendre visible<br /><em>l'invisible.</em></h2>
+        <p class="final-intro">
+          CyberHub est un espace personnel pour relier recherche, connaissance
+          et investigation cyber : IOC, CVE, MITRE ATT&amp;CK, OSINT, BGP,
+          notes, outils, playbooks et dossiers.
+        </p>
+        <p class="final-disclaimer">
+          Ce parcours est une démonstration publique fictive. La Console réelle
+          reste locale et privée ; aucun résultat de ce site n'y est envoyé.
+        </p>
+        <div
+          class="final-stage"
+          data-demo-start="bottom 92%"
+          role="img"
+          aria-label="Les noms des 18 modules fonctionnels arrivent en trois vagues et convergent vers l'emblème terminal avant de révéler CyberHub."
+        >
+          <div class="final-name-field" aria-hidden="true">
+            <span class="final-name" data-wave="0">Outils</span>
+            <span class="final-name" data-wave="0">Writeups</span>
+            <span class="final-name" data-wave="0">CVE &amp; KEV</span>
+            <span class="final-name" data-wave="0">Playbooks</span>
+            <span class="final-name" data-wave="0">MITRE ATT&amp;CK</span>
+            <span class="final-name" data-wave="0">Layers ATT&amp;CK</span>
+            <span class="final-name" data-wave="1">LOLBins</span>
+            <span class="final-name" data-wave="1">CLOAK OpSec</span>
+            <span class="final-name" data-wave="1">IOC Manager</span>
+            <span class="final-name" data-wave="1">Corrélation</span>
+            <span class="final-name" data-wave="1">OSINT Runner</span>
+            <span class="final-name" data-wave="1">Investigations</span>
+            <span class="final-name" data-wave="2">Notes</span>
+            <span class="final-name" data-wave="2">Cheatsheets</span>
+            <span class="final-name" data-wave="2">Encoder/Decoder</span>
+            <span class="final-name" data-wave="2">RevShell Gen</span>
+            <span class="final-name" data-wave="2">BGP Lookup</span>
+            <span class="final-name" data-wave="2">BGP Historian</span>
+          </div>
+          <img class="final-emblem-frame" src="/landing/terminal-mark.svg" alt="" />
+          <div class="final-pulse" aria-hidden="true"></div>
+          <div class="final-wordmark" aria-hidden="true">
+            CYBER<span>HUB</span>
+          </div>
+        </div>
+        <p class="final-signature">
+          18 modules fonctionnels. Un seul environnement.
+        </p>
+        <div class="final-actions">
+          <a
+            class="story-primary"
+            href="https://github.com/loic31000/CyberHub#modules"
+            >Découvrir les fonctionnalités <span aria-hidden="true">↗</span></a
+          ><a href="https://github.com/loic31000/CyberHub"
+            >Voir le code GitHub ↗</a
+          ><a href="https://github.com/loic31000/CyberHub#installation--build"
+            >Installer CyberHub ↗</a
+          >
+        </div>
+        <details class="final-module-details">
+          <summary>Voir tous les modules</summary>
+          <ol>
+            <li>Outils</li>
+            <li>Writeups</li>
+            <li>CVE &amp; KEV</li>
+            <li>Playbooks</li>
+            <li>MITRE ATT&amp;CK</li>
+            <li>Layers ATT&amp;CK</li>
+            <li>LOLBins</li>
+            <li>CLOAK OpSec</li>
+            <li>IOC Manager</li>
+            <li>Corrélation</li>
+            <li>OSINT Runner</li>
+            <li>Investigations</li>
+            <li>Notes</li>
+            <li>Cheatsheets</li>
+            <li>Encoder/Decoder</li>
+            <li>RevShell Gen</li>
+            <li>BGP Lookup</li>
+            <li>BGP Historian</li>
+          </ol>
+        </details>
+        <div class="final-foot">
+          <span>CYBERHUB / 2026</span
+          ><span>Démonstration illustrative · aucune API privée</span
+          ><a href="https://github.com/loic31000/CyberHub/tree/feat/cyberhub-2026-design/showcase">Comparer avec les archives ↑</a>
+        </div>
+      </section>
+      <noscript
+        ><p class="no-script-note">
+          Sans animation : la démonstration reste lisible. Les vues OSINT et BGP
+          présentent respectivement une comparaison de sources publiques
+          fictives et deux chemins de routage fictifs. Aucun résultat n'est lié
+          à l'adresse du terminal.
+        </p></noscript
+      >
+    </main>
