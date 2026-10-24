@@ -5,7 +5,7 @@
 ## Source examinée
 
 - Dépôt source : branche `feat/cyberhub-2026-design`, tête `1f2a494ba4684213cf3ef8b4468eec2715e70f87`.
-- La [PR #25](https://github.com/loic31000/CyberHub/pull/25) est ouverte en brouillon. Sa base est `0db993d6ed2d6c44b4748b1e606392da38cb3047`, antérieure au `main` actuel `0575f35c1ef6cbee897a7eb6bc0e4e253cb0a327`. Ne pas fusionner directement cette PR.
+- La [PR #25](https://github.com/loic31000/CyberHub/pull/25) est ouverte en brouillon. Sa base est `0db993d6ed2d6c44b4748b1e606392da38cb3047`, antérieure au `main` actuel `882c1b68e3f01de5512548e5e558e562810c5bb1`. Ne pas fusionner directement cette PR.
 - Entrée principale : `showcase/terminal-story.html`; les prototypes A et leurs archives sont des références de conception, pas des routes à intégrer telles quelles.
 - Les scènes utilisent exclusivement des données fictives. Les scripts examinés ne contiennent pas d'appel `fetch`/XHR, de client API, de chemin `/api/` ou de lecture de stockage navigateur. La page comprend un contenu statique de repli lorsque JavaScript est désactivé.
 
