@@ -1,398 +1,353 @@
-import { useState, useEffect, useCallback } from 'react'
-import { Terminal, Search, X, Copy, Check, ChevronRight } from 'lucide-react'
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
+import { AlertTriangle, ChevronRight, FolderTree, Search, Terminal, X } from 'lucide-react'
+import { Link } from 'react-router-dom'
 import { lolbinsApi } from '@/api/client'
-import type { LOLBin, LOLBinCommand, LOLBinsResponse, LOLBinCategory } from '@/types/lolbins'
+import type { LOLBin, LOLBinsResponse, LOLBinCategory } from '@/types/lolbins'
 import { toast } from '@/store/toast'
+import LolbinsHero from '@/lolbins26/LolbinsHero'
+import { CommandCard, isMitreId, OsMark, parseCommands, parseMitre, parseTags } from '@/lolbins26/parts'
+import '@/lolbins26/lolbins.css'
 
-// Helper générique — utilisé pour commands, mitre_tech, tags
-function parseJSON<T>(str: string, fallback: T): T {
-  try { return JSON.parse(str) as T } catch { return fallback }
-}
+const OSES: LOLBin['os'][] = ['windows', 'linux']
+const OS_TAB_LABEL: Record<LOLBin['os'], string> = { windows: 'Windows (LOLBAS)', linux: 'Linux (GTFOBins)' }
 
-function parseMitreTech(raw: string): string[] {
-  return parseJSON<string[]>(raw, [])
-}
+/*
+ * Analysis panel. Not a routed page: a side panel driven by the already loaded
+ * list item (JSON fields parsed with a safe fallback). It opens below the
+ * global topbar so its header and close stay visible, closes on Escape / scrim
+ * / button, locks page scroll while open and returns focus on close. A strict
+ * focus containment and background inertness keep interaction inside the panel.
+ */
+function LolbinPanel({ item, onClose }: { item: LOLBin; onClose: () => void }) {
+  const panelRef = useRef<HTMLDivElement>(null)
+  const onCloseRef = useRef(onClose)
+  onCloseRef.current = onClose
+  const mitre = useMemo(() => parseMitre(item.mitre_tech), [item.mitre_tech])
+  const commands = useMemo(() => parseCommands(item.commands), [item.commands])
+  const tags = useMemo(() => parseTags(item.tags), [item.tags])
 
-function parseCommands(raw: string): LOLBinCommand[] {
-  return parseJSON<LOLBinCommand[]>(raw, [])
-}
+  useEffect(() => {
+    const opener = document.activeElement as HTMLElement | null
+    const { overflow } = document.body.style
+    const inerted: Array<[HTMLElement, boolean]> = []
+    let activeBranch = panelRef.current?.parentElement ?? null
+    while (activeBranch?.parentElement && activeBranch.parentElement !== document.body) {
+      const parent = activeBranch.parentElement
+      for (const sibling of Array.from(parent.children)) {
+        if (sibling !== activeBranch && sibling instanceof HTMLElement) {
+          inerted.push([sibling, Boolean(sibling.inert)])
+          sibling.inert = true
+        }
+      }
+      activeBranch = parent
+    }
+    document.body.style.overflow = 'hidden'
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        e.preventDefault()
+        onCloseRef.current()
+        return
+      }
+      if (e.key !== 'Tab' || !panelRef.current) return
+      const focusable = Array.from(panelRef.current.querySelectorAll<HTMLElement>(
+        'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])',
+      )).filter(el => !el.hidden && el.getAttribute('aria-hidden') !== 'true')
+      const first = focusable[0]
+      const last = focusable[focusable.length - 1]
+      if (!first || !last) {
+        e.preventDefault()
+        panelRef.current.focus()
+      } else if (e.shiftKey && (document.activeElement === first || document.activeElement === panelRef.current)) {
+        e.preventDefault()
+        last.focus()
+      } else if (!e.shiftKey && (document.activeElement === last || document.activeElement === panelRef.current)) {
+        e.preventDefault()
+        first.focus()
+      }
+    }
+    document.addEventListener('keydown', onKey)
+    panelRef.current?.focus()
+    return () => {
+      document.removeEventListener('keydown', onKey)
+      document.body.style.overflow = overflow
+      for (const [element, wasInert] of inerted) element.inert = wasInert
+      opener?.focus?.()
+    }
+  }, [])
 
-function getCommandText(cmd: LOLBinCommand): string {
-  return cmd.Command ?? cmd.commands ?? ''
-}
-
-function getCommandDesc(cmd: LOLBinCommand): string {
-  return cmd.Description ?? cmd.description ?? ''
-}
-
-// Couleur badge par type de commande
-function cmdTypeBadgeCls(type: string): string {
-  const t = type.toLowerCase()
-  if (t === 'execute' || t === 'shell')       return 'border-red-500/30 bg-red-500/10 text-red-400'
-  if (t === 'download' || t === 'file-write') return 'border-blue-500/30 bg-blue-500/10 text-blue-400'
-  if (t === 'awl bypass')                     return 'border-orange-500/30 bg-orange-500/10 text-orange-400'
-  if (t === 'ads')                            return 'border-yellow-500/30 bg-yellow-500/10 text-yellow-400'
-  if (t === 'dump')                           return 'border-purple-500/30 bg-purple-500/10 text-purple-400'
-  if (t === 'sudo')                           return 'border-orange-500/30 bg-orange-500/10 text-orange-400'
-  if (t === 'file-read')                      return 'border-blue-500/30 bg-blue-500/10 text-blue-400'
-  return 'border-gray-600 bg-gray-700/40 text-gray-300'
-}
-
-function CopyButton({ text }: { text: string }) {
-  const [copied, setCopied] = useState(false)
-  const handleCopy = async () => {
-    await navigator.clipboard.writeText(text)
-    setCopied(true)
-    setTimeout(() => setCopied(false), 2000)
-  }
+  const titleId = 'lb26-panel-title'
   return (
-    <button
-      onClick={handleCopy}
-      className="p-1.5 rounded hover:bg-white/10 text-gray-400 hover:text-cyan-400 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-[#00d4ff]"
-      title="Copier"
-      aria-label="Copier"
-    >
-      {copied ? <Check size={13} className="text-cyan-400" /> : <Copy size={13} />}
-    </button>
-  )
-}
-
-interface DrawerProps {
-  item: LOLBin
-  onClose: () => void
-}
-
-function LOLBinDrawer({ item, onClose }: DrawerProps) {
-  const mitreTechs = parseMitreTech(item.mitre_tech)
-  const commands = parseCommands(item.commands)
-
-  return (
-    <div className="w-[480px] shrink-0 bg-[#0a0f16] border border-cyan-500/30 rounded-none flex flex-col">
-      {/* Header */}
-      <div className="flex items-center justify-between p-4 border-b border-[#1e2d40]">
-        <div className="flex items-center gap-2">
-          <Terminal size={16} className={item.os === 'windows' ? 'text-blue-400' : 'text-orange-400'} />
-          <span className="font-mono font-bold text-[#f1f5f9]">{item.name}</span>
-          <span className={`text-[10px] px-2 py-0.5 border font-mono uppercase tracking-widest ${
-            item.os === 'windows'
-              ? 'border-blue-500/30 bg-blue-500/10 text-blue-400'
-              : 'border-orange-500/30 bg-orange-500/10 text-orange-400'
-          }`}>
-            {item.os === 'windows' ? 'WIN' : 'LIN'}
-          </span>
-        </div>
-        <button
-          onClick={onClose}
-          className="p-1 hover:bg-[#1e2d40] text-[#64748b] hover:text-[#f1f5f9] transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-[#00d4ff]"
-          aria-label="Fermer"
-        >
-          <X size={16} />
-        </button>
-      </div>
-
-      <div className="flex-1 overflow-y-auto p-4 space-y-5">
-        {/* Chemin */}
-        {item.full_path && (
-          <div>
-            <p className="text-[10px] font-mono text-[#4a6480] uppercase tracking-wider mb-1">CHEMIN COMPLET</p>
-            <code className="text-xs font-mono text-cyan-400 bg-[#0d131f] border border-[#1e2d40] px-3 py-1.5 block">
-              {item.full_path}
-            </code>
-          </div>
-        )}
-
-        {/* Description */}
-        <div>
-          <p className="text-[10px] font-mono text-[#4a6480] uppercase tracking-wider mb-1">DESCRIPTION</p>
-          <p className="text-sm font-mono text-[#cbd5e1]">{item.description}</p>
-        </div>
-
-        {/* Techniques MITRE */}
-        {mitreTechs.length > 0 && (
-          <div>
-            <p className="text-[10px] font-mono text-[#4a6480] uppercase tracking-wider mb-2">TECHNIQUES MITRE ATT&CK</p>
-            <div className="flex flex-wrap gap-1.5">
-              {mitreTechs.map((t) => (
-                <span
-                  key={t}
-                  className="text-[11px] px-2 py-1 border border-purple-500/30 bg-purple-500/10 text-purple-400 font-mono"
-                >
-                  {t}
-                </span>
-              ))}
+    <div className="lb26-panel-layer">
+      <div className="lb26-panel-scrim" onClick={onClose} aria-hidden="true" />
+      <div className="lb26-panel" role="dialog" aria-modal="true" aria-labelledby={titleId} tabIndex={-1} ref={panelRef} data-os={item.os}>
+        <header className="lb26-panel-head">
+          <div className="lb26-panel-id">
+            <div className="lb26-panel-top">
+              <OsMark os={item.os} long />
+              {item.category && <span className="lb26-cat-chip">{item.category}</span>}
             </div>
+            <h2 id={titleId}>{item.name}</h2>
           </div>
-        )}
+          <button type="button" className="lb26-icon-btn" onClick={onClose} aria-label="Fermer le panneau">
+            <X size={20} aria-hidden="true" />
+          </button>
+        </header>
 
-        {/* Commandes */}
-        <div>
-          <p className="text-[10px] font-mono text-[#4a6480] uppercase tracking-wider mb-2">COMMANDES D'ABUS</p>
-          <div className="space-y-3">
-            {commands.map((cmd, i) => {
-              const cmdText = getCommandText(cmd)
-              const cmdDesc = getCommandDesc(cmd)
-              const cmdType = cmd.type ?? cmd.Usecase ?? cmd.Category ?? ''
-              const cmdPriv = cmd.Privileges ?? ''
-              if (!cmdText) return null
-              return (
-                <div key={i} className="bg-[#0d131f] border border-[#1e2d40] overflow-hidden">
-                  {(cmdDesc || cmdType || cmdPriv) && (
-                    <div className="flex items-center gap-2 px-3 py-2 border-b border-[#1e2d40]">
-                      {cmdType && (
-                        <span className={`text-[10px] px-1.5 py-0.5 font-mono uppercase border ${cmdTypeBadgeCls(cmdType)}`}>
-                          {cmdType}
-                        </span>
-                      )}
-                      {cmdPriv && (
-                        <span className={`text-[10px] px-1.5 py-0.5 font-mono uppercase border ${
-                          cmdPriv === 'Administrator' || cmdPriv === 'root'
-                            ? 'border-red-500/30 bg-red-500/10 text-red-400'
-                            : 'border-yellow-500/30 bg-yellow-500/10 text-yellow-400'
-                        }`}>
-                          {cmdPriv}
-                        </span>
-                      )}
-                      {cmdDesc && (
-                        <span className="text-[11px] text-[#8a9ab0] flex-1 truncate">{cmdDesc}</span>
-                      )}
-                    </div>
-                  )}
-                  <div className="flex items-start gap-2 p-3">
-                    <code className="flex-1 text-green-400 font-mono text-xs whitespace-pre-wrap break-all leading-relaxed">
-                      {cmdText}
-                    </code>
-                    <CopyButton text={cmdText} />
-                  </div>
-                </div>
-              )
-            })}
-          </div>
+        <div className="lb26-panel-body">
+          {item.full_path && (
+            <section className="lb26-field">
+              <h3>Chemin complet</h3>
+              <pre className="lb26-path" tabIndex={0}><code>{item.full_path}</code></pre>
+            </section>
+          )}
+          {item.description && (
+            <section className="lb26-field">
+              <h3>Description</h3>
+              <p className="lb26-desc">{item.description}</p>
+            </section>
+          )}
+          {mitre.length > 0 && (
+            <section className="lb26-field">
+              <h3>Techniques MITRE ATT&amp;CK</h3>
+              <ul className="lb26-mitre" aria-label="Techniques MITRE ATT&CK">
+                {mitre.map(t => <li key={t}>
+                  {isMitreId(t)
+                    ? <Link to={`/mitre?id=${encodeURIComponent(t.toUpperCase())}`} className="lb26-mitre-link">{t}</Link>
+                    : t}
+                </li>)}
+              </ul>
+            </section>
+          )}
+          {tags.length > 0 && (
+            <section className="lb26-field">
+              <h3>Tags</h3>
+              <ul className="lb26-tags" aria-label="Tags">{tags.map(t => <li key={t}>{t}</li>)}</ul>
+            </section>
+          )}
+          <section className="lb26-field">
+            <h3>Commandes d'abus <small>{commands.length}</small></h3>
+            {commands.length > 0
+              ? <div className="lb26-cmds">{commands.map((cmd, i) => <CommandCard key={i} cmd={cmd} index={i} />)}</div>
+              : <p className="lb26-empty-inline">Aucune commande renseignée pour ce binaire.</p>}
+          </section>
         </div>
       </div>
     </div>
   )
 }
 
-interface LOLBinCardProps {
-  item: LOLBin
-  selected: boolean
-  onClick: () => void
-}
-
-function LOLBinCard({ item, selected, onClick }: LOLBinCardProps) {
-  const mitreTechs = parseMitreTech(item.mitre_tech)
-  const commands = parseCommands(item.commands)
-
-  return (
-    <button
-      onClick={onClick}
-      className={`text-left w-full p-4 border transition-colors ${
-        selected
-          ? 'border-cyan-500/60 bg-cyan-500/5'
-          : 'border-[#1e2d40] bg-[#0a0f16] hover:border-cyan-500/40'
-      }`}
-    >
-      <div className="flex items-start justify-between gap-2 mb-2">
-        <div className="flex items-center gap-2 min-w-0">
-          <span className="font-mono font-bold text-sm text-[#f1f5f9] truncate">{item.name}</span>
-          <span className={`shrink-0 text-[10px] px-1.5 py-0.5 border ${
-            item.os === 'windows'
-              ? 'border-blue-500/30 bg-blue-500/10 text-blue-400'
-              : 'border-orange-500/30 bg-orange-500/10 text-orange-400'
-          }`}>
-            {item.os === 'windows' ? 'WIN' : 'LIN'}
-          </span>
-        </div>
-        <ChevronRight size={14} className="text-[#64748b] shrink-0 mt-0.5" />
-      </div>
-      {item.category && (
-        <span className="text-[10px] px-2 py-0.5 border border-[#1e2d40] bg-[#0d131f] text-[#8a9ab0] font-mono mb-2 inline-block">
-          {item.category}
-        </span>
-      )}
-      <p className="text-xs font-mono text-[#8a9ab0] line-clamp-2 mt-1">{item.description}</p>
-      <div className="flex items-center gap-3 mt-2">
-        {commands.length > 0 && (
-          <span className="text-xs text-cyan-400">{commands.length} cmd{commands.length > 1 ? 's' : ''}</span>
-        )}
-        {mitreTechs.length > 0 && (
-          <span className="text-xs text-purple-400">{mitreTechs[0]}{mitreTechs.length > 1 ? ` +${mitreTechs.length - 1}` : ''}</span>
-        )}
-      </div>
-    </button>
-  )
-}
-
 export default function LOLBinsPage() {
+  const requestRef = useRef(0)
   const [data, setData] = useState<LOLBinsResponse | null>(null)
   const [categories, setCategories] = useState<LOLBinCategory[]>([])
-  const [loading, setLoading] = useState(false)
-  const [selectedItem, setSelectedItem] = useState<LOLBin | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [listError, setListError] = useState(false)
+  const [selected, setSelected] = useState<LOLBin | null>(null)
 
-  const [activeOS, setActiveOS] = useState<'windows' | 'linux'>('windows')
+  const [activeOS, setActiveOS] = useState<LOLBin['os']>('windows')
   const [search, setSearch] = useState('')
   const [activeCategory, setActiveCategory] = useState('')
   const [mitreFilter, setMitreFilter] = useState('')
 
   const fetchData = useCallback(async () => {
+    const requestId = ++requestRef.current
     setLoading(true)
+    setListError(false)
     try {
       const result = await lolbinsApi.list({
         os: activeOS,
-        search: search || undefined,
+        search: search.trim() || undefined,
         category: activeCategory || undefined,
-        mitre: mitreFilter || undefined,
+        mitre: mitreFilter.trim() || undefined,
       })
+      if (requestId !== requestRef.current) return
       setData(result)
     } catch {
+      if (requestId !== requestRef.current) return
+      setListError(true)
       toast.error('Erreur de chargement des LOLBins')
     } finally {
-      setLoading(false)
+      if (requestId === requestRef.current) setLoading(false)
     }
   }, [activeOS, search, activeCategory, mitreFilter])
 
   useEffect(() => {
-    lolbinsApi.getCategories().then(setCategories).catch(() => {})
+    let mounted = true
+    lolbinsApi.getCategories().then(result => {
+      if (!mounted) return
+      setCategories(Array.isArray(result) ? result.filter((value): value is LOLBinCategory =>
+        typeof value === 'object' && value !== null && typeof value.os === 'string' &&
+        typeof value.category === 'string' && Number.isFinite(value.count) && value.count >= 0,
+      ) : [])
+    }).catch(() => {})
+    return () => { mounted = false }
   }, [])
 
   useEffect(() => {
+    setLoading(true)
+    setListError(false)
     const t = setTimeout(fetchData, 300)
-    return () => clearTimeout(t)
+    return () => {
+      clearTimeout(t)
+      requestRef.current++
+    }
   }, [fetchData])
 
-  const filteredCategories = categories.filter((c) => c.os === activeOS)
+  useEffect(() => { setSelected(null) }, [activeOS, search, activeCategory, mitreFilter])
+
+  const osCategories = useMemo(() => categories.filter(c => c.os === activeOS), [categories, activeOS])
+  const hasActiveFilters = Boolean(search.trim() || activeCategory || mitreFilter.trim())
+  const items = data?.items ?? []
+
+  const switchOS = (os: LOLBin['os']) => {
+    setLoading(true); setListError(false); setActiveOS(os); setActiveCategory(''); setSelected(null)
+  }
+  const updateSearch = (value: string) => { setLoading(true); setListError(false); setSelected(null); setSearch(value) }
+  const updateMitre = (value: string) => { setLoading(true); setListError(false); setSelected(null); setMitreFilter(value) }
+  const updateCategory = (value: string) => { setLoading(true); setListError(false); setSelected(null); setActiveCategory(value) }
+  const resetFilters = () => {
+    setLoading(true); setListError(false); setSelected(null)
+    setSearch(''); setActiveCategory(''); setMitreFilter('')
+  }
+
+  // One clean status string (strong + span collide when the OS split is wide).
+  const countOrZero = (value: number | undefined) => Number.isFinite(value) && (value ?? -1) >= 0 ? value as number : 0
+  const winTotal = countOrZero(data?.win_count)
+  const linTotal = countOrZero(data?.linux_count)
+  const status = loading ? { text: 'ANALYSE', tone: 'busy' as const }
+    : listError ? { text: 'CATALOGUE INDISPONIBLE', tone: 'warn' as const }
+    : { text: `${winTotal + linTotal} BINAIRES · WIN ${winTotal} · LIN ${linTotal}` }
+
+  // The response may return a page of a larger set: say so rather than contradict the tab.
+  const shownCount = items.length
+  const totalCount = countOrZero(data?.total ?? shownCount)
+  const isPartial = totalCount > shownCount
 
   return (
-    <div className="flex flex-col h-full bg-[#06080f] text-[#f1f5f9]">
-      {/* Bandeau d'en-tête style BGPLookup */}
-      <div className="flex items-center justify-between px-6 py-4 border-b border-[#1e2d40] bg-[#0a0f16]/50">
-        <div className="flex items-center gap-3">
-          <div className="relative">
-            <Terminal className="text-cyan-400" size={20} />
-            <div className="absolute -top-1 -right-1 w-2 h-2 bg-[#10b981] rounded-full animate-pulse shadow-[0_0_8px_#10b981]" />
-          </div>
-          <div>
-            <h1 className="text-sm font-bold tracking-[0.2em] uppercase">LOLBINS // INDEX</h1>
-            <p className="text-[10px] text-[#64748b] font-mono">
-              Living-Off-the-Land binaries — techniques d'abus sur binaires légitimes
-            </p>
-          </div>
-        </div>
-        <div className="flex items-center gap-4 font-mono text-[10px]">
-          <span className="text-[#64748b]">WIN</span>
-          <span className="text-blue-400 font-bold">{data?.win_count ?? 0}</span>
-          <span className="text-[#64748b] ml-2">LIN</span>
-          <span className="text-orange-400 font-bold">{data?.linux_count ?? 0}</span>
-        </div>
-      </div>
+    <div className="lb26">
+      <div className="lb26-frame">
+        <LolbinsHero status={status} />
 
-      {/* Zone de contenu scrollable */}
-      <div className="flex-1 overflow-auto p-6 space-y-6">
-        {/* Onglets OS */}
-        <div className="flex gap-1 border-b border-[#1e2d40]">
-          {(['windows', 'linux'] as const).map((os) => (
-            <button
-              key={os}
-              onClick={() => { setActiveOS(os); setActiveCategory(''); setSelectedItem(null) }}
-              className={`px-5 py-2.5 text-xs font-mono font-bold uppercase tracking-widest transition-colors border-b-2 -mb-px ${
-                activeOS === os
-                  ? os === 'windows'
-                    ? 'border-blue-400 text-blue-400'
-                    : 'border-orange-400 text-orange-400'
-                  : 'border-transparent text-[#64748b] hover:text-[#8a9ab0]'
-              }`}
-            >
-              {os === 'windows' ? 'WINDOWS (LOLBAS)' : 'LINUX (GTFOBins)'}
-            </button>
-          ))}
-        </div>
-
-        {/* Filtres */}
-        <div className="flex flex-wrap gap-3">
-          <div className="relative flex-1 min-w-[260px]">
-            <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#4a6480]" />
-            <input
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              placeholder="Rechercher un binaire..."
-              className="w-full bg-[#0d131f] border border-[#1e2d40] pl-9 pr-3 py-2 font-mono text-sm text-[#f1f5f9] placeholder-[#2a3f55] outline-none focus:border-cyan-500/40"
-            />
-          </div>
-          <input
-            value={mitreFilter}
-            onChange={(e) => setMitreFilter(e.target.value)}
-            placeholder="Filtrer MITRE (ex: T1105)"
-            className="w-48 bg-[#0d131f] border border-[#1e2d40] px-3 py-2 font-mono text-sm text-[#f1f5f9] placeholder-[#2a3f55] outline-none focus:border-purple-500/40"
-          />
-          {(search || activeCategory || mitreFilter) && (
-            <button
-              onClick={() => { setSearch(''); setActiveCategory(''); setMitreFilter('') }}
-              className="flex items-center gap-1 px-3 py-2 text-sm font-mono border border-[#1e2d40] text-[#64748b] hover:border-red-500/40 hover:text-red-400 transition-colors"
-            >
-              <X size={13} /> RÉINITIALISER
-            </button>
-          )}
-        </div>
-
-        {/* Catégories */}
-        {filteredCategories.length > 0 && (
-          <div className="flex flex-wrap gap-2">
-            <button
-              onClick={() => setActiveCategory('')}
-              className={`text-[10px] font-mono px-3 py-1.5 border transition-colors ${
-                activeCategory === ''
-                  ? 'border-cyan-500/40 bg-cyan-500/10 text-cyan-400'
-                  : 'border-[#1e2d40] text-[#64748b] hover:border-cyan-500/40 hover:text-cyan-400'
-              }`}
-            >
-              TOUS
-            </button>
-            {filteredCategories.map((cat) => (
-              <button
-                key={cat.category}
-                onClick={() => setActiveCategory(cat.category === activeCategory ? '' : cat.category)}
-                className={`text-[10px] font-mono px-3 py-1.5 border transition-colors ${
-                  activeCategory === cat.category
-                    ? 'border-cyan-500/40 bg-cyan-500/10 text-cyan-400'
-                    : 'border-[#1e2d40] text-[#64748b] hover:border-cyan-500/40 hover:text-cyan-400'
-                }`}
-              >
-                {cat.category.toUpperCase()} <span className="opacity-60">({cat.count})</span>
+        <section className="lb26-console" aria-label="Filtres du catalogue">
+          <div className="lb26-ostabs" role="tablist" aria-label="Système">
+            {OSES.map(os => (
+              <button key={os} id={`lb26-tab-${os}`} type="button" role="tab" aria-controls="lb26-catalog-panel"
+                aria-selected={activeOS === os} tabIndex={activeOS === os ? 0 : -1} data-os={os}
+                className="lb26-ostab" onClick={() => switchOS(os)}
+                onKeyDown={event => {
+                  let target: LOLBin['os'] | undefined
+                  if (event.key === 'Home') target = OSES[0]
+                  else if (event.key === 'End') target = OSES[OSES.length - 1]
+                  else if (event.key === 'ArrowRight') target = OSES[(OSES.indexOf(os) + 1) % OSES.length]
+                  else if (event.key === 'ArrowLeft') target = OSES[(OSES.indexOf(os) + OSES.length - 1) % OSES.length]
+                  if (target) {
+                    event.preventDefault()
+                    switchOS(target)
+                    document.getElementById(`lb26-tab-${target}`)?.focus()
+                  }
+                }}>
+                <Terminal size={14} aria-hidden="true" />{OS_TAB_LABEL[os]}
+                <span className="lb26-ostab-count">{os === 'windows' ? data?.win_count ?? 0 : data?.linux_count ?? 0}</span>
               </button>
             ))}
           </div>
-        )}
 
-        <div className="flex gap-6">
-          {/* Grille */}
-          <div className="flex-1 min-w-0">
-            {loading ? (
-              <div className="text-center py-12 text-[#64748b] font-mono text-sm">CHARGEMENT...</div>
-            ) : !data || data.items.length === 0 ? (
-              <div className="flex flex-col items-center justify-center border border-[#1e2d40] bg-[#0a0f16] py-24 text-center">
-                <Terminal size={40} className="mb-4 text-[#1e2d40]" />
-                <p className="font-mono text-sm uppercase tracking-widest text-[#64748b]">AUCUN RÉSULTAT</p>
-              </div>
-            ) : (
-              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
-                {data.items.map((item) => (
-                  <LOLBinCard
-                    key={item.id}
-                    item={item}
-                    selected={selectedItem?.id === item.id}
-                    onClick={() => setSelectedItem(selectedItem?.id === item.id ? null : item)}
-                  />
-                ))}
-              </div>
+          <div className="lb26-controls">
+            <label className="lb26-search">
+              <Search size={18} aria-hidden="true" />
+              <span className="lb26-sr">Rechercher un binaire</span>
+              <input type="search" value={search} onChange={e => updateSearch(e.target.value)}
+                placeholder="Rechercher un binaire, une description…" autoComplete="off" spellCheck={false} />
+            </label>
+            <label className="lb26-mitre-field">
+              <span className="lb26-sr">Filtrer par technique MITRE</span>
+              <input type="search" value={mitreFilter} onChange={e => updateMitre(e.target.value)}
+                placeholder="MITRE (ex : T1105)" autoComplete="off" spellCheck={false} />
+            </label>
+            <label className="lb26-cat-select">
+              <span className="lb26-sr">Catégorie</span>
+              <select value={activeCategory} onChange={e => updateCategory(e.target.value)} aria-label="Catégorie">
+                <option value="">Toutes les catégories</option>
+                {osCategories.map(c => <option key={c.category} value={c.category}>{c.category} ({c.count})</option>)}
+              </select>
+            </label>
+            {hasActiveFilters && (
+              <button type="button" className="lb26-link" onClick={resetFilters}>
+                <X size={13} aria-hidden="true" /> Réinitialiser
+              </button>
             )}
           </div>
+        </section>
 
-          {/* Drawer détail */}
-          {selectedItem && (
-            <LOLBinDrawer item={selectedItem} onClose={() => setSelectedItem(null)} />
-          )}
-        </div>
+        {loading ? (
+          <div id="lb26-catalog-panel" className="lb26-register" role="tabpanel" aria-labelledby={`lb26-tab-${activeOS}`} aria-busy="true">
+            <p className="lb26-sr" role="status">Chargement du catalogue…</p>
+            <div className="lb26-skeleton" aria-hidden="true">{Array.from({ length: 8 }, (_, i) => <div key={i} />)}</div>
+          </div>
+        ) : listError ? (
+          <div id="lb26-catalog-panel" className="lb26-state is-error" role="tabpanel" aria-labelledby={`lb26-tab-${activeOS}`}>
+            <div role="alert">
+              <AlertTriangle size={30} aria-hidden="true" />
+              <h2>Impossible de charger le catalogue</h2>
+            <p>Les binaires n'ont pas répondu. Réessaie dans un instant.</p>
+              <button type="button" className="lb26-btn" onClick={fetchData}>Réessayer</button>
+            </div>
+          </div>
+        ) : items.length === 0 ? (
+          <div id="lb26-catalog-panel" className="lb26-state" role="tabpanel" aria-labelledby={`lb26-tab-${activeOS}`}>
+            <FolderTree size={30} aria-hidden="true" />
+            <h2>Aucun binaire trouvé</h2>
+            <p>{hasActiveFilters ? 'Aucun binaire ne correspond à ces filtres.' : 'Ce catalogue est vide.'}</p>
+            {hasActiveFilters && <button type="button" className="lb26-btn" onClick={resetFilters}>Réinitialiser les filtres</button>}
+          </div>
+        ) : (
+          <section id="lb26-catalog-panel" className="lb26-register" role="tabpanel" aria-labelledby={`lb26-tab-${activeOS}`}>
+            <header className="lb26-register-head">
+              <h2 id="lb26-register-title">Catalogue {activeOS === 'windows' ? 'Windows' : 'Linux'}</h2>
+              <p>
+                {isPartial
+                  ? <><b>{shownCount.toLocaleString('fr-FR')}</b> affiché{shownCount > 1 ? 's' : ''} sur {totalCount.toLocaleString('fr-FR')}</>
+                  : <><b>{totalCount.toLocaleString('fr-FR')}</b> binaire{totalCount > 1 ? 's' : ''}</>}
+                {hasActiveFilters && ' (filtré)'}
+              </p>
+            </header>
+            <ul className="lb26-entries">
+              {items.map(item => {
+                const nbCmd = parseCommands(item.commands).length
+                const mitre = parseMitre(item.mitre_tech)
+                const open = selected?.id === item.id
+                return (
+                  <li key={item.id} className="lb26-entry" data-os={item.os}>
+                    <button type="button" className="lb26-entry-btn" aria-expanded={open}
+                      onClick={() => setSelected(open ? null : item)}>
+                      <span className="lb26-entry-rail" aria-hidden="true" />
+                      <span className="lb26-entry-main">
+                        <span className="lb26-entry-top">
+                          <span className="lb26-entry-name">{item.name}</span>
+                          <OsMark os={item.os} />
+                        </span>
+                        {item.description && <span className="lb26-entry-desc">{item.description}</span>}
+                        <span className="lb26-entry-foot">
+                          {item.category && <span className="lb26-cat-chip">{item.category}</span>}
+                          <span className="lb26-entry-metrics">
+                            <span className="lb26-metric">{nbCmd} cmd{nbCmd > 1 ? 's' : ''}</span>
+                            {mitre.length > 0 && (
+                              <span className="lb26-metric is-mitre">{mitre[0]}{mitre.length > 1 ? ` +${mitre.length - 1}` : ''}</span>
+                            )}
+                          </span>
+                        </span>
+                      </span>
+                      <ChevronRight className="lb26-entry-go" size={16} aria-hidden="true" />
+                    </button>
+                  </li>
+                )
+              })}
+            </ul>
+          </section>
+        )}
       </div>
+
+      {selected && <LolbinPanel item={selected} onClose={() => setSelected(null)} />}
     </div>
   )
 }
