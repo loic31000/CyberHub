@@ -17,7 +17,7 @@ import type {
   Stats,
   Tool,
   ToolCreateRequest,
-  ToolFilter,
+  ToolListParams,
   CTFFilter,
   CVEFilter,
   ToolsResponse,
@@ -66,7 +66,7 @@ export const authApi = {
 
 // ---- Outils ----
 export const toolsApi = {
-  list: (filters?: ToolFilter) =>
+  list: (filters?: ToolListParams) =>
     http
       .get<ToolsResponse>('/tools', { params: filters })
       .then((r) => r.data),

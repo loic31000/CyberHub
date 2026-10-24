@@ -7,7 +7,7 @@ const http = vi.hoisted(() => ({
 }))
 vi.mock('axios', () => ({ default: { create: () => http } }))
 
-import { osintWmnApi } from './client'
+import { osintWmnApi, toolsApi } from './client'
 
 describe('osintWmnApi.getJob', () => {
   beforeEach(() => { http.get.mockReset() })
@@ -31,5 +31,18 @@ describe('osintWmnApi.getJob', () => {
     const controller = new AbortController()
     controller.abort()
     await expect(osintWmnApi.getJob(7, controller.signal)).rejects.toBe(canceled)
+  })
+})
+
+describe('toolsApi.list', () => {
+  beforeEach(() => { http.get.mockReset() })
+
+  it('transmet les filtres sous-catégorie et pagination au transport', async () => {
+    const data = { tools: [], count: 0, page: 2, limit: 18, total_pages: 3 }
+    http.get.mockResolvedValue({ data })
+    await expect(toolsApi.list({ category: 'offensive', os: 'linux', sub_category: 'network', search: 'nmap', page: 2, limit: 18 })).resolves.toEqual(data)
+    expect(http.get).toHaveBeenCalledWith('/tools', {
+      params: { category: 'offensive', os: 'linux', sub_category: 'network', search: 'nmap', page: 2, limit: 18 },
+    })
   })
 })

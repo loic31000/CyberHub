@@ -52,34 +52,56 @@ export default function ToolForm() {
   const [form, setForm] = useState<ToolCreateRequest>(EMPTY)
   const [errors, setErrors] = useState<Errors>({})
   const [loading, setLoading] = useState(false)
+  const [loadingTool, setLoadingTool] = useState(!!id)
+  const [loadFailed, setLoadFailed] = useState(false)
   const [saveFailed, setSaveFailed] = useState(false)
   // Documentation entries the user folded or unfolded; the others open when they hold text.
   const [openDocs, setOpenDocs] = useState<Partial<Record<DocKey, boolean>>>({})
+  const [loadAttempt, setLoadAttempt] = useState(0)
 
   useEffect(() => {
-    if (!isEdit) return
-    toolsApi.get(Number(id)).then(toolData => setForm({
-      name: toolData.name, category: toolData.category,
-      sub_category: toolData.sub_category, os: toolData.os,
-      description: toolData.description, install: toolData.install ?? '',
-      usage: toolData.usage ?? '', examples: toolData.examples ?? '',
-      defense: toolData.defense ?? '', procedure: toolData.procedure ?? '',
-      ethical_level: toolData.ethical_level ?? 'standard',
-      legal_notes: toolData.legal_notes ?? '',
-      ethical_use_cases: toolData.ethical_use_cases ?? '',
-      command_template: toolData.command_template ?? '',
-      input_schema: toolData.input_schema ?? '',
-      user_notes: toolData.user_notes ?? '', tags: toolData.tags ?? '',
-    })).catch(() => {})
-  }, [id, isEdit])
+    if (!isEdit) {
+      setForm(EMPTY)
+      setErrors({})
+      setSaveFailed(false)
+      setOpenDocs({})
+      setLoadingTool(false)
+      setLoadFailed(false)
+      return
+    }
+    let active = true
+    setLoadingTool(true)
+    setLoadFailed(false)
+    toolsApi.get(Number(id)).then(toolData => {
+      if (!active) return
+      setForm({
+        name: toolData.name, category: toolData.category,
+        sub_category: toolData.sub_category, os: toolData.os,
+        description: toolData.description, install: toolData.install ?? '',
+        usage: toolData.usage ?? '', examples: toolData.examples ?? '',
+        defense: toolData.defense ?? '', procedure: toolData.procedure ?? '',
+        ethical_level: toolData.ethical_level ?? 'standard',
+        legal_notes: toolData.legal_notes ?? '',
+        ethical_use_cases: toolData.ethical_use_cases ?? '',
+        command_template: toolData.command_template ?? '',
+        input_schema: toolData.input_schema ?? '',
+        user_notes: toolData.user_notes ?? '', tags: toolData.tags ?? '',
+      })
+    }).catch(() => {
+      if (active) setLoadFailed(true)
+    }).finally(() => {
+      if (active) setLoadingTool(false)
+    })
+    return () => { active = false }
+  }, [id, isEdit, loadAttempt])
 
   const set = <K extends keyof ToolCreateRequest>(key: K, value: ToolCreateRequest[K]) =>
     setForm(prev => ({ ...prev, [key]: value }))
 
   const validate = () => {
     const e: Errors = {}
-    if (!form.name.trim() || form.name.length < 2) e.name = 'NOM REQUIS (MIN 2 CARACTÈRES)'
-    if (!form.description.trim() || form.description.length < 10) e.description = 'DESCRIPTION REQUISE (MIN 10 CARACTÈRES)'
+    if (form.name.trim().length < 2) e.name = 'NOM REQUIS (MIN 2 CARACTÈRES)'
+    if (form.description.trim().length < 10) e.description = 'DESCRIPTION REQUISE (MIN 10 CARACTÈRES)'
     if (form.input_schema.trim()) {
       try { JSON.parse(form.input_schema) } catch { e.input_schema = 'JSON INVALIDE' }
     }
@@ -114,6 +136,25 @@ export default function ToolForm() {
   })
   const errorText = (key: keyof ToolCreateRequest) =>
     errors[key] ? <p id={`tl26-err-${key}`} className="tl26-field-error">{errors[key]}</p> : null
+
+  if (isEdit && loadingTool) return (
+    <div className="tl26"><div className="tl26-frame">
+      <ToolsHero status={{ text: 'CHARGEMENT', tone: 'busy' }} />
+      <p className="tl26-loading" role="status">Chargement de la fiche à modifier…</p>
+    </div></div>
+  )
+
+  if (isEdit && loadFailed) return (
+    <div className="tl26"><div className="tl26-frame">
+      <ToolsHero status={{ text: 'FICHE INDISPONIBLE', tone: 'warn' }} />
+      <div className="tl26-state is-error">
+        <h2>Impossible de charger cette fiche</h2>
+        <p role="alert">Aucune modification ne sera envoyée tant que la fiche n'a pas été chargée.</p>
+        <button type="button" className="tl26-btn" onClick={() => setLoadAttempt(attempt => attempt + 1)}>Réessayer</button>
+        <Link to={`/tools/${id}`} className="tl26-btn">Retour à la fiche</Link>
+      </div>
+    </div></div>
+  )
 
   return (
     <div className="tl26">
@@ -262,7 +303,7 @@ export default function ToolForm() {
                 {errorCount > 0 && <span className="is-error">{errorCount} champ{errorCount > 1 ? 's' : ''} à corriger</span>}
                 {saveFailed && <span className="is-error">Enregistrement impossible. Réessaie.</span>}
               </div>
-              <button type="button" className="tl26-btn" onClick={() => navigate(-1)} disabled={loading}>Annuler</button>
+              <button type="button" className="tl26-btn" onClick={() => navigate(isEdit ? `/tools/${id}` : '/tools')} disabled={loading}>Annuler</button>
               <button type="submit" className="tl26-btn is-primary" disabled={loading}>
                 <Save size={15} aria-hidden="true" /> {loading ? 'Enregistrement…' : isEdit ? 'Sauvegarder' : "Créer l'outil"}
               </button>

@@ -26,6 +26,7 @@ export default function ToolDetail() {
   const [tool, setTool] = useState<Tool | null>(null)
   const [loading, setLoading] = useState(true)
   const [confirmDelete, setConfirmDelete] = useState(false)
+  const [deleteError, setDeleteError] = useState(false)
 
   useEffect(() => {
     toolsApi.get(Number(id))
@@ -36,8 +37,14 @@ export default function ToolDetail() {
 
   const handleDelete = async () => {
     if (!tool) return
-    await toolsApi.delete(tool.id)
-    navigate('/tools')
+    setDeleteError(false)
+    try {
+      await toolsApi.delete(tool.id)
+      navigate('/tools')
+    } catch {
+      setConfirmDelete(false)
+      setDeleteError(true)
+    }
   }
 
   if (loading) return (
@@ -63,6 +70,7 @@ export default function ToolDetail() {
   const hasFrame = ethic !== 'standard' || Boolean(tool.legal_notes?.trim() || tool.ethical_use_cases?.trim())
   const toc = [
     ...(tool.command_template?.trim() ? [{ id: 'tl26-s-command', title: 'Gabarit de commande' }] : []),
+    ...(tool.input_schema?.trim() ? [{ id: 'tl26-s-schema', title: 'Schéma des paramètres' }] : []),
     ...sections.map(s => ({ id: `tl26-s-${s.key}`, title: s.title })),
     ...(hasFrame ? [{ id: 'tl26-s-frame', title: "Cadre d'emploi" }] : []),
     ...(tool.user_notes?.trim() ? [{ id: 'tl26-s-notes', title: 'Notes personnelles' }] : []),
@@ -114,7 +122,7 @@ export default function ToolDetail() {
           </header>
 
           <div className="tl26-sheet-body">
-            {toc.length > 1 && (
+            {toc.length > 0 && (
               <nav className="tl26-toc" aria-label="Sommaire de la fiche">
                 <p>Sommaire</p>
                 <ol>{toc.map(item => <li key={item.id}><a href={`#${item.id}`}>{item.title}</a></li>)}</ol>
@@ -128,6 +136,13 @@ export default function ToolDetail() {
                 <section id="tl26-s-command" className="tl26-doc-section" aria-labelledby="tl26-h-command">
                   <header><span className="tl26-num">{num()}</span><h3 id="tl26-h-command">Gabarit de commande</h3><small>Paramètres entre {'{{ }}'}</small></header>
                   <pre className="tl26-template" tabIndex={0}><code>{tool.command_template}</code></pre>
+                </section>
+              )}
+
+              {tool.input_schema?.trim() && (
+                <section id="tl26-s-schema" className="tl26-doc-section" aria-labelledby="tl26-h-schema">
+                  <header><span className="tl26-num">{num()}</span><h3 id="tl26-h-schema">Schéma des paramètres</h3><small>JSON</small></header>
+                  <pre className="tl26-template" tabIndex={0}><code>{tool.input_schema}</code></pre>
                 </section>
               )}
 
@@ -158,12 +173,13 @@ export default function ToolDetail() {
             </div>
           </div>
         </article>
+        {deleteError && <p className="tl26-field-error" role="alert">Suppression non confirmée. Vérifie le registre avant de réessayer.</p>}
       </div>
 
       <ConfirmModal
         open={confirmDelete}
         onCancel={() => setConfirmDelete(false)}
-        onConfirm={() => { handleDelete() }}
+        onConfirm={handleDelete}
         title="SUPPRIMER CET OUTIL ?"
         message="CETTE ACTION EST IRRÉVERSIBLE. L'OUTIL SERA DÉFINITIVEMENT EFFACÉ DE LA BASE."
       />

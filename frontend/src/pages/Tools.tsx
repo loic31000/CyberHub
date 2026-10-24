@@ -1,5 +1,5 @@
 // frontend/src/pages/Tools.tsx
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { Link } from 'react-router-dom'
 import { toolsApi } from '@/api/client'
 import type { Tool, ToolCategory, ToolFilter, ToolOS } from '@/types'
@@ -25,24 +25,33 @@ export default function Tools() {
   const [listError, setListError] = useState(false)
   const [showFilters, setShowFilters] = useState(false)
   const [filters, setFilters] = useState<ToolFilter>({ category: '', os: '', search: '', sub_category: '' })
+  const requestId = useRef(0)
 
   const loadTools = useCallback(() => {
+    const currentRequest = ++requestId.current
     setLoading(true)
     setListError(false)
-    toolsApi.list({ ...filters, page, limit: LIMIT } as ToolFilter & { page: number; limit: number })
+    toolsApi.list({ ...filters, page, limit: LIMIT })
       .then(r => {
+        if (currentRequest !== requestId.current) return
         setTools(r.tools)
         setCount(Number(r.count))
-        setTotalPages((r as { total_pages?: number }).total_pages ?? 1)
+        setTotalPages(r.total_pages ?? 1)
       })
       .catch(() => {
+        if (currentRequest !== requestId.current) return
         setListError(true)
         toast.error('Impossible de charger les outils')
       })
-      .finally(() => setLoading(false))
+      .finally(() => {
+        if (currentRequest === requestId.current) setLoading(false)
+      })
   }, [filters, page])
 
-  useEffect(() => { loadTools() }, [loadTools])
+  useEffect(() => {
+    loadTools()
+    return () => { requestId.current++ }
+  }, [loadTools])
   useEffect(() => { toolsApi.getCategories().then(setCategories).catch(() => {}) }, [])
 
   const updateFilter = <K extends keyof ToolFilter>(key: K, value: ToolFilter[K]) => {
@@ -90,7 +99,7 @@ export default function Tools() {
                 type="button"
                 className={`tl26-btn${showFilters ? ' is-on' : ''}`}
                 aria-expanded={showFilters}
-                aria-controls="tl26-filter-panel"
+                aria-controls={showFilters ? 'tl26-filter-panel' : undefined}
                 onClick={() => setShowFilters(!showFilters)}
               >
                 <SlidersHorizontal size={15} aria-hidden="true" /> Filtres

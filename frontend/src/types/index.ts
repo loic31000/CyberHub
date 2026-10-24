@@ -79,6 +79,9 @@ export interface ToolCreateRequest {
 export interface ToolsResponse {
   tools: Tool[]
   count: number
+  page?: number
+  limit?: number
+  total_pages?: number
 }
 
 export interface AuthStatus {
@@ -110,6 +113,11 @@ export type ToolFilter = {
   sub_category?: string
   os?: ToolOS | ''
   search?: string
+}
+
+export type ToolListParams = ToolFilter & {
+  page?: number
+  limit?: number
 }
 
 // ---- CTF ----
