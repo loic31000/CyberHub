@@ -1,75 +1,24 @@
 // frontend/src/pages/ToolDetail.tsx
 import { useState, useEffect } from 'react'
-import { useParams, useNavigate } from 'react-router-dom'
+import { Link, useParams, useNavigate } from 'react-router-dom'
 import { toolsApi } from '@/api/client'
 import type { Tool } from '@/types'
-import ReactMarkdown from 'react-markdown'
-import {
-  ArrowLeft, Pencil, Trash2, Terminal, Download,
-  ShieldAlert, BookOpen, FileText, AlertTriangle, Info, Wrench,
-} from 'lucide-react'
+import { ArrowLeft, Pencil, Scale, Trash2 } from 'lucide-react'
 import ConfirmModal from '@/components/ConfirmModal'
+import ToolsHero from '@/tools26/ToolsHero'
+import {
+  CategoryMark, ETHIC_HINT, ETHIC_LABEL, EthicMark, Markdown, OsMark, ethicOf, splitTags,
+} from '@/tools26/parts'
+import '@/tools26/tools.css'
 
-function MarkdownSection({ title, content, icon }: { title: string; content: string; icon: React.ReactNode }) {
-  if (!content) return null
-  return (
-    <section className="border border-[#1e2d40] bg-[#0a0f16]">
-      <div className="flex items-center gap-2 border-b border-[#1e2d40] px-5 py-3">
-        <span className="text-[#00d4ff]">{icon}</span>
-        <h3 className="font-mono text-[11px] font-bold uppercase tracking-[0.2em] text-[#8a9ab0]">{title}</h3>
-      </div>
-      <div className="p-6 prose prose-invert prose-sm max-w-none text-[#cbd5e1] 
-        [&_p]:mb-4 [&_p]:leading-relaxed
-        [&_ul]:mb-4 [&_ul]:mt-0 [&_li]:mb-1
-        [&_pre]:mb-6 [&_pre]:mt-2 [&_pre]:p-4 [&_pre]:bg-[#0d131f] [&_pre]:border [&_pre]:border-[#1e2d40] [&_pre]:rounded-none
-        [&_code]:bg-[#0d131f] [&_code]:border [&_code]:border-[#1e2d40] [&_code]:px-1.5 [&_code]:py-0.5 [&_code]:text-[#00d4ff] [&_code]:font-mono [&_code]:text-xs
-        [&_pre_code]:bg-transparent [&_pre_code]:border-0 [&_pre_code]:p-0 [&_pre_code]:text-[#f1f5f9] [&_pre_code]:font-mono [&_pre_code]:text-xs
-        [&_pre_code_.comment]:text-[#6b8cae]
-      ">
-        {/* Filtrage pour coloriser les commentaires dans les blocs de code (lignes commençant par #) */}
-        <ReactMarkdown
-          components={{
-            code({ node, className, children, ...props }) {
-              const isInline = !className?.includes('language-')
-              if (isInline) {
-                return <code className="text-[#00d4ff]" {...props}>{children}</code>
-              }
-              // Bloc de code : on remplace les lignes de commentaire par un span coloré
-              const codeContent = String(children).replace(/\n/g, '\n')
-              const lines = codeContent.split('\n')
-              const coloredLines = lines.map((line, idx) => {
-                if (line.trim().startsWith('#')) {
-                  return <span key={idx} className="comment block text-[#6b8cae]">{line}</span>
-                }
-                return <span key={idx} className="block">{line}</span>
-              })
-              return (
-                <pre className="bg-[#0d131f] border border-[#1e2d40] p-4 overflow-x-auto">
-                  <code className="text-[#f1f5f9] font-mono text-xs">
-                    {coloredLines}
-                  </code>
-                </pre>
-              )
-            },
-          }}
-        >
-          {content}
-        </ReactMarkdown>
-      </div>
-    </section>
-  )
-}
-
-const CATEGORY_STYLE: Record<string, string> = {
-  offensive: 'border-[#ef4444]/30 bg-[#ef4444]/10 text-[#ef4444]',
-  defensive: 'border-[#10b981]/30 bg-[#10b981]/10 text-[#10b981]',
-  osint:     'border-[#00d4ff]/30 bg-[#00d4ff]/10 text-[#00d4ff]',
-}
-const ETHICAL_STYLE: Record<string, string> = {
-  warning:  'border-[#ef4444]/30 bg-[#ef4444]/10 text-[#ef4444]',
-  elevated: 'border-[#eab308]/30 bg-[#eab308]/10 text-[#eab308]',
-  standard: 'border-[#10b981]/30 bg-[#10b981]/10 text-[#10b981]',
-}
+/* The sheet reads as one technical document, in this order. */
+const DOC_SECTIONS: { key: 'install' | 'usage' | 'examples' | 'procedure' | 'defense'; title: string; lead: string }[] = [
+  { key: 'install', title: 'Installation', lead: 'Mise en place' },
+  { key: 'usage', title: 'Utilisation', lead: 'Syntaxe et options' },
+  { key: 'examples', title: 'Exemples', lead: 'Cas concrets' },
+  { key: 'procedure', title: 'Procédure', lead: 'Déroulé opérationnel' },
+  { key: 'defense', title: 'Contre-mesures', lead: 'Détection et défense' },
+]
 
 export default function ToolDetail() {
   const { id } = useParams<{ id: string }>()
@@ -77,6 +26,7 @@ export default function ToolDetail() {
   const [tool, setTool] = useState<Tool | null>(null)
   const [loading, setLoading] = useState(true)
   const [confirmDelete, setConfirmDelete] = useState(false)
+  const [deleteError, setDeleteError] = useState(false)
 
   useEffect(() => {
     toolsApi.get(Number(id))
@@ -87,168 +37,149 @@ export default function ToolDetail() {
 
   const handleDelete = async () => {
     if (!tool) return
-    await toolsApi.delete(tool.id)
-    navigate('/tools')
+    setDeleteError(false)
+    try {
+      await toolsApi.delete(tool.id)
+      navigate('/tools')
+    } catch {
+      setConfirmDelete(false)
+      setDeleteError(true)
+    }
   }
 
-  if (loading) return <div className="min-h-full bg-[#06080f]" />
+  if (loading) return (
+    <div className="tl26"><div className="tl26-frame">
+      <ToolsHero status={{ text: 'CHARGEMENT', tone: 'busy' }} />
+      <p className="tl26-loading" role="status">Chargement de la fiche…</p>
+    </div></div>
+  )
   if (!tool) return (
-    <div className="min-h-full bg-[#06080f] p-6 flex items-center justify-center">
-      <p className="font-mono text-sm uppercase tracking-widest text-[#64748b]">FICHE NON TROUVÉE</p>
-    </div>
+    <div className="tl26"><div className="tl26-frame">
+      <ToolsHero status={{ text: 'FICHE INTROUVABLE', tone: 'warn' }} />
+      <div className="tl26-state is-error">
+        <h2>Fiche non trouvée</h2>
+        <p>Cet outil n'existe pas ou n'a pas pu être chargé.</p>
+        <Link to="/tools" className="tl26-btn"><ArrowLeft size={15} aria-hidden="true" /> Retour à l'arsenal</Link>
+      </div>
+    </div></div>
   )
 
-  const isWarning = tool.ethical_level === 'warning'
-  const isElevated = tool.ethical_level === 'elevated'
-  const catStyle = CATEGORY_STYLE[tool.category] ?? CATEGORY_STYLE.osint
-  const ethStyle = ETHICAL_STYLE[tool.ethical_level ?? 'standard'] ?? ETHICAL_STYLE.standard
+  const ethic = ethicOf(tool)
+  const tags = splitTags(tool.tags)
+  const sections = DOC_SECTIONS.filter(s => tool[s.key]?.trim())
+  const hasFrame = ethic !== 'standard' || Boolean(tool.legal_notes?.trim() || tool.ethical_use_cases?.trim())
+  const toc = [
+    ...(tool.command_template?.trim() ? [{ id: 'tl26-s-command', title: 'Gabarit de commande' }] : []),
+    ...(tool.input_schema?.trim() ? [{ id: 'tl26-s-schema', title: 'Schéma des paramètres' }] : []),
+    ...sections.map(s => ({ id: `tl26-s-${s.key}`, title: s.title })),
+    ...(hasFrame ? [{ id: 'tl26-s-frame', title: "Cadre d'emploi" }] : []),
+    ...(tool.user_notes?.trim() ? [{ id: 'tl26-s-notes', title: 'Notes personnelles' }] : []),
+  ]
+  let n = 0
+  const num = () => String(++n).padStart(2, '0')
 
   return (
-    <div className="flex flex-col h-full bg-[#06080f] text-[#f1f5f9]">
-      {/* Bandeau d'en-tête style BGPLookup */}
-      <div className="flex items-center justify-between px-6 py-4 border-b border-[#1e2d40] bg-[#0a0f16]/50">
-        <div className="flex items-center gap-3">
-          <div className="relative">
-            <Wrench className="text-[#00d4ff]" size={20} />
-            <div className="absolute -top-1 -right-1 w-2 h-2 bg-[#10b981] rounded-full animate-pulse shadow-[0_0_8px_#10b981]" />
-          </div>
-          <div>
-            <h1 className="text-sm font-bold tracking-[0.2em] uppercase">TOOL ARSENAL // DETAIL</h1>
-            <p className="text-[10px] text-[#64748b] font-mono">{tool.name} // {tool.category.toUpperCase()}</p>
-          </div>
-        </div>
-        <div className="flex items-center gap-4">
-          <button
-            type="button"
-            onClick={() => navigate('/tools')}
-            className="flex items-center gap-2 px-3 py-1.5 bg-[#1e2d40] hover:bg-[#2a3f55] text-[10px] font-bold border border-[#334155] transition-colors"
-          >
-            <ArrowLeft size={12} /> BACK TO ARSENAL
-          </button>
-        </div>
-      </div>
+    <div className="tl26">
+      <div className="tl26-frame">
+        <ToolsHero status={{ text: 'FICHE OUTIL', mark: `#${tool.id}` }} />
 
-      {/* Zone de contenu scrollable */}
-      <div className="flex-1 overflow-auto p-6 space-y-6">
-        <div className="max-w-6xl mx-auto w-full">
-          {/* Badges + titre + description (pas de chevauchement) */}
-          <div className="mb-8">
-            <div className="flex flex-wrap items-center gap-2 mb-3">
-              <span className={`border px-2 py-0.5 font-mono text-[9px] uppercase tracking-widest ${catStyle}`}>
-                {tool.category}
-              </span>
-              <span className={`border px-2 py-0.5 font-mono text-[9px] uppercase tracking-widest ${ethStyle}`}>
-                {tool.ethical_level ?? 'standard'}
-              </span>
-              <span className="border border-[#1e2d40] px-2 py-0.5 font-mono text-[9px] uppercase tracking-widest text-[#8a9ab0]">
-                {tool.os}
-              </span>
+        <div className="tl26-crumbs">
+          <Link to="/tools" className="tl26-link"><ArrowLeft size={14} aria-hidden="true" /> Arsenal</Link>
+        </div>
+
+        <article className="tl26-sheet" aria-labelledby="tl26-sheet-title">
+          <header className="tl26-sheet-head" data-cat={tool.category}>
+            <div className="tl26-sheet-title">
+              <p className="tl26-sheet-kicker">{tool.sub_category || 'outil'}</p>
+              <h2 id="tl26-sheet-title">{tool.name}</h2>
             </div>
-            <h1 className="break-words font-mono text-3xl font-bold uppercase tracking-[0.15em] text-[#f1f5f9]">
-              {tool.name}
-            </h1>
-            <p className="mt-3 max-w-full break-words font-mono text-[11px] leading-relaxed text-[#8a9ab0]">
-              {tool.description}
-            </p>
-          </div>
+            <div className="tl26-sheet-actions">
+              <button type="button" className="tl26-btn" onClick={() => navigate(`/tools/${tool.id}/edit`)}>
+                <Pencil size={15} aria-hidden="true" /> Modifier
+              </button>
+              <button type="button" className="tl26-btn is-danger" onClick={() => setConfirmDelete(true)}>
+                <Trash2 size={15} aria-hidden="true" /> Supprimer
+              </button>
+            </div>
+            <p className="tl26-sheet-desc">{tool.description}</p>
+            <dl className="tl26-facts">
+              <div><dt>Catégorie</dt><dd><CategoryMark category={tool.category} /></dd></div>
+              <div><dt>Sous-catégorie</dt><dd className="is-mono">{tool.sub_category || '—'}</dd></div>
+              <div><dt>Système</dt><dd><OsMark os={tool.os} /></dd></div>
+              <div><dt>Niveau éthique</dt><dd><EthicMark level={ethic} /></dd></div>
+            </dl>
+            {tags.length > 0 && (
+              <ul className="tl26-tags is-sheet" aria-label="Tags">
+                {tags.map(tag => <li key={tag}>{tag}</li>)}
+              </ul>
+            )}
+            {ethic !== 'standard' && (
+              <p className="tl26-ethic-note" data-ethic={ethic}>
+                <Scale size={15} aria-hidden="true" />
+                <span><b>{ETHIC_LABEL[ethic]}.</b> {ETHIC_HINT[ethic]} <a href="#tl26-s-frame">Voir le cadre d'emploi</a></span>
+              </p>
+            )}
+          </header>
 
-          {/* Grille principale : 2 colonnes sur grand écran */}
-          <div className="grid grid-cols-1 gap-8 lg:grid-cols-3">
-            {/* Colonne gauche : markdown */}
-            <div className="space-y-8 lg:col-span-2">
-              <MarkdownSection title="INSTALLATION" content={tool.install ?? ''} icon={<Download size={14} />} />
-              <MarkdownSection title="UTILISATION" content={tool.usage ?? ''} icon={<Terminal size={14} />} />
-              <MarkdownSection title="EXEMPLES" content={tool.examples ?? ''} icon={<FileText size={14} />} />
-              <MarkdownSection title="CONTRE-MESURES" content={tool.defense ?? ''} icon={<ShieldAlert size={14} />} />
-              <MarkdownSection title="PROCÉDURE" content={tool.procedure ?? ''} icon={<BookOpen size={14} />} />
+          <div className="tl26-sheet-body">
+            {toc.length > 0 && (
+              <nav className="tl26-toc" aria-label="Sommaire de la fiche">
+                <p>Sommaire</p>
+                <ol>{toc.map(item => <li key={item.id}><a href={`#${item.id}`}>{item.title}</a></li>)}</ol>
+              </nav>
+            )}
 
-              {(isWarning || isElevated) && (
-                <div className="border border-[#ef4444]/30 bg-[#ef4444]/5 p-5">
-                  <div className="mb-3 flex items-center gap-2">
-                    <AlertTriangle size={16} className="text-[#ef4444]" />
-                    <h3 className="font-mono text-[11px] font-bold uppercase tracking-widest text-[#ef4444]">AVERTISSEMENT ÉTHIQUE</h3>
-                  </div>
-                  <div className="space-y-4">
-                    {tool.legal_notes && (
-                      <div>
-                        <h4 className="mb-1 font-mono text-[10px] uppercase tracking-widest text-[#8a9ab0]">CADRE LÉGAL</h4>
-                        <p className="font-mono text-xs text-[#cbd5e1]">{tool.legal_notes}</p>
-                      </div>
-                    )}
-                    {tool.ethical_use_cases && (
-                      <div>
-                        <h4 className="mb-1 font-mono text-[10px] uppercase tracking-widest text-[#8a9ab0]">CAS D'USAGE AUTORISÉS</h4>
-                        <p className="font-mono text-xs text-[#cbd5e1]">{tool.ethical_use_cases}</p>
-                      </div>
-                    )}
-                  </div>
-                </div>
+            <div className="tl26-doc">
+              {toc.length === 0 && <p className="tl26-empty-doc">Cette fiche ne contient pas encore de documentation opérationnelle.</p>}
+
+              {tool.command_template?.trim() && (
+                <section id="tl26-s-command" className="tl26-doc-section" aria-labelledby="tl26-h-command">
+                  <header><span className="tl26-num">{num()}</span><h3 id="tl26-h-command">Gabarit de commande</h3><small>Paramètres entre {'{{ }}'}</small></header>
+                  <pre className="tl26-template" tabIndex={0}><code>{tool.command_template}</code></pre>
+                </section>
               )}
 
-              {/* Boutons d'action inline (éditer/supprimer) */}
-              <div className="flex flex-wrap items-center gap-3 pt-6 border-t border-[#1e2d40]">
-                <button
-                  type="button"
-                  onClick={() => navigate(`/tools/${tool.id}/edit`)}
-                  className="flex items-center gap-2 border border-[#00d4ff]/20 bg-[#00d4ff]/10 px-4 py-2 font-mono text-[10px] font-bold uppercase tracking-widest text-[#00d4ff] transition-colors hover:bg-[#00d4ff]/20"
-                >
-                  <Pencil size={13} /> MODIFIER
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setConfirmDelete(true)}
-                  className="flex items-center gap-2 border border-[#ef4444]/20 bg-[#ef4444]/10 px-4 py-2 font-mono text-[10px] font-bold uppercase tracking-widest text-[#ef4444] transition-colors hover:bg-[#ef4444]/20"
-                >
-                  <Trash2 size={13} /> SUPPRIMER
-                </button>
-              </div>
-            </div>
+              {tool.input_schema?.trim() && (
+                <section id="tl26-s-schema" className="tl26-doc-section" aria-labelledby="tl26-h-schema">
+                  <header><span className="tl26-num">{num()}</span><h3 id="tl26-h-schema">Schéma des paramètres</h3><small>JSON</small></header>
+                  <pre className="tl26-template" tabIndex={0}><code>{tool.input_schema}</code></pre>
+                </section>
+              )}
 
-            {/* Colonne droite : infos et tags */}
-            <div className="space-y-8">
-              <section className="border border-[#1e2d40] bg-[#0a0f16]">
-                <div className="flex items-center gap-2 border-b border-[#1e2d40] px-5 py-3">
-                  <Info size={13} className="text-[#00d4ff]" />
-                  <span className="font-mono text-[11px] font-bold uppercase tracking-[0.2em] text-[#8a9ab0]">INFOS</span>
-                </div>
-                <div className="divide-y divide-[#1e2d40]">
-                  {[
-                    { label: 'CATÉGORIE', value: tool.category, style: catStyle },
-                    { label: 'OS', value: tool.os, style: 'text-[#8a9ab0]' },
-                    { label: 'SOUS-CAT.', value: tool.sub_category, style: 'text-[#8a9ab0]' },
-                    { label: 'ÉTHIQUE', value: tool.ethical_level ?? 'standard', style: ethStyle },
-                  ].map(row => (
-                    <div key={row.label} className="flex items-center justify-between px-5 py-3">
-                      <span className="font-mono text-[10px] uppercase tracking-widest text-[#4a6480]">{row.label}</span>
-                      <span className={`border px-2 py-0.5 font-mono text-[9px] uppercase tracking-widest border-transparent ${row.style}`}>
-                        {row.value}
-                      </span>
-                    </div>
-                  ))}
-                </div>
-              </section>
+              {sections.map(s => (
+                <section key={s.key} id={`tl26-s-${s.key}`} className="tl26-doc-section" data-kind={s.key} aria-labelledby={`tl26-h-${s.key}`}>
+                  <header><span className="tl26-num">{num()}</span><h3 id={`tl26-h-${s.key}`}>{s.title}</h3><small>{s.lead}</small></header>
+                  <Markdown>{tool[s.key]}</Markdown>
+                </section>
+              ))}
 
-              {tool.tags && (
-                <section className="border border-[#1e2d40] bg-[#0a0f16] p-5">
-                  <h3 className="mb-3 font-mono text-[10px] font-bold uppercase tracking-widest text-[#4a6480]">TAGS</h3>
-                  <div className="flex flex-wrap gap-2">
-                    {tool.tags.split(',').map(tag => (
-                      <span key={tag.trim()} className="border border-[#1e2d40] bg-[#0d131f] px-2 py-1 font-mono text-[9px] uppercase tracking-widest text-[#8a9ab0]">
-                        {tag.trim()}
-                      </span>
-                    ))}
-                  </div>
+              {hasFrame && (
+                <section id="tl26-s-frame" className="tl26-doc-section tl26-frame-section" data-ethic={ethic} aria-labelledby="tl26-h-frame">
+                  <header><span className="tl26-num">{num()}</span><h3 id="tl26-h-frame">Cadre d'emploi</h3><small>Éthique et légal</small></header>
+                  <dl className="tl26-frame-list">
+                    <div><dt>Niveau</dt><dd><EthicMark level={ethic} /><span>{ETHIC_HINT[ethic]}</span></dd></div>
+                    {tool.legal_notes?.trim() && <div><dt>Cadre légal</dt><dd className="is-prose">{tool.legal_notes}</dd></div>}
+                    {tool.ethical_use_cases?.trim() && <div><dt>Cas d'usage autorisés</dt><dd className="is-prose">{tool.ethical_use_cases}</dd></div>}
+                  </dl>
+                </section>
+              )}
+
+              {tool.user_notes?.trim() && (
+                <section id="tl26-s-notes" className="tl26-doc-section" aria-labelledby="tl26-h-notes">
+                  <header><span className="tl26-num">{num()}</span><h3 id="tl26-h-notes">Notes personnelles</h3></header>
+                  <Markdown>{tool.user_notes}</Markdown>
                 </section>
               )}
             </div>
           </div>
-        </div>
+        </article>
+        {deleteError && <p className="tl26-field-error" role="alert">Suppression non confirmée. Vérifie le registre avant de réessayer.</p>}
       </div>
 
       <ConfirmModal
         open={confirmDelete}
         onCancel={() => setConfirmDelete(false)}
-        onConfirm={() => { handleDelete() }}
+        onConfirm={handleDelete}
         title="SUPPRIMER CET OUTIL ?"
         message="CETTE ACTION EST IRRÉVERSIBLE. L'OUTIL SERA DÉFINITIVEMENT EFFACÉ DE LA BASE."
       />

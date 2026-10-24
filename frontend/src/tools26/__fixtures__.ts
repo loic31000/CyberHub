@@ -1,0 +1,25 @@
+import type { Tool } from '@/types'
+
+export const makeTool = (id = 1, overrides: Partial<Tool> = {}): Tool => ({
+  id,
+  name: `Tool ${id}`,
+  category: 'defensive',
+  sub_category: 'forensics',
+  os: 'both',
+  description: `Description for tool ${id}`,
+  install: '',
+  usage: '',
+  examples: '',
+  defense: '',
+  procedure: '',
+  ethical_level: 'standard',
+  legal_notes: '',
+  ethical_use_cases: '',
+  command_template: '',
+  input_schema: '',
+  user_notes: '',
+  tags: '',
+  created_at: '2026-10-24T00:00:00Z',
+  updated_at: '2026-10-24T00:00:00Z',
+  ...overrides,
+})
