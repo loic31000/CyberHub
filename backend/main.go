@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"io/fs"
 	"log"
-	"net/http"
 	"os"
 	"os/exec"
 	"runtime"
@@ -105,43 +104,10 @@ func main() {
 	r := api.NewRouter(correlationEngine)
 
 	// Servir le frontend React embarqué
-	staticFS, err := fs.Sub(webFiles, "web")
-	if err != nil {
+	if err := registerEmbeddedFrontend(r, webFiles); err != nil {
 		log.Println("[WARN] Impossible de lire les fichiers embarqués")
-	} else {
-		indexFile, indexErr := staticFS.Open("index.html")
-		if indexErr != nil {
-			log.Println("[INFO] Mode développement : pas de frontend embarqué")
-			log.Printf("[INFO] Lance le frontend Vite séparément : cd frontend && npm run dev")
-		} else {
-			indexFile.Close()
-
-			// SPA routing : assets statiques → direct, toute autre route → index.html
-			// Cela permet à React Router de gérer /tools/:id, /dashboard, etc.
-			r.NoRoute(func(c *gin.Context) {
-				reqPath := c.Request.URL.Path
-
-				// Essayer de servir le fichier statique s'il existe (JS, CSS, images…)
-				f, ferr := staticFS.Open(reqPath[1:]) // retirer le / initial
-				if ferr == nil {
-					f.Close()
-					http.FileServer(http.FS(staticFS)).ServeHTTP(c.Writer, c.Request)
-					return
-				}
-
-				// Fichier non trouvé → renvoyer index.html (React Router gère la route côté client)
-				indexContent, readErr := fs.ReadFile(staticFS, "index.html")
-				if readErr != nil {
-					c.Status(http.StatusInternalServerError)
-					return
-				}
-				// ⚠️ index.html ne doit jamais être mis en cache — le hash du bundle change à chaque build
-				c.Header("Cache-Control", "no-cache, no-store, must-revalidate")
-				c.Header("Pragma", "no-cache")
-				c.Header("Expires", "0")
-				c.Data(http.StatusOK, "text/html; charset=utf-8", indexContent)
-			})
-		}
+		log.Println("[INFO] Mode développement : pas de frontend embarqué")
+		log.Printf("[INFO] Lance le frontend Vite séparément : cd frontend && npm run dev")
 	}
 
 	addr := "127.0.0.1:" + port
