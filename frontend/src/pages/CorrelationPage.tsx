@@ -1,12 +1,13 @@
 import { useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Search, Clock, ShieldPlus, Globe, X, AlertCircle, RefreshCw, GitBranch, ArrowRight } from 'lucide-react'
+import { Search, Clock, ShieldPlus, Globe, X, AlertCircle, RefreshCw } from 'lucide-react'
 import { correlationApi, iocApi } from '@/api/client'
 import type { CorrelationResult, CorrelationHistoryItem } from '@/types/correlation'
 import type { IOCCreatePayload } from '@/types/ioc'
 import { toast } from '@/store/toast'
 import CorrHero from '@/corr26/CorrHero'
 import ResultView from '@/corr26/ResultView'
+import EngineOverview from '@/corr26/EngineOverview'
 import { IOC_TYPES, confidenceOf, formatDayTime, typeLabel, type IOCType } from '@/corr26/parts'
 import '@/corr26/corr.css'
 
@@ -129,7 +130,7 @@ export default function CorrelationPage() {
 
   const actions = result && (
     <>
-      <button type="button" className="cr26-btn is-primary" onClick={handleSaveAsIOC} disabled={saving}>
+      <button type="button" className="cr26-btn is-soft" onClick={handleSaveAsIOC} disabled={saving}>
         <ShieldPlus size={15} aria-hidden="true" /> {saving ? 'Sauvegarde…' : 'Sauvegarder comme IOC'}
       </button>
       {(iocType === 'ip' || iocType === 'cidr') && (
@@ -192,72 +193,22 @@ export default function CorrelationPage() {
               <Search size={17} aria-hidden="true" /> {loading ? 'Analyse…' : 'Analyser'}
             </button>
           </div>
-        </section>
 
-        <div className="cr26-layout">
-          <div className="cr26-main" aria-busy={loading || undefined}>
-            {loading && (
-              <div className="cr26-loading" role="status" aria-label="Analyse en cours">
-                <div className="cr26-sk is-head" /><div className="cr26-sk is-line" /><div className="cr26-sk is-block" /><div className="cr26-sk is-block" />
-              </div>
-            )}
-
-            {error && !loading && (
-              <div className="cr26-state is-error" role="alert">
-                <AlertCircle size={26} aria-hidden="true" />
-                <h2>L’analyse a échoué</h2>
-                <p>{error}</p>
-                <button type="button" className="cr26-btn" onClick={handleAnalyze} disabled={!iocValue.trim()}><RefreshCw size={14} aria-hidden="true" /> Réessayer</button>
-              </div>
-            )}
-
-            {result && !loading && <ResultView result={result} actions={actions} />}
-
-            {!result && !loading && !error && (
-              <div className="cr26-intro">
-                <GitBranch size={26} aria-hidden="true" />
-                <h2>Analysez un indicateur</h2>
-                <p>Choisissez son type, saisissez sa valeur puis lancez l’analyse. Le moteur le rapproche des données locales de CyberHub :</p>
-                <ul>
-                  <li>techniques MITRE ATT&CK et layers</li>
-                  <li>CVE critiques</li>
-                  <li>playbooks et investigations</li>
-                  <li>outils, LOLBins, CLOAK et notes</li>
-                </ul>
-              </div>
-            )}
-          </div>
-
-          <aside className="cr26-history" aria-labelledby="cr26-history-title">
-            <header>
-              <h2 id="cr26-history-title"><Clock size={15} aria-hidden="true" /> Historique</h2>
-              {historyLoaded && <span className="cr26-count">{history.length}</span>}
-            </header>
-
+          <div className="cr26-recent" aria-labelledby="cr26-history-title">
+            <h2 id="cr26-history-title"><Clock size={14} aria-hidden="true" /> Analyses récentes{historyLoaded && <span className="cr26-count">{history.length}</span>}</h2>
             {!historyLoaded && !historyLoading && (
-              <div className="cr26-history-empty">
-                <p>Les analyses gardées en cache apparaissent ici.</p>
-                <button type="button" className="cr26-btn" onClick={loadHistory}>Charger l’historique</button>
-              </div>
+              <button type="button" className="cr26-text-btn is-accent" onClick={loadHistory}>Charger l’historique</button>
             )}
-
-            {historyLoading && (
-              <div className="cr26-history-loading" role="status" aria-label="Chargement de l’historique">
-                {[0, 1, 2].map(i => <div key={i} className="cr26-sk is-row" />)}
-              </div>
-            )}
-
-            {historyLoaded && history.length === 0 && (
-              <p className="cr26-history-empty">Aucune analyse en cache.</p>
-            )}
-
+            {historyLoading && <span className="cr26-recent-note" role="status">Chargement de l’historique…</span>}
+            {historyLoaded && history.length === 0 && <span className="cr26-recent-note">Aucune analyse en cache.</span>}
             {historyLoaded && history.length > 0 && (
-              <ul className="cr26-history-list">
+              <ul className="cr26-recent-list">
                 {history.map(item => (
                   <li key={`${item.ioc_type}-${item.ioc_value}`}>
                     <button
                       type="button"
                       aria-label={`Relancer l’analyse de ${item.ioc_value} (${typeLabel(item.ioc_type)})`}
+                      title={`${item.ioc_value} · ${formatDayTime(item.generated_at)}`}
                       onClick={() => {
                         setIocType(item.ioc_type as IOCType)
                         setIocValue(item.ioc_value)
@@ -267,16 +218,36 @@ export default function CorrelationPage() {
                         setTimeout(() => handleAnalyze(), 50)
                       }}
                     >
-                      <span className="cr26-history-type">{typeLabel(item.ioc_type)}</span>
-                      <span className="cr26-history-value">{item.ioc_value}</span>
-                      <span className="cr26-history-date">{formatDayTime(item.generated_at)}</span>
-                      <ArrowRight size={14} aria-hidden="true" className="cr26-history-go" />
+                      <span className="cr26-recent-type">{typeLabel(item.ioc_type)}</span>
+                      <span className="cr26-recent-value">{item.ioc_value}</span>
+                      <span className="cr26-recent-date">{formatDayTime(item.generated_at)}</span>
                     </button>
                   </li>
                 ))}
               </ul>
             )}
-          </aside>
+          </div>
+        </section>
+
+        <div className="cr26-main" aria-busy={loading || undefined}>
+          {loading && (
+            <div className="cr26-loading" role="status" aria-label="Analyse en cours">
+              <div className="cr26-sk is-map" /><div className="cr26-sk is-line" /><div className="cr26-sk is-block" />
+            </div>
+          )}
+
+          {error && !loading && (
+            <div className="cr26-state is-error" role="alert">
+              <AlertCircle size={26} aria-hidden="true" />
+              <h2>L’analyse a échoué</h2>
+              <p>{error}</p>
+              <button type="button" className="cr26-btn" onClick={handleAnalyze} disabled={!iocValue.trim()}><RefreshCw size={14} aria-hidden="true" /> Réessayer</button>
+            </div>
+          )}
+
+          {result && !loading && <ResultView result={result} actions={actions} />}
+
+          {!result && !loading && !error && <EngineOverview />}
         </div>
       </div>
     </div>

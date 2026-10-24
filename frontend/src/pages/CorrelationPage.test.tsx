@@ -127,6 +127,7 @@ describe('Corrélation 2026', () => {
     renderPage()
     await analyze()
     expect(await screen.findByText('Aucune correspondance dans les données locales pour cet indicateur.')).toBeTruthy()
-    expect(screen.queryByRole('navigation', { name: 'Correspondances' })).toBeNull()
+    // The map still shows every category searched, none of them lit or linked.
+    expect(within(screen.getByRole('navigation', { name: 'Correspondances' })).queryAllByRole('link')).toHaveLength(0)
   })
 })

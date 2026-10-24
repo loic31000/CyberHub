@@ -1,149 +1,184 @@
 import type { ReactNode } from 'react'
 import { Link } from 'react-router-dom'
 import { ArrowUpRight } from 'lucide-react'
-import type { CorrelationResult } from '@/types/correlation'
+import type { CorrelationResult, CorrelationTechnique } from '@/types/correlation'
 import { readableTactics } from '@/ioc26/intelligenceData'
-import { confidenceOf, formatDayTime, groupsOf, typeLabel, type GroupId } from './parts'
+import CorrelationMap from './CorrelationMap'
+import { formatDayTime, type GroupId } from './parts'
 
 /*
- * One correlation result: the indicator and its score first, then a contents
- * line that jumps to each group, then the groups that matched. Groups with no
- * match are named once at the end instead of drawing empty boxes.
+ * One correlation result read as an investigation: the map first, then the
+ * engine's reading and what to do next, then numbered chapters that only
+ * exist when the result holds matches for them. Each chapter has its own
+ * shape so techniques, vulnerabilities and next moves never look alike.
  */
 export default function ResultView({ result, actions }: { result: CorrelationResult; actions: ReactNode }) {
-  const c = confidenceOf(result.confidence)
-  const groups = groupsOf(result)
-  const found = groups.filter(g => g.count > 0)
-  const missing = groups.filter(g => g.count === 0)
   const next = result.next_actions ?? []
+  const context = [
+    result.tools?.length, result.lolbins?.length, result.cloak_tactics?.length, result.notes?.length,
+  ].some(Boolean)
+  const respond = Boolean(result.playbooks?.length || result.investigations?.length || result.attack_layers?.length)
+  const anything = Boolean(result.techniques?.length || result.cves?.length || respond || context)
+  let chapter = 0
+  const number = () => String(++chapter).padStart(2, '0')
 
   return (
-    <article className="cr26-result" aria-labelledby="cr26-result-title">
-      <header className="cr26-summary">
-        <div className="cr26-summary-main">
-          <span className="cr26-tag">{typeLabel(result.ioc_type)}</span>
-          <h2 id="cr26-result-title" className="cr26-ioc">{result.ioc_value}</h2>
+    <article className="cr26-result">
+      <CorrelationMap result={result} />
+
+      <div className="cr26-reading">
+        <div className="cr26-reading-text">
           <p className="cr26-meta">
             Analysé le {formatDayTime(result.generated_at)}
-            {result.from_cache && <span className="cr26-cache"> · résultat en cache</span>}
+            {result.from_cache && <span> · résultat en cache</span>}
           </p>
           {result.rationale && <p className="cr26-rationale">{result.rationale}</p>}
-          <div className="cr26-actions">{actions}</div>
         </div>
-        <div className="cr26-score" data-level={c.level}>
-          <span className="cr26-score-label">Confiance</span>
-          <b>{c.pct}<small>%</small></b>
-          <span className="cr26-meter" role="img" aria-label={`${c.label}, ${c.pct} %`}><i style={{ width: `${c.pct}%` }} /></span>
-          <span className="cr26-score-word">{c.label}</span>
-          <p>Pondération des liens trouvés dans les données locales, pas un niveau de menace.</p>
-        </div>
-      </header>
-
-      {found.length > 0 && (
-        <nav className="cr26-contents" aria-label="Correspondances">
-          {found.map(g => (
-            <a key={g.id} href={`#cr26-${g.id}`}>{g.label}<b>{g.count}</b></a>
-          ))}
-        </nav>
-      )}
+        <div className="cr26-actions">{actions}</div>
+      </div>
 
       {next.length > 0 && (
         <section className="cr26-next" aria-labelledby="cr26-next-title">
-          <h3 id="cr26-next-title">Actions recommandées</h3>
-          <ol>{next.map((action, i) => <li key={i}>{action}</li>)}</ol>
+          <h3 id="cr26-next-title">Prochaines étapes</h3>
+          <ol>{next.map((action, i) => <li key={i}><span aria-hidden="true">{i + 1}</span>{action}</li>)}</ol>
         </section>
       )}
 
-      {found.length === 0 && (
-        <p className="cr26-nomatch">Aucune correspondance dans les données locales pour cet indicateur.</p>
-      )}
+      {!anything && <p className="cr26-nomatch">Aucune correspondance dans les données locales pour cet indicateur.</p>}
 
-      {result.techniques?.length > 0 && (
-        <Group id="mitre" title="Techniques MITRE ATT&CK" count={result.techniques.length}>
-          <ul className="cr26-techniques">
-            {result.techniques.map(t => (
-              <li key={t.technique_id}>
-                <Link to={`/mitre?id=${encodeURIComponent(t.technique_id)}`} className="cr26-row-link" aria-label={`${t.technique_id} ${t.name}, ouvrir dans MITRE`}>
-                  <span className="cr26-id">{t.technique_id}</span>
-                  <span className="cr26-row-title">{t.name}</span>
-                  <span className="cr26-tactics">{readableTactics(t.tactic).map(tactic => <span key={tactic}>{tactic}</span>)}</span>
-                  <ArrowUpRight size={15} aria-hidden="true" className="cr26-row-go" />
-                </Link>
-              </li>
-            ))}
-          </ul>
-        </Group>
-      )}
+      {anything && (
+        <div className="cr26-path">
+          {result.techniques?.length > 0 && (
+            <Chapter id="mitre" n={number()} title="Techniques MITRE ATT&CK" count={result.techniques.length}
+              lead="Comportements adverses associés à l’indicateur, regroupés par tactique.">
+              <Techniques techniques={result.techniques} />
+            </Chapter>
+          )}
 
-      {result.cves?.length > 0 && (
-        <Group id="cve" title="CVE liées" count={result.cves.length} note="CVSS ≥ 7.0">
-          <ul className="cr26-cves">
-            {result.cves.map(cve => (
-              <li key={cve.cve_id} data-critical={cve.cvss_score >= 9 || undefined}>
-                <span className="cr26-id">{cve.cve_id}</span>
-                <span className="cr26-cvss">CVSS {cve.cvss_score.toFixed(1)}</span>
-                <p>{cve.description}</p>
-              </li>
-            ))}
-          </ul>
-        </Group>
-      )}
+          {result.cves?.length > 0 && (
+            <Chapter id="cve" n={number()} title="CVE liées" count={result.cves.length}
+              lead="Vulnérabilités critiques rapprochées (CVSS ≥ 7.0), de la plus grave à la moins grave.">
+              <ul className="cr26-cves">
+                {[...result.cves].sort((a, b) => b.cvss_score - a.cvss_score).map(cve => (
+                  <li key={cve.cve_id} data-critical={cve.cvss_score >= 9 || undefined}>
+                    <span className="cr26-cvss"><b>{cve.cvss_score.toFixed(1)}</b><small>CVSS</small></span>
+                    <div>
+                      <span className="cr26-id">{cve.cve_id}</span>
+                      <p>{cve.description}</p>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            </Chapter>
+          )}
 
-      <div className="cr26-related">
-        {result.playbooks?.length > 0 && (
-          <Group id="playbooks" title="Playbooks suggérés" count={result.playbooks.length} compact>
-            <LinkList items={result.playbooks.map(p => ({ key: p.id, to: `/playbooks/${p.id}`, label: p.title }))} />
-          </Group>
-        )}
-        {result.investigations?.length > 0 && (
-          <Group id="investigations" title="Investigations liées" count={result.investigations.length} compact>
-            <LinkList items={result.investigations.map(i => ({ key: i.id, to: `/investigations/${i.id}`, label: i.title, meta: i.status }))} />
-          </Group>
-        )}
-        {result.attack_layers?.length > 0 && (
-          <Group id="layers" title="Layers ATT&CK" count={result.attack_layers.length} compact>
-            <LinkList items={result.attack_layers.map(l => ({ key: l.id, to: `/mitre/layers/${l.id}`, label: l.name }))} />
-          </Group>
-        )}
-        {result.tools?.length > 0 && (
-          <Group id="tools" title="Outils recommandés" count={result.tools.length} compact>
-            <LinkList items={result.tools.map(t => ({ key: t.name, to: '/tools', label: t.name, meta: t.category }))} />
-          </Group>
-        )}
-        {result.lolbins?.length > 0 && (
-          <Group id="lolbins" title="LOLBins / GTFOBins" count={result.lolbins.length} compact>
-            <LinkList items={result.lolbins.map(l => ({ key: `${l.os}-${l.name}`, to: '/lolbins', label: l.name, meta: [l.os, l.category].filter(Boolean).join(' · ') }))} />
-          </Group>
-        )}
-        {result.notes?.length > 0 && (
-          <Group id="notes" title="Notes pertinentes" count={result.notes.length} compact>
-            <LinkList items={result.notes.map(n => ({ key: n.id, to: '/notes', label: n.title, meta: n.excerpt }))} />
-          </Group>
-        )}
-        {result.cloak_tactics?.length > 0 && (
-          <Group id="cloak" title="CLOAK OpSec" count={result.cloak_tactics.length} compact>
-            <ul className="cr26-plain">
-              {result.cloak_tactics.map(t => <li key={t.name}><b>{t.name}</b>{t.description && <span>{t.description}</span>}</li>)}
-            </ul>
-          </Group>
-        )}
-      </div>
+          {respond && (
+            <Chapter id="playbooks" n={number()} title="Répondre" count={(result.playbooks?.length ?? 0) + (result.investigations?.length ?? 0) + (result.attack_layers?.length ?? 0)}
+              lead="Procédures, dossiers et couvertures ATT&CK déjà présents dans CyberHub.">
+              <div className="cr26-columns">
+                {result.playbooks?.length > 0 && (
+                  <Column id="playbooks-list" title="Playbooks suggérés" count={result.playbooks.length}>
+                    <LinkList items={result.playbooks.map(p => ({ key: p.id, to: `/playbooks/${p.id}`, label: p.title }))} />
+                  </Column>
+                )}
+                {result.investigations?.length > 0 && (
+                  <Column id="investigations" title="Investigations liées" count={result.investigations.length}>
+                    <LinkList items={result.investigations.map(i => ({ key: i.id, to: `/investigations/${i.id}`, label: i.title, meta: i.status }))} />
+                  </Column>
+                )}
+                {result.attack_layers?.length > 0 && (
+                  <Column id="layers" title="Layers ATT&CK" count={result.attack_layers.length}>
+                    <LinkList items={result.attack_layers.map(l => ({ key: l.id, to: `/mitre/layers/${l.id}`, label: l.name }))} />
+                  </Column>
+                )}
+              </div>
+            </Chapter>
+          )}
 
-      {found.length > 0 && missing.length > 0 && (
-        <p className="cr26-missing">Sans correspondance : {missing.map(g => g.label).join(', ')}.</p>
+          {context && (
+            <Chapter id="tools" n={number()} title="Outils et contexte" count={(result.tools?.length ?? 0) + (result.lolbins?.length ?? 0) + (result.cloak_tactics?.length ?? 0) + (result.notes?.length ?? 0)}
+              lead="De quoi mener l’analyse : outils, binaires détournables, OpSec et notes internes.">
+              <div className="cr26-columns">
+                {result.tools?.length > 0 && (
+                  <Column id="tools-list" title="Outils recommandés" count={result.tools.length}>
+                    <LinkList items={result.tools.map(t => ({ key: t.name, to: '/tools', label: t.name, meta: t.category }))} />
+                  </Column>
+                )}
+                {result.lolbins?.length > 0 && (
+                  <Column id="lolbins" title="LOLBins / GTFOBins" count={result.lolbins.length}>
+                    <LinkList items={result.lolbins.map(l => ({ key: `${l.os}-${l.name}`, to: '/lolbins', label: l.name, meta: [l.os, l.category].filter(Boolean).join(' · ') }))} />
+                  </Column>
+                )}
+                {result.cloak_tactics?.length > 0 && (
+                  <Column id="cloak" title="CLOAK OpSec" count={result.cloak_tactics.length}>
+                    <ul className="cr26-plain">
+                      {result.cloak_tactics.map(t => <li key={t.name}><b>{t.name}</b>{t.description && <span>{t.description}</span>}</li>)}
+                    </ul>
+                  </Column>
+                )}
+                {result.notes?.length > 0 && (
+                  <Column id="notes" title="Notes pertinentes" count={result.notes.length}>
+                    <LinkList items={result.notes.map(n => ({ key: n.id, to: '/notes', label: n.title, meta: n.excerpt }))} />
+                  </Column>
+                )}
+              </div>
+            </Chapter>
+          )}
+        </div>
       )}
     </article>
   )
 }
 
-function Group({ id, title, count, note, compact, children }: { id: GroupId; title: string; count: number; note?: string; compact?: boolean; children: ReactNode }) {
+/* Techniques grouped under their first readable tactic, in the order they came. */
+function Techniques({ techniques }: { techniques: CorrelationTechnique[] }) {
+  const byTactic = new Map<string, { t: CorrelationTechnique; others: string[] }[]>()
+  for (const t of techniques) {
+    const [first = 'Sans tactique', ...others] = readableTactics(t.tactic)
+    byTactic.set(first, [...(byTactic.get(first) ?? []), { t, others }])
+  }
   return (
-    <section id={`cr26-${id}`} className={`cr26-group${compact ? ' is-compact' : ''}`} aria-labelledby={`cr26-${id}-title`} tabIndex={-1}>
-      <header>
+    <div className="cr26-tactic-groups">
+      {[...byTactic].map(([tactic, rows]) => (
+        <div key={tactic} className="cr26-tactic">
+          <h4>{tactic}</h4>
+          <ul>
+            {rows.map(({ t, others }) => (
+              <li key={t.technique_id}>
+                <Link to={`/mitre?id=${encodeURIComponent(t.technique_id)}`} aria-label={`${t.technique_id} ${t.name}, ouvrir dans MITRE`}>
+                  <span className="cr26-id">{t.technique_id}</span>
+                  <span className="cr26-row-title">{t.name}</span>
+                  {others.length > 0 && <span className="cr26-also">aussi : {others.join(', ')}</span>}
+                  <ArrowUpRight size={15} aria-hidden="true" className="cr26-row-go" />
+                </Link>
+              </li>
+            ))}
+          </ul>
+        </div>
+      ))}
+    </div>
+  )
+}
+
+function Chapter({ id, n, title, count, lead, children }: { id: GroupId; n: string; title: string; count: number; lead: string; children: ReactNode }) {
+  return (
+    <section id={`cr26-${id}`} className="cr26-chapter" aria-labelledby={`cr26-${id}-title`} tabIndex={-1}>
+      <header className="cr26-chapter-head">
+        <span className="cr26-chapter-n" aria-hidden="true">{n}</span>
         <h3 id={`cr26-${id}-title`}>{title}</h3>
         <span className="cr26-count">{count}</span>
-        {note && <small>{note}</small>}
+        <p>{lead}</p>
       </header>
+      <div className="cr26-chapter-body">{children}</div>
+    </section>
+  )
+}
+
+/* Sub-groups inside a chapter; their anchors keep the map's links working. */
+function Column({ id, title, count, children }: { id: string; title: string; count: number; children: ReactNode }) {
+  return (
+    <section id={`cr26-${id}`} className="cr26-column" aria-label={title} tabIndex={-1}>
+      <h4>{title} <span>{count}</span></h4>
       {children}
     </section>
   )
@@ -157,6 +192,7 @@ function LinkList({ items }: { items: { key: string | number; to: string; label:
           <Link to={item.to}>
             <span className="cr26-link-label">{item.label}</span>
             {item.meta && <span className="cr26-link-meta">{item.meta}</span>}
+            <ArrowUpRight size={14} aria-hidden="true" className="cr26-row-go" />
           </Link>
         </li>
       ))}
