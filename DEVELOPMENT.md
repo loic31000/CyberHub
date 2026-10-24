@@ -1,6 +1,6 @@
 # Développement local Windows avec Docker et Vite
 
-Le backend Go et SQLite tournent dans Docker sur `http://localhost:7743`. En développement, Vite sert React sur `http://localhost:5173` et transmet `/api` au backend (`frontend/vite.config.ts`). Les modifications React/CSS apparaissent via HMR sans reconstruire l'image Docker. Le build embarqué dans Docker reste disponible sur le port 7743.
+L'installation locale officielle utilise le backend Go et SQLite dans Docker, exposé sur `127.0.0.1:7743` (`compose.yaml`). Vite sur `http://localhost:5173` est facultatif : démarrez-le seulement pour le développement React avec HMR; il transmet alors `/api` au backend (`frontend/vite.config.ts`). Sans Vite, le frontend construit et embarqué dans Docker reste servi sur le port 7743.
 
 ## Avant de démarrer
 
@@ -65,6 +65,8 @@ Les deux dernières commandes doivent rendre le même état de configuration. Un
 ## Console 2026 et laboratoires historiques
 
 Depuis la [PR #27](https://github.com/loic31000/CyberHub/pull/27), le Dashboard 2026 et les modules modernisés font partie du frontend principal (`frontend/src/`) : `npm run dev` et `npm run build` dans `frontend/` les servent comme le reste de la Console. Aucune commande de prototype n'est nécessaire.
+
+État au 24 octobre 2026 (`main` : `0575f35c`) : BGP Lookup est présent et Historian 2.0 ([PR #39](https://github.com/loic31000/CyberHub/pull/39)), CVE & KEV 2026 ([PR #41](https://github.com/loic31000/CyberHub/pull/41)) et Investigations 2026 ([PR #43](https://github.com/loic31000/CyberHub/pull/43)) sont intégrés. Dashboard Performance ([PR #42](https://github.com/loic31000/CyberHub/pull/42)) est intégré ; la restauration visuelle C est proposée par la [PR #44 ouverte, non fusionnée](https://github.com/loic31000/CyberHub/pull/44). Elle ne prouve pas que le coût des 218 animations actives est résolu. Playbooks 2026 est encore en développement. La Landing / Showcase reste séparée dans `feat/cyberhub-2026-design` ([PR #25 en brouillon](https://github.com/loic31000/CyberHub/pull/25)); sa démo utilise exclusivement des données fictives, sans appel aux API privées.
 
 Vérifications usuelles dans `frontend/` : `npx tsc --noEmit`, `npm test` (Vitest) et `npm run build`. Ce dernier écrit dans `backend/web` ; pour un build de contrôle sans toucher ce dossier, utiliser comme la CI `npm run build -- --outDir <dossier-temporaire> --emptyOutDir`. Dans `backend/`, `go test ./...` nécessite un build frontend préalable, car `backend/web` est embarqué par `go:embed`.
 

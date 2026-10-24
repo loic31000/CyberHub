@@ -1,6 +1,6 @@
 # CyberHub 2026 - ordre de réalisation et portes de validation
 
-> **Point d'étape au 15 octobre 2026 :** la Console 2026 (Dashboard, navigation, MITRE ATT&CK, IOC Manager, OSINT Runner) est **intégrée dans `main`** via la [PR #27](https://github.com/loic31000/CyberHub/pull/27). La landing / Showcase (`feat/cyberhub-2026-design`) reste un prototype non intégré. Cette intégration ne prouve ni une publication publique, ni une conformité finale (sécurité, accessibilité, licences).
+> **Point d'étape au 24 octobre 2026 (`main` `0575f35c`) :** Dashboard et shell initial ([PR #27](https://github.com/loic31000/CyberHub/pull/27)), BGP Lookup et Historian 2.0 (Historian via [PR #39](https://github.com/loic31000/CyberHub/pull/39)), CVE & KEV 2026 ([PR #41](https://github.com/loic31000/CyberHub/pull/41)) et Investigations 2026 ([PR #43](https://github.com/loic31000/CyberHub/pull/43)) sont intégrés. Dashboard Performance ([PR #42](https://github.com/loic31000/CyberHub/pull/42)) est intégré ; la restauration C est proposée par la [PR #44 ouverte, non fusionnée](https://github.com/loic31000/CyberHub/pull/44). Playbooks 2026 est en développement. La Landing / Showcase reste séparée ([PR #25](https://github.com/loic31000/CyberHub/pull/25), brouillon), avec démo exclusivement fictive. Aucun statut ne vaut publication publique ou conformité finale (sécurité, accessibilité, licences).
 >
 > *Point d'étape initial (12 octobre 2026) : prototypes de landing et de dashboard présents sur GitHub, non intégrés dans `main`.* Les critères et étapes ci-dessous restent en partie la feuille de route historique, pas un rapport d'achèvement. **Décision d'architecture : une application React unifiée pour un outil personnel local ; le Dashboard a rejoint `frontend/`, la landing doit le rejoindre à terme, sans projet de SaaS ou d'hébergement public de la Console.** Avant intégration, revoir la qualité, les frontières API/données, les licences tierces et la [licence du projet](../LICENSING.md).
 
@@ -8,15 +8,16 @@ Plan fondé sur les descriptions et critères d'acceptation des [issues #3 à #1
 
 Les risques concrets de fusion entre branches sont documentés dans le [plan d'intégration Git](../BRANCH-INTEGRATION.md) ; une branche prototype ne doit pas être fusionnée telle quelle en supposant son interface déjà intégrée.
 
-## État d'avancement au 15 octobre 2026
+## État d'avancement au 24 octobre 2026
 
 | Chantier | État | Précision |
 | --- | --- | --- |
-| Fondations documentées (phase 0) | **Documenté** | Récit, ADR, audit, brief et feuille de route sous `docs/cyberhub-2026/`. |
-| Prototypes landing et Dashboard (phase 1) | **Prototype** | Réalisés et validés visuellement sur leurs branches (voir le [brief](art-direction-brief.md)). |
-| Système visuel de la Console (phase 2) | **Intégré, partiellement** | Tokens, polices locales et composants de la Console 2026 ; pas de système unifié avec la landing. |
-| Landing et démo intégrées (phase 3) | **À réaliser** | PR #25 en brouillon ; aucune route de landing dans `frontend/`. |
-| Application et Dashboard 2026 (phase 4) | **Intégré et testé de façon ciblée** | PR #27 : TypeScript, Vitest, build Vite (CI) et smoke tests ciblés avec le backend authentifié ; pas de validation exhaustive (voir les limites du README). |
+| Fondations documentées (phase 0) | **Documenté, statut actualisé** | Récit, ADR, audit, brief et feuille de route sous `docs/cyberhub-2026/` ; point d'étape fondé sur `main` `0575f35c`. |
+| Prototypes landing et Dashboard (phase 1) | **Prototype** | Terminal Story et ses scènes restent sur leurs branches ; voir le [plan d'intégration Landing](landing-integration-plan.md). |
+| Système visuel de la Console (phase 2) | **Intégré, partiellement** | Tokens et polices locales dans la Console ; convergence visuelle avec la Landing à préparer. |
+| Landing et démo intégrées (phase 3) | **À réaliser** | PR #25 reste en brouillon et est fondée sur une base antérieure à `main` actuel ; aucune route Landing intégrée. Adapter les scènes, sans fusion directe de l'ancienne PR. |
+| Console, Dashboard et modules 2026 (phase 4) | **Intégrés et ciblés par CI** | BGP Lookup / Historian 2.0, CVE & KEV 2026 et Investigations 2026 sont intégrés (#39, #41, #43). Dashboard Performance #42 est intégré. Le correctif C est ouvert dans la PR #44, non fusionnée ; le coût des 218 animations actives n'est pas déclaré résolu. |
+| Playbooks 2026 | **En développement** | Le nouveau chantier n'est pas intégré à `main`; distinguer des playbooks historiques présents dans l'application. |
 | Réseau optionnel NetAlertX (phase 5) | **Prévu** | Non commencé ; issues #19 à #22 inchangées. |
 
 ## Séquence recommandée
@@ -27,7 +28,7 @@ Les risques concrets de fusion entre branches sont documentés dans le [plan d'i
 | 1. Prototypes et validation visuelle | #4 + #5 + #6 puis [#7](https://github.com/loic31000/CyberHub/issues/7) | Prototyper la landing et le Dashboard séparément le temps de leur conception, avec fixtures fictives et captures desktop/mobile. | Revue humaine, mobile/clavier/mouvement réduit, pas de requête aux données personnelles pendant les démonstrations. |
 | 2. Système visuel et mouvement | [#8](https://github.com/loic31000/CyberHub/issues/8) après #7; [#9](https://github.com/loic31000/CyberHub/issues/9) après #4/#7 | Tokens et primitives d'abord (boutons, liens, navigation, états, panneau de preuve); prototype de transitions ensuite. Conserver Tailwind 3 tant qu'une migration distincte n'est pas approuvée. | Contrastes, reflow, clavier, mouvement réduit, performance mesurée sur matériel modeste. |
 | 3. Landing et démo intégrées | [#10](https://github.com/loic31000/CyberHub/issues/10) après validation artistique | Préparer l'intégration de la landing dans le frontend React existant ; conserver des scènes fictives autonomes côté données. | Compatibilité avec les routes et l'authentification, navigation, accessibilité, absence d'accès aux données privées, captures desktop/mobile. |
-| 4. Application et Dashboard 2026 | #6 puis #8 et sous-tâches à créer/relier sous #3 | Intégrer progressivement le Dashboard 2026 dans la Console React existante ; préserver tous les modules, navigation, états erreur/vide et métriques sourcées. | Tests Go/React, parcours login→dashboard→investigation, persistance SQLite, comparaison fonctionnelle avant/après. |
+| 4. Console et Dashboard 2026 | #6 puis #8 et sous-tâches liées sous #3 | Intégration principale réalisée (#27, #39–#43) ; la PR #44 sur le correctif C est ouverte et non fusionnée. C restaure l'animation du circuit, sans conclure à la résolution du coût global des animations actives. | Tests Go/React, parcours login→dashboard→investigation, persistance SQLite, comparaison fonctionnelle avant/après. |
 | 5. Réseau optionnel | [#19](https://github.com/loic31000/CyberHub/issues/19) → [#21](https://github.com/loic31000/CyberHub/issues/21) → [#22](https://github.com/loic31000/CyberHub/issues/22) → [#20](https://github.com/loic31000/CyberHub/issues/20) | Vérifier NetAlertX et son connecteur privé en lecture seule; définir sources/modes et limites; fiabiliser identités/provenance; seulement ensuite construire inventaire, timeline et alertes. | Chaque transition de données est testée sur fixtures; aucun scan actif sans accord distinct, aucun service domestique exposé. |
 
 L'intégration du Dashboard peut avancer par petits lots pendant celle de la landing si les composants partagés et les tests sont prêts. Une seule expérience React est la cible, sans obligation de conserver deux builds frontend dans l'application finale. Le chantier NetAlertX ne bloque ni le récit ni le Showcase et ne commence pas dans cette phase.
