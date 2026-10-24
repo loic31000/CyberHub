@@ -1,6 +1,7 @@
 import type { CSSProperties } from "react";
 import { ChevronRight, Plus } from "lucide-react";
-import { getEnvironmentCard, type EnvironmentCardDefinition, type SystemCard } from "../environmentRegistry";
+import { getEnvironmentCard, signalOf, type EnvironmentCardDefinition } from "../environmentRegistry";
+import type { CardStatus } from "../model/dashboard.types";
 
 /* Phase 3A.1: the environment cards of the Dashboard, in the order chosen by the user. */
 
@@ -20,15 +21,16 @@ function EnvironmentCard({
   status,
 }: {
   card: EnvironmentCardDefinition;
-  onOpen: (destination: string) => void;
-  status?: Pick<SystemCard, "status" | "secondary" | "tone">;
+  onOpen: (route: string) => void;
+  status?: CardStatus;
 }) {
   const Icon = card.icon;
-  if (card.kind === "system") {
-    const current = status ?? card;
-    // Same markup as Phase 2N: the default dashboard stays visually identical.
+  const signal = signalOf(card);
+  if (signal) {
+    const current = status ?? signal;
+    // Same markup as Phase 2N: a card with a state keeps its LED and bars.
     return (
-      <button type="button" className={`environment-card signal-${current.tone}`} onClick={() => onOpen(card.action)}>
+      <button type="button" className={`environment-card signal-${current.tone}`} onClick={() => onOpen(card.route)}>
         <span className="environment-icon">
           <Icon size={25} />
         </span>
@@ -41,13 +43,13 @@ function EnvironmentCard({
           <small>{current.secondary}</small>
         </span>
         <ChevronRight className="environment-arrow" size={16} aria-hidden="true" />
-        <MiniBars bars={card.bars} />
+        <MiniBars bars={signal.bars} />
       </button>
     );
   }
-  // Module card: access only, no value or status the prototype could not know.
+  // Module card: access only, no value or status the Dashboard does not load.
   return (
-    <button type="button" className="environment-card is-module" onClick={() => onOpen(card.title)}>
+    <button type="button" className="environment-card is-module" onClick={() => onOpen(card.route)}>
       <span className="environment-icon">
         <Icon size={25} />
       </span>
@@ -75,9 +77,9 @@ export function EnvironmentGrid({
   statuses,
 }: {
   envCards: string[];
-  onOpen: (destination: string) => void;
+  onOpen: (route: string) => void;
   onAdd: (trigger: HTMLElement) => void;
-  statuses?: Record<string, Pick<SystemCard, "status" | "secondary" | "tone">>;
+  statuses?: Record<string, CardStatus>;
 }) {
   const cards = envCards.map(getEnvironmentCard).filter((card): card is EnvironmentCardDefinition => !!card);
   if (!cards.length) {

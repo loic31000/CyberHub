@@ -1,5 +1,5 @@
 import type { bgpApi, cveApi, iocApi, statsApi, toolsApi } from "@/api/client";
-import type { SystemCard } from "../environmentRegistry";
+import type { CardSignal } from "../environmentRegistry";
 
 /*
  * Types of the Dashboard: what the API returns (taken from the client, never
@@ -31,7 +31,7 @@ export type DashboardData = {
 };
 
 /* What an environment card shows: its status line, secondary line and signal tone. */
-export type CardStatus = Pick<SystemCard, "status" | "secondary" | "tone">;
+export type CardStatus = Pick<CardSignal, "status" | "secondary" | "tone">;
 export type EnvironmentStatuses = Record<string, CardStatus>;
 
 /* One row of the CVE preview: the API's own id, severity and date. */

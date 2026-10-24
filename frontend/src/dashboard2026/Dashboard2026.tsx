@@ -17,7 +17,7 @@ import { useDashboardData } from './hooks/useDashboardData'
 import { useDashboardLayout } from './hooks/useDashboardLayout'
 import { useDialogTrigger } from './hooks/useDialogTrigger'
 import { useScrollContainer } from './hooks/useScrollContainer'
-import { destinationRoute, environmentStatuses, hasDataError, widgetCounts } from './mappers/dashboardViewModel'
+import { environmentStatuses, hasDataError, widgetCounts } from './mappers/dashboardViewModel'
 import type { WidgetId, WidgetPlacement } from './widgetRegistry'
 import './dashboard.css'
 
@@ -44,10 +44,6 @@ export default function Dashboard2026() {
   useScrollContainer(rootRef, environmentDialog.open || widgetsDialog.open)
   useEffect(() => { requestCircuitRecompute() }, [layout.envCards, layoutKey, data.stats, data.bgp, data.cves])
 
-  const openDestination = (title: string) => {
-    const route = destinationRoute(title)
-    if (route) navigate(route)
-  }
   const { shown, hidden } = widgetCounts(layout.widgets)
 
   const widgets: Record<WidgetId, (placement: WidgetPlacement) => ReactElement> = {
@@ -65,7 +61,7 @@ export default function Dashboard2026() {
       <DashboardCircuit />
       <div className="workspace dashboard-board" id="dashboard-overview">
         <DashboardHero />
-        <EnvironmentSection envCards={layout.envCards} statuses={environmentStatuses(data)} hasError={hasDataError(data)} onRetry={data.retry} onCustomize={environmentDialog.show} onOpen={openDestination} />
+        <EnvironmentSection envCards={layout.envCards} statuses={environmentStatuses(data)} hasError={hasDataError(data)} onRetry={data.retry} onCustomize={environmentDialog.show} onOpen={navigate} />
         <WidgetToolbar shown={shown.length} hidden={hidden} onCustomize={widgetsDialog.show} />
         <WidgetGrid widgets={shown} layoutKey={layoutKey} renderWidget={(placement) => widgets[placement.id](placement)} onShowWidgets={widgetsDialog.show} />
         <footer className="page-foot"><span>CYBERHUB / TERMINAL OVERVIEW</span><span>Données de la Console · globe illustratif · circuit décoratif · aucune surveillance continue</span></footer>

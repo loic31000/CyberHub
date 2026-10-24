@@ -11,10 +11,38 @@ describe('préférences du Dashboard — format localStorage', () => {
   it('garde la clé et le format version 1', () => {
     expect(LAYOUT_STORAGE_KEY).toBe('cyberhub.console.dashboard.layout.v1')
     const { result } = renderHook(() => useDashboardLayout())
-    act(() => result.current.update(['system.bgp', 'system.console', 'system.bgp']))
+    act(() => result.current.update(['module.bgp-historian', 'system.console', 'module.bgp-historian']))
     expect(JSON.parse(localStorage.getItem(LAYOUT_STORAGE_KEY) as string)).toEqual({
-      version: 1, envCards: ['system.bgp', 'system.console'], widgets: DEFAULT_WIDGETS,
+      version: 1, envCards: ['module.bgp-historian', 'system.console'], widgets: DEFAULT_WIDGETS,
     })
+  })
+
+  it('lit une ancienne disposition avec doublons : une carte par module, ordre et widgets conservés', () => {
+    const widgets = [{ id: 'watch', visible: true, size: 'large' }, { id: 'network', visible: false, size: 'standard' }]
+    const stored = JSON.stringify({ version: 1, envCards: [
+      'module.cheatsheets', 'system.bgp', 'system.mitre', 'module.mitre', 'module.bgp', 'system.sources',
+      'module.bgp-historian', 'system.osint', 'module.osint', 'module.ioc', 'system.console',
+    ], widgets })
+    localStorage.setItem(LAYOUT_STORAGE_KEY, stored)
+    const { result } = renderHook(() => useDashboardLayout())
+    expect(result.current.envCards).toEqual([
+      'module.cheatsheets', 'module.bgp-historian', 'module.mitre', 'module.bgp', 'module.ioc', 'module.osint', 'system.console',
+    ])
+    expect(result.current.widgets.slice(0, 2)).toEqual(widgets)
+    // Nothing is rewritten until the user changes something.
+    expect(localStorage.getItem(LAYOUT_STORAGE_KEY)).toBe(stored)
+    act(() => result.current.update([...result.current.envCards].reverse()))
+    const saved = JSON.parse(localStorage.getItem(LAYOUT_STORAGE_KEY) as string)
+    expect(saved.envCards).toEqual(['system.console', 'module.osint', 'module.ioc', 'module.bgp', 'module.mitre', 'module.bgp-historian', 'module.cheatsheets'])
+    expect(saved.envCards.some((id: string) => id.startsWith('system.') && id !== 'system.console')).toBe(false)
+    expect(saved.widgets.slice(0, 2)).toEqual(widgets)
+  })
+
+  it('refuse de recréer un doublon, même avec un ancien identifiant', () => {
+    const { result } = renderHook(() => useDashboardLayout())
+    act(() => result.current.update([...result.current.envCards, 'system.bgp', 'system.mitre', 'module.osint']))
+    expect(result.current.envCards).toEqual(DEFAULT_ENVIRONMENT_CARDS)
+    expect(localStorage.getItem(LAYOUT_STORAGE_KEY)).toBeNull()
   })
 
   it("n'écrit rien tant que la disposition reste celle par défaut, et efface la clé au retour aux défauts", () => {
@@ -28,10 +56,11 @@ describe('préférences du Dashboard — format localStorage', () => {
 
   it('réinitialise chaque partie sans toucher à l’autre', () => {
     const { result } = renderHook(() => useDashboardLayout())
-    act(() => result.current.update(['system.bgp']))
+    act(() => result.current.update(['module.bgp']))
     act(() => result.current.updateWidgets(DEFAULT_WIDGETS.map((w) => ({ ...w, visible: w.id !== 'network' }))))
     act(() => result.current.reset())
     expect(result.current.envCards).toEqual(DEFAULT_ENVIRONMENT_CARDS)
+    expect(DEFAULT_ENVIRONMENT_CARDS).toEqual(['system.console', 'module.mitre', 'module.ioc', 'module.osint', 'module.bgp-historian'])
     expect(result.current.widgets.find((w) => w.id === 'network')?.visible).toBe(false)
   })
 

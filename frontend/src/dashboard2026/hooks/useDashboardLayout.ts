@@ -1,5 +1,5 @@
 import { useCallback, useState } from "react";
-import { DEFAULT_ENVIRONMENT_CARDS, getEnvironmentCard } from "../environmentRegistry";
+import { DEFAULT_ENVIRONMENT_CARDS, normalizeEnvCards } from "../environmentRegistry";
 import { DEFAULT_WIDGETS, parseWidgets, type WidgetPlacement } from "../widgetRegistry";
 
 /*
@@ -29,14 +29,18 @@ const defaultLayout = (): DashboardLayout => ({
   widgets: DEFAULT_WIDGETS.map((w) => ({ ...w })),
 });
 
-/* Unknown ids and duplicates are dropped; anything malformed falls back to the default. */
+/*
+ * Unknown ids and duplicates are dropped, and cards of earlier versions that
+ * duplicated a module are read as that module's card, in their position.
+ * Anything malformed falls back to the default. The stored value is only
+ * rewritten at the user's next change.
+ */
 export function parseLayout(raw: string | null): DashboardLayout {
   if (!raw) return defaultLayout();
   try {
     const data = JSON.parse(raw) as Partial<DashboardLayout> | null;
     if (!data || data.version !== 1 || !Array.isArray(data.envCards)) return defaultLayout();
-    const envCards = [...new Set(data.envCards.filter((id): id is string => typeof id === "string" && !!getEnvironmentCard(id)))];
-    return { version: 1, envCards, widgets: parseWidgets(data.widgets) };
+    return { version: 1, envCards: normalizeEnvCards(data.envCards), widgets: parseWidgets(data.widgets) };
   } catch {
     return defaultLayout();
   }
@@ -74,7 +78,7 @@ export function useDashboardLayout() {
   }, []);
 
   const update = useCallback(
-    (envCards: string[]) => commit({ ...layout, envCards: [...new Set(envCards)] }),
+    (envCards: string[]) => commit({ ...layout, envCards: normalizeEnvCards(envCards) }),
     [layout, commit],
   );
 

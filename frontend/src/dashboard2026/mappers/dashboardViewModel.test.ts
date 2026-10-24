@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import { bgpAlerts, destinationRoute, environmentStatuses, hasDataError, recentCves, remoteTitle, stateText, widgetCounts } from './dashboardViewModel'
+import { bgpAlerts, environmentStatuses, hasDataError, recentCves, remoteTitle, stateText, widgetCounts } from './dashboardViewModel'
+import { ENVIRONMENT_CARDS, LEGACY_CARD_IDS, MODULES, getEnvironmentCard, normalizeEnvCards, signalOf } from '../environmentRegistry'
 import type { BgpAlertsPayload, CvesPayload, IocPayload, Remote, StatsPayload } from '../model/dashboard.types'
 import { DEFAULT_WIDGETS } from '../widgetRegistry'
 
@@ -19,18 +20,21 @@ describe('mappers du Dashboard', () => {
     expect(remoteTitle(error, { loading: 'L', error: 'E', ready: 'R' })).toBe('E')
   })
 
-  it("dérive les statuts des cartes système de l'API, avec le bon ton", () => {
+  it("dérive les statuts des cartes d'état de l'API, avec le bon ton, sur leurs cartes canoniques", () => {
     const statuses = environmentStatuses({
       stats: ready({ tools_total: 59, ctf_total: 8 } as StatsPayload),
       ioc: ready({ total: 1 } as IocPayload),
       bgp: ready({ items: [], total: 1 } as unknown as BgpAlertsPayload),
     })
+    expect(Object.keys(statuses)).toEqual(['system.console', 'module.ioc', 'module.bgp-historian'])
     expect(statuses['system.console']).toEqual({ status: '59 outils · 8 writeups', secondary: 'Données de la Console', tone: 'ready' })
-    expect(statuses['system.sources'].status).toBe('1 IOC enregistrés')
-    expect(statuses['system.bgp']).toEqual({ status: '1 alerte BGP enregistrée', secondary: 'Historique BGP', tone: 'attention' })
+    expect(statuses['module.ioc'].status).toBe('1 IOC enregistrés')
+    expect(statuses['module.bgp-historian']).toEqual({ status: '1 alerte BGP enregistrée', secondary: 'Alertes et snapshots', tone: 'attention' })
     const none = environmentStatuses({ stats: loading, ioc: error, bgp: ready({ items: [], total: 0 } as unknown as BgpAlertsPayload) })
     expect(none['system.console'].tone).toBe('quiet')
-    expect(none['system.bgp']).toMatchObject({ status: 'Aucune alerte BGP', tone: 'ready' })
+    expect(none['module.bgp-historian']).toMatchObject({ status: 'Aucune alerte BGP', tone: 'ready' })
+    // Every status belongs to a card that shows one.
+    for (const id of Object.keys(statuses)) expect(signalOf(getEnvironmentCard(id)!)).toBeTruthy()
   })
 
   it('garde les trois CVE les plus récentes (publication, sinon création) avec leur sévérité réelle', () => {
@@ -52,12 +56,39 @@ describe('mappers du Dashboard', () => {
     expect(items.map((a) => [a.asn, a.type, a.status])).toEqual([[64500, 'prefix withdrawn', 'Non acquittée'], [64501, 'new peer', 'Acquittée']])
   })
 
-  it("signale une erreur dès qu'une source échoue, compte les widgets, résout les routes", () => {
+  it("signale une erreur dès qu'une source échoue, compte les widgets", () => {
     expect(hasDataError({ stats: ready({} as StatsPayload), tools: loading, bgp: loading, ioc: error, cves: loading })).toBe(true)
     expect(hasDataError({ stats: loading, tools: loading, bgp: loading, ioc: loading, cves: loading })).toBe(false)
     const counts = widgetCounts(DEFAULT_WIDGETS.map((w) => ({ ...w, visible: w.id !== 'sync' })))
     expect([counts.shown.map((w) => w.id), counts.hidden]).toEqual([['network', 'operations', 'threat', 'watch'], 1])
-    expect(destinationRoute('Dashboard')).toBe('/dashboard')
-    expect(destinationRoute('No such module')).toBeNull()
+  })
+})
+
+describe('registre des cartes de l’environnement', () => {
+  it('offre une seule carte par module, chacune vers la route réelle de son module', () => {
+    const moduleCards = ENVIRONMENT_CARDS.filter((card) => card.kind === 'module')
+    expect(moduleCards.map((card) => card.kind === 'module' && card.moduleId)).toEqual(MODULES.map((m) => m.id))
+    for (const card of moduleCards) expect(card.route).toBe(MODULES.find((m) => card.kind === 'module' && m.id === card.moduleId)?.route)
+    expect(new Set(ENVIRONMENT_CARDS.map((card) => card.route)).size).toBe(ENVIRONMENT_CARDS.length - 1) // Console and Outils both open /tools
+    expect(ENVIRONMENT_CARDS.filter((card) => card.kind === 'system').map((card) => [card.id, card.route])).toEqual([['system.console', '/tools']])
+    expect(ENVIRONMENT_CARDS.some((card) => card.route === '/dashboard')).toBe(false)
+  })
+
+  it('garde BGP Lookup et BGP Historian comme deux modules distincts', () => {
+    expect(getEnvironmentCard('module.bgp')?.route).toBe('/bgp')
+    expect(getEnvironmentCard('module.bgp-historian')?.route).toBe('/bgp/historian')
+    expect(signalOf(getEnvironmentCard('module.bgp-historian')!)).toBeTruthy()
+    expect(signalOf(getEnvironmentCard('module.bgp')!)).toBeUndefined()
+  })
+
+  it('associe chaque ancienne carte dupliquée à la carte de son module', () => {
+    expect(LEGACY_CARD_IDS).toEqual({
+      'system.mitre': 'module.mitre', 'system.osint': 'module.osint',
+      'system.sources': 'module.ioc', 'system.bgp': 'module.bgp-historian',
+    })
+    for (const id of Object.keys(LEGACY_CARD_IDS)) expect(getEnvironmentCard(id)).toBeUndefined()
+    expect(normalizeEnvCards(['system.bgp', 'module.bgp-historian', 42, 'nope', 'module.bgp', 'system.mitre'])).toEqual([
+      'module.bgp-historian', 'module.bgp', 'module.mitre',
+    ])
   })
 })

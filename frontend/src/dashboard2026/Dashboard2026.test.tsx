@@ -188,6 +188,92 @@ describe('Dashboard 2026 — comportement de référence', () => {
     expect(await screen.findByRole('dialog')).toBeTruthy()
   })
 
+  describe('une carte par module', () => {
+    const cardTitles = (container: HTMLElement) => [...container.querySelectorAll('.environment-card strong')].map((s) => s.textContent)
+
+    it('affiche les cinq cartes par défaut sans doublon, avec leurs états réels', async () => {
+      readyData()
+      const { container } = renderDashboard()
+      expect(await screen.findByText('3 alertes BGP enregistrées')).toBeTruthy()
+      expect(cardTitles(container)).toEqual(['Console', 'MITRE ATT&CK', 'IOC Manager', 'OSINT Runner', 'BGP Historian'])
+      expect(container.querySelectorAll('.environment-card.is-module')).toHaveLength(2)
+      expect(container.querySelectorAll('.environment-card .mini-bars')).toHaveLength(3)
+    })
+
+    it('ouvre le bon module depuis chaque carte', async () => {
+      readyData()
+      localStorage.setItem(LAYOUT_STORAGE_KEY, JSON.stringify({ version: 1, envCards: [
+        'system.console', 'module.mitre', 'module.ioc', 'module.osint', 'module.bgp-historian', 'module.bgp', 'module.cve',
+      ], widgets: [] }))
+      const { container } = renderDashboard()
+      await screen.findByText('3 alertes BGP enregistrées')
+      const routes: Record<string, string> = {
+        Console: '/tools', 'MITRE ATT&CK': '/mitre', 'IOC Manager': '/ioc', 'OSINT Runner': '/osint',
+        'BGP Historian': '/bgp/historian', 'BGP Lookup': '/bgp', 'CVE & KEV': '/cve',
+      }
+      for (const [title, route] of Object.entries(routes)) {
+        const card = [...container.querySelectorAll<HTMLElement>('.environment-card')].find((c) => c.querySelector('strong')?.textContent === title)!
+        fireEvent.click(card)
+        expect(screen.getByTestId('location').textContent).toBe(route)
+      }
+    })
+
+    it('lit une ancienne disposition avec doublons sans perdre ordre ni widgets, puis la conserve au rechargement', async () => {
+      readyData()
+      localStorage.setItem(LAYOUT_STORAGE_KEY, JSON.stringify({ version: 1, envCards: [
+        'system.bgp', 'module.bgp-historian', 'system.mitre', 'module.mitre', 'module.bgp', 'system.osint', 'module.osint',
+      ], widgets: [{ id: 'watch', visible: true, size: 'large' }, { id: 'network', visible: false, size: 'standard' }] }))
+      const first = renderDashboard()
+      await screen.findByText('3 alertes BGP enregistrées')
+      expect(cardTitles(first.container)).toEqual(['BGP Historian', 'MITRE ATT&CK', 'BGP Lookup', 'OSINT Runner'])
+      expect(widgetOrder(first.container)[0]).toBe('watch:large')
+      expect(screen.queryByText('ACTIVITÉ RÉSEAU (APERÇU)')).toBeNull()
+
+      // Move a card, then reload: the cleaned order is what is stored.
+      fireEvent.click(screen.getByRole('button', { name: 'Personnaliser' }))
+      const dialog = await screen.findByRole('dialog')
+      fireEvent.click(within(dialog).getByRole('button', { name: 'Descendre BGP Historian' }))
+      fireEvent.keyDown(dialog, { key: 'Escape' })
+      first.unmount()
+      const stored = JSON.parse(localStorage.getItem(LAYOUT_STORAGE_KEY) as string)
+      expect(stored.envCards).toEqual(['module.mitre', 'module.bgp-historian', 'module.bgp', 'module.osint'])
+      const second = renderDashboard()
+      await screen.findByText('3 alertes BGP enregistrées')
+      expect(cardTitles(second.container)).toEqual(['MITRE ATT&CK', 'BGP Historian', 'BGP Lookup', 'OSINT Runner'])
+      expect(widgetOrder(second.container)[0]).toBe('watch:large')
+    })
+
+    it('ne propose aucun doublon dans Personnaliser : ajout, remplacement, retrait et réinitialisation', async () => {
+      readyData()
+      const { container } = renderDashboard()
+      await screen.findByText('3 alertes BGP enregistrées')
+      fireEvent.click(screen.getByRole('button', { name: 'Personnaliser' }))
+      const dialog = await screen.findByRole('dialog')
+      const catalog = () => [...dialog.querySelectorAll('.customize-catalog li strong')].map((s) => s.firstChild?.textContent)
+      // 19 entries: Console and the 18 modules, each once.
+      expect(catalog()).toHaveLength(19)
+      expect(new Set(catalog()).size).toBe(19)
+      for (const title of ['MITRE', 'OSINT', 'BGP', 'Sources']) expect(catalog()).not.toContain(title)
+      expect(within(dialog).getByRole('button', { name: 'BGP Historian : déjà affiché' })).toBeTruthy()
+
+      // Add BGP Lookup: a separate module.
+      fireEvent.click(within(dialog).getByRole('button', { name: 'Ajouter BGP Lookup' }))
+      expect(cardTitles(container)).toContain('BGP Lookup')
+      // Replacing a card cannot pick a card already shown.
+      fireEvent.click(within(dialog).getByRole('button', { name: 'Remplacer MITRE ATT&CK' }))
+      expect(within(dialog).getByRole('button', { name: 'OSINT Runner : déjà affiché' })).toBeTruthy()
+      fireEvent.click(within(dialog).getByRole('button', { name: 'Remplacer MITRE ATT&CK par Layers ATT&CK' }))
+      expect(cardTitles(container)).toEqual(['Console', 'Layers ATT&CK', 'IOC Manager', 'OSINT Runner', 'BGP Historian', 'BGP Lookup'])
+      // Remove, then reset to the five original cards.
+      fireEvent.click(within(dialog).getByRole('button', { name: 'Retirer IOC Manager' }))
+      expect(cardTitles(container)).not.toContain('IOC Manager')
+      fireEvent.click(within(dialog).getByRole('button', { name: /Réinitialiser/ }))
+      fireEvent.click(within(dialog).getByRole('button', { name: 'Confirmer' }))
+      expect(cardTitles(container)).toEqual(['Console', 'MITRE ATT&CK', 'IOC Manager', 'OSINT Runner', 'BGP Historian'])
+      expect(localStorage.getItem(LAYOUT_STORAGE_KEY)).toBeNull()
+    })
+  })
+
   it('garde le globe présenté comme une illustration', async () => {
     readyData()
     renderDashboard()
