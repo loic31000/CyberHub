@@ -1,0 +1,10 @@
+/* Development-only frame around the Correlation page preview. */
+html, body, #root { height: 100%; margin: 0; background: #070b13; }
+.cr-preview { display: grid; grid-template-rows: auto minmax(0, 1fr); height: 100%; }
+.cr-preview-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 14px; padding: 10px 16px; border-bottom: 1px solid rgb(143 190 220 / .14); background: #0b131e; font: 500 .82rem/1.2 "DM Sans", system-ui, sans-serif; }
+.cr-preview-bar strong { margin-right: 8px; color: #edf4f9; font-weight: 700; }
+.cr-preview-bar a { padding: 5px 10px; border-radius: 7px; color: #8396a8; text-decoration: none; }
+.cr-preview-bar a:hover { color: #edf4f9; }
+.cr-preview-bar a[aria-current="page"] { background: #111d2c; color: #7fdcf0; }
+.cr-preview-page { min-height: 0; }
+.cr-preview-elsewhere { margin: 32px; color: #b7c6d3; font: 500 .95rem/1.5 "DM Sans", system-ui, sans-serif; }
