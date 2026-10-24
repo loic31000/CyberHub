@@ -1,226 +1,137 @@
-import { useState, useCallback, useEffect } from 'react'
-import { useSearchParams } from 'react-router-dom'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useNavigate, useNavigationType, useSearchParams } from 'react-router-dom'
 import {
-  Network, Search, Camera, Copy, ShieldBan,
-  ChevronRight, Globe, Server, ArrowUpCircle,
-  ArrowDownCircle, Users, Loader2, AlertCircle, History,
-  Activity, Database, ShieldCheck,
+  Activity, AlertCircle, ArrowUpRight, Camera, Check, ChevronRight, Copy, Globe, History,
+  Loader2, ShieldBan,
 } from 'lucide-react'
-import { useNavigate } from 'react-router-dom'
 import { bgpApi } from '@/api/client'
 import { toast } from '@/store/toast'
+import { ModuleHero } from '@/hero/ModuleHero'
+import { AtlasMotif } from '@/bgp/BgpMotifs'
 import type {
-  ASNInfo, IPv4Prefix, IPv6Prefix, BGPPeer, BGPUpstream, BGPDownstream,
-  IPInfo, SearchASN, PrefixListData, PeerListData,
-  UpstreamListData, DownstreamListData, BGPStatusResponse,
+  ASNInfo, BGPPeer, BGPStatusResponse, IPInfo, PrefixListData, SearchASN,
 } from '@/types/bgp'
-
-function parseAPIError(error: unknown): string {
-  if (error instanceof Error) {
-    const axiosError = error as {
-      response?: { data?: { error?: string }; status?: number }
-    }
-    return axiosError.response?.data?.error || error.message
-  }
-  return 'Erreur réseau'
-}
+import { formatShortDay, isValidASN, parseAPIError, stripASN } from '@/bgp/format'
+import {
+  AtlasSchematic, EmptyState, PrefixTable, RelationAtlas, RelationTable, VisitMark, visitLabel, visitState,
+  type RelationGroup, type VisitLens,
+} from '@/bgp/LookupParts'
+import { readVisits, recordVisit, writeVisits } from '@/bgp/visits'
+import { rememberSnapshotASN } from '@/bgp/snapshotShortcuts'
+import { snapshotOutcome } from '@/bgp/history'
+import '@/bgp/bgp.css'
 
 type SearchMode = 'asn' | 'ip' | 'search'
-type ASNTab = 'info' | 'ipv4' | 'ipv6' | 'peers' | 'upstreams' | 'downstreams'
+type View = 'atlas' | 'ipv4' | 'ipv6' | 'peers' | 'upstreams' | 'downstreams'
 
-const PAGE_SIZE = 20
-
-function stripASN(raw: string): number {
-  return parseInt(raw.replace(/^AS/i, '').trim(), 10)
-}
+const MODE_LABEL: Record<SearchMode, string> = { asn: 'ASN', ip: 'IP', search: 'Recherche' }
+const FIELD_LABEL: Record<SearchMode, string> = { asn: 'Système autonome', ip: 'Adresse IP', search: 'Organisation, ASN ou préfixe' }
+const PLACEHOLDER: Record<SearchMode, string> = { asn: '13335', ip: '1.1.1.1', search: 'Cloudflare, AS13335, préfixe…' }
+const GLYPH: Record<SearchMode, string> = { asn: 'AS', ip: 'IP', search: '⌕' }
 
 function copyToClipboard(text: string) {
   navigator.clipboard.writeText(text).then(() => toast.success('Copié !'))
 }
 
-function countryFlag(code: string) {
-  if (!code) return ''
-  return code
-    .toUpperCase()
-    .split('')
-    .map((c) => String.fromCodePoint(127397 + c.charCodeAt(0)))
-    .join('')
-}
-
 function Spinner() {
   return (
-    <div className="flex items-center justify-center py-12">
-      <Loader2 size={28} className="animate-spin text-[#00d4ff]" />
+    <div className="bgp-state" role="status" aria-live="polite">
+      <Loader2 size={20} className="bgp-spin" aria-hidden="true" />
+      <span>Chargement des données de routage…</span>
     </div>
   )
 }
 
 function ErrorMessage({ message }: { message: string }) {
   return (
-    <div className="flex items-center gap-2 p-4 rounded bg-[#ef4444]/5 border-l-2 border-[#ef4444] text-[#ef4444] font-mono text-xs">
-      <AlertCircle size={16} />
+    <div className="bgp-state is-error" role="alert">
+      <AlertCircle size={16} aria-hidden="true" />
       <span>{message}</span>
     </div>
   )
 }
 
-function EmptyState({ label = 'Aucune donnée' }: { label?: string }) {
-  return (
-    <div className="text-center py-10 font-mono text-xs text-[#4a6480]">
-      {label.toUpperCase()}
-    </div>
-  )
+/*
+ * Relation and prefix responses of the ASNs opened during this visit. Going
+ * back to an ASN shows them at once instead of repeating four requests; the
+ * ASN identity itself is always requested again.
+ */
+type DossierCache = Map<string, { at: number; value: unknown }>
+const CACHE_MS = 5 * 60_000
+
+interface Resource<T> { data: T | null; loading: boolean; error: string | null }
+
+function useDossierResource<T>(cache: DossierCache, key: string, load: () => Promise<{ data: T } | undefined>): Resource<T> {
+  const [state, setState] = useState<Resource<T>>(() => {
+    const hit = cache.get(key)
+    return hit && Date.now() - hit.at < CACHE_MS
+      ? { data: hit.value as T, loading: false, error: null }
+      : { data: null, loading: true, error: null }
+  })
+  const loadRef = useRef(load)
+  loadRef.current = load
+
+  useEffect(() => {
+    if (!state.loading) return
+    let active = true
+    Promise.resolve()
+      .then(() => loadRef.current())
+      .then(response => {
+        if (!response?.data) throw new Error('Réponse vide')
+        cache.set(key, { at: Date.now(), value: response.data })
+        if (active) setState({ data: response.data, loading: false, error: null })
+      })
+      .catch((error: unknown) => { if (active) setState({ data: null, loading: false, error: parseAPIError(error) }) })
+    return () => { active = false }
+    // The dossier is keyed by ASN: one load per mounted resource.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [cache, key])
+
+  return state
 }
 
-interface PagedTableProps<T> {
-  items: T[]
-  renderRow: (item: T, idx: number) => React.ReactNode
-  headers: string[]
-}
+const group = <T,>(resource: Resource<T>, pick: (data: T) => BGPPeer[][]): RelationGroup => ({
+  items: resource.data ? pick(resource.data).flatMap(list => list ?? []) : null,
+  loading: resource.loading,
+  error: resource.error,
+})
 
-function PagedTable<T>({ items, renderRow, headers }: PagedTableProps<T>) {
-  const [page, setPage] = useState(1)
-  const totalPages = Math.ceil(items.length / PAGE_SIZE)
-  const slice = items.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE)
-
-  return (
-    <div>
-      <div className="overflow-x-auto">
-        <table className="w-full text-xs font-mono">
-          <thead>
-            <tr className="border-b border-[#1e2d40]">
-              {headers.map((h) => (
-                <th key={h} className="text-left py-2 px-3 text-[#4a6480] font-bold tracking-widest uppercase">
-                  {h}
-                </th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            {slice.length === 0 ? (
-              <tr>
-                <td colSpan={headers.length} className="text-center py-8 text-[#4a6480]">
-                  Aucune donnée
-                </td>
-              </tr>
-            ) : (
-              slice.map((item, i) => renderRow(item, i))
-            )}
-          </tbody>
-        </table>
-      </div>
-      {totalPages > 1 && (
-        <div className="flex items-center justify-center gap-2 mt-4 text-xs font-mono">
-          <button
-            onClick={() => setPage((p) => Math.max(1, p - 1))}
-            disabled={page === 1}
-            className="px-3 py-1 bg-[#1e2d40] text-[#8a9ab0] disabled:opacity-40 hover:bg-[#2a3f55] transition-colors border border-[#2a3f55]"
-          >
-            ←
-          </button>
-          <span className="text-[#4a6480]">{page} / {totalPages}</span>
-          <button
-            onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-            disabled={page === totalPages}
-            className="px-3 py-1 bg-[#1e2d40] text-[#8a9ab0] disabled:opacity-40 hover:bg-[#2a3f55] transition-colors border border-[#2a3f55]"
-          >
-            →
-          </button>
-        </div>
-      )}
-    </div>
-  )
-}
-
-interface ASNTabsProps {
+function ASNDossier({ asn, info, cache, visited, onOpenASN }: {
   asn: number
   info: ASNInfo
-  onNavigatePeer: (asn: number) => void
-  lastSnapshotDate: string | null
-}
-
-function ASNTabs({ asn, info, onNavigatePeer, lastSnapshotDate }: ASNTabsProps) {
+  cache: DossierCache
+  visited: ReadonlySet<number>
+  onOpenASN: (asn: number) => void
+}) {
   const navigate = useNavigate()
-  const [activeTab, setActiveTab] = useState<ASNTab>('info')
+  const [view, setView] = useState<View>('atlas')
   const [snapping, setSnapping] = useState(false)
 
-  const [prefixData, setPrefixData] = useState<PrefixListData | null>(null)
-  const [prefixLoading, setPrefixLoading] = useState(false)
-  const [prefixError, setPrefixError] = useState<string | null>(null)
+  const prefixes = useDossierResource<PrefixListData>(cache, `${asn}:prefixes`, () => bgpApi.lookupASNPrefixes(asn))
+  const peerData = useDossierResource(cache, `${asn}:peers`, () => bgpApi.lookupASNPeers(asn))
+  const upstreamData = useDossierResource(cache, `${asn}:upstreams`, () => bgpApi.lookupASNUpstreams(asn))
+  const downstreamData = useDossierResource(cache, `${asn}:downstreams`, () => bgpApi.lookupASNDownstreams(asn))
 
-  const [peerData, setPeerData] = useState<PeerListData | null>(null)
-  const [peerLoading, setPeerLoading] = useState(false)
-  const [peerError, setPeerError] = useState<string | null>(null)
-
-  const [upstreamData, setUpstreamData] = useState<UpstreamListData | null>(null)
-  const [upstreamLoading, setUpstreamLoading] = useState(false)
-  const [upstreamError, setUpstreamError] = useState<string | null>(null)
-
-  const [downstreamData, setDownstreamData] = useState<DownstreamListData | null>(null)
-  const [downstreamLoading, setDownstreamLoading] = useState(false)
-  const [downstreamError, setDownstreamError] = useState<string | null>(null)
-
-  const handleTabClick = useCallback(
-    (tab: ASNTab) => {
-      setActiveTab(tab)
-      if ((tab === 'ipv4' || tab === 'ipv6') && !prefixData && !prefixLoading) {
-        setPrefixLoading(true)
-        setPrefixError(null)
-        bgpApi.lookupASNPrefixes(asn)
-          .then((r) => setPrefixData(r.data))
-          .catch((e: unknown) => setPrefixError(e instanceof Error ? e.message : 'Erreur réseau'))
-          .finally(() => setPrefixLoading(false))
-      }
-      if (tab === 'peers' && !peerData && !peerLoading) {
-        setPeerLoading(true)
-        setPeerError(null)
-        bgpApi.lookupASNPeers(asn)
-          .then((r) => setPeerData(r.data))
-          .catch((e: unknown) => setPeerError(e instanceof Error ? e.message : 'Erreur réseau'))
-          .finally(() => setPeerLoading(false))
-      }
-      if (tab === 'upstreams' && !upstreamData && !upstreamLoading) {
-        setUpstreamLoading(true)
-        setUpstreamError(null)
-        bgpApi.lookupASNUpstreams(asn)
-          .then((r) => setUpstreamData(r.data))
-          .catch((e: unknown) => setUpstreamError(e instanceof Error ? e.message : 'Erreur réseau'))
-          .finally(() => setUpstreamLoading(false))
-      }
-      if (tab === 'downstreams' && !downstreamData && !downstreamLoading) {
-        setDownstreamLoading(true)
-        setDownstreamError(null)
-        bgpApi.lookupASNDownstreams(asn)
-          .then((r) => setDownstreamData(r.data))
-          .catch((e: unknown) => setDownstreamError(e instanceof Error ? e.message : 'Erreur réseau'))
-          .finally(() => setDownstreamLoading(false))
-      }
-    },
-    [asn, prefixData, prefixLoading, peerData, peerLoading, upstreamData, upstreamLoading, downstreamData, downstreamLoading],
-  )
+  const peers = group(peerData, d => [d.ipv4_peers, d.ipv6_peers])
+  const upstreams = group(upstreamData, d => [d.ipv4_upstreams, d.ipv6_upstreams])
+  const downstreams = group(downstreamData, d => [d.ipv4_downstreams, d.ipv6_downstreams])
 
   const handleSnapshot = async () => {
     setSnapping(true)
     try {
       const result = await bgpApi.takeSnapshot(asn)
-      const alertCount = result.alerts?.length ?? 0
-      if (alertCount > 0) {
-        toast.warning(`Snapshot pris — ${alertCount} changement(s) détecté(s) !`)
-      } else {
-        toast.success('Snapshot pris avec succès')
-      }
+      rememberSnapshotASN({ asn, last: new Date().toISOString() })
+      const outcome = snapshotOutcome(result)
+      toast[outcome.tone](outcome.message)
     } catch (e: unknown) {
-      toast.error(e instanceof Error ? e.message : 'Erreur snapshot')
+      // The backend explains which section failed ("erreur récupération 'peers': ...").
+      toast.error(parseAPIError(e))
     } finally {
       setSnapping(false)
     }
   }
 
-  /**
-   * Export d'un préfixe BGP (onglets IPv4 / IPv6) vers l'IOC Manager.
-   * - Envoie l'ASN courant pour que le backend génère la source "BGP Lookup — AS<N>".
-   * - N'envoie jamais le numéro ASN comme valeur CIDR.
-   */
+  // Exports a prefix of this ASN; the backend builds the "BGP Lookup — AS<N>" source from `asn`.
   const handleExportIOC = async (prefix: string) => {
     try {
       await bgpApi.exportIOC({ type: 'cidr', value: prefix, asn })
@@ -230,249 +141,98 @@ function ASNTabs({ asn, info, onNavigatePeer, lastSnapshotDate }: ASNTabsProps) 
     }
   }
 
-  const tabs: { id: ASNTab; label: string; icon: React.ReactNode }[] = [
-    { id: 'info', label: 'Infos', icon: <Server size={12} /> },
-    { id: 'ipv4', label: 'Préfixes IPv4', icon: <Globe size={12} /> },
-    { id: 'ipv6', label: 'Préfixes IPv6', icon: <Globe size={12} /> },
-    { id: 'peers', label: 'Peers', icon: <Users size={12} /> },
-    { id: 'upstreams', label: 'Upstreams', icon: <ArrowUpCircle size={12} /> },
-    { id: 'downstreams', label: 'Downstreams', icon: <ArrowDownCircle size={12} /> },
+  const prefixCount = (family: 'ipv4_prefixes' | 'ipv6_prefixes') =>
+    prefixes.loading ? '…' : prefixes.data ? String(prefixes.data[family].length) : '—'
+  const relationCount = (g: RelationGroup) => (g.loading ? '…' : g.items ? String(g.items.length) : '—')
+
+  const views: { id: View; label: string; figure?: string }[] = [
+    { id: 'atlas', label: 'Atlas' },
+    { id: 'ipv4', label: 'Préfixes IPv4', figure: prefixCount('ipv4_prefixes') },
+    { id: 'ipv6', label: 'Préfixes IPv6', figure: prefixCount('ipv6_prefixes') },
+    { id: 'peers', label: 'Peers', figure: relationCount(peers) },
+    { id: 'upstreams', label: 'Upstreams', figure: relationCount(upstreams) },
+    { id: 'downstreams', label: 'Downstreams', figure: relationCount(downstreams) },
   ]
 
-  const renderPrefixTable = (prefixes: (IPv4Prefix | IPv6Prefix)[]) => (
-    <PagedTable
-      items={prefixes}
-      headers={['Préfixe', 'Nom', 'Pays', 'Actions']}
-      renderRow={(p, i) => (
-        <tr key={i} className="border-b border-[#1e2d40] hover:bg-[#0d131f] transition-colors">
-          <td className="py-2 px-3 text-[#00d4ff]">{p.prefix}</td>
-          <td className="py-2 px-3 text-[#8a9ab0]">{p.name || '—'}</td>
-          <td className="py-2 px-3 text-[#4a6480]">
-            {p.country_code ? `${countryFlag(p.country_code)} ${p.country_code}` : '—'}
-          </td>
-          <td className="py-2 px-3">
-            <div className="flex items-center gap-1">
-              <button
-                onClick={() => copyToClipboard(p.prefix)}
-                className="p-1 hover:bg-[#1e2d40] text-[#4a6480] hover:text-[#00d4ff] transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-[#00d4ff]"
-                title="Copier"
-                aria-label="Copier"
-              >
-                <Copy size={12} />
-              </button>
-              <button
-                onClick={() => handleExportIOC(p.prefix)}
-                className="p-1 hover:bg-[#1e2d40] text-[#4a6480] hover:text-[#ef4444] transition-colors flex items-center gap-1"
-                title="Exporter en IOC"
-              >
-                <ShieldBan size={12} />
-                <span className="hidden sm:inline">IOC</span>
-              </button>
-            </div>
-          </td>
-        </tr>
-      )}
-    />
-  )
+  const listView = (resource: { loading: boolean; error: string | null }, content: () => React.ReactElement) => {
+    if (resource.loading) return <Spinner />
+    if (resource.error) return <ErrorMessage message={resource.error} />
+    return content()
+  }
 
-  const renderASNTable = (peers: (BGPPeer | BGPUpstream | BGPDownstream)[]) => (
-    <PagedTable
-      items={peers}
-      headers={['ASN', 'Nom', 'Pays', 'Actions']}
-      renderRow={(p, i) => (
-        <tr key={i} className="border-b border-[#1e2d40] hover:bg-[#0d131f] transition-colors">
-          <td className="py-2 px-3 text-[#00d4ff]">AS{p.asn}</td>
-          <td className="py-2 px-3 text-[#8a9ab0]">{p.name || '—'}</td>
-          <td className="py-2 px-3 text-[#4a6480]">
-            {p.country_code ? `${countryFlag(p.country_code)} ${p.country_code}` : '—'}
-          </td>
-          <td className="py-2 px-3">
-            <div className="flex items-center gap-1">
-              <button
-                onClick={() => copyToClipboard(String(p.asn))}
-                className="p-1 hover:bg-[#1e2d40] text-[#4a6480] hover:text-[#00d4ff] transition-colors"
-                title="Copier ASN"
-              >
-                <Copy size={12} />
-              </button>
-              <button
-                onClick={() => onNavigatePeer(p.asn)}
-                className="p-1 hover:bg-[#1e2d40] text-[#4a6480] hover:text-[#00d4ff] transition-colors"
-                title="Rechercher ce AS"
-              >
-                <ChevronRight size={12} />
-              </button>
-            </div>
-          </td>
-        </tr>
-      )}
-    />
-  )
+  const website = /^https?:\/\//i.test(info.website ?? '') ? info.website : null
+  const facts: { label: string; value: React.ReactNode }[] = [
+    { label: 'Description', value: info.description_full?.filter(Boolean).join(' ') || info.description_short || 'Aucune description retournée' },
+    { label: 'Pays', value: info.country_code || 'Non renseigné' },
+    { label: 'Registre', value: info.rir_allocation?.rir_name || 'Non renseigné' },
+    { label: 'Allocation', value: info.rir_allocation?.prefix ? `${info.rir_allocation.prefix}${info.rir_allocation.allocation_status ? ` · ${info.rir_allocation.allocation_status}` : ''}` : 'Non renseignée' },
+    { label: 'Site web', value: website ? <a href={website} target="_blank" rel="noopener noreferrer">{website.replace(/^https?:\/\//i, '')}<ArrowUpRight size={12} aria-hidden="true" /></a> : (info.website || 'Non renseigné') },
+    { label: 'Mise à jour', value: info.date_updated ? formatShortDay(info.date_updated) : 'Non renseignée' },
+  ]
 
   return (
-    <div>
-      <div className="flex items-center gap-0 border-b border-[#1e2d40] mb-4 overflow-x-auto">
-        {tabs.map((tab) => (
-          <button
-            key={tab.id}
-            onClick={() => handleTabClick(tab.id)}
-            className={`flex items-center gap-1.5 px-3 py-2 text-[10px] font-bold whitespace-nowrap border-b-2 tracking-widest uppercase transition-colors ${
-              activeTab === tab.id
-                ? 'border-[#00d4ff] text-[#00d4ff] bg-[#00d4ff]/5'
-                : 'border-transparent text-[#4a6480] hover:text-[#8a9ab0]'
-            }`}
-          >
-            {tab.icon}
-            {tab.label}
+    <div className="bgp-dossier">
+      <nav className="bgp-views" aria-label="Informations BGP de l'ASN">
+        {views.map(item => (
+          <button type="button" key={item.id} className="bgp-view" aria-pressed={view === item.id} onClick={() => setView(item.id)}>
+            <span>{item.label}</span>
+            {item.figure !== undefined && <>{' '}<b>{item.figure}</b></>}
           </button>
         ))}
-      </div>
+      </nav>
 
-      {activeTab === 'info' && (
-        <div className="space-y-4">
-          <div className="flex items-center gap-3 flex-wrap">
-            <button
-              onClick={handleSnapshot}
-              disabled={snapping}
-              className="flex items-center gap-2 px-4 py-2 bg-[#00d4ff]/10 hover:bg-[#00d4ff]/20 text-[#00d4ff] border border-[#00d4ff]/20 text-[10px] font-bold tracking-widest uppercase transition-colors disabled:opacity-50"
-            >
-              {snapping ? <Loader2 size={12} className="animate-spin" /> : <Camera size={12} />}
-              Prendre un snapshot
-            </button>
-            <button
-              onClick={() => navigate('/bgp/historian')}
-              className="flex items-center gap-2 px-4 py-2 bg-[#1e2d40] hover:bg-[#2a3f55] text-[#8a9ab0] border border-[#2a3f55] text-[10px] font-bold tracking-widest uppercase transition-colors"
-            >
-              <History size={12} />
-              Voir l'historique
-            </button>
-            {lastSnapshotDate && (
-              <span className="text-[10px] font-mono text-[#4a6480]">
-                LAST_SNAP:{' '}
-                {new Date(lastSnapshotDate).toLocaleDateString('fr-FR', {
-                  day: 'numeric', month: 'short', year: 'numeric',
-                })}
-              </span>
+      {view === 'atlas' && (
+        <div className="bgp-atlas-layout">
+          <RelationAtlas
+            asn={asn}
+            name={info.name}
+            upstreams={upstreams}
+            downstreams={downstreams}
+            peers={peers}
+            visited={visited}
+            onOpen={onOpenASN}
+            onShowAll={setView}
+          />
+          <aside className="bgp-operator" aria-labelledby="bgp-operator-title">
+            <header className="bgp-section-head">
+              <h3 id="bgp-operator-title">Fiche opérateur</h3>
+              <span>Réponse ASN</span>
+            </header>
+            <dl className="bgp-facts">
+              {facts.map(({ label, value }) => (
+                <div key={label}><dt>{label}</dt><dd>{value}</dd></div>
+              ))}
+            </dl>
+            {info.abuse_contacts?.length > 0 && (
+              <div className="bgp-abuse">
+                <span>Contacts abus</span>
+                {info.abuse_contacts.map(contact => <code key={contact}>{contact}</code>)}
+              </div>
             )}
-          </div>
-
-          <div className="grid grid-cols-2 gap-2 md:grid-cols-3">
-            {[
-              { label: 'ASN', value: `AS${info.asn}` },
-              { label: 'Nom', value: info.name },
-              { label: 'Description', value: info.description_short },
-              { label: 'Pays', value: info.country_code ? `${countryFlag(info.country_code)} ${info.country_code}` : '—' },
-              { label: 'Site web', value: info.website || '—' },
-              { label: 'RIR', value: info.rir_allocation?.rir_name || '—' },
-            ].map(({ label, value }) => (
-              <div key={label} className="bg-[#0a0f16] border border-[#1e2d40] p-3">
-                <div className="text-[9px] font-bold text-[#4a6480] mb-1 uppercase tracking-widest">{label}</div>
-                <div className="text-xs font-mono text-[#f1f5f9] truncate" title={value}>{value}</div>
-              </div>
-            ))}
-          </div>
-
-          {info.abuse_contacts?.length > 0 && (
-            <div className="bg-[#0a0f16] border border-[#1e2d40] p-3">
-              <div className="text-[9px] font-bold text-[#4a6480] mb-2 uppercase tracking-widest">Contacts abus</div>
-              <div className="flex flex-wrap gap-2">
-                {info.abuse_contacts.map((c) => (
-                  <span key={c} className="text-[10px] font-mono bg-[#ef4444]/10 text-[#ef4444] border border-[#ef4444]/20 px-2 py-0.5">
-                    {c}
-                  </span>
-                ))}
-              </div>
+            <div className="bgp-operator-actions">
+              <button type="button" className="bgp-button is-primary" onClick={handleSnapshot} disabled={snapping}>
+                {snapping ? <Loader2 size={14} className="bgp-spin" aria-hidden="true" /> : <Camera size={14} aria-hidden="true" />}
+                Prendre un snapshot
+              </button>
+              <button type="button" className="bgp-button" onClick={() => navigate(`/bgp/historian?asn=${asn}`)}>
+                <History size={14} aria-hidden="true" /> Historique de l’ASN
+              </button>
             </div>
-          )}
+          </aside>
         </div>
       )}
 
-      {activeTab === 'ipv4' && (
-        <>
-          {prefixLoading && <Spinner />}
-          {prefixError && <ErrorMessage message={prefixError} />}
-          {!prefixLoading && !prefixError && prefixData && (
-            <>
-              <div className="text-[10px] font-mono text-[#4a6480] mb-3 uppercase tracking-widest">
-                {prefixData.ipv4_prefixes.length} préfixe(s) IPv4
-              </div>
-              {prefixData.ipv4_prefixes.length === 0 ? <EmptyState /> : renderPrefixTable(prefixData.ipv4_prefixes)}
-            </>
-          )}
-        </>
-      )}
-
-      {activeTab === 'ipv6' && (
-        <>
-          {prefixLoading && <Spinner />}
-          {prefixError && <ErrorMessage message={prefixError} />}
-          {!prefixLoading && !prefixError && prefixData && (
-            <>
-              <div className="text-[10px] font-mono text-[#4a6480] mb-3 uppercase tracking-widest">
-                {prefixData.ipv6_prefixes.length} préfixe(s) IPv6
-              </div>
-              {prefixData.ipv6_prefixes.length === 0 ? <EmptyState /> : renderPrefixTable(prefixData.ipv6_prefixes)}
-            </>
-          )}
-        </>
-      )}
-
-      {activeTab === 'peers' && (
-        <>
-          {peerLoading && <Spinner />}
-          {peerError && <ErrorMessage message={peerError} />}
-          {!peerLoading && !peerError && peerData && (
-            <>
-              <div className="text-[10px] font-mono text-[#4a6480] mb-3 uppercase tracking-widest">
-                {peerData.ipv4_peers.length + peerData.ipv6_peers.length} peer(s)
-              </div>
-              {peerData.ipv4_peers.length + peerData.ipv6_peers.length === 0 ? (
-                <EmptyState />
-              ) : (
-                renderASNTable([...peerData.ipv4_peers, ...peerData.ipv6_peers])
-              )}
-            </>
-          )}
-        </>
-      )}
-
-      {activeTab === 'upstreams' && (
-        <>
-          {upstreamLoading && <Spinner />}
-          {upstreamError && <ErrorMessage message={upstreamError} />}
-          {!upstreamLoading && !upstreamError && upstreamData && (
-            <>
-              <div className="text-[10px] font-mono text-[#4a6480] mb-3 uppercase tracking-widest">
-                {upstreamData.ipv4_upstreams.length + upstreamData.ipv6_upstreams.length} upstream(s)
-              </div>
-              {upstreamData.ipv4_upstreams.length + upstreamData.ipv6_upstreams.length === 0 ? (
-                <EmptyState />
-              ) : (
-                renderASNTable([...upstreamData.ipv4_upstreams, ...upstreamData.ipv6_upstreams])
-              )}
-            </>
-          )}
-        </>
-      )}
-
-      {activeTab === 'downstreams' && (
-        <>
-          {downstreamLoading && <Spinner />}
-          {downstreamError && <ErrorMessage message={downstreamError} />}
-          {!downstreamLoading && !downstreamError && downstreamData && (
-            <>
-              <div className="text-[10px] font-mono text-[#4a6480] mb-3 uppercase tracking-widest">
-                {downstreamData.ipv4_downstreams.length + downstreamData.ipv6_downstreams.length} downstream(s)
-              </div>
-              {downstreamData.ipv4_downstreams.length + downstreamData.ipv6_downstreams.length === 0 ? (
-                <EmptyState />
-              ) : (
-                renderASNTable([...downstreamData.ipv4_downstreams, ...downstreamData.ipv6_downstreams])
-              )}
-            </>
-          )}
-        </>
-      )}
+      {(view === 'ipv4' || view === 'ipv6') && listView(prefixes, () => (
+        <PrefixTable
+          family={view === 'ipv4' ? 4 : 6}
+          prefixes={prefixes.data![view === 'ipv4' ? 'ipv4_prefixes' : 'ipv6_prefixes']}
+          onCopy={copyToClipboard}
+          onExport={handleExportIOC}
+        />
+      ))}
+      {view === 'peers' && listView(peers, () => <RelationTable label="Peers" relations={peers.items ?? []} current={asn} visited={visited} onCopy={copyToClipboard} onOpen={onOpenASN} />)}
+      {view === 'upstreams' && listView(upstreams, () => <RelationTable label="Upstreams" relations={upstreams.items ?? []} current={asn} visited={visited} onCopy={copyToClipboard} onOpen={onOpenASN} />)}
+      {view === 'downstreams' && listView(downstreams, () => <RelationTable label="Downstreams" relations={downstreams.items ?? []} current={asn} visited={visited} onCopy={copyToClipboard} onOpen={onOpenASN} />)}
     </div>
   )
 }
@@ -481,15 +241,10 @@ export default function BGPLookup() {
   const navigate = useNavigate()
   const [mode, setMode] = useState<SearchMode>('asn')
   const [inputValue, setInputValue] = useState('')
-  const [searchParams] = useSearchParams()
-
-  useEffect(() => {
-    const prefill = searchParams.get('prefill')
-    if (prefill) {
-      setInputValue(prefill)
-      setMode(prefill.includes('/') ? 'search' : 'ip')
-    }
-  }, [searchParams])
+  const [searchParams, setSearchParams] = useSearchParams()
+  const navigationType = useNavigationType()
+  const asnParam = searchParams.get('asn')
+  const prefillParam = searchParams.get('prefill')
 
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -498,332 +253,338 @@ export default function BGPLookup() {
   const [ipInfo, setIpInfo] = useState<IPInfo | null>(null)
   const [searchResults, setSearchResults] = useState<SearchASN[] | null>(null)
   const [bgpStatus, setBGPStatus] = useState<BGPStatusResponse | null>(null)
-  const [lastSnapshotDate] = useState<string | null>(null)
+  const [statusFailed, setStatusFailed] = useState(false)
+  const [asnReloadKey, setAsnReloadKey] = useState(0)
+  // The only exploration record: ASNs actually opened (their identity answered), newest first.
+  const [visits, setVisits] = useState<number[]>(readVisits)
+  const requestSequence = useRef(0)
+  const dossierCache = useRef<DossierCache>(new Map()).current
+
+  useEffect(() => { writeVisits(visits) }, [visits])
+
+  // The URL is the source of truth for the explored ASN (links, back and forward).
+  useEffect(() => {
+    if (!asnParam) {
+      if (navigationType === 'POP') {
+        requestSequence.current += 1
+        setLoading(false)
+        setError(null)
+        setAsnInfo(null)
+        setCurrentASN(null)
+        setIpInfo(null)
+        setSearchResults(null)
+        if (!prefillParam) setInputValue('')
+      }
+      if (prefillParam) {
+        setInputValue(prefillParam)
+        setMode(prefillParam.includes('/') ? 'search' : 'ip')
+      }
+      return
+    }
+
+    setMode('asn')
+    setInputValue(asnParam.replace(/^AS/i, ''))
+    const sequence = ++requestSequence.current
+    const asn = stripASN(asnParam)
+    setError(null)
+    setAsnInfo(null)
+    setCurrentASN(null)
+    setIpInfo(null)
+    setSearchResults(null)
+
+    if (!isValidASN(asn)) {
+      setLoading(false)
+      setError('ASN invalide. Entrez un numéro (ex: 13335 ou AS13335)')
+      return
+    }
+
+    let active = true
+    setLoading(true)
+    bgpApi.lookupASN(asn)
+      .then(result => {
+        if (active && requestSequence.current === sequence) {
+          setAsnInfo(result.data)
+          setCurrentASN(asn)
+          setVisits(list => recordVisit(list, asn))
+        }
+      })
+      .catch((e: unknown) => {
+        if (active && requestSequence.current === sequence) setError(parseAPIError(e))
+      })
+      .finally(() => {
+        if (active && requestSequence.current === sequence) setLoading(false)
+      })
+
+    return () => { active = false }
+  }, [asnParam, prefillParam, asnReloadKey, navigationType])
 
   const handleSearch = useCallback(async () => {
     const val = inputValue.trim()
     if (!val) return
+
+    if (mode === 'asn') {
+      const asn = stripASN(val)
+      requestSequence.current += 1
+      if (!isValidASN(asn)) {
+        setLoading(false)
+        setError('ASN invalide. Entrez un numéro (ex: 13335 ou AS13335)')
+        return
+      }
+      setError(null)
+      if (asnParam && stripASN(asnParam) === asn) setAsnReloadKey(version => version + 1)
+      else setSearchParams({ asn: String(asn) })
+      return
+    }
+
+    const sequence = ++requestSequence.current
+    setSearchParams({}, { replace: true })
     setLoading(true)
     setError(null)
     setAsnInfo(null)
+    setCurrentASN(null)
     setIpInfo(null)
     setSearchResults(null)
     try {
-      if (mode === 'asn') {
-        const asn = stripASN(val)
-        if (isNaN(asn) || asn <= 0) {
-          setError('ASN invalide. Entrez un numéro (ex: 13335 ou AS13335)')
-          return
-        }
-        const res = await bgpApi.lookupASN(asn)
-        setAsnInfo(res.data)
-        setCurrentASN(asn)
-      } else if (mode === 'ip') {
+      if (mode === 'ip') {
         const res = await bgpApi.lookupIP(val)
         if (res.status !== 'ok') throw new Error(res.status_message || 'Erreur BGPView')
         if (!res.data || !res.data.ip) throw new Error('Aucune donnée IP disponible')
-        setIpInfo(res)
+        if (requestSequence.current === sequence) setIpInfo(res)
       } else {
         const res = await bgpApi.search(val)
-        setSearchResults(res.data.asns)
+        if (requestSequence.current === sequence) setSearchResults(res.data.asns)
       }
     } catch (e: unknown) {
-      setError(parseAPIError(e))
+      if (requestSequence.current === sequence) setError(parseAPIError(e))
     } finally {
-      setLoading(false)
+      if (requestSequence.current === sequence) setLoading(false)
     }
-  }, [mode, inputValue])
+  }, [mode, inputValue, asnParam, setSearchParams])
 
   useEffect(() => {
-    bgpApi.getStatus().then(setBGPStatus).catch(() => setBGPStatus(null))
+    bgpApi.getStatus().then(setBGPStatus).catch(() => { setBGPStatus(null); setStatusFailed(true) })
   }, [])
 
   const navigateToASN = useCallback((asn: number) => {
+    requestSequence.current += 1
     setMode('asn')
     setInputValue(String(asn))
-    setLoading(true)
     setError(null)
+    setLoading(true)
     setAsnInfo(null)
+    setCurrentASN(null)
     setIpInfo(null)
     setSearchResults(null)
-    bgpApi.lookupASN(asn)
-      .then((r) => { setAsnInfo(r.data); setCurrentASN(asn) })
-      .catch((e: unknown) => setError(parseAPIError(e)))
-      .finally(() => setLoading(false))
-  }, [])
+    if (asnParam && stripASN(asnParam) === asn) setAsnReloadKey(version => version + 1)
+    else setSearchParams({ asn: String(asn) })
+  }, [asnParam, setSearchParams])
 
-  /**
-   * Export d'un préfixe depuis le mode IP Lookup vers l'IOC Manager.
-   * - Envoie l'ASN d'origine du préfixe ET une source explicite "IP Lookup — AS<N>"
-   *   pour distinguer ce cas du lookup ASN direct côté backend.
-   */
+  const visited = useMemo(() => new Set(visits), [visits])
+  const trail = visits.filter(asn => asn !== currentASN).slice(0, 4)
+  const lens: VisitLens = { current: currentASN, visited }
+
+  const handleModeChange = (nextMode: SearchMode) => {
+    setMode(nextMode)
+    setError(null)
+  }
+
+  const prefillExample = (nextMode: SearchMode, value: string) => {
+    setMode(nextMode)
+    setInputValue(value)
+  }
+
+  // Exports a prefix found by IP lookup, with its origin ASN and an explicit "IP Lookup" source.
   const handleExportIPPrefix = async (prefix: string, asn: number) => {
     try {
-      await bgpApi.exportIOC({
-        type: 'cidr',
-        value: prefix,
-        asn,
-        source: `IP Lookup — AS${asn}`,
-      })
+      await bgpApi.exportIOC({ type: 'cidr', value: prefix, asn, source: `IP Lookup — AS${asn}` })
       toast.success(`IOC créé : ${prefix}`)
     } catch (e: unknown) {
       toast.error(e instanceof Error ? e.message : 'Erreur export IOC')
     }
   }
 
+  const sourceState = bgpStatus ? (bgpStatus.available ? 'available' : 'unavailable') : 'unknown'
+  const idle = !loading && !error && !asnInfo && !ipInfo && !searchResults
+
   return (
-    <div className="flex flex-col h-full bg-[#06080f] text-[#f1f5f9]">
-      <div className="flex items-center justify-between px-6 py-4 border-b border-[#1e2d40] bg-[#0a0f16]/50">
-        <div className="flex items-center gap-3">
-          <div className="relative">
-            <Globe className="text-[#00d4ff]" size={20} />
-            <div className="absolute -top-1 -right-1 w-2 h-2 bg-[#10b981] rounded-full animate-pulse shadow-[0_0_8px_#10b981]" />
-          </div>
-          <div>
-            <h1 className="text-sm font-bold tracking-[0.2em] uppercase">BGP Signal Acquisition</h1>
-            <p className="text-[10px] text-[#64748b] font-mono">GLOBAL ROUTING TABLE // REAL-TIME INTERROGATION</p>
-          </div>
-        </div>
-        <div className="flex items-center gap-4 font-mono text-[10px]">
-          {bgpStatus && (
-            <div className="flex flex-col items-end">
-              <span className="text-[#64748b]">UPSTREAM</span>
-              <span className={bgpStatus.available ? 'text-[#10b981]' : 'text-[#ef4444]'}>
-                {bgpStatus.available ? 'CONNECTED' : 'DEGRADED'}
-              </span>
-            </div>
-          )}
-          <button
-            onClick={() => navigate('/bgp/historian')}
-            className="flex items-center gap-2 px-3 py-1.5 bg-[#1e2d40] hover:bg-[#2a3f55] text-[10px] font-bold border border-[#334155] transition-colors"
-          >
-            <History size={12} /> HISTORIAN
-          </button>
-        </div>
-      </div>
+    <div className="bgp-console bgp-lookup">
+      <div className="bgp-frame">
+        <ModuleHero
+          breadcrumb="NETWORK / ROUTING INTELLIGENCE" title="BGP" accent="LOOKUP" typeOnce="bgp-lookup"
+          subtitle="Network Atlas — explorer un système autonome, ses annonces et son voisinage."
+          motif={<AtlasMotif />}
+          index={{
+            label: 'NETWORK ATLAS',
+            lines: ['ASN · PRÉFIXES', 'PEERS · TRANSIT', 'IOC · SNAPSHOTS'],
+            status: bgpStatus
+              ? bgpStatus.available
+                ? { text: 'EN LIGNE', mark: bgpStatus.primary?.toUpperCase().slice(0, 14) }
+                : { text: bgpStatus.cache_available ? 'CACHE SEUL' : 'HORS LIGNE', tone: 'warn' }
+              : statusFailed ? { text: 'ÉTAT INCONNU', tone: 'warn' } : undefined,
+          }}
+        />
 
-      <div className="flex-1 overflow-auto p-6 space-y-6">
-        {bgpStatus && !bgpStatus.available && (
-          <div className="border-l-2 border-[#f59e0b] bg-[#f59e0b]/5 p-4 font-mono text-[11px] text-[#f59e0b]">
-            <div className="font-bold mb-1">⚠ BGP DATA UNAVAILABLE</div>
-            <div className="text-[#8a9ab0]">
-              {bgpStatus.cache_available ? 'Affichage de la dernière version mise en cache.' : 'Aucune version mise en cache disponible.'}
-            </div>
-            <div className="opacity-70 mt-0.5">{bgpStatus.message}</div>
-          </div>
-        )}
-
-        <div className="max-w-4xl mx-auto">
-          <div className="flex gap-0 mb-0 border-b border-[#1e2d40]">
-            {(['asn', 'ip', 'search'] as SearchMode[]).map((m) => (
-              <button
-                key={m}
-                onClick={() => { setMode(m); setError(null) }}
-                className={`px-4 py-2 text-[10px] font-bold tracking-widest uppercase border-b-2 transition-colors ${
-                  mode === m
-                    ? 'border-[#00d4ff] text-[#00d4ff] bg-[#00d4ff]/5'
-                    : 'border-transparent text-[#4a6480] hover:text-[#8a9ab0]'
-                }`}
-              >
-                {m === 'asn' ? 'ASN' : m === 'ip' ? 'IP' : 'Recherche'}
+        <form className="bgp-command" onSubmit={event => { event.preventDefault(); void handleSearch() }}>
+          <div className="bgp-modes" role="group" aria-label="Mode de recherche">
+            {(['asn', 'ip', 'search'] as SearchMode[]).map(m => (
+              <button type="button" key={m} className="bgp-mode" aria-pressed={mode === m} onClick={() => handleModeChange(m)}>
+                {MODE_LABEL[m]}
               </button>
             ))}
           </div>
-
-          <div className="relative group mt-0">
-            <div className="absolute -inset-1 bg-gradient-to-r from-[#00d4ff]/20 to-transparent rounded-lg blur opacity-25 group-focus-within:opacity-100 transition duration-500" />
-            <div className="relative flex items-center bg-[#0d131f] border border-[#1e2d40] overflow-hidden">
-              <div className="pl-4 text-[#4a6480]"><Search size={18} /></div>
+          <div className="bgp-field">
+            <label htmlFor="bgp-query">{FIELD_LABEL[mode]}</label>
+            <div className="bgp-input">
+              <span aria-hidden="true">{GLYPH[mode]}</span>
               <input
+                id="bgp-query"
                 type="text"
                 value={inputValue}
-                onChange={(e) => setInputValue(e.target.value)}
-                onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
-                placeholder={
-                  mode === 'asn' ? 'ENTER ASN... (ex: 13335 or AS13335)'
-                  : mode === 'ip' ? 'ENTER IP ADDRESS... (ex: 8.8.8.8)'
-                  : 'SEARCH KEYWORD... (ex: cloudflare)'
-                }
-                className="w-full bg-transparent border-none py-4 px-4 text-sm font-mono focus:ring-0 placeholder-[#334155] uppercase tracking-widest outline-none"
+                onChange={event => setInputValue(event.target.value)}
+                placeholder={PLACEHOLDER[mode]}
+                autoComplete="off"
+                spellCheck={false}
               />
-              <button
-                onClick={handleSearch}
-                disabled={loading}
-                className="bg-[#00d4ff]/10 hover:bg-[#00d4ff]/20 text-[#00d4ff] px-6 py-4 border-l border-[#1e2d40] text-xs font-bold transition-colors disabled:opacity-50 flex items-center gap-2"
-              >
-                {loading ? <Loader2 size={14} className="animate-spin" /> : <Activity size={14} />}
-                EXECUTE_QUERY
-              </button>
             </div>
           </div>
-        </div>
-
-        {error && <ErrorMessage message={error} />}
-
-        <div className="grid grid-cols-12 gap-4">
-          <div className="col-span-12 lg:col-span-8 bg-[#0a0f16] border border-[#1e2d40] overflow-hidden">
-            <div className="bg-[#1e2d40]/30 px-4 py-2 border-b border-[#1e2d40] flex justify-between items-center">
-              <span className="text-[10px] font-bold tracking-widest text-[#8a9ab0]">ROUTING_DETAILS</span>
-              <Activity size={12} className="text-[#00d4ff]" />
+          <button type="submit" className="bgp-run" disabled={!inputValue.trim()} aria-label={loading ? 'Remplacer la recherche en cours' : 'Explorer'}>
+            {loading ? <Loader2 size={17} className="bgp-spin" aria-hidden="true" /> : <Activity size={17} aria-hidden="true" />}
+            <span>{loading ? 'Remplacer' : 'Explorer'}</span>
+          </button>
+          <div className="bgp-command-side">
+            <div className="bgp-source" aria-label="Provenance des données BGP">
+              <i data-state={sourceState} aria-hidden="true" />
+              <span className="bgp-source-name">{bgpStatus?.primary || 'Source non renseignée'}</span>
+              <span className="bgp-source-state">{bgpStatus ? (bgpStatus.available ? 'Disponible' : 'Indisponible') : 'État inconnu'}</span>
+              {bgpStatus?.cache_available && <span className="bgp-source-cache">Cache · {Math.max(0, Math.floor(bgpStatus.cache_age_seconds / 60))} min</span>}
             </div>
+            <button type="button" className="bgp-link" onClick={() => navigate('/bgp/historian')}>
+              <History size={14} aria-hidden="true" /> BGP Historian
+            </button>
+          </div>
+        </form>
 
-            {loading && <Spinner />}
+        {bgpStatus && !bgpStatus.available && (
+          <div className="bgp-notice" role="status">
+            <strong>Source BGP indisponible.</strong>{' '}
+            {bgpStatus.cache_available ? 'Affichage de la dernière version mise en cache.' : 'Aucune version mise en cache disponible.'}
+            {bgpStatus.message && <span> {bgpStatus.message}</span>}
+          </div>
+        )}
 
-            {!loading && !error && !asnInfo && !ipInfo && !searchResults && (
-              <div className="p-12 text-center">
-                <Database size={40} className="mx-auto text-[#1e2d40] mb-4" />
-                <p className="text-xs font-mono text-[#4a6480]">AWAITING COMMAND INPUT...</p>
-              </div>
-            )}
+        <section className="bgp-stage" aria-label="Résultats BGP">
+          {loading && <Spinner />}
+          {!loading && error && <ErrorMessage message={error} />}
 
-            {!loading && !error && asnInfo && currentASN !== null && (
-              <div className="p-4">
-                <div className="flex items-center gap-3 mb-4 pb-4 border-b border-[#1e2d40]">
-                  <div className="text-xl font-bold font-mono text-[#00d4ff]">AS{currentASN}</div>
-                  <div>
-                    <div className="text-sm font-bold text-[#f1f5f9]">{asnInfo.name}</div>
-                    <div className="text-[10px] text-[#4a6480] font-mono">{asnInfo.description_short}</div>
-                  </div>
-                  {asnInfo.country_code && (
-                    <span className="ml-auto text-lg">{countryFlag(asnInfo.country_code)}</span>
-                  )}
+          {idle && (
+            <div className="bgp-start">
+              <div className="bgp-start-copy">
+                <span className="bgp-kicker">Point de départ</span>
+                <h2>Explorer un système autonome</h2>
+                <p>Saisissez un ASN, une adresse IP ou le nom d’une organisation. L’atlas place ensuite ses fournisseurs de transit, ses clients et ses peers tels que la source les déclare.</p>
+                <div className="bgp-examples" aria-label="Exemples de recherche">
+                  <button type="button" onClick={() => prefillExample('asn', '13335')}>ASN <strong>AS13335</strong></button>
+                  <button type="button" onClick={() => prefillExample('ip', '1.1.1.1')}>IP <strong>1.1.1.1</strong></button>
+                  <button type="button" onClick={() => prefillExample('search', 'Cloudflare')}>Organisation <strong>Cloudflare</strong></button>
                 </div>
-                <ASNTabs
-                  asn={currentASN}
-                  info={asnInfo}
-                  onNavigatePeer={navigateToASN}
-                  lastSnapshotDate={lastSnapshotDate}
-                />
               </div>
-            )}
+              <AtlasSchematic />
+            </div>
+          )}
 
-            {!loading && !error && ipInfo && ipInfo.data && (
-              <div className="p-4 space-y-3">
-                <div className="flex items-center gap-3 pb-3 border-b border-[#1e2d40]">
-                  <Network size={18} className="text-[#00d4ff]" />
-                  <div className="text-lg font-bold font-mono text-[#00d4ff]">{ipInfo.data.ip}</div>
+          {!loading && !error && asnInfo && currentASN !== null && (
+            <article className="bgp-result" aria-labelledby="bgp-asn-name">
+              <header className="bgp-identity">
+                <div className="bgp-asn-number">AS{currentASN}</div>
+                <div className="bgp-identity-copy">
+                  <h2 id="bgp-asn-name">{asnInfo.name || 'Nom non renseigné'}</h2>
+                  {asnInfo.description_short && <p>{asnInfo.description_short}</p>}
                 </div>
-                <div className="grid grid-cols-2 gap-2">
-                  {[
-                    { label: 'PTR', value: ipInfo.data.ptr_record || '—' },
-                    { label: 'RIR', value: ipInfo.data.rir_allocation?.rir_name || '—' },
-                    { label: 'Allocation', value: ipInfo.data.rir_allocation?.prefix || '—' },
-                    { label: 'Country', value: ipInfo.data.rir_allocation?.country_code || '—' },
-                  ].map(({ label, value }) => (
-                    <div key={label} className="bg-[#0d131f] border border-[#1e2d40] p-3">
-                      <div className="text-[9px] font-bold text-[#4a6480] uppercase tracking-widest mb-1">{label}</div>
-                      <div className="text-xs font-mono text-[#f1f5f9] truncate">{value}</div>
-                    </div>
+                <div className="bgp-identity-tags">
+                  {asnInfo.country_code && <span>{asnInfo.country_code}</span>}
+                  {asnInfo.rir_allocation?.rir_name && <span>{asnInfo.rir_allocation.rir_name}</span>}
+                </div>
+                {trail.length > 0 && (
+                  <nav className="bgp-trail" aria-label="ASN précédemment explorés">
+                    <span>Exploré avant</span>
+                    {trail.map(asn => (
+                      <button type="button" key={asn} onClick={() => navigateToASN(asn)} aria-label={`Retour à AS${asn}`}>
+                        <Check size={11} aria-hidden="true" /> AS{asn}
+                      </button>
+                    ))}
+                  </nav>
+                )}
+              </header>
+              <ASNDossier key={currentASN} asn={currentASN} info={asnInfo} cache={dossierCache} visited={visited} onOpenASN={navigateToASN} />
+            </article>
+          )}
+
+          {!loading && !error && ipInfo?.data && (
+            <article className="bgp-result" aria-labelledby="bgp-ip-title">
+              <header className="bgp-identity is-ip">
+                <Globe size={22} aria-hidden="true" />
+                <div className="bgp-identity-copy">
+                  <h2 id="bgp-ip-title" className="bgp-ip">{ipInfo.data.ip}</h2>
+                  <p>Origine de l’adresse selon la source BGP</p>
+                </div>
+              </header>
+              <dl className="bgp-facts is-row">
+                {[
+                  { label: 'PTR', value: ipInfo.data.ptr_record || '—' },
+                  { label: 'Registre', value: ipInfo.data.rir_allocation?.rir_name || '—' },
+                  { label: 'Allocation', value: ipInfo.data.rir_allocation?.prefix || '—' },
+                  { label: 'Pays', value: ipInfo.data.rir_allocation?.country_code || '—' },
+                ].map(({ label, value }) => <div key={label}><dt>{label}</dt><dd>{value}</dd></div>)}
+              </dl>
+              <header className="bgp-section-head">
+                <h3>Préfixes annonçant cette adresse</h3>
+                <span>{ipInfo.data.prefixes?.length ?? 0} préfixe(s)</span>
+              </header>
+              {ipInfo.data.prefixes?.length ? (
+                <ul className="bgp-ip-prefixes">
+                  {ipInfo.data.prefixes.map(p => (
+                    <li key={p.prefix}>
+                      <code>{p.prefix}</code>
+                      {p.asn && p.asn.asn !== 0 ? (
+                        <button type="button" className="bgp-origin" data-visit={visitState(p.asn.asn, lens)} onClick={() => navigateToASN(p.asn.asn)} aria-label={visitLabel(`Ouvrir AS${p.asn.asn} ${p.asn.name}`, visitState(p.asn.asn, lens))}>
+                          <strong>AS{p.asn.asn}</strong><span>{p.asn.name}</span><VisitMark state={visitState(p.asn.asn, lens)} /><ChevronRight size={13} aria-hidden="true" />
+                        </button>
+                      ) : <span className="bgp-cell-muted">Origine non retournée</span>}
+                      <div className="bgp-row-actions">
+                        <button type="button" className="bgp-icon-button" onClick={() => copyToClipboard(p.prefix)} aria-label={`Copier le préfixe ${p.prefix}`}><Copy size={13} /></button>
+                        {p.asn && p.asn.asn !== 0 && (
+                          <button type="button" className="bgp-icon-button" onClick={() => handleExportIPPrefix(p.prefix, p.asn.asn)} aria-label={`Exporter ${p.prefix} en IOC`}><ShieldBan size={13} /></button>
+                        )}
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+              ) : <EmptyState label="Aucun préfixe retourné par la source pour cette IP" />}
+            </article>
+          )}
+
+          {!loading && !error && searchResults && (
+            <article className="bgp-result" aria-labelledby="bgp-search-title">
+              <header className="bgp-section-head">
+                <h2 id="bgp-search-title">Systèmes correspondants</h2>
+                <span className="bgp-table-count">{searchResults.length} résultat(s)</span>
+              </header>
+              {searchResults.length === 0 ? <EmptyState label="Aucun ASN trouvé" /> : (
+                <div className="bgp-search-results">
+                  {searchResults.map(a => (
+                    <button type="button" key={a.asn} className="bgp-search-result" data-visit={visitState(a.asn, lens)} onClick={() => navigateToASN(a.asn)}>
+                      <strong>AS{a.asn}</strong>
+                      <span>{a.name}</span>
+                      <VisitMark state={visitState(a.asn, lens)} />
+                      <small>{a.country_code}</small>
+                      <ChevronRight size={14} aria-hidden="true" />
+                    </button>
                   ))}
                 </div>
-
-                <div>
-                  <div className="text-[10px] font-bold text-[#4a6480] uppercase tracking-widest mb-2">Préfixes associés</div>
-                  {ipInfo.data.prefixes && ipInfo.data.prefixes.length > 0 ? (
-                    <div className="space-y-2">
-                      {ipInfo.data.prefixes.map((p, i) => (
-                        <div key={i} className="flex items-center justify-between bg-[#0d131f] border border-[#1e2d40] px-3 py-2">
-                          <div>
-                            <span className="font-mono text-xs text-[#00d4ff]">{p.prefix}</span>
-                            {p.asn && p.asn.asn !== 0 && (
-                              <span className="ml-3 text-[10px] text-[#4a6480]">
-                                AS{p.asn.asn} — {p.asn.name}
-                              </span>
-                            )}
-                          </div>
-                          <div className="flex gap-1">
-                            <button onClick={() => copyToClipboard(p.prefix)} className="p-1 hover:bg-[#1e2d40] text-[#4a6480] hover:text-[#00d4ff] transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-[#00d4ff]" aria-label="Copier">
-                              <Copy size={12} />
-                            </button>
-                            {p.asn && p.asn.asn !== 0 && (
-                              <>
-                                <button onClick={() => handleExportIPPrefix(p.prefix, p.asn!.asn)} className="p-1 hover:bg-[#1e2d40] text-[#4a6480] hover:text-[#ef4444] transition-colors">
-                                  <ShieldBan size={12} />
-                                </button>
-                                <button onClick={() => navigateToASN(p.asn!.asn)} className="p-1 hover:bg-[#1e2d40] text-[#4a6480] hover:text-[#00d4ff] transition-colors">
-                                  <ChevronRight size={12} />
-                                </button>
-                              </>
-                            )}
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  ) : (
-                    <div className="text-[10px] font-mono text-[#4a6480] bg-[#0d131f] border border-[#1e2d40] p-3">
-                      Aucun préfixe retourné par RIPE pour cette IP
-                    </div>
-                  )}
-                </div>
-              </div>
-            )}
-
-            {!loading && !error && searchResults && (
-              <div className="p-4">
-                <div className="text-[10px] font-mono text-[#4a6480] uppercase tracking-widest mb-3">
-                  {searchResults.length} résultat(s)
-                </div>
-                {searchResults.length === 0 ? (
-                  <EmptyState label="Aucun ASN trouvé" />
-                ) : (
-                  <div className="space-y-2">
-                    {searchResults.map((a) => (
-                      <div
-                        key={a.asn}
-                        className="flex items-center justify-between bg-[#0d131f] border border-[#1e2d40] hover:border-[#00d4ff]/30 px-3 py-2 cursor-pointer transition-colors"
-                        onClick={() => navigateToASN(a.asn)}
-                      >
-                        <div>
-                          <span className="font-mono text-xs text-[#00d4ff]">AS{a.asn}</span>
-                          <span className="ml-3 text-xs text-[#8a9ab0]">{a.name}</span>
-                        </div>
-                        <div className="flex items-center gap-2 text-[10px] text-[#4a6480]">
-                          {a.country_code && (
-                            <span>{countryFlag(a.country_code)} {a.country_code}</span>
-                          )}
-                          <ChevronRight size={12} className="text-[#4a6480]" />
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-            )}
-          </div>
-
-          <div className="col-span-12 lg:col-span-4 space-y-4">
-            <div className="bg-[#0a0f16] border border-[#1e2d40] p-4">
-              <h3 className="text-[10px] font-bold text-[#64748b] mb-4 uppercase tracking-tighter flex items-center gap-2">
-                <ShieldCheck size={14} className="text-[#10b981]" /> RPKI VALIDATION STATUS
-              </h3>
-              <div className="space-y-3">
-                <div className="flex justify-between text-[11px] font-mono">
-                  <span className="text-[#8a9ab0]">VALID</span>
-                  <span className="text-[#10b981]">98.2%</span>
-                </div>
-                <div className="w-full bg-[#1e2d40] h-1 overflow-hidden">
-                  <div className="bg-[#10b981] h-full shadow-[0_0_8px_#10b981]" style={{ width: '98%' }} />
-                </div>
-              </div>
-            </div>
-
-            <div className="bg-[#0a0f16] border border-[#1e2d40] p-4">
-              <h3 className="text-[10px] font-bold text-[#64748b] mb-4 uppercase tracking-tighter">TRANSIT_DIVERSITY</h3>
-              <div className="flex flex-wrap gap-2">
-                {['LEVEL3', 'COGENT', 'GTT', 'HE'].map(isp => (
-                  <span key={isp} className="text-[9px] font-mono px-2 py-1 bg-[#1e2d40] text-[#8a9ab0] border border-[#2a3f55]">
-                    {isp}
-                  </span>
-                ))}
-              </div>
-            </div>
-
-            <div className="bg-[#0a0f16] border border-[#1e2d40] p-4 font-mono text-[10px] text-[#4a6480]">
-              <p className="uppercase tracking-widest">Powered by BGPView</p>
-              <p className="mt-1 text-[9px]">usage légal uniquement</p>
-            </div>
-          </div>
-        </div>
+              )}
+            </article>
+          )}
+        </section>
       </div>
     </div>
   )

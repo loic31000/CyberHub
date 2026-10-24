@@ -1,466 +1,273 @@
-import { useState, useEffect, useCallback } from 'react'
-import {
-  History, CheckCheck, Loader2, AlertCircle,
-  Network, ChevronRight, X, GitCompare, RefreshCw, Clock, AlertTriangle, Trash2,
-} from 'lucide-react'
-import { useNavigate } from 'react-router-dom'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useNavigate, useSearchParams } from 'react-router-dom'
+import { AlertCircle, AlertTriangle, Clock, GitCompare, Loader2, Network } from 'lucide-react'
 import { bgpApi } from '@/api/client'
 import { toast } from '@/store/toast'
-import type {
-  BGPAlert, BGPAlertType, BGPSnapshot,
-  BGPDiffResponse, BGPDiffField,
-} from '@/types/bgp'
+import { ModuleHero } from '@/hero/ModuleHero'
+import { TimelineMotif } from '@/bgp/BgpMotifs'
+import type { BGPDiffResponse, BGPSnapshot } from '@/types/bgp'
+import { formatShortDay, isValidASN, isValidDate, parseAPIError, stripASN } from '@/bgp/format'
+import { AlertStream, type FeedStatus } from '@/bgp/HistorianAlerts'
+import { snapshotMoment } from '@/bgp/history'
+import { ComparisonSurface } from '@/bgp/HistorianDiff'
+import { ObservationList, TimeInstrument, type Role } from '@/bgp/HistorianTimeline'
+import { readShortcuts, rememberSnapshotASN, type SnapshotShortcut } from '@/bgp/snapshotShortcuts'
+import '@/bgp/bgp.css'
 
-function alertLabel(type: BGPAlertType): string {
-  const labels: Record<BGPAlertType, string> = {
-    prefix_change: 'Changement préfixes',
-    peer_change: 'Changement peers',
-    upstream_change: 'Changement upstreams',
-    downstream_change: 'Changement downstreams',
-  }
-  return labels[type] ?? type
-}
-
-function alertSeverityStyle(type: BGPAlertType): { border: string; text: string; bg: string } {
-  const styles: Record<BGPAlertType, { border: string; text: string; bg: string }> = {
-    prefix_change:    { border: 'border-[#ef4444]', text: 'text-[#ef4444]', bg: 'bg-[#ef4444]/5' },
-    peer_change:      { border: 'border-[#f59e0b]', text: 'text-[#f59e0b]', bg: 'bg-[#f59e0b]/5' },
-    upstream_change:  { border: 'border-[#f97316]', text: 'text-[#f97316]', bg: 'bg-[#f97316]/5' },
-    downstream_change:{ border: 'border-[#3b82f6]', text: 'text-[#3b82f6]', bg: 'bg-[#3b82f6]/5' },
-  }
-  return styles[type] ?? { border: 'border-[#4a6480]', text: 'text-[#8a9ab0]', bg: 'bg-[#1e2d40]' }
-}
-
-function formatDate(iso: string): string {
-  try {
-    const date = new Date(iso)
-    if (isNaN(date.getTime())) throw new Error('Invalid date')
-    return date.toLocaleString('fr-FR', {
-      day: 'numeric', month: 'short', year: 'numeric',
-      hour: '2-digit', minute: '2-digit',
-    })
-  } catch {
-    return 'Date inconnue'
-  }
-}
-
-function parseAlertPreview(alert: BGPAlert): string {
-  try {
-    if (!alert.old_value || !alert.new_value) return 'Données manquantes'
-    const oldParsed = JSON.parse(alert.old_value) as Record<string, unknown>
-    const newParsed = JSON.parse(alert.new_value) as Record<string, unknown>
-    const oldData = (oldParsed?.data ?? oldParsed) as Record<string, unknown[]>
-    const newData = (newParsed?.data ?? newParsed) as Record<string, unknown[]>
-    const keys = Object.keys(newData).filter((k) => Array.isArray(newData[k]))
-    if (keys.length === 0) return 'Changement générique'
-    let totalAdded = 0; let totalRemoved = 0
-    for (const k of keys) {
-      const oldArr = (oldData[k] as unknown[]) ?? []
-      const newArr = newData[k] as unknown[]
-      const added = newArr.length - oldArr.length
-      if (added > 0) totalAdded += added
-      else totalRemoved += Math.abs(added)
-    }
-    const parts: string[] = []
-    if (totalAdded > 0) parts.push(`+${totalAdded}`)
-    if (totalRemoved > 0) parts.push(`-${totalRemoved}`)
-    return parts.length > 0 ? parts.join(' / ') : 'Changement indéterminé'
-  } catch {
-    return 'Erreur de parsing (données corrompues ?)'
-  }
-}
+const PAGE = 50
+// Same chronology as the backend: snapshot_date, then created_at for older rows.
+const time = (s: BGPSnapshot) => new Date(snapshotMoment(s)).getTime()
 
 function Spinner() {
   return (
-    <div className="flex items-center justify-center py-10">
-      <Loader2 size={24} className="animate-spin text-[#00d4ff]" />
+    <div className="bgp-state" role="status" aria-live="polite">
+      <Loader2 size={20} className="bgp-spin" aria-hidden="true" />
+      <span>Chargement des données BGP…</span>
     </div>
   )
 }
 
 function ErrorMessage({ message }: { message: string }) {
   return (
-    <div className="flex items-center gap-2 p-3 border-l-2 border-[#ef4444] bg-[#ef4444]/5 text-[#ef4444] font-mono text-xs">
-      <AlertCircle size={14} />
+    <div className="bgp-state is-error" role="alert">
+      <AlertCircle size={16} aria-hidden="true" />
       <span>{message}</span>
     </div>
   )
 }
 
-const DIFF_TRUNCATE_THRESHOLD = 50
+/* ------------------------------------------------------------- snapshots */
 
-interface DiffModalProps {
-  diffResponse: BGPDiffResponse
-  onClose: () => void
-}
-
-function DiffModal({ diffResponse, onClose }: DiffModalProps) {
-  const { diff, older, newer } = diffResponse
-
-  const renderField = (fieldName: string, field: BGPDiffField) => {
-    const addedCount = field.added?.length ?? 0
-    const removedCount = field.removed?.length ?? 0
-    const totalChanges = addedCount + removedCount
-
-    return (
-      <div key={fieldName} className="mb-4">
-        <div className="text-[9px] font-mono text-[#4a6480] uppercase tracking-widest mb-2">
-          {fieldName}
-        </div>
-        {totalChanges > DIFF_TRUNCATE_THRESHOLD ? (
-          <div className="text-xs font-mono text-[#f59e0b] bg-[#f59e0b]/10 px-3 py-2 border-l-2 border-[#f59e0b]">
-            Trop de changements ({totalChanges}) — affichage tronqué.{' '}
-            <span className="text-[#4a6480]">+{addedCount} / -{removedCount}</span>
-          </div>
-        ) : (
-          <div className="space-y-1">
-            {(field.added ?? []).map((item, i) => (
-              <div key={`add-${i}`} className="text-xs font-mono bg-[#10b981]/10 text-[#10b981] px-2 py-1 border-l-2 border-[#10b981]">
-                + {JSON.stringify(item)}
-              </div>
-            ))}
-            {(field.removed ?? []).map((item, i) => (
-              <div key={`rem-${i}`} className="text-xs font-mono bg-[#ef4444]/10 text-[#ef4444] px-2 py-1 border-l-2 border-[#ef4444]">
-                - {JSON.stringify(item)}
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
-    )
-  }
-
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4">
-      <div className="bg-[#06080f] border border-[#1e2d40] w-full max-w-3xl max-h-[80vh] flex flex-col">
-        <div className="flex items-center justify-between p-4 border-b border-[#1e2d40] bg-[#0a0f16]">
-          <div className="flex items-center gap-2">
-            <GitCompare size={16} className="text-[#00d4ff]" />
-            <span className="font-mono font-bold text-xs uppercase tracking-widest text-[#f1f5f9]">Differential Engine</span>
-          </div>
-          <div className="text-[10px] text-[#4a6480] font-mono flex items-center gap-2">
-            <span className="text-[#ef4444]">#{older.id}</span>
-            <ChevronRight size={12} />
-            <span className="text-[#10b981]">#{newer.id}</span>
-          </div>
-          <button onClick={onClose} className="p-1 hover:bg-[#1e2d40] text-[#4a6480] hover:text-[#f1f5f9] transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-[#00d4ff]" aria-label="Fermer">
-            <X size={16} />
-          </button>
-        </div>
-        <div className="flex gap-4 px-4 py-2 bg-[#0a0f16]/50 border-b border-[#1e2d40] text-[10px] font-mono text-[#4a6480]">
-          <span>OLDER: {formatDate(older.created_at)}</span>
-          <span>NEWER: {formatDate(newer.created_at)}</span>
-        </div>
-        <div className="flex-1 overflow-y-auto p-4">
-          {diff.changed_fields.length === 0 ? (
-            <div className="text-center font-mono text-xs text-[#4a6480] py-8 uppercase tracking-widest">
-              No changes detected between these snapshots.
-            </div>
-          ) : (
-            <div>
-              <div className="flex flex-wrap gap-2 mb-4">
-                {diff.changed_fields.map(f => (
-                  <span key={f} className="text-[9px] font-mono px-2 py-0.5 bg-[#00d4ff]/10 text-[#00d4ff] border border-[#00d4ff]/20 uppercase tracking-widest">
-                    {f}
-                  </span>
-                ))}
-              </div>
-              {Object.entries(diff.changes).map(([section, fields]) => (
-                <div key={section} className="mb-6">
-                  <h3 className="text-[10px] font-mono font-bold text-[#8a9ab0] mb-3 uppercase tracking-widest border-b border-[#1e2d40] pb-2">
-                    {section}
-                  </h3>
-                  {Object.entries(fields as Record<string, BGPDiffField>).map(
-                    ([fieldName, field]) => renderField(fieldName, field),
-                  )}
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-      </div>
-    </div>
-  )
-}
-
-function AlertsSection() {
+/**
+ * The snapshots of one ASN. The ASN comes from the URL (?asn=), so links from
+ * Network Atlas, reloads and the browser history all land on the same view.
+ */
+function SnapshotWorkspace({ asn, alertASNs, onLoadASN }: { asn: number | null; alertASNs: number[]; onLoadASN: (asn: number) => void }) {
   const navigate = useNavigate()
-  const [alerts, setAlerts] = useState<BGPAlert[]>([])
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
-  const [ackingId, setAckingId] = useState<number | null>(null)
-  const [purging, setPurging] = useState(false)
-
-  const loadAlerts = useCallback(() => {
-    setLoading(true)
-    setError(null)
-    bgpApi.getAlerts(100, 0)
-      .then(r => {
-        const validAlerts = r.items.filter(alert => {
-          try {
-            const d = new Date(alert.detected_at)
-            return !isNaN(d.getTime())
-          } catch {
-            return false
-          }
-        })
-        setAlerts(validAlerts)
-        if (validAlerts.length !== r.items.length) {
-          const skipped = r.items.length - validAlerts.length
-          console.warn(`${skipped} alerte(s) ignorée(s) à cause d'une date invalide`)
-        }
-      })
-      .catch(e => setError(e instanceof Error ? e.message : 'Erreur réseau'))
-      .finally(() => setLoading(false))
-  }, [])
-
-  useEffect(() => {
-    loadAlerts()
-    const interval = setInterval(loadAlerts, 30000)
-    return () => clearInterval(interval)
-  }, [loadAlerts])
-
-  const handleAck = async (id: number) => {
-    setAckingId(id)
-    try {
-      await bgpApi.ackAlert(id)
-      setAlerts(prev => prev.filter(a => a.id !== id))
-      toast.success('Alerte acquittée')
-    } catch (e) {
-      toast.error(e instanceof Error ? e.message : 'Erreur acquittement')
-    } finally {
-      setAckingId(null)
-    }
-  }
-
-  const purgeCorruptedAlerts = async () => {
-    if (!confirm('⚠️ Purger toutes les alertes avec des dates corrompues ?\nCette action les acquittera définitivement.')) return
-    setPurging(true)
-    try {
-      const res = await bgpApi.getAlerts(1000, 0)
-      const corrupted = res.items.filter(alert => {
-        try {
-          const d = new Date(alert.detected_at)
-          return isNaN(d.getTime())
-        } catch {
-          return true
-        }
-      })
-      if (corrupted.length === 0) {
-        toast.info('Aucune alerte corrompue trouvée')
-        return
-      }
-      let count = 0
-      for (const alert of corrupted) {
-        await bgpApi.ackAlert(alert.id)
-        count++
-      }
-      toast.success(`${count} alerte(s) corrompue(s) purgée(s)`)
-      loadAlerts()
-    } catch (e) {
-      toast.error(e instanceof Error ? e.message : 'Erreur lors de la purge')
-    } finally {
-      setPurging(false)
-    }
-  }
-
-  return (
-    <div>
-      <div className="flex items-center justify-between mb-4">
-        <h3 className="text-xs font-mono font-bold text-[#ef4444] flex items-center gap-2 uppercase tracking-widest">
-          <AlertTriangle size={14} /> CRITICAL_EVENTS_STREAM
-          {alerts.length > 0 && (
-            <span className="px-2 py-0.5 bg-[#ef4444] text-white text-[9px] font-bold animate-pulse">
-              {alerts.length} ACTIVE
-            </span>
-          )}
-        </h3>
-        <div className="flex gap-2">
-          <button
-            onClick={purgeCorruptedAlerts}
-            disabled={purging}
-            className="p-1.5 hover:bg-[#ef4444]/10 text-[#ef4444] hover:text-[#ef4444] transition-colors rounded focus:outline-none focus-visible:ring-2 focus-visible:ring-[#00d4ff]"
-            title="Purger les alertes corrompues (dates invalides)"
-            aria-label="Supprimer les alertes corrompues"
-          >
-            {purging ? <Loader2 size={12} className="animate-spin" /> : <Trash2 size={12} />}
-          </button>
-          <button onClick={loadAlerts} disabled={loading} className="p-1.5 hover:bg-[#1e2d40] text-[#4a6480] hover:text-[#8a9ab0] transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-[#00d4ff]" title="Rafraîchir" aria-label="Actualiser">
-            <RefreshCw size={12} className={loading ? 'animate-spin' : ''} />
-          </button>
-        </div>
-      </div>
-
-      {loading && <Spinner />}
-      {error && <ErrorMessage message={error} />}
-
-      {!loading && !error && alerts.length === 0 && (
-        <div className="text-center font-mono text-[10px] text-[#4a6480] py-6 flex flex-col items-center gap-2 uppercase tracking-widest">
-          <CheckCheck size={20} className="text-[#10b981]" />
-          No active threats detected
-        </div>
-      )}
-
-      {!loading && !error && alerts.length > 0 && (
-        <div className="space-y-2">
-          {alerts.map(alert => {
-            const style = alertSeverityStyle(alert.alert_type)
-            return (
-              <div key={alert.id} className={`flex items-center justify-between p-3 border-l-2 font-mono text-[11px] ${style.border} ${style.text} ${style.bg}`}>
-                <div className="flex items-center gap-3 min-w-0">
-                  <span className="opacity-60 shrink-0">[{formatDate(alert.detected_at)}]</span>
-                  <span className="font-bold uppercase shrink-0">{alertLabel(alert.alert_type)}</span>
-                  <span className="opacity-60">➔</span>
-                  <span className="font-bold">AS{alert.asn}</span>
-                  <span className="opacity-50 text-[9px] truncate">{parseAlertPreview(alert)}</span>
-                </div>
-                <div className="flex items-center gap-2 shrink-0 ml-2">
-                  <button onClick={() => navigate(`/bgp?asn=${alert.asn}`)} className="text-[9px] font-mono font-bold uppercase hover:underline opacity-70 hover:opacity-100 flex items-center gap-1">
-                    <Network size={10} /> Investigate
-                  </button>
-                  <button onClick={() => handleAck(alert.id)} disabled={ackingId === alert.id} className="p-1 hover:bg-white/10 transition-colors opacity-70 hover:opacity-100" title="Acquitter">
-                    {ackingId === alert.id ? <Loader2 size={12} className="animate-spin" /> : <CheckCheck size={12} />}
-                  </button>
-                </div>
-              </div>
-            )
-          })}
-        </div>
-      )}
-    </div>
-  )
-}
-
-function SnapshotsSection() {
-  const [asnInput, setAsnInput] = useState('')
-  const [currentASN, setCurrentASN] = useState<number | null>(null)
+  const [asnInput, setAsnInput] = useState(asn ? String(asn) : '')
   const [snapshots, setSnapshots] = useState<BGPSnapshot[]>([])
   const [total, setTotal] = useState(0)
   const [loading, setLoading] = useState(false)
+  const [loadingMore, setLoadingMore] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [selected, setSelected] = useState<number[]>([])
   const [diffResponse, setDiffResponse] = useState<BGPDiffResponse | null>(null)
   const [diffLoading, setDiffLoading] = useState(false)
+  const [diffError, setDiffError] = useState<string | null>(null)
+  const [reloadKey, setReloadKey] = useState(0)
+  const [shortcuts, setShortcuts] = useState<SnapshotShortcut[]>(readShortcuts)
+  const loadSequence = useRef(0)
+  const diffSequence = useRef(0)
 
-  const loadSnapshots = useCallback(async (asn: number) => {
-    setLoading(true)
-    setError(null)
+  useEffect(() => {
+    if (asn) setAsnInput(String(asn))
+  }, [asn])
+
+  useEffect(() => {
+    const request = ++loadSequence.current
+    diffSequence.current += 1
     setSnapshots([])
+    setTotal(0)
     setSelected([])
-    try {
-      const res = await bgpApi.getSnapshots(asn, 50, 0)
-      const validSnapshots = res.items.filter(s => {
-        try {
-          const d = new Date(s.created_at)
-          return !isNaN(d.getTime())
-        } catch {
-          return false
-        }
+    setDiffResponse(null)
+    setDiffError(null)
+    setError(null)
+    setDiffLoading(false)
+    if (!asn) { setLoading(false); return }
+    setLoading(true)
+    bgpApi.getSnapshots(asn, PAGE, 0)
+      .then(res => {
+        if (request !== loadSequence.current) return
+        const items = res.items.filter(s => isValidDate(s.created_at))
+        setSnapshots(items)
+        setTotal(res.total ?? res.items.length)
+        if (items.length > 0) setShortcuts(rememberSnapshotASN({ asn, count: res.total ?? items.length, last: items[0].created_at }))
       })
-      setSnapshots(validSnapshots)
-      setTotal(validSnapshots.length)
-    } catch (e) {
-      setError(e instanceof Error ? e.message : 'Erreur réseau')
-    } finally {
-      setLoading(false)
-    }
-  }, [])
+      .catch((e: unknown) => { if (request === loadSequence.current) setError(parseAPIError(e)) })
+      .finally(() => { if (request === loadSequence.current) setLoading(false) })
+    return () => { loadSequence.current += 1; diffSequence.current += 1 }
+  }, [asn, reloadKey])
 
-  const handleLoad = () => {
-    const asn = parseInt(asnInput.replace(/^AS/i, '').trim(), 10)
-    if (isNaN(asn) || asn <= 0) { toast.error('ASN invalide'); return }
-    setCurrentASN(asn)
-    loadSnapshots(asn)
+  const loadMore = async () => {
+    if (!asn) return
+    const request = loadSequence.current
+    setLoadingMore(true)
+    try {
+      const res = await bgpApi.getSnapshots(asn, PAGE, snapshots.length)
+      if (request !== loadSequence.current) return
+      setSnapshots(prev => {
+        const known = new Set(prev.map(s => s.id))
+        return [...prev, ...res.items.filter(s => isValidDate(s.created_at) && !known.has(s.id))]
+      })
+      setTotal(res.total ?? total)
+    } catch (e) {
+      if (request === loadSequence.current) toast.error(parseAPIError(e))
+    } finally {
+      if (request === loadSequence.current) setLoadingMore(false)
+    }
   }
 
-  const toggleSelect = (id: number) => {
+  const handleLoad = () => {
+    const next = stripASN(asnInput)
+    if (!isValidASN(next)) { toast.error('ASN invalide'); return }
+    if (next === asn) setReloadKey(k => k + 1)
+    else onLoadASN(next)
+  }
+
+  const resetComparison = useCallback(() => {
+    diffSequence.current += 1
+    setDiffResponse(null)
+    setDiffError(null)
+    setDiffLoading(false)
+  }, [])
+
+  const toggleSelect = useCallback((id: number) => {
+    resetComparison()
     setSelected(prev => {
       if (prev.includes(id)) return prev.filter(x => x !== id)
       if (prev.length >= 2) return [prev[1], id]
       return [...prev, id]
     })
-  }
+  }, [resetComparison])
 
-  const handleCompare = async () => {
-    if (selected.length < 2 || currentASN === null) return
-    const [a, b] = selected.sort((x, y) => x - y)
+  // Before / after follow the snapshot dates, not the order of the clicks.
+  const ordered = useMemo(
+    () => snapshots.filter(s => selected.includes(s.id)).sort((a, b) => time(a) - time(b)),
+    [snapshots, selected],
+  )
+  const roleOf = useCallback((id: number): Role | null => (
+    ordered.length === 2 ? (ordered[0].id === id ? 'before' : ordered[1].id === id ? 'after' : null) : null
+  ), [ordered])
+
+  const compare = useCallback(async (older: BGPSnapshot, newer: BGPSnapshot) => {
+    if (!asn) return
+    const request = ++diffSequence.current
     setDiffLoading(true)
+    setDiffError(null)
+    setDiffResponse(null)
     try {
-      const res = await bgpApi.getDiff(currentASN, a, b)
-      setDiffResponse(res)
+      const res = await bgpApi.getDiff(asn, older.id, newer.id)
+      if (request === diffSequence.current) setDiffResponse(res)
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : 'Erreur diff')
+      if (request === diffSequence.current) setDiffError(parseAPIError(e))
     } finally {
-      setDiffLoading(false)
+      if (request === diffSequence.current) setDiffLoading(false)
     }
+  }, [asn])
+
+  const compareWithPrevious = useCallback((newer: BGPSnapshot, older: BGPSnapshot) => {
+    setSelected([older.id, newer.id])
+    void compare(older, newer)
+  }, [compare])
+
+  const latestPair = () => {
+    const [newer, older] = snapshots
+    if (newer && older) compareWithPrevious(newer, older)
   }
 
   return (
-    <div>
-      {diffResponse && <DiffModal diffResponse={diffResponse} onClose={() => setDiffResponse(null)} />}
-
-      <div className="flex gap-0 mb-6">
-        <input
-          type="text"
-          value={asnInput}
-          onChange={e => setAsnInput(e.target.value)}
-          onKeyDown={e => e.key === 'Enter' && handleLoad()}
-          placeholder="ENTER ASN... (ex: 13335)"
-          className="flex-1 bg-[#0d131f] border border-[#1e2d40] px-4 py-3 font-mono text-sm text-[#f1f5f9] placeholder-[#334155] uppercase tracking-widest focus:outline-none focus:border-[#00d4ff]/50"
-        />
-        <button onClick={handleLoad} disabled={loading} className="bg-[#00d4ff]/10 hover:bg-[#00d4ff]/20 text-[#00d4ff] px-6 border border-l-0 border-[#1e2d40] text-xs font-mono font-bold uppercase tracking-widest transition-colors disabled:opacity-50 flex items-center gap-2">
-          {loading ? <Loader2 size={14} className="animate-spin" /> : <Network size={14} />}
-          LOAD
+    <div className="bgp-snapshots">
+      <form className="bgp-snapshot-form" onSubmit={event => { event.preventDefault(); handleLoad() }}>
+        <div className="bgp-field">
+          <label htmlFor="bgp-historian-asn">Numéro ASN</label>
+          <div className="bgp-input">
+            <span aria-hidden="true">AS</span>
+            <input id="bgp-historian-asn" type="text" value={asnInput} onChange={e => setAsnInput(e.target.value)} placeholder="13335" autoComplete="off" spellCheck={false} />
+          </div>
+        </div>
+        <button type="submit" disabled={loading} className="bgp-run">
+          {loading ? <Loader2 size={16} className="bgp-spin" aria-hidden="true" /> : <Clock size={16} aria-hidden="true" />}
+          <span>Charger l’historique</span>
         </button>
-      </div>
+        {asn && (
+          <button type="button" className="bgp-link bgp-snapshot-lookup" onClick={() => navigate(`/bgp?asn=${asn}`)}>
+            <Network size={14} aria-hidden="true" /> Explorer AS{asn} dans Network Atlas
+          </button>
+        )}
+      </form>
+
+      <SnapshotShortcuts shortcuts={shortcuts} alertASNs={alertASNs} current={asn} onOpen={next => (next === asn ? setReloadKey(k => k + 1) : onLoadASN(next))} />
+
+      {!asn && !loading && (
+        <p className="bgp-snapshot-hint">Les snapshots se consultent par ASN. Chacun fige les préfixes et relations retournés au moment de sa prise ; deux snapshots se comparent pour isoler ajouts et retraits. Un snapshot se prend depuis la fiche d’un ASN dans Network Atlas.</p>
+      )}
 
       {loading && <Spinner />}
       {error && <ErrorMessage message={error} />}
 
-      {!loading && !error && currentASN !== null && snapshots.length === 0 && (
-        <div className="text-center font-mono text-[10px] text-[#4a6480] py-10 uppercase tracking-widest">
-          No valid snapshots for AS{currentASN} — take one from BGP Lookup.
+      {!loading && !error && asn && snapshots.length === 0 && (
+        <div className="bgp-history-empty" data-state="no-snapshots">
+          <Clock size={22} aria-hidden="true" />
+          <div>
+            <h3>Aucun snapshot retourné</h3>
+            <p>L’API n’a renvoyé aucun snapshot pour cet ASN. Les alertes restent consultables dans leur propre vue.</p>
+          </div>
+          <button type="button" className="bgp-button" onClick={() => navigate(`/bgp?asn=${asn}`)}>Ouvrir dans BGP Lookup</button>
         </div>
       )}
 
       {!loading && !error && snapshots.length > 0 && (
         <>
-          <div className="flex items-center justify-between mb-3">
-            <span className="text-[10px] font-mono text-[#4a6480] uppercase tracking-widest">
-              {total} SNAPSHOT(S) — AS{currentASN}
-            </span>
-            {selected.length === 2 && (
-              <button onClick={handleCompare} disabled={diffLoading} className="flex items-center gap-2 px-3 py-1.5 bg-[#00d4ff]/10 hover:bg-[#00d4ff]/20 text-[#00d4ff] border border-[#00d4ff]/20 text-[10px] font-mono font-bold uppercase tracking-widest transition-colors disabled:opacity-50">
-                {diffLoading ? <Loader2 size={10} className="animate-spin" /> : <GitCompare size={10} />}
-                INITIALIZE_DIFF
-              </button>
-            )}
-            {selected.length === 1 && (
-              <span className="text-[10px] font-mono text-[#00d4ff]/60 uppercase tracking-widest">
-                Select a 2nd snapshot to diff
-              </span>
-            )}
-          </div>
+          <p className="bgp-snapshot-hint">
+            {snapshots.some(s => s.provenance_status === 'known')
+              ? 'La frise indique l’horodatage du snapshot enregistré par CyberHub. Chaque observation signale si ses données viennent du cache ou d’un cache périmé, avec l’heure à laquelle CyberHub les a récupérées ; « provenance inconnue » marque les snapshots antérieurs à ce suivi.'
+              : 'La frise indique l’horodatage du snapshot enregistré par CyberHub. Les réponses BGP peuvent venir du cache ou d’un repli périmé ; l’API ne fournit ni leur âge ni l’heure de collecte source.'}
+          </p>
+          <TimeInstrument snapshots={snapshots} total={total} selected={selected} roleOf={roleOf} onToggle={toggleSelect} />
 
-          <div className="space-y-2">
-            {snapshots.map((snap, idx) => {
-              const isSelected = selected.includes(snap.id)
-              const isLatest = idx === 0
-              return (
-                <div key={snap.id} onClick={() => toggleSelect(snap.id)} className={`group flex items-center gap-3 p-3 border cursor-pointer transition-all font-mono text-xs ${
-                  isSelected
-                    ? 'border-[#00d4ff]/50 bg-[#00d4ff]/5 text-[#00d4ff]'
-                    : 'border-[#1e2d40] bg-[#0d131f] hover:border-[#00d4ff]/30 text-[#8a9ab0]'
-                }`}>
-                  <input type="checkbox" checked={isSelected} onChange={() => toggleSelect(snap.id)} onClick={e => e.stopPropagation()} className="rounded border-[#4a6480] text-[#00d4ff] focus:ring-[#00d4ff] bg-[#06080f]" />
-                  <span className="text-[#4a6480] text-[9px]">#{snap.id}</span>
-                  <Clock size={10} className="text-[#4a6480]" />
-                  <span>{formatDate(snap.created_at)}</span>
-                  {isLatest && <span className="text-[9px] text-[#10b981]">● LATEST</span>}
-                  <span className="ml-auto text-[9px] text-[#4a6480]">{snap.taken_by}</span>
+          <div className="bgp-investigation">
+            <div className="bgp-observations">
+              <header className="bgp-observations-head">
+                <h3>Observations</h3>
+                <span className="bgp-table-count">{snapshots.length} snapshot(s) · AS{asn}</span>
+              </header>
+              <ObservationList
+                snapshots={snapshots}
+                asn={asn!}
+                selected={selected}
+                roleOf={roleOf}
+                onToggle={toggleSelect}
+                onCompareWithPrevious={compareWithPrevious}
+              />
+              {snapshots.length < total && (
+                <button type="button" className="bgp-button is-quiet bgp-load-more" onClick={loadMore} disabled={loadingMore}>
+                  {loadingMore && <Loader2 size={13} className="bgp-spin" aria-hidden="true" />}
+                  Charger {Math.min(PAGE, total - snapshots.length)} observation(s) plus ancienne(s)
+                </button>
+              )}
+            </div>
+
+            <div className="bgp-comparison">
+              {diffResponse ? (
+                <ComparisonSurface diffResponse={diffResponse} onClose={resetComparison} />
+              ) : (
+                <div className="bgp-compare-guide">
+                  <GitCompare size={20} aria-hidden="true" />
+                  <h3>Comparaison avant / après</h3>
+                  {ordered.length === 2 ? (
+                    <p>
+                      <b>AVANT</b> {formatShortDay(snapshotMoment(ordered[0]))} · #{ordered[0].id} → <b>APRÈS</b> {formatShortDay(snapshotMoment(ordered[1]))} · #{ordered[1].id}
+                    </p>
+                  ) : (
+                    <p>{selected.length === 0 ? 'Sélectionnez deux observations sur la frise ou dans la liste.' : 'Sélectionnez un second snapshot pour comparer.'}</p>
+                  )}
+                  {diffError && <ErrorMessage message={diffError} />}
+                  <div className="bgp-compare-actions">
+                    {ordered.length === 2 && (
+                      <button type="button" onClick={() => compare(ordered[0], ordered[1])} disabled={diffLoading} className="bgp-button is-primary">
+                        {diffLoading ? <Loader2 size={14} className="bgp-spin" aria-hidden="true" /> : <GitCompare size={14} aria-hidden="true" />}
+                        Comparer les snapshots
+                      </button>
+                    )}
+                    {ordered.length < 2 && snapshots.length >= 2 && (
+                      <button type="button" onClick={latestPair} disabled={diffLoading} className="bgp-button">
+                        Comparer les deux plus récentes
+                      </button>
+                    )}
+                  </div>
                 </div>
-              )
-            })}
+              )}
+            </div>
           </div>
         </>
       )}
@@ -468,55 +275,88 @@ function SnapshotsSection() {
   )
 }
 
+/** One click back to an ASN known to have snapshots: remembered here, or present in the alert feed. */
+function SnapshotShortcuts({ shortcuts, alertASNs, current, onOpen }: {
+  shortcuts: SnapshotShortcut[]
+  alertASNs: number[]
+  current: number | null
+  onOpen: (asn: number) => void
+}) {
+  const fromAlerts = alertASNs.filter(asn => !shortcuts.some(s => s.asn === asn)).slice(0, 8)
+  if (shortcuts.length === 0 && fromAlerts.length === 0) return null
+  const chip = (asn: number, meta: string, title: string) => (
+    <button key={asn} type="button" className="bgp-shortcut" aria-current={asn === current ? 'true' : undefined} onClick={() => onOpen(asn)} title={title}>
+      <strong>AS{asn}</strong><small>{meta}</small>
+    </button>
+  )
+  return (
+    <nav className="bgp-shortcuts" aria-label="Accès rapide aux snapshots">
+      <span>Accès rapide</span>
+      {shortcuts.map(s => chip(
+        s.asn,
+        s.count !== undefined ? `${s.count} snapshot${s.count > 1 ? 's' : ''}${s.last ? ` · ${formatShortDay(s.last)}` : ''}` : s.last ? `pris le ${formatShortDay(s.last)}` : 'snapshot pris',
+        s.count !== undefined ? 'Historique déjà consulté dans ce navigateur' : 'Snapshot pris depuis Network Atlas dans ce navigateur',
+      ))}
+      {fromAlerts.map(asn => chip(asn, 'alerte', 'ASN présent dans le flux d’alertes : au moins deux snapshots'))}
+    </nav>
+  )
+}
+
+/* ------------------------------------------------------------------ page */
+
 export default function BGPHistorian() {
   const navigate = useNavigate()
-  const [activeTab, setActiveTab] = useState<'snapshots' | 'alerts'>('alerts')
+  const [searchParams, setSearchParams] = useSearchParams()
+  const asnParam = searchParams.get('asn')
+  const asn = asnParam && isValidASN(stripASN(asnParam)) ? stripASN(asnParam) : null
+  const [activeTab, setActiveTab] = useState<'snapshots' | 'alerts'>(asn ? 'snapshots' : 'alerts')
+  const [feed, setFeed] = useState<FeedStatus | null>(null)
+  const alertASNs = useMemo(() => (feed && 'asns' in feed ? feed.asns : []), [feed])
+  const openSnapshots = useCallback(() => setActiveTab('snapshots'), [])
+
+  const loadASN = useCallback((next: number) => {
+    setSearchParams({ asn: String(next) })
+    setActiveTab('snapshots')
+  }, [setSearchParams])
 
   return (
-    <div className="flex flex-col h-full bg-[#06080f] text-[#f1f5f9]">
-      <div className="flex items-center justify-between px-6 py-4 border-b border-[#1e2d40] bg-[#0a0f16]/50">
-        <div className="flex items-center gap-3">
-          <div className="relative">
-            <History className="text-[#00d4ff]" size={20} />
-            <div className="absolute -top-1 -right-1 w-2 h-2 bg-[#10b981] rounded-full animate-pulse shadow-[0_0_8px_#10b981]" />
+    <div className="bgp-console bgp-historian">
+      <div className="bgp-frame">
+        <ModuleHero
+          breadcrumb="NETWORK / ROUTING INTELLIGENCE" title="BGP" accent="HISTORIAN" typeOnce="bgp-historian"
+          subtitle="Routing Timeline — suivre les alertes et comparer les états d’un ASN."
+          motif={<TimelineMotif />}
+          index={{
+            label: 'ROUTING TIMELINE',
+            // Two domain lines, so the two-line status below keeps the hero at the height of the other modules.
+            lines: ['ALERTES · SNAPSHOTS', 'AVANT · APRÈS'],
+            status: !feed ? undefined
+              : 'failed' in feed ? { text: 'FLUX INDISPONIBLE', tone: 'warn' }
+              : { text: `${feed.count} ALERTE${feed.count === 1 ? '' : 'S'} NON ACQUITTÉE${feed.count === 1 ? '' : 'S'}`, mark: 'FLUX 30 S' },
+          }}
+        />
+
+        <div className="bgp-historian-bar">
+          <div className="bgp-tabs" role="group" aria-label="Sections de BGP Historian">
+            <button type="button" className="bgp-tab" aria-pressed={activeTab === 'alerts'} onClick={() => setActiveTab('alerts')}>
+              <AlertTriangle size={15} aria-hidden="true" /> Flux d’alertes
+            </button>
+            <button type="button" className="bgp-tab" aria-pressed={activeTab === 'snapshots'} onClick={() => setActiveTab('snapshots')}>
+              <Clock size={15} aria-hidden="true" /> Snapshots
+            </button>
           </div>
-          <div>
-            <h1 className="text-sm font-bold tracking-[0.2em] uppercase">BGP HISTORIAN // LOG</h1>
-            <p className="text-[10px] text-[#64748b] font-mono">Routing History Log — Temporal Snapshots &amp; Critical Events</p>
-          </div>
-        </div>
-        <div className="flex items-center gap-4 font-mono text-[10px]">
-          <span className="text-[#64748b]">STATUS</span>
-          <span className="text-[#10b981]">ACTIVE</span>
-          <button onClick={() => navigate('/bgp')} className="flex items-center gap-2 px-3 py-1.5 bg-[#1e2d40] hover:bg-[#2a3f55] text-[10px] font-bold border border-[#334155] transition-colors">
-            <Network size={12} /> BGP_LOOKUP
+          <button type="button" className="bgp-link" onClick={() => navigate(asn ? `/bgp?asn=${asn}` : '/bgp')}>
+            <Network size={14} aria-hidden="true" /> BGP Lookup
           </button>
         </div>
-      </div>
 
-      <div className="flex border-b border-[#1e2d40] bg-[#0a0f16]/50">
-        {[
-          { id: 'alerts' as const,    label: 'CRITICAL_EVENTS_STREAM', icon: <AlertTriangle size={12} /> },
-          { id: 'snapshots' as const, label: 'TEMPORAL_SNAPSHOTS',     icon: <Clock size={12} /> },
-        ].map(tab => (
-          <button
-            key={tab.id}
-            onClick={() => setActiveTab(tab.id)}
-            className={`flex items-center gap-2 px-5 py-3 text-[10px] font-mono font-bold uppercase tracking-widest border-b-2 transition-colors ${
-              activeTab === tab.id
-                ? 'border-[#00d4ff] text-[#00d4ff] bg-[#00d4ff]/5'
-                : 'border-transparent text-[#4a6480] hover:text-[#8a9ab0]'
-            }`}
-          >
-            {tab.icon}
-            {tab.label}
-          </button>
-        ))}
-      </div>
-
-      <div className="flex-1 overflow-auto p-6">
-        {activeTab === 'alerts' && <AlertsSection />}
-        {activeTab === 'snapshots' && <SnapshotsSection />}
+        <section className="bgp-stage is-timeline" aria-label={activeTab === 'alerts' ? 'Changements de routage' : 'Snapshots BGP'}>
+          {/* The feed stays mounted so the hero status keeps reporting it from the Snapshots tab. */}
+          <div hidden={activeTab !== 'alerts'}>
+            <AlertStream onOpenSnapshots={openSnapshots} onOpenASNSnapshots={loadASN} onFeed={setFeed} />
+          </div>
+          {activeTab === 'snapshots' && <SnapshotWorkspace asn={asn} alertASNs={alertASNs} onLoadASN={loadASN} />}
+        </section>
       </div>
     </div>
   )

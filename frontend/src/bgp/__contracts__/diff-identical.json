@@ -1,0 +1,104 @@
+{
+  "body": {
+    "diff": {
+      "changed_fields": [],
+      "changes": {},
+      "list_status": {
+        "downstreams.data.ipv4_downstreams": {
+          "status": "identical"
+        },
+        "downstreams.data.ipv6_downstreams": {
+          "status": "identical"
+        },
+        "peers.data.ipv4_peers": {
+          "status": "identical"
+        },
+        "peers.data.ipv6_peers": {
+          "status": "identical"
+        },
+        "prefixes.data.ipv4_prefixes": {
+          "status": "identical"
+        },
+        "prefixes.data.ipv6_prefixes": {
+          "status": "identical"
+        },
+        "upstreams.data.ipv4_upstreams": {
+          "status": "identical"
+        },
+        "upstreams.data.ipv6_upstreams": {
+          "status": "identical"
+        }
+      },
+      "status": "complete"
+    },
+    "newer": {
+      "asn": 64496,
+      "created_at": "2026-10-23T09:00:00Z",
+      "data_provenance": {
+        "downstreams": {
+          "age_seconds": 0,
+          "fetched_at": "2026-10-23T09:00:00Z",
+          "source": "ripe"
+        },
+        "info": {
+          "age_seconds": 0,
+          "fetched_at": "2026-10-23T09:00:00Z",
+          "source": "ripe"
+        },
+        "peers": {
+          "age_seconds": 12600,
+          "fetched_at": "2026-10-23T05:30:00Z",
+          "source": "cache-stale"
+        },
+        "prefixes": {
+          "age_seconds": 240,
+          "fetched_at": "2026-10-23T08:56:00Z",
+          "source": "cache"
+        },
+        "upstreams": {
+          "age_seconds": 0,
+          "fetched_at": "2026-10-23T09:00:00Z",
+          "source": "ripe"
+        }
+      },
+      "id": 3,
+      "provenance_status": "known",
+      "snapshot_date": "2026-10-23T09:00:00Z"
+    },
+    "older": {
+      "asn": 64496,
+      "created_at": "2026-10-22T09:00:00Z",
+      "data_provenance": {
+        "downstreams": {
+          "age_seconds": 0,
+          "fetched_at": "2026-10-23T09:00:00Z",
+          "source": "ripe"
+        },
+        "info": {
+          "age_seconds": 0,
+          "fetched_at": "2026-10-23T09:00:00Z",
+          "source": "ripe"
+        },
+        "peers": {
+          "age_seconds": 12600,
+          "fetched_at": "2026-10-23T05:30:00Z",
+          "source": "cache-stale"
+        },
+        "prefixes": {
+          "age_seconds": 240,
+          "fetched_at": "2026-10-23T08:56:00Z",
+          "source": "cache"
+        },
+        "upstreams": {
+          "age_seconds": 0,
+          "fetched_at": "2026-10-23T09:00:00Z",
+          "source": "ripe"
+        }
+      },
+      "id": 2,
+      "provenance_status": "known",
+      "snapshot_date": "2026-10-22T09:00:00Z"
+    }
+  },
+  "http_status": 200
+}

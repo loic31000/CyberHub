@@ -168,12 +168,35 @@ export interface BGPStatusResponse {
 // Modèles Historian (backend CyberHub)
 // ─────────────────────────────────────────────
 
+/** Origin of one snapshot section: RIPE Stat directly, the backend cache, or a stale cache served because RIPE failed. */
+export type BGPDataSource = 'ripe' | 'cache' | 'cache-stale'
+
+/**
+ * Provenance of one section. `fetched_at` is when the CyberHub backend
+ * retrieved the data from RIPE Stat, not a RIPE publication date;
+ * `age_seconds` is its age when the snapshot was taken.
+ */
+export interface BGPDataProvenance {
+  source: BGPDataSource | string
+  fetched_at?: string
+  age_seconds?: number
+}
+
+/** Per section: info, prefixes, peers, upstreams, downstreams. */
+export type BGPDataProvenanceMap = Record<string, BGPDataProvenance>
+
+/** "unknown" for snapshots taken before the backend recorded provenance. */
+export type BGPProvenanceStatus = 'known' | 'unknown'
+
 export interface BGPSnapshot {
   id: number
   created_at: string
   asn: number
   snapshot_date: string
   taken_by: string
+  // Absent from older backends.
+  provenance_status?: BGPProvenanceStatus
+  data_provenance?: BGPDataProvenanceMap | null
   // full_data_json n'est pas retourné dans les listes, uniquement dans le diff
 }
 
@@ -208,14 +231,39 @@ export interface BGPDiffChanges {
   downstreams?: Record<string, BGPDiffField>
 }
 
+/** State of one compared list, keyed "prefixes.data.ipv4_prefixes" in `list_status`. */
+export type BGPListState = 'identical' | 'changed' | 'missing/unavailable' | 'error'
+
+export interface BGPListStatus {
+  status: BGPListState
+  older_error?: string
+  newer_error?: string
+}
+
+/** complete: every list compared · incomplete: a list is missing on one side · error: a snapshot or list is unreadable. */
+export type BGPComparisonStatus = 'complete' | 'incomplete' | 'error'
+
 export interface BGPDiffResult {
   changed_fields: string[]
   changes: BGPDiffChanges
+  // Absent from older backends, which only returned changed lists.
+  status?: BGPComparisonStatus
+  list_status?: Record<string, BGPListStatus>
+  decode_errors?: { older?: string; newer?: string }
+}
+
+export interface BGPDiffSnapshotMeta {
+  id: number
+  created_at: string
+  asn: number
+  snapshot_date?: string
+  provenance_status?: BGPProvenanceStatus
+  data_provenance?: BGPDataProvenanceMap | null
 }
 
 export interface BGPDiffResponse {
-  older: { id: number; created_at: string; asn: number }
-  newer: { id: number; created_at: string; asn: number }
+  older: BGPDiffSnapshotMeta
+  newer: BGPDiffSnapshotMeta
   diff: BGPDiffResult
 }
 
@@ -234,7 +282,18 @@ export interface PaginatedResponse<T> {
 // Snapshot complet (utilisé pour le snapshot POST response)
 // ─────────────────────────────────────────────
 
+/** Comparison of a new snapshot with the previous one of the same ASN. */
+export interface BGPSnapshotComparison {
+  status: 'no_previous' | BGPComparisonStatus
+  previous_snapshot_id: number | null
+}
+
 export interface BGPSnapshotResponse {
-  snapshot: BGPSnapshot
-  alerts: BGPAlert[]
+  // Sent with the Go field names (ID, CreatedAt, ...); the UI does not read it.
+  snapshot: unknown
+  // null when the comparison produced no alert (nil slice on the Go side).
+  alerts: BGPAlert[] | null
+  // Absent from older backends.
+  data_provenance?: BGPDataProvenanceMap
+  comparison?: BGPSnapshotComparison
 }

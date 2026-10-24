@@ -6,6 +6,7 @@ import (
 	"context"
 	"crypto/tls"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net"
 	"net/http"
@@ -19,6 +20,7 @@ import (
 	"github.com/cyber-hub/cyber-hub/internal/models"
 	"github.com/cyber-hub/cyber-hub/internal/store"
 	"github.com/gin-gonic/gin"
+	"gorm.io/gorm"
 )
 
 const (
@@ -28,8 +30,27 @@ const (
 	bgpHTTPTimeout = 30 * time.Second
 )
 
+var bgpRipeFetcher = bgpFetchRipe
+
 var bgpHTTPClient = &http.Client{
 	Timeout: bgpHTTPTimeout,
+}
+
+var bgpCacheWriteMu sync.Mutex
+
+type bgpHTTPStatusError struct {
+	StatusCode int
+}
+
+func (e *bgpHTTPStatusError) Error() string { return fmt.Sprintf("RIPE Stat HTTP %d", e.StatusCode) }
+
+func acceptBGPHTTPResponse(resp *http.Response) (*http.Response, error) {
+	if resp.StatusCode == http.StatusOK {
+		return resp, nil
+	}
+	status := resp.StatusCode
+	resp.Body.Close()
+	return nil, &bgpHTTPStatusError{StatusCode: status}
 }
 
 // ─────────────────────────────────────────────
@@ -99,7 +120,7 @@ func doHTTPRequest(ctx context.Context, rawURL string) (*http.Response, error) {
 
 	resp, err := bgpHTTPClient.Do(req)
 	if err == nil {
-		return resp, nil
+		return acceptBGPHTTPResponse(resp)
 	}
 	if !isDNSError(err) {
 		return nil, err
@@ -137,29 +158,36 @@ func doHTTPRequest(ctx context.Context, rawURL string) (*http.Response, error) {
 	req2.Header.Set("User-Agent", "CyberHub/0.6 (educational tool; legal use only)")
 	req2.Header.Set("Accept", "application/json")
 
-	return client.Do(req2)
+	resp, err = client.Do(req2)
+	if err != nil {
+		return nil, err
+	}
+	return acceptBGPHTTPResponse(resp)
 }
 
 // ─────────────────────────────────────────────
 // Cache SQLite
 // ─────────────────────────────────────────────
 
-func saveBGPCache(cacheKey string, body []byte, expires time.Time) {
+func saveBGPCache(cacheKey string, body []byte, expires time.Time) error {
+	bgpCacheWriteMu.Lock()
+	defer bgpCacheWriteMu.Unlock()
 	now := time.Now()
 	var existing models.BGPCache
-	if findErr := store.DB.Where("cache_key = ?", cacheKey).First(&existing).Error; findErr != nil {
-		store.DB.Create(&models.BGPCache{
+	if findErr := store.DB.Where("cache_key = ?", cacheKey).First(&existing).Error; errors.Is(findErr, gorm.ErrRecordNotFound) {
+		return store.DB.Create(&models.BGPCache{
 			CacheKey:  cacheKey,
 			Response:  string(body),
 			ExpiresAt: expires,
-		})
-	} else {
-		store.DB.Model(&existing).Updates(map[string]interface{}{
-			"response":   string(body),
-			"expires_at": expires,
-			"updated_at": now,
-		})
+		}).Error
+	} else if findErr != nil {
+		return findErr
 	}
+	return store.DB.Model(&existing).Updates(map[string]interface{}{
+		"response":   string(body),
+		"expires_at": expires,
+		"updated_at": now,
+	}).Error
 }
 
 // ─────────────────────────────────────────────
@@ -176,7 +204,7 @@ func fetchRipeASNInfo(asn string) ([]byte, int, error) {
 
 	var raw struct {
 		Status string `json:"status"`
-		Data   struct {
+		Data   *struct {
 			Holder      string `json:"holder"`
 			Country     string `json:"country"`
 			Description string `json:"description"`
@@ -184,6 +212,12 @@ func fetchRipeASNInfo(asn string) ([]byte, int, error) {
 	}
 	if err := json.NewDecoder(resp.Body).Decode(&raw); err != nil {
 		return nil, 0, fmt.Errorf("parse RIPE Stat ASN info: %w", err)
+	}
+	if err := validateRIPEEnvelope(raw.Status); err != nil {
+		return nil, 0, fmt.Errorf("RIPE Stat ASN info: %w", err)
+	}
+	if raw.Data == nil {
+		return nil, 0, fmt.Errorf("RIPE Stat ASN info: objet data absent")
 	}
 
 	// Parser l'ASN depuis le paramètre string (RIPE ne le retourne pas dans la réponse)
@@ -228,6 +262,13 @@ func fetchRipeASNInfo(asn string) ([]byte, int, error) {
 	return body, http.StatusOK, nil
 }
 
+func validateRIPEEnvelope(status string) error {
+	if status != "" && status != "ok" {
+		return fmt.Errorf("statut source %q", status)
+	}
+	return nil
+}
+
 func fetchRipeASNPrefixes(asn string) ([]byte, int, error) {
 	reqURL := fmt.Sprintf(ripeStatBase+"/data/announced-prefixes/data.json?resource=AS%s", asn)
 	resp, err := doHTTPRequest(context.Background(), reqURL)
@@ -237,7 +278,8 @@ func fetchRipeASNPrefixes(asn string) ([]byte, int, error) {
 	defer resp.Body.Close()
 
 	var raw struct {
-		Data struct {
+		Status string `json:"status"`
+		Data   *struct {
 			Prefixes []struct {
 				Prefix string `json:"prefix"`
 			} `json:"prefixes"`
@@ -245,6 +287,12 @@ func fetchRipeASNPrefixes(asn string) ([]byte, int, error) {
 	}
 	if err := json.NewDecoder(resp.Body).Decode(&raw); err != nil {
 		return nil, 0, fmt.Errorf("parse RIPE Stat ASN prefixes: %w", err)
+	}
+	if err := validateRIPEEnvelope(raw.Status); err != nil {
+		return nil, 0, fmt.Errorf("RIPE Stat ASN prefixes: %w", err)
+	}
+	if raw.Data == nil || raw.Data.Prefixes == nil {
+		return nil, 0, fmt.Errorf("RIPE Stat ASN prefixes: liste data.prefixes absente")
 	}
 
 	ipv4 := make([]map[string]any, 0)
@@ -305,7 +353,8 @@ func fetchRipeASNPeers(asn string) ([]byte, int, error) {
 	defer resp.Body.Close()
 
 	var raw struct {
-		Data struct {
+		Status string `json:"status"`
+		Data   *struct {
 			Neighbours []struct {
 				ASN     int    `json:"asn"`
 				Type    string `json:"type"` // "left", "right", "uncertain"
@@ -317,6 +366,12 @@ func fetchRipeASNPeers(asn string) ([]byte, int, error) {
 	}
 	if err := json.NewDecoder(resp.Body).Decode(&raw); err != nil {
 		return nil, 0, fmt.Errorf("parse RIPE Stat ASN peers: %w", err)
+	}
+	if err := validateRIPEEnvelope(raw.Status); err != nil {
+		return nil, 0, fmt.Errorf("RIPE Stat ASN peers: %w", err)
+	}
+	if raw.Data == nil || raw.Data.Neighbours == nil {
+		return nil, 0, fmt.Errorf("RIPE Stat ASN peers: liste data.neighbours absente")
 	}
 
 	ipv4Peers := make([]map[string]any, 0)
@@ -363,7 +418,8 @@ func fetchRipeASNUpstreams(asn string) ([]byte, int, error) {
 	defer resp.Body.Close()
 
 	var raw struct {
-		Data struct {
+		Status string `json:"status"`
+		Data   *struct {
 			Neighbours []struct {
 				ASN  int    `json:"asn"`
 				Type string `json:"type"`
@@ -372,6 +428,12 @@ func fetchRipeASNUpstreams(asn string) ([]byte, int, error) {
 	}
 	if err := json.NewDecoder(resp.Body).Decode(&raw); err != nil {
 		return nil, 0, fmt.Errorf("parse RIPE Stat upstreams: %w", err)
+	}
+	if err := validateRIPEEnvelope(raw.Status); err != nil {
+		return nil, 0, fmt.Errorf("RIPE Stat upstreams: %w", err)
+	}
+	if raw.Data == nil || raw.Data.Neighbours == nil {
+		return nil, 0, fmt.Errorf("RIPE Stat upstreams: liste data.neighbours absente")
 	}
 
 	upstreams := make([]map[string]any, 0)
@@ -411,7 +473,8 @@ func fetchRipeASNDownstreams(asn string) ([]byte, int, error) {
 	defer resp.Body.Close()
 
 	var raw struct {
-		Data struct {
+		Status string `json:"status"`
+		Data   *struct {
 			Neighbours []struct {
 				ASN  int    `json:"asn"`
 				Type string `json:"type"`
@@ -420,6 +483,12 @@ func fetchRipeASNDownstreams(asn string) ([]byte, int, error) {
 	}
 	if err := json.NewDecoder(resp.Body).Decode(&raw); err != nil {
 		return nil, 0, fmt.Errorf("parse RIPE Stat downstreams: %w", err)
+	}
+	if err := validateRIPEEnvelope(raw.Status); err != nil {
+		return nil, 0, fmt.Errorf("RIPE Stat downstreams: %w", err)
+	}
+	if raw.Data == nil || raw.Data.Neighbours == nil {
+		return nil, 0, fmt.Errorf("RIPE Stat downstreams: liste data.neighbours absente")
 	}
 
 	downstreams := make([]map[string]any, 0)
@@ -622,37 +691,69 @@ func bgpFetchRipe(endpoint string, queryParam ...string) ([]byte, int, error) {
 	return nil, 0, fmt.Errorf("endpoint non supporté : %s", endpoint)
 }
 
+type bgpDataProvenance struct {
+	Source     string     `json:"source"`
+	FetchedAt  *time.Time `json:"fetched_at,omitempty"`
+	AgeSeconds *int64     `json:"age_seconds,omitempty"`
+}
+
+func cacheProvenance(source string, updatedAt, now time.Time) bgpDataProvenance {
+	result := bgpDataProvenance{Source: source}
+	if !updatedAt.IsZero() {
+		fetchedAt := updatedAt
+		ageSeconds := int64(now.Sub(updatedAt).Seconds())
+		result.FetchedAt = &fetchedAt
+		result.AgeSeconds = &ageSeconds
+	}
+	return result
+}
+
 func bgpFetch(cacheKey, endpoint string, queryParam ...string) ([]byte, int, string, error) {
+	body, status, provenance, err := bgpFetchDetailed(cacheKey, endpoint, queryParam...)
+	return body, status, provenance.Source, err
+}
+
+func bgpFetchDetailed(cacheKey, endpoint string, queryParam ...string) ([]byte, int, bgpDataProvenance, error) {
 	now := time.Now()
 
 	// 1. Cache valide
 	var cached models.BGPCache
 	if err := store.DB.Where("cache_key = ? AND expires_at > ?", cacheKey, now).
 		First(&cached).Error; err == nil {
-		return []byte(cached.Response), http.StatusOK, "cache", nil
+		return []byte(cached.Response), http.StatusOK, cacheProvenance("cache", cached.UpdatedAt, now), nil
 	}
 
 	// 2. RIPE Stat (source primaire)
-	body, status, err := bgpFetchRipe(endpoint, queryParam...)
+	body, status, err := bgpRipeFetcher(endpoint, queryParam...)
 	if err == nil {
 		expires := now.Add(bgpCacheTTL)
-		saveBGPCache(cacheKey, body, expires)
-		return body, status, "ripe", nil
+		fetchedAt := time.Now()
+		if cacheErr := saveBGPCache(cacheKey, body, expires); cacheErr != nil {
+			fmt.Printf("[BGP] échec écriture cache %s : %v\n", cacheKey, cacheErr)
+		}
+		zeroAge := int64(0)
+		return body, status, bgpDataProvenance{Source: "ripe", FetchedAt: &fetchedAt, AgeSeconds: &zeroAge}, nil
+	}
+	var statusErr *bgpHTTPStatusError
+	if errors.As(err, &statusErr) {
+		status = statusErr.StatusCode
 	}
 
 	// 3. Cache périmé (stale) si RIPE échoue
 	var stale models.BGPCache
 	if err2 := store.DB.Where("cache_key = ?", cacheKey).First(&stale).Error; err2 == nil {
-		return []byte(stale.Response), http.StatusOK, "cache-stale", nil
+		return []byte(stale.Response), http.StatusOK, cacheProvenance("cache-stale", stale.UpdatedAt, now), nil
 	}
 
-	return nil, status, "", fmt.Errorf("RIPE Stat indisponible: %w", err)
+	return nil, status, bgpDataProvenance{}, fmt.Errorf("RIPE Stat indisponible: %w", err)
 }
 
 func proxyBGP(c *gin.Context, cacheKey, endpoint string, queryParam ...string) {
 	body, status, source, err := bgpFetch(cacheKey, endpoint, queryParam...)
 	if err != nil {
-		if status == 0 {
+		// An upstream failure is a gateway error, not an internal one; 4xx stay
+		// meaningful to the client (404 unknown resource, 429 rate limit).
+		if status == 0 || status >= http.StatusInternalServerError {
 			status = http.StatusBadGateway
 		}
 		fmt.Printf("[BGP] erreur pour %s : %s\n", endpoint, err.Error())
@@ -762,13 +863,14 @@ func GetBGPSearch(c *gin.Context) {
 }
 
 // ─────────────────────────────────────────────
-// Snapshot parallèle (logique inchangée)
+// Snapshot parallèle avec provenance de chaque section.
 // ─────────────────────────────────────────────
 
 type fetchResult struct {
-	key  string
-	data map[string]interface{}
-	err  error
+	key        string
+	data       map[string]interface{}
+	provenance bgpDataProvenance
+	err        error
 }
 
 // POST /api/bgp/snapshot/:asn
@@ -800,7 +902,7 @@ func PostBGPSnapshot(c *gin.Context) {
 		wg.Add(1)
 		go func(key, cacheKey, path string) {
 			defer wg.Done()
-			body, _, _, fetchErr := bgpFetch(cacheKey, path)
+			body, _, provenance, fetchErr := bgpFetchDetailed(cacheKey, path)
 			if fetchErr != nil {
 				resultsCh <- fetchResult{key: key, err: fetchErr}
 				return
@@ -810,7 +912,11 @@ func PostBGPSnapshot(c *gin.Context) {
 				resultsCh <- fetchResult{key: key, err: fmt.Errorf("parse JSON %s: %w", key, jsonErr)}
 				return
 			}
-			resultsCh <- fetchResult{key: key, data: data}
+			if validationErr := validateSnapshotSection(key, data); validationErr != nil {
+				resultsCh <- fetchResult{key: key, err: validationErr}
+				return
+			}
+			resultsCh <- fetchResult{key: key, data: data, provenance: provenance}
 		}(ep.key, ep.cacheKey, ep.path)
 	}
 
@@ -818,12 +924,14 @@ func PostBGPSnapshot(c *gin.Context) {
 	close(resultsCh)
 
 	combined := make(map[string]interface{})
+	provenance := make(map[string]bgpDataProvenance, len(endpoints))
 	for r := range resultsCh {
 		if r.err != nil {
 			c.JSON(http.StatusBadGateway, gin.H{"error": fmt.Sprintf("erreur récupération '%s': %v", r.key, r.err)})
 			return
 		}
 		combined[r.key] = r.data
+		provenance[r.key] = r.provenance
 	}
 
 	fullJSON, err := json.Marshal(combined)
@@ -831,37 +939,83 @@ func PostBGPSnapshot(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "sérialisation snapshot"})
 		return
 	}
-
-	now := time.Now()
-	snapshot := models.BGPSnapshot{
-		ASN:          asnInt,
-		SnapshotDate: now,
-		FullDataJSON: string(fullJSON),
-		TakenBy:      "local",
-	}
-	if err := store.DB.Create(&snapshot).Error; err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "création snapshot: " + err.Error()})
+	provenanceJSON, err := json.Marshal(provenance)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "sérialisation provenance snapshot"})
 		return
 	}
 
-	var prevSnapshot models.BGPSnapshot
+	now := time.Now()
+	snapshot := models.BGPSnapshot{
+		ASN:                asnInt,
+		SnapshotDate:       now,
+		FullDataJSON:       string(fullJSON),
+		DataProvenanceJSON: string(provenanceJSON),
+		TakenBy:            "local",
+	}
 	var alerts []models.BGPAlert
-	if err := store.DB.Where("asn = ? AND id < ?", asnInt, snapshot.ID).
-		Order("id DESC").First(&prevSnapshot).Error; err == nil {
-		alerts = compareBGPSnapshots(asnInt, prevSnapshot.FullDataJSON, string(fullJSON), now)
-		for i := range alerts {
-			store.DB.Create(&alerts[i])
+	comparison := gin.H{"status": "no_previous", "previous_snapshot_id": nil}
+	if err := store.DB.Transaction(func(tx *gorm.DB) error {
+		if err := tx.Create(&snapshot).Error; err != nil {
+			return err
 		}
+		var previous models.BGPSnapshot
+		err := tx.Where("asn = ? AND id < ?", asnInt, snapshot.ID).Order("id DESC").First(&previous).Error
+		if err == nil {
+			var status string
+			alerts, status = compareBGPSnapshots(asnInt, previous.FullDataJSON, string(fullJSON), now)
+			comparison = gin.H{"status": status, "previous_snapshot_id": previous.ID}
+			if status != "complete" {
+				fmt.Printf("[BGP] comparaison AS%d snapshot %d → %d : %s\n", asnInt, previous.ID, snapshot.ID, status)
+			}
+			if len(alerts) > 0 {
+				if err := tx.Create(&alerts).Error; err != nil {
+					return err
+				}
+			}
+			return nil
+		}
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil
+		}
+		return err
+	}); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "création snapshot ou alertes: " + err.Error()})
+		return
 	}
 
 	c.JSON(http.StatusCreated, gin.H{
-		"snapshot": snapshot,
-		"alerts":   alerts,
+		"snapshot":        snapshot,
+		"alerts":          alerts,
+		"data_provenance": provenance,
+		"comparison":      comparison,
 	})
 }
 
+func validateSnapshotSection(section string, data map[string]interface{}) error {
+	if data == nil {
+		return fmt.Errorf("section %s absente ou non objet", section)
+	}
+	sectionData, ok := data["data"].(map[string]interface{})
+	if !ok {
+		return fmt.Errorf("section %s: data absente ou non objet", section)
+	}
+	fields := map[string][]string{
+		"prefixes":    {"ipv4_prefixes", "ipv6_prefixes"},
+		"peers":       {"ipv4_peers", "ipv6_peers"},
+		"upstreams":   {"ipv4_upstreams", "ipv6_upstreams"},
+		"downstreams": {"ipv4_downstreams", "ipv6_downstreams"},
+	}[section]
+	for _, field := range fields {
+		if _, ok := sectionData[field].([]interface{}); !ok {
+			return fmt.Errorf("section %s: liste %s absente ou non tableau", section, field)
+		}
+	}
+	return nil
+}
+
 // ─────────────────────────────────────────────
-// Comparaison snapshots — inchangée
+// Comparaison de snapshots pour la génération d'alertes.
 // ─────────────────────────────────────────────
 
 type sectionComparison struct {
@@ -905,25 +1059,35 @@ var bgpSectionComparisons = []sectionComparison{
 	},
 }
 
-func compareBGPSnapshots(asn int, oldJSON, newJSON string, detectedAt time.Time) []models.BGPAlert {
+// compareBGPSnapshots returns the alerts for lists that really changed and the
+// comparison status: "complete", "incomplete" (a list is missing on one side,
+// so it was not compared) or "error" (a snapshot cannot be read). A list that
+// could not be compared never produces an alert, nor counts as unchanged.
+func compareBGPSnapshots(asn int, oldJSON, newJSON string, detectedAt time.Time) ([]models.BGPAlert, string) {
 	var oldData, newData map[string]interface{}
-	if err := json.Unmarshal([]byte(oldJSON), &oldData); err != nil {
-		return nil
-	}
-	if err := json.Unmarshal([]byte(newJSON), &newData); err != nil {
-		return nil
+	oldErr := json.Unmarshal([]byte(oldJSON), &oldData)
+	newErr := json.Unmarshal([]byte(newJSON), &newData)
+	if oldErr != nil || newErr != nil {
+		return nil, "error"
 	}
 
 	var alerts []models.BGPAlert
+	status := "complete"
 
 	for _, section := range bgpSectionComparisons {
 		changed := false
 		for _, path := range section.subPaths {
-			oldSlice := extractNestedSlice(oldData, path)
-			newSlice := extractNestedSlice(newData, path)
-			if normalizeJSONSlice(oldSlice) != normalizeJSONSlice(newSlice) {
+			oldSlice, oldStatus, oldListErr := comparisonList(oldData, path, nil)
+			newSlice, newStatus, newListErr := comparisonList(newData, path, nil)
+			switch {
+			case oldListErr != nil || newListErr != nil:
+				status = "error"
+			case oldStatus != "available" || newStatus != "available":
+				if status != "error" {
+					status = "incomplete"
+				}
+			case normalizeJSONSlice(oldSlice) != normalizeJSONSlice(newSlice):
 				changed = true
-				break
 			}
 		}
 		if !changed {
@@ -943,7 +1107,7 @@ func compareBGPSnapshots(asn int, oldJSON, newJSON string, detectedAt time.Time)
 			DetectedAt: detectedAt,
 		})
 	}
-	return alerts
+	return alerts, status
 }
 
 func extractNestedValue(data map[string]interface{}, keys ...string) interface{} {
@@ -956,18 +1120,6 @@ func extractNestedValue(data map[string]interface{}, keys ...string) interface{}
 		current = m[key]
 	}
 	return current
-}
-
-func extractNestedSlice(data map[string]interface{}, path []string) []interface{} {
-	val := extractNestedValue(data, path...)
-	if val == nil {
-		return nil
-	}
-	slice, ok := val.([]interface{})
-	if !ok {
-		return nil
-	}
-	return slice
 }
 
 func normalizeJSONSlice(items []interface{}) string {
@@ -984,7 +1136,7 @@ func normalizeJSONSlice(items []interface{}) string {
 }
 
 // ─────────────────────────────────────────────
-// Historian — Snapshots & Alertes & Diff (inchangé)
+// Historian — snapshots, provenance, comparaisons et alertes.
 // ─────────────────────────────────────────────
 
 // GET /api/bgp/snapshots/:asn
@@ -999,29 +1151,45 @@ func GetBGPSnapshots(c *gin.Context) {
 	offset, _ := strconv.Atoi(c.DefaultQuery("offset", "0"))
 
 	var total int64
-	store.DB.Model(&models.BGPSnapshot{}).Where("asn = ?", asnInt).Count(&total)
+	if err := store.DB.Model(&models.BGPSnapshot{}).Where("asn = ?", asnInt).Count(&total).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "lecture snapshots: " + err.Error()})
+		return
+	}
 
 	var snapshots []models.BGPSnapshot
-	store.DB.Where("asn = ?", asnInt).
-		Order("created_at DESC").
+	// Same chronology as the diff endpoint: snapshot_date, then id.
+	if err := store.DB.Where("asn = ?", asnInt).
+		Order("snapshot_date DESC, id DESC").
 		Limit(limit).Offset(offset).
-		Find(&snapshots)
+		Find(&snapshots).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "lecture snapshots: " + err.Error()})
+		return
+	}
 
 	type snapshotDTO struct {
-		ID           uint   `json:"id"`
-		CreatedAt    string `json:"created_at"`
-		ASN          int    `json:"asn"`
-		SnapshotDate string `json:"snapshot_date"`
-		TakenBy      string `json:"taken_by"`
+		ID               uint                         `json:"id"`
+		CreatedAt        string                       `json:"created_at"`
+		ASN              int                          `json:"asn"`
+		SnapshotDate     string                       `json:"snapshot_date"`
+		TakenBy          string                       `json:"taken_by"`
+		ProvenanceStatus string                       `json:"provenance_status"`
+		DataProvenance   map[string]bgpDataProvenance `json:"data_provenance"`
 	}
 	items := make([]snapshotDTO, 0, len(snapshots))
 	for _, s := range snapshots {
+		dataProvenance := decodeProvenance(s.DataProvenanceJSON)
+		provenanceStatus := "known"
+		if dataProvenance == nil {
+			provenanceStatus = "unknown"
+		}
 		items = append(items, snapshotDTO{
-			ID:           s.ID,
-			CreatedAt:    s.CreatedAt.Format(time.RFC3339),
-			ASN:          s.ASN,
-			SnapshotDate: s.SnapshotDate.Format(time.RFC3339),
-			TakenBy:      s.TakenBy,
+			ID:               s.ID,
+			CreatedAt:        s.CreatedAt.Format(time.RFC3339),
+			ASN:              s.ASN,
+			SnapshotDate:     s.SnapshotDate.Format(time.RFC3339),
+			TakenBy:          s.TakenBy,
+			ProvenanceStatus: provenanceStatus,
+			DataProvenance:   dataProvenance,
 		})
 	}
 
@@ -1060,26 +1228,70 @@ func GetBGPSnapshotDiff(c *gin.Context) {
 	}
 
 	older, newer := snapA, snapB
-	if snapB.ID < snapA.ID {
+	if snapshotChronology(snapB).Before(snapshotChronology(snapA)) ||
+		(snapshotChronology(snapB).Equal(snapshotChronology(snapA)) && snapB.ID < snapA.ID) {
 		older, newer = snapB, snapA
 	}
 
 	diff := computeDiff(older.FullDataJSON, newer.FullDataJSON)
 
 	c.JSON(http.StatusOK, gin.H{
-		"older": gin.H{"id": older.ID, "created_at": older.CreatedAt.Format(time.RFC3339), "asn": older.ASN},
-		"newer": gin.H{"id": newer.ID, "created_at": newer.CreatedAt.Format(time.RFC3339), "asn": newer.ASN},
+		"older": snapshotDiffMetadata(older),
+		"newer": snapshotDiffMetadata(newer),
 		"diff":  diff,
 	})
 }
 
+func snapshotDiffMetadata(snapshot models.BGPSnapshot) gin.H {
+	provenance := decodeProvenance(snapshot.DataProvenanceJSON)
+	status := "known"
+	if provenance == nil {
+		status = "unknown"
+	}
+	return gin.H{
+		"id": snapshot.ID, "created_at": snapshot.CreatedAt.Format(time.RFC3339),
+		"snapshot_date": snapshot.SnapshotDate.Format(time.RFC3339), "asn": snapshot.ASN,
+		"provenance_status": status, "data_provenance": provenance,
+	}
+}
+
+func snapshotChronology(snapshot models.BGPSnapshot) time.Time {
+	if !snapshot.SnapshotDate.IsZero() {
+		return snapshot.SnapshotDate
+	}
+	return snapshot.CreatedAt
+}
+
+func decodeProvenance(raw string) map[string]bgpDataProvenance {
+	if strings.TrimSpace(raw) == "" {
+		return nil
+	}
+	var provenance map[string]bgpDataProvenance
+	if err := json.Unmarshal([]byte(raw), &provenance); err != nil {
+		return nil
+	}
+	return provenance
+}
+
 func computeDiff(oldJSON, newJSON string) map[string]interface{} {
 	var oldData, newData map[string]interface{}
-	json.Unmarshal([]byte(oldJSON), &oldData)
-	json.Unmarshal([]byte(newJSON), &newData)
+	oldErr := json.Unmarshal([]byte(oldJSON), &oldData)
+	newErr := json.Unmarshal([]byte(newJSON), &newData)
 
 	changes := make(map[string]interface{})
 	changedFields := make([]string, 0)
+	listStatuses := make(map[string]interface{}, 8)
+	decodeErrors := make(map[string]interface{})
+	if oldErr != nil {
+		decodeErrors["older"] = oldErr.Error()
+	}
+	if newErr != nil {
+		decodeErrors["newer"] = newErr.Error()
+	}
+	status := "complete"
+	if oldErr != nil || newErr != nil {
+		status = "error"
+	}
 
 	for _, section := range bgpSectionComparisons {
 		sectionChanges := make(map[string]interface{})
@@ -1087,20 +1299,44 @@ func computeDiff(oldJSON, newJSON string) map[string]interface{} {
 
 		for _, path := range section.subPaths {
 			fieldName := path[len(path)-1]
-			oldSlice := extractNestedSlice(oldData, path)
-			newSlice := extractNestedSlice(newData, path)
-
-			added := diffSlices(oldSlice, newSlice)
-			removed := diffSlices(newSlice, oldSlice)
-
-			if len(added) > 0 || len(removed) > 0 {
-				sectionChanged = true
-				sectionChanges[fieldName] = map[string]interface{}{
-					"old":     oldSlice,
-					"new":     newSlice,
-					"added":   added,
-					"removed": removed,
+			key := strings.Join(path, ".")
+			oldSlice, oldStatus, oldListErr := comparisonList(oldData, path, oldErr)
+			newSlice, newStatus, newListErr := comparisonList(newData, path, newErr)
+			listStatus := "identical"
+			statusMeta := map[string]interface{}{"status": listStatus}
+			switch {
+			case oldListErr != nil || newListErr != nil:
+				listStatus = "error"
+				if oldListErr != nil {
+					statusMeta["older_error"] = oldListErr.Error()
 				}
+				if newListErr != nil {
+					statusMeta["newer_error"] = newListErr.Error()
+				}
+				status = "error"
+			case oldStatus != "available" || newStatus != "available":
+				listStatus = "missing/unavailable"
+				if status != "error" {
+					status = "incomplete"
+				}
+			case normalizeJSONSlice(oldSlice) != normalizeJSONSlice(newSlice):
+				listStatus = "changed"
+			}
+			statusMeta["status"] = listStatus
+			listStatuses[key] = statusMeta
+			if listStatus != "changed" {
+				continue
+			}
+
+			added := diffSlices(newSlice, oldSlice)
+			removed := diffSlices(oldSlice, newSlice)
+
+			sectionChanged = true
+			sectionChanges[fieldName] = map[string]interface{}{
+				"old":     oldSlice,
+				"new":     newSlice,
+				"added":   added,
+				"removed": removed,
 			}
 		}
 
@@ -1110,22 +1346,56 @@ func computeDiff(oldJSON, newJSON string) map[string]interface{} {
 		}
 	}
 
-	return map[string]interface{}{
+	result := map[string]interface{}{
+		"status":         status,
 		"changed_fields": changedFields,
 		"changes":        changes,
+		"list_status":    listStatuses,
 	}
+	if len(decodeErrors) > 0 {
+		result["decode_errors"] = decodeErrors
+	}
+	return result
+}
+
+func comparisonList(data map[string]interface{}, path []string, rootErr error) ([]interface{}, string, error) {
+	if rootErr != nil {
+		return nil, "error", rootErr
+	}
+	var current interface{} = data
+	for index, key := range path {
+		object, ok := current.(map[string]interface{})
+		if !ok {
+			return nil, "error", fmt.Errorf("%s: expected object", strings.Join(path[:index], "."))
+		}
+		value, exists := object[key]
+		if !exists || value == nil {
+			return nil, "unavailable", nil
+		}
+		if index == len(path)-1 {
+			list, ok := value.([]interface{})
+			if !ok {
+				return nil, "error", fmt.Errorf("%s: expected array, got %T", strings.Join(path, "."), value)
+			}
+			return list, "available", nil
+		}
+		current = value
+	}
+	return nil, "unavailable", nil
 }
 
 func diffSlices(a, b []interface{}) []interface{} {
-	bSet := make(map[string]bool)
+	bSet := make(map[string]int)
 	for _, item := range b {
 		key, _ := json.Marshal(item)
-		bSet[string(key)] = true
+		bSet[string(key)]++
 	}
 	var result []interface{}
 	for _, item := range a {
 		key, _ := json.Marshal(item)
-		if !bSet[string(key)] {
+		if bSet[string(key)] > 0 {
+			bSet[string(key)]--
+		} else {
 			result = append(result, item)
 		}
 	}
@@ -1141,13 +1411,19 @@ func GetBGPAlerts(c *gin.Context) {
 	offset, _ := strconv.Atoi(c.DefaultQuery("offset", "0"))
 
 	var total int64
-	store.DB.Model(&models.BGPAlert{}).Where("acknowledged = false").Count(&total)
+	if err := store.DB.Model(&models.BGPAlert{}).Where("acknowledged = false").Count(&total).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "lecture alertes: " + err.Error()})
+		return
+	}
 
 	var alerts []models.BGPAlert
-	store.DB.Where("acknowledged = false").
+	if err := store.DB.Where("acknowledged = false").
 		Order("created_at DESC").
 		Limit(limit).Offset(offset).
-		Find(&alerts)
+		Find(&alerts).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "lecture alertes: " + err.Error()})
+		return
+	}
 
 	c.JSON(http.StatusOK, gin.H{
 		"items":  alerts,
@@ -1171,7 +1447,10 @@ func AckBGPAlert(c *gin.Context) {
 		return
 	}
 
-	store.DB.Model(&alert).Update("acknowledged", true)
+	if err := store.DB.Model(&alert).Update("acknowledged", true).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "acquittement alerte: " + err.Error()})
+		return
+	}
 	c.JSON(http.StatusOK, gin.H{"message": "alerte acquittée"})
 }
 
