@@ -19,28 +19,63 @@ interface DrawerProps {
 }
 
 /*
- * Command workspace panel. Not a routed page: a side panel with an obvious
- * close, Escape-to-close, and page scroll locked while open. A full focus
- * trap is left for Codex (noted in the report); initial focus and focus
- * return are handled here.
+ * Command workspace panel with focus containment, background inertness,
+ * Escape-to-close, scroll locking, and focus restoration.
  */
 function CheatsheetDrawer({ cheatsheet, onClose }: DrawerProps) {
   const panelRef = useRef<HTMLDivElement>(null)
+  const onCloseRef = useRef(onClose)
+  onCloseRef.current = onClose
 
   useEffect(() => {
     const opener = document.activeElement as HTMLElement | null
     const { overflow } = document.body.style
+    const inerted: Array<[HTMLElement, boolean]> = []
+    let activeBranch = panelRef.current?.parentElement ?? null
+    while (activeBranch?.parentElement && activeBranch.parentElement !== document.body) {
+      const parent = activeBranch.parentElement
+      for (const sibling of Array.from(parent.children)) {
+        if (sibling !== activeBranch && sibling instanceof HTMLElement) {
+          inerted.push([sibling, Boolean(sibling.inert)])
+          sibling.inert = true
+        }
+      }
+      activeBranch = parent
+    }
     document.body.style.overflow = 'hidden'
-    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose() }
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        e.preventDefault()
+        onCloseRef.current()
+        return
+      }
+      if (e.key !== 'Tab' || !panelRef.current) return
+      const focusable = Array.from(panelRef.current.querySelectorAll<HTMLElement>(
+        'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])',
+      )).filter(el => !el.hidden && el.getAttribute('aria-hidden') !== 'true')
+      const first = focusable[0]
+      const last = focusable[focusable.length - 1]
+      if (!first || !last) {
+        e.preventDefault()
+        panelRef.current.focus()
+      } else if (e.shiftKey && (document.activeElement === first || document.activeElement === panelRef.current)) {
+        e.preventDefault()
+        last.focus()
+      } else if (!e.shiftKey && (document.activeElement === last || document.activeElement === panelRef.current)) {
+        e.preventDefault()
+        first.focus()
+      }
+    }
     document.addEventListener('keydown', onKey)
     // Focus the panel so Escape and tabbing start inside it.
     panelRef.current?.focus()
     return () => {
       document.removeEventListener('keydown', onKey)
       document.body.style.overflow = overflow
+      for (const [element, wasInert] of inerted) element.inert = wasInert
       opener?.focus?.()
     }
-  }, [onClose])
+  }, [])
 
   const titleId = 'cs26-drawer-title'
   return (
@@ -67,6 +102,8 @@ function CheatsheetDrawer({ cheatsheet, onClose }: DrawerProps) {
 }
 
 export default function CheatsheetsPage() {
+  const listRequestRef = useRef(0)
+  const detailRequestRef = useRef(0)
   const [summaries, setSummaries] = useState<CheatsheetSummary[]>([])
   const [total, setTotal] = useState(0)
   const [loading, setLoading] = useState(true)
@@ -77,31 +114,43 @@ export default function CheatsheetsPage() {
   const [loadingTool, setLoadingTool] = useState<string | null>(null)
 
   const load = useCallback(async () => {
+    const requestId = ++listRequestRef.current
     setLoading(true)
     setListError(false)
     try {
       const res = await cheatsheetsApi.list()
+      if (requestId !== listRequestRef.current) return
       setSummaries(res.cheatsheets ?? [])
       setTotal(Number(res.total ?? res.cheatsheets?.length ?? 0))
     } catch {
+      if (requestId !== listRequestRef.current) return
       setListError(true)
       toast.error('Impossible de charger les cheatsheets')
     } finally {
-      setLoading(false)
+      if (requestId === listRequestRef.current) setLoading(false)
     }
   }, [])
 
-  useEffect(() => { load() }, [load])
+  useEffect(() => {
+    void load()
+    return () => {
+      listRequestRef.current++
+      detailRequestRef.current++
+    }
+  }, [load])
 
   const openDetail = async (tool: string) => {
+    const requestId = ++detailRequestRef.current
     setLoadingTool(tool)
     try {
       const cs = await cheatsheetsApi.getByTool(tool)
+      if (requestId !== detailRequestRef.current) return
       setSelected(cs)
     } catch {
+      if (requestId !== detailRequestRef.current) return
       toast.error('Cheatsheet introuvable')
     } finally {
-      setLoadingTool(null)
+      if (requestId === detailRequestRef.current) setLoadingTool(null)
     }
   }
 

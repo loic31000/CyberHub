@@ -1,6 +1,7 @@
-import { useMemo, useState, type ReactNode } from 'react'
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { Check, Copy } from 'lucide-react'
 import type { CheatsheetCommand } from '@/types/cheatsheet'
+import { toast } from '@/store/toast'
 
 /*
  * Shared pieces for the Cheatsheets command library (styles in
@@ -11,7 +12,10 @@ import type { CheatsheetCommand } from '@/types/cheatsheet'
 
 /* Replace every `{v}` with its value, or leave the placeholder when empty. */
 export function renderCommand(cmd: CheatsheetCommand, values: Record<string, string>): string {
-  return cmd.vars.reduce((acc, v) => acc.split(`{${v}}`).join(values[v] || `{${v}}`), cmd.cmd)
+  if (cmd.vars.length === 0) return cmd.cmd
+  const names = cmd.vars.map(v => v.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'))
+  const pattern = new RegExp(`\\{(${names.join('|')})\\}`, 'g')
+  return cmd.cmd.replace(pattern, (placeholder, name: string) => values[name] || placeholder)
 }
 
 /*
@@ -36,10 +40,20 @@ function tokenize(cmd: CheatsheetCommand, values: Record<string, string>): Token
 
 function CopyButton({ text, label = 'Copier' }: { text: string; label?: string }) {
   const [copied, setCopied] = useState(false)
-  const copy = () => {
-    navigator.clipboard?.writeText(text)
-      .then(() => { setCopied(true); window.setTimeout(() => setCopied(false), 1800) })
-      .catch(() => {})
+  const timeoutRef = useRef<number | undefined>(undefined)
+  useEffect(() => () => window.clearTimeout(timeoutRef.current), [])
+  const copy = async () => {
+    setCopied(false)
+    window.clearTimeout(timeoutRef.current)
+    try {
+      const writeText = navigator.clipboard?.writeText
+      if (typeof writeText !== 'function') throw new Error('Clipboard API indisponible')
+      await writeText.call(navigator.clipboard, text)
+      setCopied(true)
+      timeoutRef.current = window.setTimeout(() => setCopied(false), 1800)
+    } catch {
+      toast.error('Impossible de copier la commande')
+    }
   }
   return (
     <button type="button" className="cs26-copy" data-copied={copied || undefined} onClick={copy} aria-label={copied ? 'Copié' : label}>
