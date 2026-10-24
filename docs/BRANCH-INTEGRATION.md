@@ -1,6 +1,6 @@
 # Branches CyberHub et intégration - état au 24 octobre 2026
 
-> **Mise à jour du 24 octobre 2026 (`main` `0575f35c`) :** PR #26 et #27 restent les bases documentaires et de la Console. BGP Lookup est présent, Historian 2.0 (#39), CVE & KEV 2026 (#41), Dashboard Performance (#42) et Investigations 2026 (#43) sont intégrés. Le correctif de restauration C est proposé par la [PR #44 ouverte, non fusionnée](https://github.com/loic31000/CyberHub/pull/44). Playbooks 2026 reste en développement. La Landing / Showcase reste séparée : [PR #25](https://github.com/loic31000/CyberHub/pull/25) est en brouillon, sa tête `1f2a494b` se fonde sur `0db993d6`, avant le `main` actuel. Sa démo utilise exclusivement des données fictives. Conserver les analyses de conflits ci-dessous comme risques de portage; ne pas fusionner directement l'ancienne PR.
+> **Mise à jour du 24 octobre 2026 (`main` `882c1b68`) :** PR #26 et #27 restent les bases documentaires et de la Console. BGP Lookup / Historian 2.0 (#39), CVE & KEV 2026 (#41), Investigations 2026 (#43) et les correctifs Dashboard (#42 et restauration du circuit animé #44) sont fusionnés. La performance avec les animations actives reste à améliorer. Playbooks 2026 reste en développement. La Landing / Showcase reste séparée : [PR #25](https://github.com/loic31000/CyberHub/pull/25) est en brouillon, sa tête `1f2a494b` se fonde sur `0db993d6` (avant `main`). Sa démo utilise exclusivement des données fictives. Conserver les analyses de conflits comme risques de portage ; ne pas fusionner directement cette ancienne PR.
 
 Ce document fournit une **photographie de GitHub**, pas de l'état non commité des postes de développement. Il ne déclenche aucune fusion ni suppression de branche.
 
@@ -14,11 +14,11 @@ Les laboratoires et leurs branches permettent de concevoir et tester les interfa
 
 | Branche | Rôle au moment de cette vérification | Action conseillée |
 | --- | --- | --- |
-| `main` | Console locale au SHA `0575f35c`; comprend Dashboard, BGP Lookup / Historian, CVE & KEV 2026 et Investigations 2026. | Base des nouveaux chantiers. |
+| `main` | Console locale au SHA `882c1b68`; comprend Dashboard, BGP Lookup / Historian, CVE & KEV 2026 et Investigations 2026. | Base des nouveaux chantiers. |
 | `docs/2026-readme-licensing-audit` | Documentation et décision MIT, **fusionnée** via la [PR #26](https://github.com/loic31000/CyberHub/pull/26) (squash). | Archive ; aucune action. |
 | `feat/integrate-dashboard-2026` | Branche d'intégration de la Console 2026, **fusionnée** via la [PR #27](https://github.com/loic31000/CyberHub/pull/27). | Archive ; aucune action. |
 | `fix/dashboard-animation-performance` | Dashboard Performance, **fusionné** via la [PR #42](https://github.com/loic31000/CyberHub/pull/42). | Référence historique de la phase de performance. |
-| `fix/dashboard-circuit-motion-recovery` | Correctif C proposé par la [PR #44](https://github.com/loic31000/CyberHub/pull/44), **ouverte et non fusionnée**. | Laisser la CI et l'intégration PR #44 à leur responsable; le coût global des 218 animations n'est pas déclaré résolu. |
+| `fix/dashboard-circuit-motion-recovery` | Correctif C fusionné via la [PR #44](https://github.com/loic31000/CyberHub/pull/44). | Branche historique ; circuit animé rétabli sur `main`, coût des animations actives non résolu. |
 | `feat/bgp-historian-contracts` | BGP Historian 2.0, **fusionné** via la [PR #39](https://github.com/loic31000/CyberHub/pull/39); BGP Lookup est également présent sur `main`. | Archive de référence. |
 | `feat/frontend-2026-cve` | CVE & KEV 2026, **fusionné** via la [PR #41](https://github.com/loic31000/CyberHub/pull/41). | Archive de référence. |
 | `feat/investigations-2026` | Investigations 2026, **fusionné** via la [PR #43](https://github.com/loic31000/CyberHub/pull/43). | Archive de référence. |
@@ -62,11 +62,11 @@ Un `git status` local, des fichiers non suivis et des commits non poussés sur l
 2. **[Fait - PR #26 fusionnée le 12/10/2026]** **Traiter la PR documentaire #26 séparément.** Elle concerne MIT, README, architecture et documentation commune, et n'intègre aucun prototype. Re-vérifier son état GitHub juste avant approbation.
 3. **[Fait pour la Console : `feat/integrate-dashboard-2026`]** **Préparer des branches d'intégration issues du `main` à jour**, dans des worktrees distincts si plusieurs tâches avancent simultanément. Conserver les branches de laboratoires comme références immuables pendant ce travail.
 4. **[À réaliser]** **Intégrer la Landing** selon le [plan dédié](cyberhub-2026/landing-integration-plan.md). PR #25 n'est pas prête à merger : sa base précède `main`, ses scènes impératives doivent être portées vers React et la frontière démo/API doit être testée.
-5. **[Fait, PR #27 et #39–#43]** **Dashboard et modules indiqués ci-dessus sont intégrés.** La PR #44 propose le correctif C; elle reste ouverte et non fusionnée.
+5. **[Fait, PR #27, #39–#44]** **Dashboard et modules indiqués ci-dessus intégrés.** La PR #44 restaure les animations lumineuses du circuit ; l'optimisation de leur coût reste un travail distinct.
 6. **[À décider pendant l'intégration]** **Établir une direction artistique canonique** à partir des références existantes; ne pas écraser ou importer sans revue le fichier de design de la branche Landing.
 7. **[En continu]** **Tester avant chaque fusion** : builds, TypeScript, tests React/Go pertinents, routes protégées, persistance SQLite, clavier, mobile, mouvement réduit, licences et absence d'accès privé depuis la démo.
 8. **[En vigueur]** **Fusionner seulement après validation explicite de chaque PR d'intégration.** Conserver les branches de laboratoire; ne pas réécrire leur historique.
 
 ## Limites de cette vérification
 
-Cette photographie vérifie les PR #25, #39, #41, #42, #43 et #44 via GitHub et le `main` au SHA `0575f35c` au 24 octobre 2026. Elle ne décrit pas les modifications non commitées des worktrees et n'est pas une comparaison exhaustive de tous les fichiers des branches. Revalider les têtes distantes, les conflits et l'état de chaque chantier avant toute future intégration.
+Cette photographie vérifie les PR #25, #39, #41, #42, #43 et #44 via GitHub et le `main` au SHA `882c1b68` au 24 octobre 2026. Elle ne décrit pas les modifications non commitées des worktrees et n'est pas une comparaison exhaustive de tous les fichiers des branches. Revalider les têtes distantes, les conflits et l'état de chaque chantier avant toute future intégration.
