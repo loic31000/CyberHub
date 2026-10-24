@@ -1,95 +1,65 @@
-import { useState, useEffect, useCallback } from 'react'
-import { Terminal, Copy, Search, ChevronRight, X, Check } from 'lucide-react'
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
+import { AlertTriangle, ChevronRight, Loader2, Search, Terminal, X } from 'lucide-react'
 import { cheatsheetsApi } from '@/api/client'
-import type { CheatsheetSummary, Cheatsheet, CheatsheetCommand } from '@/types/cheatsheet'
+import type { CheatsheetSummary, Cheatsheet } from '@/types/cheatsheet'
 import { toast } from '@/store/toast'
+import CheatsheetsHero from '@/cheatsheets26/CheatsheetsHero'
+import { CommandCard } from '@/cheatsheets26/parts'
+import '@/cheatsheets26/cheatsheets.css'
 
-const CATEGORIES = ['Tous', 'Reconnaissance', 'Exploitation', 'Post-Exploitation', 'Pentest', 'OSINT', 'Web', 'Réseau', 'Linux', 'Windows', 'DevOps', 'Hash / Encodage', 'Cracking', 'Forensic']
-
-interface CommandCardProps {
-  cmd: CheatsheetCommand
-}
-
-function CommandCard({ cmd }: CommandCardProps) {
-  const [vars, setVars] = useState<Record<string, string>>(() =>
-    Object.fromEntries(cmd.vars.map(v => [v, '']))
-  )
-  const [copied, setCopied] = useState(false)
-
-  const rendered = cmd.vars.reduce((acc, v) => {
-    const val = vars[v] || `{${v}}`
-    return acc.split(`{${v}}`).join(val)
-  }, cmd.cmd)
-
-  const handleCopy = () => {
-    navigator.clipboard.writeText(rendered).then(() => {
-      setCopied(true)
-      setTimeout(() => setCopied(false), 2000)
-      toast.success('Commande copiée !')
-    })
-  }
-
-  return (
-    <div className="border border-[#1e2d40] rounded p-3 space-y-2 hover:border-cyan-500/30 transition-colors bg-[#0a0f16]">
-      <div className="flex items-start justify-between gap-2">
-        <p className="text-xs font-mono font-bold text-[#8a9ab0]">{cmd.title}</p>
-        <button
-          onClick={handleCopy}
-          className="shrink-0 text-[#64748b] hover:text-cyan-400 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-[#00d4ff]"
-          title="Copier"
-          aria-label="Copier"
-        >
-          {copied ? <Check size={14} className="text-green-400" /> : <Copy size={14} />}
-        </button>
-      </div>
-
-      {cmd.vars.length > 0 && (
-        <div className="flex flex-wrap gap-2">
-          {cmd.vars.map(v => (
-            <div key={v} className="flex items-center gap-1">
-              <span className="text-[10px] font-mono text-[#4a6480]">{v}=</span>
-              <input
-                type="text"
-                value={vars[v]}
-                onChange={e => setVars(prev => ({ ...prev, [v]: e.target.value }))}
-                placeholder={v}
-                className="bg-[#0d131f] border border-[#1e2d40] rounded px-1.5 py-0.5 text-[10px] font-mono text-cyan-400 focus:outline-none focus:border-cyan-500/60 w-28"
-              />
-            </div>
-          ))}
-        </div>
-      )}
-
-      <pre className="bg-[#0d131f] border border-[#1e2d40] rounded px-3 py-2 text-xs font-mono text-green-300 whitespace-pre-wrap break-all">
-        {rendered}
-      </pre>
-    </div>
-  )
-}
+/* Preferred display order; any category present in the data but not listed is appended. */
+const CATEGORY_ORDER = [
+  'Reconnaissance', 'Exploitation', 'Post-Exploitation', 'Pentest', 'OSINT', 'Web',
+  'Réseau', 'Linux', 'Windows', 'DevOps', 'Hash / Encodage', 'Cracking', 'Forensic',
+]
 
 interface DrawerProps {
   cheatsheet: Cheatsheet
   onClose: () => void
 }
 
+/*
+ * Command workspace panel. Not a routed page: a side panel with an obvious
+ * close, Escape-to-close, and page scroll locked while open. A full focus
+ * trap is left for Codex (noted in the report); initial focus and focus
+ * return are handled here.
+ */
 function CheatsheetDrawer({ cheatsheet, onClose }: DrawerProps) {
+  const panelRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    const opener = document.activeElement as HTMLElement | null
+    const { overflow } = document.body.style
+    document.body.style.overflow = 'hidden'
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose() }
+    document.addEventListener('keydown', onKey)
+    // Focus the panel so Escape and tabbing start inside it.
+    panelRef.current?.focus()
+    return () => {
+      document.removeEventListener('keydown', onKey)
+      document.body.style.overflow = overflow
+      opener?.focus?.()
+    }
+  }, [onClose])
+
+  const titleId = 'cs26-drawer-title'
   return (
-    <div className="fixed inset-0 z-50 flex">
-      <div className="flex-1 bg-black/60" onClick={onClose} />
-      <div className="w-full max-w-xl bg-[#0a0f16] border-l border-[#1e2d40] flex flex-col overflow-hidden shadow-2xl">
-        <div className="flex items-center justify-between px-5 py-4 border-b border-[#1e2d40]">
-          <div>
-            <h2 className="text-lg font-mono font-bold text-[#f1f5f9]">{cheatsheet.tool}</h2>
-            <p className="text-[11px] font-mono text-[#64748b]">{cheatsheet.description}</p>
+    <div className="cs26-drawer-layer">
+      <div className="cs26-drawer-scrim" onClick={onClose} aria-hidden="true" />
+      <div className="cs26-drawer" role="dialog" aria-modal="true" aria-labelledby={titleId} tabIndex={-1} ref={panelRef}>
+        <header className="cs26-drawer-head">
+          <div className="cs26-drawer-id">
+            <p className="cs26-drawer-kicker">{cheatsheet.category}</p>
+            <h2 id={titleId}>{cheatsheet.tool}</h2>
+            {cheatsheet.description && <p className="cs26-drawer-desc">{cheatsheet.description}</p>}
           </div>
-          <button onClick={onClose} className="text-[#64748b] hover:text-red-400 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-[#00d4ff]" aria-label="Fermer">
-            <X size={20} />
+          <button type="button" className="cs26-icon-btn" onClick={onClose} aria-label="Fermer le panneau">
+            <X size={20} aria-hidden="true" />
           </button>
-        </div>
-        <div className="flex-1 overflow-y-auto p-5 space-y-3">
-          {cheatsheet.commands.map((cmd, i) => (
-            <CommandCard key={i} cmd={cmd} />
-          ))}
+        </header>
+        <div className="cs26-drawer-body">
+          <p className="cs26-drawer-count">{cheatsheet.commands.length} commande{cheatsheet.commands.length > 1 ? 's' : ''}</p>
+          {cheatsheet.commands.map((cmd, i) => <CommandCard key={i} cmd={cmd} index={i} />)}
         </div>
       </div>
     </div>
@@ -98,18 +68,23 @@ function CheatsheetDrawer({ cheatsheet, onClose }: DrawerProps) {
 
 export default function CheatsheetsPage() {
   const [summaries, setSummaries] = useState<CheatsheetSummary[]>([])
-  const [loading, setLoading] = useState(false)
+  const [total, setTotal] = useState(0)
+  const [loading, setLoading] = useState(true)
+  const [listError, setListError] = useState(false)
   const [category, setCategory] = useState('Tous')
   const [search, setSearch] = useState('')
   const [selected, setSelected] = useState<Cheatsheet | null>(null)
-  const [loadingDetail, setLoadingDetail] = useState(false)
+  const [loadingTool, setLoadingTool] = useState<string | null>(null)
 
   const load = useCallback(async () => {
     setLoading(true)
+    setListError(false)
     try {
       const res = await cheatsheetsApi.list()
-      setSummaries(res.cheatsheets)
+      setSummaries(res.cheatsheets ?? [])
+      setTotal(Number(res.total ?? res.cheatsheets?.length ?? 0))
     } catch {
+      setListError(true)
       toast.error('Impossible de charger les cheatsheets')
     } finally {
       setLoading(false)
@@ -119,119 +94,115 @@ export default function CheatsheetsPage() {
   useEffect(() => { load() }, [load])
 
   const openDetail = async (tool: string) => {
-    setLoadingDetail(true)
+    setLoadingTool(tool)
     try {
       const cs = await cheatsheetsApi.getByTool(tool)
       setSelected(cs)
     } catch {
       toast.error('Cheatsheet introuvable')
     } finally {
-      setLoadingDetail(false)
+      setLoadingTool(null)
     }
   }
 
-  const filtered = summaries.filter(s => {
-    const matchCat = category === 'Tous' || s.category === category
-    const matchSearch = !search ||
-      s.tool.toLowerCase().includes(search.toLowerCase()) ||
-      s.description.toLowerCase().includes(search.toLowerCase())
-    return matchCat && matchSearch
-  })
+  // Categories actually present in the data, in the preferred order.
+  const categories = useMemo(() => {
+    const present = new Set(summaries.map(s => s.category).filter(Boolean))
+    const ordered = CATEGORY_ORDER.filter(c => present.has(c))
+    const extra = [...present].filter(c => !CATEGORY_ORDER.includes(c)).sort()
+    return ['Tous', ...ordered, ...extra]
+  }, [summaries])
+
+  const filtered = useMemo(() => {
+    const q = search.trim().toLowerCase()
+    return summaries.filter(s => {
+      const matchCat = category === 'Tous' || s.category === category
+      const matchSearch = !q || s.tool.toLowerCase().includes(q) || s.description.toLowerCase().includes(q)
+      return matchCat && matchSearch
+    })
+  }, [summaries, category, search])
+
+  const hasActiveFilters = Boolean(search.trim() || category !== 'Tous')
+  const status = loading ? { text: 'CHARGEMENT', tone: 'busy' as const }
+    : listError ? { text: 'BIBLIOTHÈQUE INDISPONIBLE', tone: 'warn' as const }
+    : { text: `${total.toLocaleString('fr-FR')} RÉFÉRENCE${total > 1 ? 'S' : ''}`, mark: 'LOCAL' }
 
   return (
-    <div className="flex flex-col h-full bg-[#06080f] text-[#f1f5f9]">
-      {/* Bandeau d'en-tête style BGPLookup */}
-      <div className="flex items-center justify-between px-6 py-4 border-b border-[#1e2d40] bg-[#0a0f16]/50">
-        <div className="flex items-center gap-3">
-          <div className="relative">
-            <Terminal className="text-cyan-400" size={20} />
-            <div className="absolute -top-1 -right-1 w-2 h-2 bg-[#10b981] rounded-full animate-pulse shadow-[0_0_8px_#10b981]" />
-          </div>
-          <div>
-            <h1 className="text-sm font-bold tracking-[0.2em] uppercase">CHEATSHEETS // COMMAND</h1>
-            <p className="text-[10px] text-[#64748b] font-mono">
-              Commandes interactives pour outils de cybersécurité — {summaries.length} références
-            </p>
-          </div>
-        </div>
-        <div className="flex items-center gap-4 font-mono text-[10px]">
-          <span className="text-[#64748b]">SOURCE</span>
-          <span className="text-[#10b981]">STATIC</span>
-        </div>
-      </div>
+    <div className="cs26">
+      <div className="cs26-frame">
+        <CheatsheetsHero status={status} />
 
-      {/* Zone de contenu scrollable */}
-      <div className="flex-1 overflow-auto p-6 space-y-6">
-        {/* Filtres */}
-        <div className="space-y-3">
-          <div className="relative max-w-md">
-            <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#4a6480]" />
+        <section className="cs26-console" aria-label="Recherche et catégories">
+          <label className="cs26-search">
+            <Search size={18} aria-hidden="true" />
+            <span className="cs26-sr">Rechercher un outil</span>
             <input
-              type="text"
-              value={search}
-              onChange={e => setSearch(e.target.value)}
-              placeholder="Rechercher un outil…"
-              className="w-full bg-[#0d131f] border border-[#1e2d40] pl-9 pr-3 py-2 font-mono text-sm text-[#f1f5f9] placeholder-[#2a3f55] focus:outline-none focus:border-cyan-500/40"
+              type="search" value={search} onChange={e => setSearch(e.target.value)}
+              placeholder="Rechercher un outil, une description…" autoComplete="off" spellCheck={false}
             />
-          </div>
-          <div className="flex flex-wrap gap-2">
-            {CATEGORIES.map(cat => (
-              <button
-                key={cat}
-                onClick={() => setCategory(cat)}
-                className={`text-[10px] font-mono font-bold uppercase tracking-wider px-3 py-1.5 border transition-colors ${
-                  category === cat
-                    ? 'border-cyan-500/40 bg-cyan-500/10 text-cyan-400'
-                    : 'border-[#1e2d40] bg-[#06080f] text-[#64748b] hover:border-cyan-500/40 hover:text-cyan-400'
-                }`}
-              >
-                {cat}
-              </button>
-            ))}
-          </div>
-        </div>
-
-        {/* Grille */}
-        {loading && (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-            {Array.from({ length: 8 }).map((_, i) => (
-              <div key={i} className="h-28 border border-[#1e2d40] bg-[#0a0f16] animate-pulse" />
-            ))}
-          </div>
-        )}
-
-        {!loading && filtered.length === 0 && (
-          <div className="flex flex-col items-center justify-center border border-[#1e2d40] bg-[#0a0f16] py-24 text-center">
-            <Terminal size={40} className="mb-4 text-[#1e2d40]" />
-            <p className="font-mono text-sm uppercase tracking-widest text-[#64748b]">AUCUNE CHEATSHEET TROUVÉE</p>
-          </div>
-        )}
-
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-          {filtered.map(cs => (
-            <button
-              key={cs.tool}
-              onClick={() => openDetail(cs.tool)}
-              disabled={loadingDetail}
-              className="group block border border-[#1e2d40] bg-[#0a0f16] p-4 text-left hover:border-cyan-500/40 transition-all hover:bg-cyan-500/5"
-            >
-              <div className="flex items-start justify-between gap-2 mb-2">
-                <span className="font-mono text-sm font-bold text-[#f1f5f9] group-hover:text-cyan-400 transition-colors">
-                  {cs.tool}
-                </span>
-                <ChevronRight size={14} className="text-[#64748b] group-hover:text-cyan-400 transition-colors shrink-0 mt-0.5" />
-              </div>
-              <p className="text-xs font-mono text-[#8a9ab0] mb-3 line-clamp-2">{cs.description}</p>
-              <div className="flex items-center justify-between">
-                <span className="text-[10px] font-mono border border-[#1e2d40] bg-[#0d131f] px-2 py-0.5 text-[#64748b]">{cs.category}</span>
-                <span className="text-[11px] font-mono text-cyan-400">{cs.nb_commands} cmds</span>
-              </div>
+          </label>
+          <label className="cs26-cat-select">
+            <span className="cs26-sr">Catégorie</span>
+            <select value={category} onChange={e => setCategory(e.target.value)} aria-label="Catégorie">
+              {categories.map(c => <option key={c} value={c}>{c === 'Tous' ? 'Toutes les catégories' : c}</option>)}
+            </select>
+          </label>
+          {hasActiveFilters && (
+            <button type="button" className="cs26-link" onClick={() => { setSearch(''); setCategory('Tous') }}>
+              <X size={13} aria-hidden="true" /> Réinitialiser
             </button>
-          ))}
-        </div>
+          )}
+        </section>
+
+        {loading ? (
+          <div className="cs26-register" aria-busy="true">
+            <p className="cs26-sr" role="status">Chargement des cheatsheets…</p>
+            <div className="cs26-skeleton" aria-hidden="true">{Array.from({ length: 8 }, (_, i) => <div key={i} />)}</div>
+          </div>
+        ) : listError ? (
+          <div className="cs26-state is-error" role="alert">
+            <AlertTriangle size={30} aria-hidden="true" />
+            <h2>Impossible de charger la bibliothèque</h2>
+            <p>Les cheatsheets n'ont pas répondu. Réessaie dans un instant.</p>
+            <button type="button" className="cs26-btn" onClick={load}>Réessayer</button>
+          </div>
+        ) : filtered.length === 0 ? (
+          <div className="cs26-state">
+            <Terminal size={30} aria-hidden="true" />
+            <h2>Aucune cheatsheet trouvée</h2>
+            <p>{hasActiveFilters ? 'Aucune référence ne correspond à ces filtres.' : 'La bibliothèque est vide.'}</p>
+            {hasActiveFilters && <button type="button" className="cs26-btn" onClick={() => { setSearch(''); setCategory('Tous') }}>Réinitialiser les filtres</button>}
+          </div>
+        ) : (
+          <section className="cs26-register" aria-labelledby="cs26-register-title">
+            <header className="cs26-register-head">
+              <h2 id="cs26-register-title">Bibliothèque de commandes</h2>
+              <p><b>{filtered.length.toLocaleString('fr-FR')}</b> référence{filtered.length > 1 ? 's' : ''}{hasActiveFilters && <> sur {total.toLocaleString('fr-FR')}</>}</p>
+            </header>
+            <ul className="cs26-entries">
+              {filtered.map(cs => {
+                const busy = loadingTool === cs.tool
+                return (
+                  <li key={cs.tool} className="cs26-entry">
+                    <button type="button" className="cs26-entry-btn" onClick={() => openDetail(cs.tool)} disabled={Boolean(loadingTool)} aria-busy={busy}>
+                      <span className="cs26-entry-top">
+                        <span className="cs26-entry-tool">{cs.tool}</span>
+                        {busy ? <Loader2 className="cs26-entry-spin" size={16} aria-hidden="true" /> : <ChevronRight className="cs26-entry-go" size={16} aria-hidden="true" />}
+                      </span>
+                      <span className="cs26-entry-desc">{cs.description}</span>
+                      <span className="cs26-entry-foot">
+                        <span className="cs26-entry-cat">{cs.category}</span>
+                        <span className="cs26-entry-nb">{cs.nb_commands} commande{cs.nb_commands > 1 ? 's' : ''}</span>
+                      </span>
+                    </button>
+                  </li>
+                )
+              })}
+            </ul>
+          </section>
+        )}
       </div>
 
-      {/* Drawer de détail */}
       {selected && <CheatsheetDrawer cheatsheet={selected} onClose={() => setSelected(null)} />}
     </div>
   )

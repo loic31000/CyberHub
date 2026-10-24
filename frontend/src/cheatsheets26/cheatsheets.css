@@ -1,0 +1,202 @@
+/*
+ * Cheatsheets 2026 (command library / quick reference console), scoped under
+ * `.cs26` and `.cs26-drawer-layer` (the panel is portalled at the page root
+ * via fixed positioning, so it carries its own scope token). Same family as
+ * CVE, Outils and CTF: navy surfaces, CyberHub cyan, Manrope / DM Sans, DM
+ * Mono for commands. The command line is the hero of the detail panel; filled
+ * values and empty `{placeholders}` read differently. Nothing animates
+ * continuously (only the loading spinner, suppressed under reduced motion).
+ */
+.cs26, .cs26-drawer-layer {
+  --c-ink: #eaf3f8;
+  --c-copy: #bccbd8;
+  --c-muted: #8fa6b8;
+  --c-faint: #6a8296;
+  --c-line: #1f3447;
+  --c-line-strong: #2f4f66;
+  --c-inset: #07111b;
+  --c-cyan: #00d4ff;
+  --c-ice: #8fd3ff;
+  --c-cmd: #8ff0cb;
+  --c-var: #ffc879;
+  --c-display: Manrope, "DM Sans", system-ui, sans-serif;
+  --c-mono: "DM Mono", "JetBrains Mono", ui-monospace, monospace;
+  color: var(--c-copy);
+  font-family: "DM Sans", system-ui, sans-serif;
+}
+.cs26 {
+  height: 100%;
+  min-width: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+  background: linear-gradient(165deg, #080d16, #06080f 70%);
+}
+:is(.cs26, .cs26-drawer-layer) *, :is(.cs26, .cs26-drawer-layer) *::before, :is(.cs26, .cs26-drawer-layer) *::after { box-sizing: border-box; }
+:is(.cs26, .cs26-drawer-layer) :is(a, button, input, select, textarea, pre, [tabindex]):focus-visible { outline: 2px solid #a9f4fa; outline-offset: 2px; }
+:where(.cs26, .cs26-drawer-layer) :where(button) { font: inherit; color: inherit; cursor: pointer; }
+.cs26-sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+.cs26-frame { display: grid; gap: 16px; min-width: 0; padding: 24px 28px 32px; }
+.cs26 .chh { width: 100%; }
+
+/* ---------- hero motif (static) ---------- */
+.chh .cs26-m-card { fill: #0c1c2b; stroke: #39647e; stroke-width: 1; }
+.chh .cs26-m-row-sign { fill: #4f95ae; }
+.chh .cs26-m-row { fill: #6fb6cf; opacity: .7; }
+.chh .cs26-m-token { fill: #ffd79a; font: 600 15px/1 "DM Mono", ui-monospace, monospace; text-anchor: middle; }
+.chh .cs26-m-bar { stroke: #2f5a74; stroke-width: 1; }
+.chh .cs26-m-led { fill: #4f95ae; }
+.chh .cs26-m-prompt2 { fill: none; stroke: #76dff0; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+.chh .cs26-m-cmd { stroke: #8ff0cb; stroke-width: 2; stroke-linecap: round; }
+.chh .cs26-m-cmd.is-dim { stroke: #5f8fa6; opacity: .6; }
+.chh .cs26-m-caret { fill: #b6f1fb; }
+
+/* ---------- controls ---------- */
+.cs26-btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+  min-height: 40px; padding: 0 14px; border: 1px solid var(--c-line-strong); border-radius: 9px;
+  background: #0d1a28; color: var(--c-ink); font: 650 .82rem/1 "DM Sans", sans-serif; text-decoration: none; white-space: nowrap;
+  transition: border-color .15s, background-color .15s;
+}
+.cs26-btn:not(.is-primary, :disabled):hover { border-color: #4f7d97; background: #10223a; }
+.cs26-btn.is-primary { border-color: transparent; background: linear-gradient(180deg, #13b9de, #0a8fb0); color: #021019; box-shadow: inset 0 1px 0 rgb(255 255 255 / .2); }
+.cs26-btn:disabled { opacity: .55; cursor: not-allowed; }
+.cs26-link { display: inline-flex; align-items: center; gap: 6px; padding: 0; border: 0; background: none; color: var(--c-ice); font: 600 .8rem/1.2 "DM Sans", sans-serif; }
+.cs26-link:hover { color: #d8f3ff; text-decoration: underline; text-underline-offset: 4px; }
+
+/* ---------- console: dominant search + compact category ---------- */
+.cs26-console {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 10px 12px; padding: 16px 20px;
+  border: 1px solid #2a4458; border-radius: 14px;
+  background: radial-gradient(120% 140% at 0% 0%, rgb(0 212 255 / .06), transparent 55%), linear-gradient(180deg, #0c1826, #0a131e);
+  box-shadow: inset 0 1px 0 rgb(160 230 245 / .06), 0 14px 30px rgb(0 0 0 / .25);
+}
+.cs26-search { position: relative; flex: 1 1 420px; min-width: 0; }
+.cs26-search svg { position: absolute; top: 50%; left: 16px; transform: translateY(-50%); color: #6fc7da; pointer-events: none; }
+.cs26-search input { width: 100%; min-height: 52px; padding: 0 16px 0 46px; border: 1px solid #335a72; border-radius: 10px; background: var(--c-inset); color: #f2fbff; font: 600 1rem/1 var(--c-mono); }
+.cs26-search input::placeholder { color: #5d7689; font-weight: 500; }
+.cs26-search input:focus { border-color: #6fd0e4; outline: 0; box-shadow: 0 0 0 3px rgb(0 212 255 / .12); }
+.cs26-cat-select { display: flex; min-width: 0; }
+.cs26-cat-select select { min-width: 210px; max-width: 100%; min-height: 52px; padding: 0 14px; border: 1px solid #335a72; border-radius: 10px; background: var(--c-inset); color: var(--c-ink); font: 600 .86rem/1 "DM Sans", sans-serif; }
+.cs26-cat-select select:focus { border-color: #6fd0e4; outline: 0; box-shadow: 0 0 0 3px rgb(0 212 255 / .12); }
+
+/* ---------- register ---------- */
+.cs26-register { overflow: hidden; border: 1px solid var(--c-line); border-radius: 14px; background: linear-gradient(180deg, #0b1522, #08111b); }
+.cs26-register-head { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 6px 16px; padding: 12px 20px; border-bottom: 1px solid var(--c-line-strong); background: #0d1b29; }
+.cs26-register-head h2 { margin: 0; color: var(--c-muted); font: 600 .68rem/1 var(--c-mono); letter-spacing: .12em; text-transform: uppercase; }
+.cs26-register-head p { margin: 0; color: var(--c-muted); font: 500 .76rem/1.3 var(--c-mono); }
+.cs26-register-head b { color: var(--c-ink); font-weight: 600; }
+.cs26-entries { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); margin: 0; padding: 0; list-style: none; }
+.cs26-entry { border-right: 1px solid rgb(31 52 71 / .7); border-bottom: 1px solid rgb(31 52 71 / .7); }
+.cs26-entry:nth-child(3n) { border-right: 0; }
+.cs26-entry-btn {
+  display: grid; gap: 10px; width: 100%; height: 100%; padding: 16px 18px; border: 0;
+  background: transparent; text-align: left; transition: background-color .15s;
+}
+.cs26-entry-btn:hover { background: rgb(143 211 255 / .04); }
+.cs26-entry-btn:disabled { cursor: progress; }
+.cs26-entry-btn[aria-busy="true"] { background: rgb(0 212 255 / .05); }
+.cs26-entry-top { display: flex; align-items: center; justify-content: space-between; gap: 10px; min-width: 0; }
+.cs26-entry-tool { min-width: 0; overflow-wrap: anywhere; color: var(--c-ink); font: 750 1.08rem/1.2 var(--c-display); letter-spacing: -.01em; }
+.cs26-entry-btn:hover .cs26-entry-tool { color: #d8f6ff; }
+.cs26-entry-go { flex: none; color: var(--c-faint); transition: transform .15s, color .15s; }
+.cs26-entry-btn:hover .cs26-entry-go { color: var(--c-ice); transform: translateX(2px); }
+.cs26-entry-spin { flex: none; color: var(--c-cyan); animation: cs26-spin 1s linear infinite; }
+.cs26-entry-desc { display: -webkit-box; overflow: hidden; color: var(--c-copy); font-size: .84rem; line-height: 1.5; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow-wrap: anywhere; }
+.cs26-entry-foot { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 6px 10px; margin-top: 2px; }
+.cs26-entry-cat { padding: 3px 9px; border: 1px solid var(--c-line); border-radius: 6px; color: var(--c-muted); font: 500 .72rem/1.3 "DM Sans", sans-serif; }
+.cs26-entry-nb { color: var(--c-ice); font: 600 .74rem/1.3 var(--c-mono); white-space: nowrap; }
+
+.cs26-state { display: grid; justify-items: center; gap: 10px; padding: 56px 20px; border: 1px solid var(--c-line); border-radius: 14px; background: #0a131e; text-align: center; }
+.cs26-state h2, .cs26-state p { margin: 0; }
+.cs26-state h2 { color: var(--c-ink); font: 700 1.05rem/1.3 var(--c-display); }
+.cs26-state p { max-width: 36rem; color: var(--c-muted); font-size: .88rem; line-height: 1.5; }
+.cs26-state svg { color: var(--c-ice); }
+.cs26-state.is-error { border-color: #5c2f36; }
+.cs26-state.is-error svg { color: #ff8b98; }
+.cs26-state .cs26-btn { margin-top: 6px; }
+.cs26-skeleton { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.cs26-skeleton div { height: 116px; border-right: 1px solid rgb(31 52 71 / .65); border-bottom: 1px solid rgb(31 52 71 / .65); background: linear-gradient(90deg, #0c1724, #0e1b2a 40%, #0c1724); }
+.cs26-skeleton div:nth-child(3n) { border-right: 0; }
+
+/* ---------- drawer: command workspace ---------- */
+/*
+ * Starts just below the global CyberHub topbar (its height is exposed on the
+ * shell as --ch-topbar-h and inherits here) so the panel header and its close
+ * button are never tucked under the topbar; the topbar stays visible above.
+ */
+.cs26-drawer-layer { position: fixed; top: var(--ch-topbar-h, 60px); right: 0; bottom: 0; left: 0; z-index: 40; display: flex; justify-content: flex-end; }
+.cs26-drawer-scrim { position: absolute; inset: 0; background: rgb(3 6 12 / .72); }
+.cs26-drawer {
+  position: relative; display: flex; flex-direction: column; width: min(100%, 640px); max-width: 100%; height: 100%;
+  border-left: 1px solid #2a4458; background: linear-gradient(180deg, #0b1623, #080f1a);
+  box-shadow: -24px 0 60px rgb(0 0 0 / .5); animation: cs26-slide .18s ease-out;
+}
+.cs26-drawer:focus { outline: 0; }
+.cs26-drawer-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; padding: 20px 22px; border-bottom: 1px solid var(--c-line-strong); background: linear-gradient(90deg, rgb(0 212 255 / .08), transparent 60%); }
+.cs26-drawer-id { min-width: 0; display: grid; gap: 6px; }
+.cs26-drawer-kicker { margin: 0; color: var(--c-muted); font: 600 .66rem/1 var(--c-mono); letter-spacing: .12em; text-transform: uppercase; }
+.cs26-drawer-id h2 { margin: 0; color: var(--c-ink); font: 800 1.7rem/1.1 var(--c-display); letter-spacing: -.02em; overflow-wrap: anywhere; }
+.cs26-drawer-desc { margin: 0; color: var(--c-copy); font-size: .88rem; line-height: 1.5; overflow-wrap: anywhere; }
+.cs26-icon-btn { display: inline-grid; place-items: center; flex: none; width: 38px; height: 38px; border: 1px solid var(--c-line-strong); border-radius: 9px; background: #0d1a28; color: var(--c-muted); }
+.cs26-icon-btn:hover { border-color: #c45864; color: #ffb3bd; }
+.cs26-drawer-body { flex: 1; min-height: 0; overflow-y: auto; display: grid; gap: 14px; align-content: start; padding: 18px 22px 28px; }
+.cs26-drawer-count { margin: 0; color: var(--c-faint); font: 600 .68rem/1 var(--c-mono); letter-spacing: .1em; text-transform: uppercase; }
+
+/* command card */
+.cs26-cmd { display: grid; gap: 12px; padding: 16px 18px; border: 1px solid var(--c-line); border-radius: 12px; background: #0a1420; }
+.cs26-cmd-head { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; }
+.cs26-cmd-head h4 { margin: 0; color: var(--c-ink); font: 700 .98rem/1.3 var(--c-display); overflow-wrap: anywhere; }
+.cs26-cmd-count { flex: none; color: var(--c-faint); font: 500 .7rem/1 var(--c-mono); }
+.cs26-vars { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; }
+.cs26-var { display: grid; gap: 5px; min-width: 0; }
+.cs26-var label { color: var(--c-var); font: 600 .72rem/1.2 var(--c-mono); overflow-wrap: anywhere; }
+.cs26-var input { width: 100%; min-height: 40px; padding: 8px 11px; border: 1px solid #335a72; border-radius: 8px; background: var(--c-inset); color: #ffe4bd; font: 500 .84rem/1.4 var(--c-mono); }
+.cs26-var input::placeholder { color: #5d7689; }
+.cs26-var input:focus { border-color: #6fd0e4; outline: 0; box-shadow: 0 0 0 3px rgb(0 212 255 / .12); }
+.cs26-var[data-filled] input { border-color: #3f7d6a; color: #ffe9c8; }
+
+.cs26-final { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 10px; align-items: stretch; }
+.cs26-final pre { margin: 0; min-width: 0; padding: 12px 14px; overflow-x: auto; border: 1px solid #2f5a74; border-left: 3px solid var(--c-cmd); border-radius: 9px; background: #050d15; color: var(--c-cmd); font: 500 .88rem/1.55 var(--c-mono); white-space: pre; }
+.cs26-final code { font: inherit; color: inherit; }
+.cs26-tok-empty { color: var(--c-var); opacity: .85; }
+.cs26-tok-filled { color: #c9ffe9; background: rgb(143 240 203 / .12); border-radius: 3px; padding: 0 2px; }
+.cs26-copy { display: inline-flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; flex: none; width: 58px; border: 1px solid var(--c-line-strong); border-radius: 9px; background: #0d1a28; color: var(--c-muted); font: 600 .66rem/1 "DM Sans", sans-serif; transition: border-color .15s, color .15s, background-color .15s; }
+.cs26-copy:hover { border-color: #4f7d97; color: var(--c-ink); }
+.cs26-copy[data-copied] { border-color: #3f7d6a; background: rgb(95 224 180 / .1); color: #8ff0cb; }
+
+@keyframes cs26-spin { to { transform: rotate(360deg); } }
+@keyframes cs26-slide { from { transform: translateX(16px); opacity: .6; } to { transform: none; opacity: 1; } }
+
+/* ---------- responsive ---------- */
+@media (max-width: 1180px) {
+  .cs26-entries, .cs26-skeleton { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .cs26-entry:nth-child(3n) { border-right: 1px solid rgb(31 52 71 / .7); }
+  .cs26-entry:nth-child(2n) { border-right: 0; }
+  .cs26-skeleton div:nth-child(3n) { border-right: 1px solid rgb(31 52 71 / .65); }
+  .cs26-skeleton div:nth-child(2n) { border-right: 0; }
+}
+@media (max-width: 760px) {
+  .cs26-frame { gap: 12px; padding: 16px 16px 24px; }
+  .cs26-console { padding: 14px; }
+  .cs26-search { flex-basis: 100%; }
+  .cs26-cat-select { flex: 1 1 100%; }
+  .cs26-cat-select select { width: 100%; min-width: 0; }
+  .cs26-entries, .cs26-skeleton { grid-template-columns: minmax(0, 1fr); }
+  .cs26-entry, .cs26-skeleton div { border-right: 0 !important; }
+  .cs26-drawer { width: 100%; border-left: 0; }
+  .cs26-drawer-head { padding: 16px; }
+  .cs26-drawer-id h2 { font-size: 1.45rem; }
+  .cs26-drawer-body { padding: 14px 16px 24px; }
+  .cs26-cmd { padding: 14px; }
+  .cs26-final { grid-template-columns: minmax(0, 1fr); }
+  .cs26-copy { flex-direction: row; width: auto; min-height: 40px; padding: 0 14px; gap: 6px; justify-self: start; }
+}
+@media (max-width: 380px) {
+  .cs26-vars { grid-template-columns: minmax(0, 1fr); }
+  .cs26-final pre { padding: 10px 12px; font-size: .82rem; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .cs26-entry-spin { animation-duration: 0s; }
+  .cs26-drawer { animation: none; }
+  :is(.cs26, .cs26-drawer-layer) *, :is(.cs26, .cs26-drawer-layer) *::before, :is(.cs26, .cs26-drawer-layer) *::after { transition-duration: 0s !important; }
+}
