@@ -2,6 +2,17 @@
 
 ---
 
+## CyberHub 2026 — intégrations du 24 octobre 2026 (non taguées)
+
+`main` est au commit `882c1b68e3f01de5512548e5e558e562810c5bb1`. Aucun tag de version n'a été créé pour ces changements.
+
+- **BGP Lookup et Historian 2.0** — le module de recherche BGP est présent dans `main`; Historian 2.0 ajoute snapshots, provenance et comparaisons ([PR #39](https://github.com/loic31000/CyberHub/pull/39), fusionnée le 24 octobre).
+- **CVE & KEV 2026** — interface de veille CVE renouvelée ([PR #41](https://github.com/loic31000/CyberHub/pull/41), fusionnée le 24 octobre).
+- **Dashboard et circuit animé** — [PR #42](https://github.com/loic31000/CyberHub/pull/42) (performance au repos), puis [PR #44](https://github.com/loic31000/CyberHub/pull/44) (restauration des LED, des trajets lumineux et des effets ; pause en onglet masqué et `prefers-reduced-motion`) sont fusionnées. La performance avec les animations actives n'est pas considérée comme définitivement résolue.
+- **Investigations 2026** — espace de gestion des dossiers et chronologies ([PR #43](https://github.com/loic31000/CyberHub/pull/43), fusionnée le 24 octobre).
+- **Playbooks 2026** — en développement, non intégré à `main`.
+- **Landing / Showcase 2026** — reste dans `feat/cyberhub-2026-design`; la [PR #25](https://github.com/loic31000/CyberHub/pull/25) est ouverte en brouillon. Sa démo repose exclusivement sur des données fictives et n'appelle pas les API privées. Aucune fusion ou publication du site n'est décrite ici.
+
 ## CyberHub 2026 - Intégration de la Console (non taguée)
 
 Fusionnée dans `main` le 15 octobre 2026 via la [PR #27](https://github.com/loic31000/CyberHub/pull/27). Aucun tag ni numéro de version n'a été créé pour cette intégration ; v1.1 reste la dernière version numérotée.

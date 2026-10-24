@@ -4,10 +4,12 @@
 
 **Cible fonctionnelle : une seule application frontend React dans `frontend/`.** La landing de présentation, le Dashboard 2026 et les modules existants appartiennent ou appartiendront à cette même expérience. Le backend Go et SQLite reste le service local de l'application. La mise à disposition éventuelle d'une vitrine statique indépendante sur Internet est une **possibilité future**, pas une exigence ni une décision de déploiement.
 
-**Statut d'implémentation au 15 octobre 2026 : partiellement réalisée.** Cette ADR remplace l'ancienne proposition privilégiant deux applications frontend autonomes.
+**Statut d'implémentation au 24 octobre 2026 (`main` `882c1b68`) : partielle.** Cette ADR remplace l'ancienne proposition privilégiant deux applications frontend autonomes.
 
-- **Console 2026 intégrée** au frontend principal via la [PR #27](https://github.com/loic31000/CyberHub/pull/27) : Dashboard, navigation globale, MITRE ATT&CK, IOC Manager et OSINT Runner vivent dans `frontend/src/`, avec le backend Go/SQLite et l'authentification existants. La branche `feat/console-2026-dashboard-prototype` reste une référence historique.
-- **Landing / Showcase pas encore intégrée** : elle reste un laboratoire Vite autonome sur `feat/cyberhub-2026-design`, utilisé uniquement pour le développement ; ce n'est pas la cible produit.
+- **Console 2026 intégrée** : le Dashboard et le shell initial sont issus de la [PR #27](https://github.com/loic31000/CyberHub/pull/27) ; BGP Lookup est présent, Historian 2.0 a été ajouté par la [PR #39](https://github.com/loic31000/CyberHub/pull/39), CVE & KEV 2026 par la [PR #41](https://github.com/loic31000/CyberHub/pull/41), et Investigations 2026 par la [PR #43](https://github.com/loic31000/CyberHub/pull/43). La branche `feat/console-2026-dashboard-prototype` reste une référence historique.
+- **Dashboard et mouvement** : les [PR #42](https://github.com/loic31000/CyberHub/pull/42) et [#44](https://github.com/loic31000/CyberHub/pull/44) sont fusionnées. Le correctif #44 restaure les LED et le circuit animé, avec pause en onglet masqué et mouvement réduit ; il ne résout pas définitivement le coût des animations actives.
+- **Playbooks 2026 en développement** : le chantier n'est pas intégré à `main`. Les playbooks historiques restent distincts de ce chantier.
+- **Landing / Showcase pas encore intégrée** : la [PR #25](https://github.com/loic31000/CyberHub/pull/25) est en brouillon. Le prototype Vite autonome sur `feat/cyberhub-2026-design` reste une source de conception et de démonstration fictive, pas une fonction intégrée ou publiée.
 
 *Décision et statut initiaux du 12 octobre 2026 : intention d'intégration validée, pas encore implémentée dans `main`.*
 
@@ -25,7 +27,7 @@ CyberHub/
   frontend/                application React unifiée
     src/
       ...                  landing et présentation du projet (à intégrer)
-      dashboard2026/       dashboard 2026 (intégré, PR #27)
+      dashboard2026/       Dashboard et circuit animé intégrés (#44)
       ...                  modules existants, recherche et paramètres
   backend/                 API Go, authentification, SQLite, build React embarqué
   docs/                    architecture, roadmap, licences

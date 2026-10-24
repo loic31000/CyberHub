@@ -1,12 +1,12 @@
-# Branches CyberHub et intégration - état au 15 octobre 2026
+# Branches CyberHub et intégration - état au 24 octobre 2026
 
-> **Mise à jour du 15 octobre 2026 :** la [PR #26](https://github.com/loic31000/CyberHub/pull/26) (licence MIT et documentation) a été fusionnée le 12 octobre 2026. La Console CyberHub 2026 (Dashboard, navigation globale, MITRE ATT&CK, IOC Manager, OSINT Runner) a été **intégrée au frontend principal** via la [PR #27](https://github.com/loic31000/CyberHub/pull/27), fusionnée le 15 octobre 2026, depuis la branche d'intégration `feat/integrate-dashboard-2026` issue de `main`. La branche prototype du Dashboard est conservée comme référence historique et n'est **plus à fusionner**. La Landing / Showcase reste séparée ([PR #25](https://github.com/loic31000/CyberHub/pull/25), brouillon). Les sections « Risques » et « Séquence » ci-dessous conservent l'analyse du 12 octobre, complétée de l'état actuel de chaque étape.
+> **Mise à jour du 24 octobre 2026 (`main` `882c1b68`) :** PR #26 et #27 restent les bases documentaires et de la Console. BGP Lookup / Historian 2.0 (#39), CVE & KEV 2026 (#41), Investigations 2026 (#43) et les correctifs Dashboard (#42 et restauration du circuit animé #44) sont fusionnés. La performance avec les animations actives reste à améliorer. Playbooks 2026 reste en développement. La Landing / Showcase reste séparée : [PR #25](https://github.com/loic31000/CyberHub/pull/25) est en brouillon, sa tête `1f2a494b` se fonde sur `0db993d6` (avant `main`). Sa démo utilise exclusivement des données fictives. Conserver les analyses de conflits comme risques de portage ; ne pas fusionner directement cette ancienne PR.
 
 Ce document fournit une **photographie de GitHub**, pas de l'état non commité des postes de développement. Il ne déclenche aucune fusion ni suppression de branche.
 
 ## But du projet
 
-CyberHub est un outil personnel de cybersécurité, utilisable localement, dont le code original est destiné à être partagé sous licence MIT. Sa landing et son Dashboard 2026 doivent **à terme rejoindre le frontend React existant dans `frontend/`**, tandis que Go et SQLite demeurent locaux et protégés. L'objectif n'est pas de déployer un SaaS ou d'imposer deux applications frontend. Voir [l'architecture](cyberhub-2026/architecture.md).
+CyberHub est un outil personnel de cybersécurité, utilisable localement, dont le code original est destiné à être partagé sous licence MIT. Le Dashboard 2026 est déjà dans le frontend React existant; la Landing pourra le rejoindre après adaptation et revue. Go et SQLite demeurent locaux et protégés. L'objectif n'est pas de déployer un SaaS ou d'imposer deux applications frontend. Voir [l'architecture](cyberhub-2026/architecture.md).
 
 Les laboratoires et leurs branches permettent de concevoir et tester les interfaces sans risquer la Console existante. **Un merge Git du laboratoire n'est pas équivalent à l'intégration du prototype dans les routes, composants et données de l'application.**
 
@@ -14,10 +14,16 @@ Les laboratoires et leurs branches permettent de concevoir et tester les interfa
 
 | Branche | Rôle au moment de cette vérification | Action conseillée |
 | --- | --- | --- |
-| `main` | Console locale de référence, avec la licence MIT (PR #26) et la Console 2026 intégrée (PR #27). | Base des nouveaux chantiers. |
+| `main` | Console locale au SHA `882c1b68`; comprend Dashboard, BGP Lookup / Historian, CVE & KEV 2026 et Investigations 2026. | Base des nouveaux chantiers. |
 | `docs/2026-readme-licensing-audit` | Documentation et décision MIT, **fusionnée** via la [PR #26](https://github.com/loic31000/CyberHub/pull/26) (squash). | Archive ; aucune action. |
 | `feat/integrate-dashboard-2026` | Branche d'intégration de la Console 2026, **fusionnée** via la [PR #27](https://github.com/loic31000/CyberHub/pull/27). | Archive ; aucune action. |
-| `feat/cyberhub-2026-design` | Laboratoire landing / Showcase, [PR #25](https://github.com/loic31000/CyberHub/pull/25) actuellement en brouillon. | Conserver la branche et ses archives. Ne pas fusionner la PR #25 telle quelle comme « intégration terminée ». |
+| `fix/dashboard-animation-performance` | Dashboard Performance, **fusionné** via la [PR #42](https://github.com/loic31000/CyberHub/pull/42). | Référence historique de la phase de performance. |
+| `fix/dashboard-circuit-motion-recovery` | Correctif C fusionné via la [PR #44](https://github.com/loic31000/CyberHub/pull/44). | Branche historique ; circuit animé rétabli sur `main`, coût des animations actives non résolu. |
+| `feat/bgp-historian-contracts` | BGP Historian 2.0, **fusionné** via la [PR #39](https://github.com/loic31000/CyberHub/pull/39); BGP Lookup est également présent sur `main`. | Archive de référence. |
+| `feat/frontend-2026-cve` | CVE & KEV 2026, **fusionné** via la [PR #41](https://github.com/loic31000/CyberHub/pull/41). | Archive de référence. |
+| `feat/investigations-2026` | Investigations 2026, **fusionné** via la [PR #43](https://github.com/loic31000/CyberHub/pull/43). | Archive de référence. |
+| `feat/playbooks-2026` | Chantier Playbooks 2026 en développement; non intégré à `main`. | Laisser le worktree de travail à son responsable; ne pas inclure dans ce lot. |
+| `feat/cyberhub-2026-design` | Laboratoire landing / Showcase, [PR #25](https://github.com/loic31000/CyberHub/pull/25) ouverte en brouillon sur une base antérieure à `main`. | Préserver le récit et les archives; porter et adapter dans une branche neuve, pas de merge direct. |
 | `feat/console-2026-dashboard-prototype` | Laboratoire Dashboard 2026, globe et flux de démonstration ; son contenu a été repris dans le frontend principal par la PR #27. | Conserver comme référence historique ; **ne pas fusionner**. |
 | `feat/cyberhub-2026-foundations` | Ancienne branche documentaire, actuellement derrière `main` et sans commit inédit par rapport à `main`. | Ne pas la refusionner comme un nouveau chantier ; conserver en archive tant qu'aucune suppression n'est décidée. |
 
@@ -49,18 +55,18 @@ Un `git status` local, des fichiers non suivis et des commits non poussés sur l
 
 ## Séquence recommandée, sans fusion automatique
 
-État au 15 octobre 2026 indiqué entre crochets.
+État au 24 octobre 2026 indiqué entre crochets.
 
 
 1. **[Fait]** **Figer et sauvegarder les travaux en cours.** Attendre la fin de Codex, vérifier branche et `git status`, valider les changements, commit/push explicites par leur responsable. Éviter les manipulations de branches pendant son travail.
 2. **[Fait - PR #26 fusionnée le 12/10/2026]** **Traiter la PR documentaire #26 séparément.** Elle concerne MIT, README, architecture et documentation commune, et n'intègre aucun prototype. Re-vérifier son état GitHub juste avant approbation.
 3. **[Fait pour la Console : `feat/integrate-dashboard-2026`]** **Préparer des branches d'intégration issues du `main` à jour**, dans des worktrees distincts si plusieurs tâches avancent simultanément. Conserver les branches de laboratoires comme références immuables pendant ce travail.
-4. **[À réaliser]** **Intégrer la landing** dans les routes et composants de `frontend/` en préservant la distinction entre la présentation fictive et les données réelles. Ne pas considérer la PR #25 actuelle comme une intégration prête.
-5. **[Fait - PR #27]** **Intégrer progressivement le Dashboard 2026** dans la Console existante en reliant ses informations aux données/permissions correctes, sans casser les autres modules.
-6. **[À réaliser avec la landing ; le fichier n'existe pas encore sur `main`]** **Résoudre explicitement `docs/design/cyberhub-2026.md`** à partir des deux références ; adopter une version canonique compatible avec l'architecture finale.
-7. **[Partiel pour la PR #27 : TypeScript, Vitest, build et smoke tests ciblés ; voir les limites du README]** **Tester avant fusion vers `main`** : builds, TypeScript, tests React/Go pertinents, parcours authentifiés, persistance SQLite, clavier, mobile, mouvement réduit, crédits/licences, absence de données privées dans les démonstrations.
-8. **[Appliqué pour les PR #26 et #27]** **Fusionner seulement après validation explicite de chaque PR d'intégration.** Aucune fusion, suppression ou réécriture de branche prototype ne fait partie de l'audit documentaire.
+4. **[À réaliser]** **Intégrer la Landing** selon le [plan dédié](cyberhub-2026/landing-integration-plan.md). PR #25 n'est pas prête à merger : sa base précède `main`, ses scènes impératives doivent être portées vers React et la frontière démo/API doit être testée.
+5. **[Fait, PR #27, #39–#44]** **Dashboard et modules indiqués ci-dessus intégrés.** La PR #44 restaure les animations lumineuses du circuit ; l'optimisation de leur coût reste un travail distinct.
+6. **[À décider pendant l'intégration]** **Établir une direction artistique canonique** à partir des références existantes; ne pas écraser ou importer sans revue le fichier de design de la branche Landing.
+7. **[En continu]** **Tester avant chaque fusion** : builds, TypeScript, tests React/Go pertinents, routes protégées, persistance SQLite, clavier, mobile, mouvement réduit, licences et absence d'accès privé depuis la démo.
+8. **[En vigueur]** **Fusionner seulement après validation explicite de chaque PR d'intégration.** Conserver les branches de laboratoire; ne pas réécrire leur historique.
 
 ## Limites de cette vérification
 
-Le contrôle initial porte sur **l'état GitHub publié au 12 octobre 2026** ; la mise à jour du 15 octobre ajoute uniquement l'état des PR #25 à #27 et des branches, les chemins présents dans les branches et l'état des PR au moment de la consultation. Il ne constitue ni un dry-run local exhaustif de Git sur tous les futurs commits, ni un audit du code non poussé de Codex. Les états de PR, les branches et les possibilités de merge peuvent évoluer dès qu'un nouveau commit arrive.
+Cette photographie vérifie les PR #25, #39, #41, #42, #43 et #44 via GitHub et le `main` au SHA `882c1b68` au 24 octobre 2026. Elle ne décrit pas les modifications non commitées des worktrees et n'est pas une comparaison exhaustive de tous les fichiers des branches. Revalider les têtes distantes, les conflits et l'état de chaque chantier avant toute future intégration.

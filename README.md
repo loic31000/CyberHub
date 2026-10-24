@@ -4,6 +4,7 @@
 
 > Hub de ressources cybersécurité local ; certains imports et flux demandent Internet.
 
+[![Frontend CI](https://github.com/loic31000/CyberHub/actions/workflows/frontend-ci.yml/badge.svg?branch=main)](https://github.com/loic31000/CyberHub/actions/workflows/frontend-ci.yml)
 ![Go](https://img.shields.io/badge/Go-1.27.2+-00ADD8?logo=go&logoColor=white)
 ![TypeScript](https://img.shields.io/badge/TypeScript-Strict-3178C6?logo=typescript&logoColor=white)
 ![React](https://img.shields.io/badge/React-18-61DAFB?logo=react&logoColor=black)
@@ -11,22 +12,26 @@
 [![Licence MIT (code original)](https://img.shields.io/badge/Code_original-MIT-2EA44F)](LICENSE)
 ![CLOAK](https://img.shields.io/badge/CLOAK-OpSec_TTPs--GPL_v2-6B21A8)
 
-Application de bureau pour centraliser outils, writeups CTF, veille CVE, playbooks de réponse à incident, gestion d'IOC, analyse BGP/AS, OSINT et investigation. Inclut **[CLOAK OpSec](https://github.com/Mickinthemiddle/CLOAK)** (Mick Deben, Leiden University - GPL v2), les bases [LOLBAS](https://lolbas-project.github.io/) et [GTFOBins](https://gtfobins.github.io/), ainsi que les flux [Feodo Tracker](https://feodotracker.abuse.ch/) et [URLhaus](https://urlhaus.abuse.ch/) (abuse.ch).
+Console web locale pour centraliser outils, writeups CTF, veille CVE, playbooks de réponse à incident, gestion d'IOC, analyse BGP/AS, OSINT et investigation. Inclut **[CLOAK OpSec](https://github.com/Mickinthemiddle/CLOAK)** (Mick Deben, Leiden University - GPL v2), les bases [LOLBAS](https://lolbas-project.github.io/) et [GTFOBins](https://gtfobins.github.io/), ainsi que les flux [Feodo Tracker](https://feodotracker.abuse.ch/) et [URLhaus](https://urlhaus.abuse.ch/) (abuse.ch).
 
 ---
 
-## État du projet au 15 octobre 2026
+## État du projet au 24 octobre 2026
 
-`main` contient la **Console CyberHub 2026 intégrée** depuis la [PR #27](https://github.com/loic31000/CyberHub/pull/27), fusionnée le 15 octobre 2026 : Dashboard « Terminal Overview », navigation globale, interfaces MITRE ATT&CK, IOC Manager et OSINT Runner modernisées. Il s'agit toujours d'une application personnelle locale : backend **Go**, frontend **React**, base **SQLite** locale, données de la Console derrière l'authentification existante. Le globe du Dashboard et ses routes sont illustratifs ; ils ne montrent pas du trafic réel.
+À `main` (`882c1b68`), la Console CyberHub 2026 intègre le Dashboard et le shell initial ([PR #27](https://github.com/loic31000/CyberHub/pull/27)), BGP Lookup et Historian 2.0 ([PR #39](https://github.com/loic31000/CyberHub/pull/39)), CVE & KEV 2026 ([PR #41](https://github.com/loic31000/CyberHub/pull/41)) et Investigations 2026 ([PR #43](https://github.com/loic31000/CyberHub/pull/43)). La [PR #42](https://github.com/loic31000/CyberHub/pull/42) a limité les animations au repos, puis la [PR #44](https://github.com/loic31000/CyberHub/pull/44) a restauré les LED et trajets animés du circuit, avec pause lorsque l'onglet est masqué et respect de `prefers-reduced-motion`. Les performances des animations actives restent à optimiser.
+
+Il s'agit toujours d'une application personnelle locale : backend **Go**, frontend **React**, base **SQLite** locale, données de la Console derrière l'authentification existante. Le globe et le circuit du Dashboard sont illustratifs ; ils ne montrent pas du trafic réel. La réduction des animations coûteuses au repos n'est pas présentée comme définitivement résolue.
 
 | Chantier | État actuel |
 | --- | --- |
-| Dashboard et modules 2026 | Intégrés dans `frontend/` sur `main` ; les anciennes branches de prototype restent des références historiques. |
-| Landing / Showcase 2026 | Prototype autonome sur [`feat/cyberhub-2026-design`](https://github.com/loic31000/CyberHub/tree/feat/cyberhub-2026-design), distinct de la Console ; son intégration n'est pas encore réalisée. |
+| Dashboard, BGP Lookup / Historian 2.0, CVE & KEV 2026, Investigations 2026 | Intégrés dans `frontend/` sur `main`. |
+| Dashboard et animations | PR #42 et [restauration visuelle #44](https://github.com/loic31000/CyberHub/pull/44) fusionnées ; LED et circuits animés conservés. L'optimisation des animations actives reste un chantier ouvert. |
+| Playbooks 2026 | En développement sur une branche dédiée ; les nouveaux écrans ne sont pas intégrés à `main`. Les 19 playbooks historiques restent disponibles. |
+| Landing / Showcase 2026 | Prototype autonome sur [`feat/cyberhub-2026-design`](https://github.com/loic31000/CyberHub/tree/feat/cyberhub-2026-design), [PR #25 en brouillon](https://github.com/loic31000/CyberHub/pull/25), distinct de la Console ; aucune intégration réalisée. |
 
-Le projet reste destiné à un usage local et au partage du code source, **sans service SaaS ni déploiement Internet de la Console prévu**. La cible d'architecture demeure un seul frontend React pour la Console et, si elle est intégrée plus tard, la landing.
+Le projet reste destiné à un usage local et au partage du code source, **sans service SaaS ni déploiement Internet de la Console prévu**. La cible d'architecture demeure un seul frontend React pour la Console et, si elle est intégrée plus tard, la landing. La démo de la Landing utilise exclusivement des données fictives et n'accède ni à l'authentification, ni aux API privées, ni à SQLite.
 
-Documents de suivi : [architecture](docs/cyberhub-2026/architecture.md), [suivi d'intégration des branches](docs/BRANCH-INTEGRATION.md), [feuille de route](docs/cyberhub-2026/implementation-roadmap.md), [développement local](DEVELOPMENT.md), [crédits/licences](docs/LICENSING.md).
+Documents de suivi : [architecture](docs/cyberhub-2026/architecture.md), [suivi d'intégration des branches](docs/BRANCH-INTEGRATION.md), [feuille de route](docs/cyberhub-2026/implementation-roadmap.md), [plan d'intégration Landing](docs/cyberhub-2026/landing-integration-plan.md), [développement local](DEVELOPMENT.md), [crédits/licences](docs/LICENSING.md).
 
 ---
 
@@ -35,17 +40,17 @@ Documents de suivi : [architecture](docs/cyberhub-2026/architecture.md), [suivi 
 - **Dashboard 2026** - Terminal Overview, cartes d'environnement et widgets personnalisables ; statistiques et aperçus reliés aux API existantes, avec états de chargement, vide et erreur. Globe et circuit illustratifs.
 - **Outils** - 59 fiches techniques (offensif, défensif, OSINT, forensics, cloud, reverse engineering)
 - **CTF Writeups** - Gestion par plateforme (TryHackMe, HackTheBox) · 8 writeups inclus
-- **Veille CVE** - Base locale + import NVD JSON/API paginé · badge CISA KEV 🔥 · score EPSS (FIRST.org)
-- **Playbooks** - 19 procédures de réponse à incident interactives (checklist step-by-step)
+- **CVE & KEV 2026** - Veille CVE locale + import NVD JSON/API paginé · badge CISA KEV 🔥 · score EPSS (FIRST.org)
+- **Playbooks historiques** - 19 procédures de réponse à incident interactives (checklist step-by-step) ; le chantier Playbooks 2026 reste en développement, hors de `main`.
 - **MITRE ATT&CK** - catalogue local de tactiques et techniques, Explorer, fiches et préférences d'affichage ; **ATT&CK Layers** : création, visualisation et export de couches d'annotation. Le contenu disponible dépend des données synchronisées localement.
 - **CLOAK OpSec** - 720 sous-techniques · 13 tactiques · anonymat, dissimulation, OpSec · 100% offline
 - **IOC Manager** - poste de travail 2026 avec inspecteur d'indicateur et Intelligence Map (corrélations locales vers techniques MITRE ATT&CK, CVE et playbooks), ouverture directe de la fiche MITRE correspondante · IP/domaine/hash/URL/email/CIDR · TLP · sélection groupée · import CSV/TXT en masse. Les niveaux de confiance des corrélations sont des indications heuristiques, pas des probabilités de compromission.
 - **Hash Analyzer** - VirusTotal · MalwareBazaar · ThreatFox · URLhaus · 4 sources parallèles · cache SQLite
 - **BGP / AS Lookup** - API RIPE Stat · résolution DNS via Cloudflare DNS-over-HTTPS · cache SQLite 10 min · export IOC CIDR
-- **BGP Historian** - Snapshots AS périodiques · diff visuel · alertes automatiques sur changements de routage
+- **BGP Historian 2.0** - Snapshots AS sourcés · comparaisons et provenance ; associé au module BGP / AS Lookup
 - **OSINT Runner** - Search Workstation : recherche de pseudonyme sur le catalogue WhatsMyName local, périmètre par catégorie, historique et rapports, tri et filtres des profils trouvés, import des résultats en IOC. Le **Signal Globe** est une visualisation symbolique de la recherche : ses ondes et points ne représentent pas des sites ou détections individuels ; seuls les compteurs (sites vérifiés, progression, profils trouvés) sont des données réelles.
 - **Notes** - Éditeur opérationnel · liens IOC/MITRE/CVE · recherche fulltext · import/export JSON/MD/TXT/HTML
-- **Investigations** - Timeline d'investigation avec événements horodatés
+- **Investigations 2026** - Dossiers d'investigation et timeline d'événements horodatés
 - **Corrélation IOC** - Moteur 9 goroutines · matching CVE, playbooks, MITRE, LOLBins, BGP, threat feeds
 - **LOLBins & GTFOBins** - 232 binaires Windows (LOLBAS) + 15+ Linux · filtres MITRE + catégorie · copie en un clic
 - **Cheatsheets** - 35+ outils · commandes paramétrables · variables dynamiques · copie en un clic
@@ -217,4 +222,4 @@ Cyber-Hub est destiné **exclusivement à un usage légal et éthique** : tests 
 
 ---
 
-*Documentation actualisée le 15/10/2026. Console 2026 intégrée sur `main` (PR #27) ; la landing reste un chantier distinct.*
+*Documentation de statut actualisée le 24/10/2026 sur `main` `882c1b68`. Le correctif du circuit animé (PR #44) est intégré ; la Landing et Playbooks 2026 ne sont pas encore intégrés.*
