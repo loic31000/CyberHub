@@ -18,13 +18,13 @@ Console web locale pour centraliser outils, writeups CTF, veille CVE, playbooks 
 
 ## État du projet au 24 octobre 2026
 
-À `main` (`882c1b68`), la Console CyberHub 2026 intègre le Dashboard et le shell initial ([PR #27](https://github.com/loic31000/CyberHub/pull/27)), BGP Lookup et Historian 2.0 ([PR #39](https://github.com/loic31000/CyberHub/pull/39)), CVE & KEV 2026 ([PR #41](https://github.com/loic31000/CyberHub/pull/41)) et Investigations 2026 ([PR #43](https://github.com/loic31000/CyberHub/pull/43)). La [PR #42](https://github.com/loic31000/CyberHub/pull/42) a limité les animations au repos, puis la [PR #44](https://github.com/loic31000/CyberHub/pull/44) a restauré les LED et trajets animés du circuit, avec pause lorsque l'onglet est masqué et respect de `prefers-reduced-motion`. Les performances des animations actives restent à optimiser.
+À `main` (`decff94d`), la Console CyberHub 2026 intègre le Dashboard et le shell initial ([PR #27](https://github.com/loic31000/CyberHub/pull/27)), BGP Lookup et Historian 2.0 ([PR #39](https://github.com/loic31000/CyberHub/pull/39)), CVE & KEV 2026 ([PR #41](https://github.com/loic31000/CyberHub/pull/41)), Investigations 2026 ([PR #43](https://github.com/loic31000/CyberHub/pull/43)) et Corrélation 2026 ([PR #49](https://github.com/loic31000/CyberHub/pull/49)). Les PR [#42](https://github.com/loic31000/CyberHub/pull/42) et [#44](https://github.com/loic31000/CyberHub/pull/44) ont stabilisé puis restauré le circuit animé du Dashboard. La performance avec animations actives reste à optimiser.
 
 Il s'agit toujours d'une application personnelle locale : backend **Go**, frontend **React**, base **SQLite** locale, données de la Console derrière l'authentification existante. Le globe et le circuit du Dashboard sont illustratifs ; ils ne montrent pas du trafic réel. La réduction des animations coûteuses au repos n'est pas présentée comme définitivement résolue.
 
 | Chantier | État actuel |
 | --- | --- |
-| Dashboard, BGP Lookup / Historian 2.0, CVE & KEV 2026, Investigations 2026 | Intégrés dans `frontend/` sur `main`. |
+| Dashboard, BGP Lookup / Historian 2.0, CVE & KEV 2026, Investigations 2026, Corrélation 2026 | Intégrés dans `frontend/` sur `main`. |
 | Dashboard et animations | PR #42 et [restauration visuelle #44](https://github.com/loic31000/CyberHub/pull/44) fusionnées ; LED et circuits animés conservés. L'optimisation des animations actives reste un chantier ouvert. |
 | Playbooks 2026 | En développement sur une branche dédiée ; les nouveaux écrans ne sont pas intégrés à `main`. Les 19 playbooks historiques restent disponibles. |
 | Landing / Showcase 2026 | Prototype autonome sur [`feat/cyberhub-2026-design`](https://github.com/loic31000/CyberHub/tree/feat/cyberhub-2026-design), [PR #25 en brouillon](https://github.com/loic31000/CyberHub/pull/25), distinct de la Console ; aucune intégration réalisée. |
@@ -51,7 +51,7 @@ Documents de suivi : [architecture](docs/cyberhub-2026/architecture.md), [suivi 
 - **OSINT Runner** - Search Workstation : recherche de pseudonyme sur le catalogue WhatsMyName local, périmètre par catégorie, historique et rapports, tri et filtres des profils trouvés, import des résultats en IOC. Le **Signal Globe** est une visualisation symbolique de la recherche : ses ondes et points ne représentent pas des sites ou détections individuels ; seuls les compteurs (sites vérifiés, progression, profils trouvés) sont des données réelles.
 - **Notes** - Éditeur opérationnel · liens IOC/MITRE/CVE · recherche fulltext · import/export JSON/MD/TXT/HTML
 - **Investigations 2026** - Dossiers d'investigation et timeline d'événements horodatés
-- **Corrélation IOC** - Moteur 9 goroutines · matching CVE, playbooks, MITRE, LOLBins, BGP, threat feeds
+- **Corrélation IOC 2026** - carte de corrélation, confiance contextualisée, parcours d’investigation MITRE/CVE/réponse/outils, historique intégré et actions liées au résultat affiché · moteur 9 goroutines · matching CVE, playbooks, MITRE, LOLBins, BGP, threat feeds
 - **LOLBins & GTFOBins** - 232 binaires Windows (LOLBAS) + 15+ Linux · filtres MITRE + catégorie · copie en un clic
 - **Cheatsheets** - 35+ outils · commandes paramétrables · variables dynamiques · copie en un clic
 - **Encoder / Decoder** - Base64 ↔ URL ↔ Hex ↔ ROT13 ↔ HTML entities · preview temps réel · 100% offline
@@ -153,7 +153,9 @@ Pour un build de contrôle qui ne touche pas `backend/web`, la CI utilise un dos
 
 ### Intégration continue
 
-Le workflow [Frontend CI](.github/workflows/frontend-ci.yml) s'exécute sur les pull requests et sur `main` lorsque `frontend/` change : `npm ci`, `npx tsc --noEmit`, `npm test` (Vitest) et build Vite vers un dossier temporaire. Il est **ciblé sur le frontend** : il ne lance pas les tests Go et ne vérifie ni les opérations métier, ni les services externes.
+Le workflow [Frontend CI](.github/workflows/frontend-ci.yml) s'exécute sur les pull requests et sur `main` lorsque `frontend/` change : `npm ci`, `npx tsc --noEmit`, `npm test` (Vitest) et build Vite vers un dossier temporaire.
+
+Le dépôt comporte également [Backend CI](.github/workflows/backend-ci.yml) (build frontend requis par `go:embed`, tests Go, `go vet`, `gofmt`), [CodeQL](.github/workflows/codeql.yml), [Dependency Review](.github/workflows/dependency-review.yml) et [Dependabot](.github/dependabot.yml). La politique de signalement est dans [SECURITY.md](SECURITY.md) et le détail du durcissement GitHub dans [docs/SECURITY-HARDENING.md](docs/SECURITY-HARDENING.md).
 
 ---
 
@@ -222,4 +224,4 @@ Cyber-Hub est destiné **exclusivement à un usage légal et éthique** : tests 
 
 ---
 
-*Documentation de statut actualisée le 24/10/2026 sur `main` `882c1b68`. Le correctif du circuit animé (PR #44) est intégré ; la Landing et Playbooks 2026 ne sont pas encore intégrés.*
+*Documentation de statut actualisée le 24/10/2026 sur `main` `decff94d` après la PR #49 (Corrélation 2026). La Landing et Playbooks 2026 restent des chantiers séparés.*

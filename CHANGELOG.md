@@ -4,12 +4,13 @@
 
 ## CyberHub 2026 — intégrations du 24 octobre 2026 (non taguées)
 
-`main` est au commit `882c1b68e3f01de5512548e5e558e562810c5bb1`. Aucun tag de version n'a été créé pour ces changements.
+`main` est au commit `decff94dfe0adee08072a03a45830eedbbfc4828`. Aucun tag de version n'a été créé pour ces changements.
 
 - **BGP Lookup et Historian 2.0** — le module de recherche BGP est présent dans `main`; Historian 2.0 ajoute snapshots, provenance et comparaisons ([PR #39](https://github.com/loic31000/CyberHub/pull/39), fusionnée le 24 octobre).
 - **CVE & KEV 2026** — interface de veille CVE renouvelée ([PR #41](https://github.com/loic31000/CyberHub/pull/41), fusionnée le 24 octobre).
 - **Dashboard et circuit animé** — [PR #42](https://github.com/loic31000/CyberHub/pull/42) (performance au repos), puis [PR #44](https://github.com/loic31000/CyberHub/pull/44) (restauration des LED, des trajets lumineux et des effets ; pause en onglet masqué et `prefers-reduced-motion`) sont fusionnées. La performance avec les animations actives n'est pas considérée comme définitivement résolue.
 - **Investigations 2026** — espace de gestion des dossiers et chronologies ([PR #43](https://github.com/loic31000/CyberHub/pull/43), fusionnée le 24 octobre).
+- **Corrélation 2026** — nouvelle composition de corrélation, carte des catégories consultées, confiance contextualisée, parcours MITRE/CVE/réponse/outils, historique intégré, corrections des actions basées sur le résultat, CORS local explicite et correctifs responsive partagés ([PR #49](https://github.com/loic31000/CyberHub/pull/49), fusionnée le 24 octobre). Validation : TypeScript, 256 tests Vitest, build Vite, 79 tests Go, CORS, smoke tests Welcome/Corrélation/Investigations, rebuild Docker et conservation SQLite.
 - **Playbooks 2026** — en développement, non intégré à `main`.
 - **Landing / Showcase 2026** — reste dans `feat/cyberhub-2026-design`; la [PR #25](https://github.com/loic31000/CyberHub/pull/25) est ouverte en brouillon. Sa démo repose exclusivement sur des données fictives et n'appelle pas les API privées. Aucune fusion ou publication du site n'est décrite ici.
 

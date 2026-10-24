@@ -66,7 +66,7 @@ Les deux dernières commandes doivent rendre le même état de configuration. Un
 
 Depuis la [PR #27](https://github.com/loic31000/CyberHub/pull/27), le Dashboard 2026 et les modules modernisés font partie du frontend principal (`frontend/src/`) : `npm run dev` et `npm run build` dans `frontend/` les servent comme le reste de la Console. Aucune commande de prototype n'est nécessaire.
 
-État au 24 octobre 2026 (`main` : `882c1b68`) : BGP Lookup / Historian 2.0 ([PR #39](https://github.com/loic31000/CyberHub/pull/39)), CVE & KEV 2026 ([PR #41](https://github.com/loic31000/CyberHub/pull/41)) et Investigations 2026 ([PR #43](https://github.com/loic31000/CyberHub/pull/43)) sont intégrés. Les PR [#42](https://github.com/loic31000/CyberHub/pull/42) et [#44](https://github.com/loic31000/CyberHub/pull/44) sont fusionnées : le circuit lumineux est restauré, mais le coût des animations actives reste à optimiser. Playbooks 2026 est en développement. La Landing / Showcase reste sur la branche séparée `feat/cyberhub-2026-design` ([PR #25 en brouillon](https://github.com/loic31000/CyberHub/pull/25)), avec démo exclusivement fictive, sans accès aux API privées.
+État au 24 octobre 2026 (`main` : `decff94d`) : BGP Lookup / Historian 2.0 ([PR #39](https://github.com/loic31000/CyberHub/pull/39)), CVE & KEV 2026 ([PR #41](https://github.com/loic31000/CyberHub/pull/41)), Investigations 2026 ([PR #43](https://github.com/loic31000/CyberHub/pull/43)) et Corrélation 2026 ([PR #49](https://github.com/loic31000/CyberHub/pull/49)) sont intégrés. Les PR [#42](https://github.com/loic31000/CyberHub/pull/42) et [#44](https://github.com/loic31000/CyberHub/pull/44) sont fusionnées. Playbooks 2026 est en développement. La Landing / Showcase reste sur la branche séparée `feat/cyberhub-2026-design` ([PR #25 en brouillon](https://github.com/loic31000/CyberHub/pull/25)), avec démo exclusivement fictive, sans accès aux API privées.
 
 Vérifications usuelles dans `frontend/` : `npx tsc --noEmit`, `npm test` (Vitest) et `npm run build`. Ce dernier écrit dans `backend/web` ; pour un build de contrôle sans toucher ce dossier, utiliser comme la CI `npm run build -- --outDir <dossier-temporaire> --emptyOutDir`. Dans `backend/`, `go test ./...` nécessite un build frontend préalable, car `backend/web` est embarqué par `go:embed`.
 
@@ -76,3 +76,19 @@ Branches de laboratoire :
 - Dashboard / Terminal Overview : branche `feat/console-2026-dashboard-prototype`, dossier `frontend/prototypes/dashboard-2026/`. Conservée comme **référence historique** ; son contenu a été intégré par la PR #27.
 
 Pour inspecter ces branches sans perturber un travail local non commité, privilégier des worktrees séparés après `git fetch origin`. Ne pas les fusionner uniquement pour prévisualiser les laboratoires. La cible reste **un seul frontend React** ; l'intégration de la landing dépendra des validations décrites dans [la feuille de route](docs/cyberhub-2026/implementation-roadmap.md).
+
+
+## Cycle de travail recommandé
+
+Pour le développement quotidien, privilégier un seul workspace VS Code et un seul checkout actif. Le cycle recommandé est :
+
+1. partir de `main` à jour ;
+2. créer une branche feature ;
+3. travailler avec Vite sur `http://localhost:5173` et le backend Docker sur `127.0.0.1:7743` ;
+4. valider TypeScript, Vitest, build Vite, tests Go et smoke tests ciblés ;
+5. fusionner la feature validée dans `main` par PR ;
+6. revalider `main` ;
+7. sauvegarder SQLite par l'API SQLite (`.backup`) avant tout rebuild Docker ;
+8. reconstruire Docker uniquement depuis le `main` validé.
+
+Les worktrees supplémentaires sont réservés aux cas où des travaux parallèles doivent réellement être isolés ; ils ne doivent pas devenir l'environnement quotidien par défaut.
