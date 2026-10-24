@@ -2,6 +2,7 @@ import { useEffect, useId, useRef, useState } from 'react'
 import { cveApi } from '@/api/client'
 import { toast } from '@/store/toast'
 import { X } from 'lucide-react'
+import '@/cve26/cve.css'
 
 interface Props {
   open: boolean
@@ -113,24 +114,22 @@ export default function NVDImportModal({ open, onClose, onSuccess }: Props) {
 
   if (!open) return null
 
-  const inputCls = 'w-full border border-[#1e2d40] bg-[#0d131f] p-2 font-mono text-sm text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-[#00d4ff] disabled:opacity-60'
-  const labelCls = 'mb-1 block font-mono text-[10px] uppercase text-[#8a9ab0]'
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm">
+    <div className="cv26-dialog-layer">
       <div ref={dialogRef} role="dialog" aria-modal="true" aria-labelledby={ids.title} aria-busy={loading} onKeyDown={onKeyDown}
-        className="w-full max-w-md border border-[#1e2d40] bg-[#0a0f16] p-6 shadow-xl">
-        <div className="flex items-center justify-between mb-4">
-          <h2 id={ids.title} className="font-mono text-xs font-bold uppercase tracking-[0.2em] text-[#00d4ff]">
+        className="cv26-dialog">
+        <div className="cv26-dialog-head">
+          <h2 id={ids.title}>
             IMPORT NVD EN LIGNE
           </h2>
-          <button type="button" onClick={close} disabled={loading} className="text-[#64748b] hover:text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-[#00d4ff] disabled:opacity-40" aria-label="Fermer">
+          <button type="button" onClick={close} disabled={loading} className="cv26-icon-btn" aria-label="Fermer">
             <X size={18} />
           </button>
         </div>
-        <form onSubmit={handleSubmit} className="space-y-5" noValidate aria-describedby={error ? ids.error : undefined}>
-          <div>
-            <label htmlFor={ids.start} className={labelCls}>Date début * (recommandée)</label>
+        <form onSubmit={handleSubmit} noValidate aria-describedby={error ? ids.error : undefined}>
+          <div className="cv26-field">
+            <label htmlFor={ids.start}>Date début * (recommandée)</label>
             <input
               ref={firstFieldRef}
               id={ids.start}
@@ -138,22 +137,20 @@ export default function NVDImportModal({ open, onClose, onSuccess }: Props) {
               value={startDate}
               disabled={loading}
               onChange={e => setStartDate(e.target.value)}
-              className={inputCls}
             />
           </div>
-          <div>
-            <label htmlFor={ids.end} className={labelCls}>Date fin (optionnelle)</label>
+          <div className="cv26-field">
+            <label htmlFor={ids.end}>Date fin (optionnelle)</label>
             <input
               id={ids.end}
               type="date"
               value={endDate}
               disabled={loading}
               onChange={e => setEndDate(e.target.value)}
-              className={inputCls}
             />
           </div>
-          <div>
-            <label htmlFor={ids.cvss} className={labelCls}>Score CVSS minimum</label>
+          <div className="cv26-field">
+            <label htmlFor={ids.cvss}>Score CVSS minimum</label>
             <input
               id={ids.cvss}
               type="number"
@@ -163,11 +160,10 @@ export default function NVDImportModal({ open, onClose, onSuccess }: Props) {
               value={cvssMin}
               disabled={loading}
               onChange={e => setCvssMin(parseFloat(e.target.value) || 0)}
-              className={inputCls}
             />
           </div>
-          <div>
-            <label htmlFor={ids.keyword} className={labelCls}>Mot-clé (description)</label>
+          <div className="cv26-field">
+            <label htmlFor={ids.keyword}>Mot-clé (description)</label>
             <input
               id={ids.keyword}
               type="text"
@@ -175,11 +171,10 @@ export default function NVDImportModal({ open, onClose, onSuccess }: Props) {
               disabled={loading}
               onChange={e => setKeyword(e.target.value)}
               placeholder="ex: Log4j, RCE, injection"
-              className={inputCls}
             />
           </div>
-          <div>
-            <label htmlFor={ids.limit} className={labelCls}>Résultats max ({LIMIT_MIN}-{LIMIT_MAX})</label>
+          <div className="cv26-field">
+            <label htmlFor={ids.limit}>Résultats max ({LIMIT_MIN}-{LIMIT_MAX})</label>
             <input
               id={ids.limit}
               type="number"
@@ -188,23 +183,22 @@ export default function NVDImportModal({ open, onClose, onSuccess }: Props) {
               value={limit}
               disabled={loading}
               onChange={e => setLimit(parseInt(e.target.value, 10) || LIMIT_MIN)}
-              className={inputCls}
             />
           </div>
           {error && (
-            <p id={ids.error} role="alert" className="border border-[#ef4444]/30 bg-[#ef4444]/10 px-3 py-2 font-mono text-[11px] text-[#fca5a5]">
+            <p id={ids.error} role="alert" className="cv26-form-error">
               {error}
             </p>
           )}
           <button
             type="submit"
             disabled={loading}
-            className="w-full border border-[#00d4ff]/20 bg-[#00d4ff]/10 py-2 font-mono text-xs font-bold uppercase tracking-widest text-[#00d4ff] transition hover:bg-[#00d4ff]/20 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#00d4ff] disabled:opacity-50"
+            className="cv26-btn is-primary"
           >
             {loading ? 'IMPORT EN COURS...' : 'IMPORTER DEPUIS NVD'}
           </button>
         </form>
-        <p className="mt-4 text-center font-mono text-[9px] text-[#4a6480]">
+        <p className="cv26-dialog-foot">
           {"L'API NVD v2 est gratuite (5 req/30s sans clé, 50 avec)."}<br />
           Seules les CVE absentes de votre base seront ajoutées.
         </p>

@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { cleanup, fireEvent, render, screen } from '@testing-library/react'
+import { cleanup, fireEvent, render, screen, within } from '@testing-library/react'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import CVEDetail from './CVEDetail'
 import { cveApi, cisaApi } from '@/api/client'
@@ -70,6 +70,47 @@ describe('CVE Watch — fiche', () => {
     expect(await screen.findByText('EXPLOITATION ACTIVE — CISA KEV')).toBeTruthy()
     expect(screen.getByText('Demo · Widget')).toBeTruthy()
     expect(screen.getByText('Apply update')).toBeTruthy()
+  })
+
+  it('garde CVSS, KEV et EPSS dans trois panneaux distincts et ne pousse jamais le percentile à 100', async () => {
+    vi.mocked(cisaApi.getEPSS).mockResolvedValue({ cve_id: ENTRY.cve_id, score: 0.942, percentile: 0.998, date: '2026-10-22' })
+    renderDetail()
+    expect(await screen.findByText('94.2%')).toBeTruthy()
+    expect(screen.getByRole('region', { name: 'Gravité CVSS' }).textContent).toContain('9.1')
+    expect(screen.getByRole('region', { name: 'Exploitation CISA KEV' }).textContent).toContain('Absente du catalogue CISA KEV local.')
+    const epss = screen.getByRole('region', { name: 'Probabilité EPSS' })
+    expect(epss.textContent).toContain('99,8')
+    expect(epss.textContent).not.toContain('100')
+  })
+
+  it('signale l’écart entre la sévérité enregistrée et la plage CVSS v3, sans la modifier', async () => {
+    vi.mocked(cveApi.get).mockResolvedValue({ ...ENTRY, cvss_score: 8.1, severity: 'critical' })
+    renderDetail()
+    const cvss = await screen.findByRole('region', { name: 'Gravité CVSS' })
+    expect(cvss.textContent).toContain('8.1')
+    expect(cvss.textContent).toContain('Critique')
+    expect(cvss.textContent).toContain('correspond à « Élevée » dans les plages CVSS v3.x')
+    cleanup()
+    vi.mocked(cveApi.get).mockResolvedValue(ENTRY) // 9.1, critical: consistent
+    renderDetail()
+    expect((await screen.findByRole('region', { name: 'Gravité CVSS' })).textContent).not.toContain('plages CVSS')
+  })
+
+  it('dit factuellement ce qu’est un score CVSS de 0 enregistré', async () => {
+    vi.mocked(cveApi.get).mockResolvedValue({ ...ENTRY, cvss_score: 0, severity: 'none' })
+    renderDetail()
+    const cvss = await screen.findByRole('region', { name: 'Gravité CVSS' })
+    expect(cvss.textContent).toContain('Score CVSS enregistré : 0.0')
+    expect(cvss.textContent).toContain('ne distingue pas un score non évalué d’un score nul')
+  })
+
+  it('présente EPSS comme une probabilité estimée, distincte d’une exploitation observée', async () => {
+    renderDetail()
+    const epss = await screen.findByRole('region', { name: 'Probabilité EPSS' })
+    await within(epss).findByText('42.0%')
+    expect(epss.textContent).toContain('probabilité estimée d’exploitation sur 30 jours')
+    expect(epss.textContent).toContain('pas une exploitation observée')
+    expect(epss.textContent).toContain('FIRST.org')
   })
 
   it("propose de réessayer quand la fiche ne charge pas, et revient à l'index si elle n'existe pas", async () => {
