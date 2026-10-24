@@ -39,7 +39,7 @@
 :where(.iv26, .iv26-layer) :where(button) { font: inherit; color: inherit; cursor: pointer; }
 .iv26-sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
 /* Same page frame as the other 2026 modules: full width, 24 / 28 px, 16 px on phones. */
-.iv26-frame { display: grid; gap: 16px; min-width: 0; padding: 24px 28px 32px; }
+.iv26-frame { display: grid; grid-template-columns: minmax(0, 1fr); gap: 16px; min-width: 0; padding: 24px 28px 32px; }
 .iv26 .chh { width: 100%; }
 .iv26-muted { color: var(--i-faint); }
 
@@ -121,9 +121,11 @@
 .iv26-row-actions { position: relative; z-index: 1; display: flex; justify-content: flex-end; gap: 2px; }
 
 .iv26-state { display: grid; justify-items: center; gap: 10px; padding: 56px 20px; border: 1px solid var(--i-line); border-radius: 14px; background: #0a131e; text-align: center; }
+.iv26-state > * { min-width: 0; max-width: 100%; }
 .iv26-state h2, .iv26-state p { margin: 0; }
 .iv26-state h2 { color: var(--i-ink); font: 700 1.05rem/1.3 var(--i-display); }
-.iv26-state p { max-width: 36rem; color: var(--i-muted); font-size: .86rem; line-height: 1.5; }
+.iv26-state p { max-width: 36rem; color: var(--i-muted); font-size: .86rem; line-height: 1.5; overflow-wrap: anywhere; }
+.iv26-state > .iv26-btn { white-space: normal; line-height: 1.35; }
 .iv26-state svg { color: var(--i-ice); }
 .iv26-state.is-error { border-color: #5c2f36; }
 .iv26-state.is-error svg { color: #ff8b98; }

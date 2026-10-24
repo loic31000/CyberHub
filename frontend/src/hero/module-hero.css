@@ -19,6 +19,9 @@
   --motif-gap: 28px;
 
   position: relative;
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
   container-type: inline-size;
   display: grid;
   grid-template-columns: minmax(0, 1fr);
@@ -94,6 +97,8 @@
 }
 
 .chh-title {
+  min-width: 0;
+  max-width: 100%;
   margin: 0.35rem 0 0;
   color: var(--chh-title);
   font: 760 clamp(1.9rem, 0.87rem + 1.483vw, 2.75rem)/0.98 Manrope, "DM Sans", system-ui, sans-serif;

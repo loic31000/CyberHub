@@ -1,4 +1,4 @@
-import { useEffect, useId, useState, type CSSProperties, type ReactNode } from 'react'
+import { Fragment, useEffect, useId, useState, type CSSProperties, type ReactNode } from 'react'
 import './module-hero.css'
 
 /*
@@ -43,9 +43,14 @@ function TypedTitle({ id, title, accent, module }: { id: string; title: string; 
   }, [module])
 
   let step = 0
-  const glyphs = (word: string) => [...word].map((char) => {
+  const glyphs = (word: string) => [...word].map((char, index) => {
     const order = step++
-    return <i key={order} className="chh-glyph" style={{ '--glyph': order } as CSSProperties}>{char}</i>
+    return (
+      <Fragment key={order}>
+        {index > 0 && <wbr />}
+        <i className="chh-glyph" style={{ '--glyph': order } as CSSProperties}>{char}</i>
+      </Fragment>
+    )
   })
   const first = glyphs(title)
   step += 1 // the space is one more keystroke for the cursor

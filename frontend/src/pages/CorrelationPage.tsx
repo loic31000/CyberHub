@@ -1,23 +1,21 @@
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { GitBranch, Search, Clock, ShieldPlus, Trash2, Globe, X } from 'lucide-react'
+import { Search, Clock, ShieldPlus, Globe, X, AlertCircle, RefreshCw } from 'lucide-react'
 import { correlationApi, iocApi } from '@/api/client'
 import type { CorrelationResult, CorrelationHistoryItem } from '@/types/correlation'
 import type { IOCCreatePayload } from '@/types/ioc'
-import CorrelationPanel from '@/components/CorrelationPanel'
 import { toast } from '@/store/toast'
+import CorrHero from '@/corr26/CorrHero'
+import ResultView from '@/corr26/ResultView'
+import EngineOverview from '@/corr26/EngineOverview'
+import { IOC_TYPES, confidenceOf, formatDayTime, typeLabel, type IOCType } from '@/corr26/parts'
+import '@/corr26/corr.css'
 
-type IOCType = 'ip' | 'domain' | 'hash' | 'url' | 'email' | 'cidr'
-
-const IOC_TYPES: { value: IOCType; label: string }[] = [
-  { value: 'ip',     label: 'IP' },
-  { value: 'domain', label: 'DOMAINE' },
-  { value: 'hash',   label: 'HASH' },
-  { value: 'url',    label: 'URL' },
-  { value: 'email',  label: 'EMAIL' },
-  { value: 'cidr',   label: 'CIDR' },
-]
-
+/*
+ * Correlation engine: one indicator in, its links to MITRE ATT&CK, CVE,
+ * playbooks and local data out. The handlers below are the module's existing
+ * behaviour, unchanged; this file only lays them out.
+ */
 export default function CorrelationPage() {
   const navigate = useNavigate()
   const [iocType,  setIocType]  = useState<IOCType>('ip')
@@ -34,14 +32,17 @@ export default function CorrelationPage() {
   // Sauvegarder comme IOC
   const [saving, setSaving] = useState(false)
 
-  const handleAnalyze = async () => {
-    const val = iocValue.trim()
+  const typeRefs = useRef(new Map<IOCType, HTMLButtonElement>())
+  const valueRef = useRef<HTMLInputElement>(null)
+
+  const handleAnalyze = async (selectedType: IOCType = iocType, selectedValue: string = iocValue) => {
+    const val = selectedValue.trim()
     if (!val) return
     setLoading(true)
     setError(null)
     setResult(null)
     try {
-      const res = await correlationApi.correlationAnalyze(iocType, val)
+      const res = await correlationApi.correlationAnalyze(selectedType, val)
       setResult(res)
     } catch {
       setError('Erreur lors de l\'analyse. Vérifiez la valeur saisie.')
@@ -69,7 +70,7 @@ export default function CorrelationPage() {
     setSaving(true)
     try {
       const payload: IOCCreatePayload = {
-        type:        iocType,
+        type:        result.ioc_type as IOCType,
         value:       result.ioc_value,
         notes: `Analysé via Corrélation — ${result.techniques.length} technique(s) MITRE`,
         tlp:         'amber',
@@ -108,213 +109,144 @@ export default function CorrelationPage() {
     setError(null)
   }
 
+  // The type picker is a radio group: arrows move and select, Tab leaves it.
+  const onTypeKey = (event: React.KeyboardEvent, index: number) => {
+    const step = event.key === 'ArrowRight' || event.key === 'ArrowDown' ? 1 : event.key === 'ArrowLeft' || event.key === 'ArrowUp' ? -1 : 0
+    if (!step) return
+    event.preventDefault()
+    const next = IOC_TYPES[(index + step + IOC_TYPES.length) % IOC_TYPES.length].value
+    setIocType(next)
+    typeRefs.current.get(next)?.focus()
+  }
+
+  const example = IOC_TYPES.find(t => t.value === iocType)?.example
+  const heroStatus = loading
+    ? { text: 'ANALYSE EN COURS', tone: 'busy' as const }
+    : error
+      ? { text: 'ANALYSE ÉCHOUÉE', tone: 'warn' as const }
+      : result
+        ? { text: `${confidenceOf(result.confidence).pct} %`, mark: result.from_cache ? 'EN CACHE' : 'CONFIANCE' }
+        : { text: 'PRÊT', mark: 'LOCAL' }
+
+  const actions = result && (
+    <>
+      <button type="button" className="cr26-btn is-soft" onClick={handleSaveAsIOC} disabled={saving}>
+        <ShieldPlus size={15} aria-hidden="true" /> {saving ? 'Sauvegarde…' : 'Sauvegarder comme IOC'}
+      </button>
+      {(result.ioc_type === 'ip' || result.ioc_type === 'cidr') && (
+        <button type="button" className="cr26-btn" onClick={() => navigate(`/bgp?prefill=${encodeURIComponent(result.ioc_value)}`)}>
+          <Globe size={15} aria-hidden="true" /> BGP Lookup
+        </button>
+      )}
+      {result.ioc_type === 'hash' && (
+        <button type="button" className="cr26-btn" onClick={() => navigate(`/ioc?search=${encodeURIComponent(result.ioc_value)}`)}>
+          <Search size={15} aria-hidden="true" /> Rechercher dans IOC
+        </button>
+      )}
+      <button type="button" className="cr26-text-btn" onClick={handleInvalidateCache}>Invalider le cache</button>
+    </>
+  )
+
   return (
-    <div className="flex flex-col h-full bg-[#06080f] text-[#f1f5f9]">
-      {/* Bandeau d'en-tête style BGPLookup */}
-      <div className="flex items-center justify-between px-6 py-4 border-b border-[#1e2d40] bg-[#0a0f16]/50">
-        <div className="flex items-center gap-3">
-          <div className="relative">
-            <GitBranch className="text-[#00d4ff]" size={20} />
-            <div className="absolute -top-1 -right-1 w-2 h-2 bg-[#10b981] rounded-full animate-pulse shadow-[0_0_8px_#10b981]" />
-          </div>
-          <div>
-            <h1 className="text-sm font-bold tracking-[0.2em] uppercase">CORRELATION ENGINE // ANALYZE</h1>
-            <p className="text-[10px] text-[#64748b] font-mono">
-              Corrélation IOC → MITRE ATT&CK · CLOAK · Outils · Playbooks · CVE
-            </p>
-          </div>
-        </div>
-        <div className="flex items-center gap-4 font-mono text-[10px]">
-          <span className="text-[#64748b]">STATUS</span>
-          <span className="text-[#10b981]">ONLINE</span>
-          <button
-            onClick={loadHistory}
-            className="flex items-center gap-2 px-3 py-1.5 bg-[#1e2d40] hover:bg-[#2a3f55] text-[10px] font-bold border border-[#334155] transition-colors"
-          >
-            <Clock size={12} /> HISTORY
-          </button>
-        </div>
-      </div>
+    <div className="cr26">
+      <div className="cr26-frame">
+        <CorrHero status={heroStatus} />
 
-      {/* Zone de contenu scrollable */}
-      <div className="flex-1 overflow-auto p-6 space-y-6">
-        {/* Formulaire d'analyse */}
-        <div className="border border-[#1e2d40] bg-[#0a0f16] p-6 space-y-5">
-          <h2 className="text-[11px] font-mono font-bold uppercase tracking-[0.2em] text-[#8a9ab0] border-b border-[#1e2d40] pb-3">
-            NOUVELLE ANALYSE
-          </h2>
-
-          <div className="space-y-4">
-            {/* Sélecteur de type IOC */}
-            <div className="flex flex-wrap gap-2">
-              {IOC_TYPES.map(t => (
-                <button
-                  key={t.value}
-                  onClick={() => setIocType(t.value)}
-                  className={`text-[10px] font-mono font-bold uppercase tracking-wider px-3 py-1.5 border transition-colors ${
-                    iocType === t.value
-                      ? 'border-[#00d4ff]/40 bg-[#00d4ff]/10 text-[#00d4ff]'
-                      : 'border-[#1e2d40] text-[#64748b] hover:border-[#2a3f55] hover:text-[#8a9ab0]'
-                  }`}
-                >
-                  {t.label}
-                </button>
-              ))}
-            </div>
-
-            {/* Champ valeur + bouton analyser */}
-            <div className="flex gap-3">
-              <div className="relative flex-1">
-                <input
-                  type="text"
-                  value={iocValue}
-                  onChange={e => setIocValue(e.target.value)}
-                  onKeyDown={handleKeyDown}
-                  placeholder={`Entrez une valeur de type ${iocType.toUpperCase()}…`}
-                  className="w-full bg-[#0d131f] border border-[#1e2d40] px-4 py-2.5 font-mono text-sm text-[#f1f5f9] placeholder-[#2a3f55] outline-none focus:border-[#00d4ff]/40"
-                  spellCheck={false}
-                  autoComplete="off"
-                />
-                {iocValue && (
-                  <button
-                    onClick={handleClearInput}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-[#64748b] hover:text-[#f1f5f9] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#00d4ff]"
-                    aria-label="Effacer"
-                  >
-                    <X size={14} />
-                  </button>
-                )}
-              </div>
+        <section className="cr26-console" aria-label="Nouvelle analyse">
+          <div className="cr26-types" role="radiogroup" aria-label="Type d’indicateur">
+            {IOC_TYPES.map((t, i) => (
               <button
-                onClick={handleAnalyze}
-                disabled={loading || !iocValue.trim()}
-                className="flex items-center gap-2 border border-[#00d4ff]/20 bg-[#00d4ff]/10 px-5 py-2.5 font-mono text-[10px] font-bold uppercase tracking-widest text-[#00d4ff] transition-colors hover:bg-[#00d4ff]/20 disabled:opacity-40"
+                key={t.value}
+                ref={el => { if (el) typeRefs.current.set(t.value, el); else typeRefs.current.delete(t.value) }}
+                type="button"
+                role="radio"
+                aria-checked={iocType === t.value}
+                tabIndex={iocType === t.value ? 0 : -1}
+                onClick={() => setIocType(t.value)}
+                onKeyDown={e => onTypeKey(e, i)}
               >
-                <Search size={14} />
-                {loading ? 'ANALYSE...' : 'ANALYSER'}
+                {t.label}
               </button>
-            </div>
+            ))}
           </div>
-        </div>
-
-        {/* Résultat de corrélation */}
-        {(result || loading || error) && (
-          <div className="space-y-4">
-            <div className="border border-[#1e2d40] bg-[#0a0f16] overflow-hidden">
-              <div className="flex items-center gap-2 border-b border-[#1e2d40] px-5 py-3">
-                <GitBranch size={13} className="text-[#00d4ff]" />
-                <h3 className="font-mono text-[11px] font-bold uppercase tracking-[0.2em] text-[#8a9ab0]">
-                  RÉSULTATS DE CORRÉLATION
-                </h3>
-              </div>
-              <div className="p-5">
-                <CorrelationPanel result={result} loading={loading} error={error} />
-              </div>
+          <div className="cr26-query">
+            <div className="cr26-input">
+              <span className="cr26-input-type" aria-hidden="true">{typeLabel(iocType)}</span>
+              <input
+                ref={valueRef}
+                type="text"
+                value={iocValue}
+                onChange={e => setIocValue(e.target.value)}
+                onKeyDown={handleKeyDown}
+                placeholder={example}
+                aria-label={`Valeur de l’indicateur (${typeLabel(iocType)})`}
+                spellCheck={false}
+                autoComplete="off"
+              />
+              {iocValue && (
+                <button type="button" className="cr26-icon-btn" onClick={() => { handleClearInput(); valueRef.current?.focus() }} aria-label="Effacer">
+                  <X size={16} />
+                </button>
+              )}
             </div>
+            <button type="button" className="cr26-btn is-primary is-lg" onClick={() => void handleAnalyze()} disabled={loading || !iocValue.trim()}>
+              <Search size={17} aria-hidden="true" /> {loading ? 'Analyse…' : 'Analyser'}
+            </button>
+          </div>
 
-            {result && !loading && (
-              <div className="flex flex-wrap gap-3 border-t border-[#1e2d40] pt-4">
-                <button
-                  onClick={handleSaveAsIOC}
-                  disabled={saving}
-                  className="flex items-center gap-2 border border-[#00d4ff]/20 bg-[#00d4ff]/10 px-4 py-2 font-mono text-[10px] font-bold uppercase tracking-widest text-[#00d4ff] transition-colors hover:bg-[#00d4ff]/20 disabled:opacity-50"
-                >
-                  <ShieldPlus size={13} />
-                  {saving ? 'SAUVEGARDE...' : 'SAUVEGARDER COMME IOC'}
-                </button>
-                <button
-                  onClick={handleInvalidateCache}
-                  className="flex items-center gap-2 border border-[#ef4444]/20 bg-[#ef4444]/10 px-4 py-2 font-mono text-[10px] font-bold uppercase tracking-widest text-[#ef4444] transition-colors hover:bg-[#ef4444]/20"
-                >
-                  <Trash2 size={13} />
-                  INVALIDER LE CACHE
-                </button>
-                {(iocType === 'ip' || iocType === 'cidr') && (
-                  <button
-                    onClick={() => navigate(`/bgp?prefill=${encodeURIComponent(iocValue)}`)}
-                    className="flex items-center gap-2 border border-blue-500/20 bg-blue-500/10 px-4 py-2 font-mono text-[10px] font-bold uppercase tracking-widest text-blue-400 transition-colors hover:bg-blue-500/20"
-                  >
-                    <Globe size={13} /> BGP LOOKUP
-                  </button>
-                )}
-                {iocType === 'hash' && (
-                  <button
-                    onClick={() => navigate(`/ioc?search=${encodeURIComponent(iocValue)}`)}
-                    className="flex items-center gap-2 border border-[#a855f7]/20 bg-[#a855f7]/10 px-4 py-2 font-mono text-[10px] font-bold uppercase tracking-widest text-[#a855f7] transition-colors hover:bg-[#a855f7]/20"
-                  >
-                    🔍 RECHERCHE DANS IOC
-                  </button>
-                )}
-              </div>
+          <div className="cr26-recent" aria-labelledby="cr26-history-title">
+            <h2 id="cr26-history-title"><Clock size={14} aria-hidden="true" /> Analyses récentes{historyLoaded && <span className="cr26-count">{history.length}</span>}</h2>
+            {!historyLoaded && !historyLoading && (
+              <button type="button" className="cr26-text-btn is-accent" onClick={loadHistory}>Charger l’historique</button>
+            )}
+            {historyLoading && <span className="cr26-recent-note" role="status">Chargement de l’historique…</span>}
+            {historyLoaded && history.length === 0 && <span className="cr26-recent-note">Aucune analyse en cache.</span>}
+            {historyLoaded && history.length > 0 && (
+              <ul className="cr26-recent-list">
+                {history.map(item => (
+                  <li key={`${item.ioc_type}-${item.ioc_value}`}>
+                    <button
+                      type="button"
+                      aria-label={`Relancer l’analyse de ${item.ioc_value} (${typeLabel(item.ioc_type)})`}
+                      title={`${item.ioc_value} · ${formatDayTime(item.generated_at)}`}
+                      onClick={() => {
+                        setIocType(item.ioc_type as IOCType)
+                        setIocValue(item.ioc_value)
+                        setResult(null)
+                        setError(null)
+                        void handleAnalyze(item.ioc_type as IOCType, item.ioc_value)
+                      }}
+                    >
+                      <span className="cr26-recent-type">{typeLabel(item.ioc_type)}</span>
+                      <span className="cr26-recent-value">{item.ioc_value}</span>
+                      <span className="cr26-recent-date">{formatDayTime(item.generated_at)}</span>
+                    </button>
+                  </li>
+                ))}
+              </ul>
             )}
           </div>
-        )}
+        </section>
 
-        {/* Historique récent (card) */}
-        <div className="border border-[#1e2d40] bg-[#0a0f16] p-6 space-y-4">
-          <div className="flex items-center justify-between border-b border-[#1e2d40] pb-3">
-            <div className="flex items-center gap-2">
-              <Clock size={13} className="text-[#00d4ff]" />
-              <h3 className="font-mono text-[11px] font-bold uppercase tracking-[0.2em] text-[#8a9ab0]">
-                HISTORIQUE DES ANALYSES
-              </h3>
-            </div>
-            {!historyLoaded && (
-              <button
-                onClick={loadHistory}
-                className="text-[10px] font-mono text-[#00d4ff] hover:underline"
-              >
-                CHARGER
-              </button>
-            )}
-          </div>
-
-          {historyLoading && (
-            <div className="space-y-2">
-              {[1, 2, 3].map(i => (
-                <div key={i} className="h-10 bg-[#0d131f] border border-[#1e2d40] animate-pulse" />
-              ))}
+        <div className="cr26-main" aria-busy={loading || undefined}>
+          {loading && (
+            <div className="cr26-loading" role="status" aria-label="Analyse en cours">
+              <div className="cr26-sk is-map" /><div className="cr26-sk is-line" /><div className="cr26-sk is-block" />
             </div>
           )}
 
-          {historyLoaded && history.length === 0 && (
-            <p className="font-mono text-xs text-[#64748b]">Aucune analyse en cache.</p>
-          )}
-
-          {historyLoaded && history.length > 0 && (
-            <div className="space-y-1">
-              {history.map(item => (
-                <div
-                  key={`${item.ioc_type}-${item.ioc_value}`}
-                  className="flex items-center justify-between py-2 px-2 cursor-pointer hover:bg-[#0d131f] transition-colors border border-transparent hover:border-[#1e2d40]"
-                  onClick={() => {
-                    setIocType(item.ioc_type as IOCType)
-                    setIocValue(item.ioc_value)
-                    setResult(null)
-                    setError(null)
-                    // Lancer l'analyse automatiquement après un court délai pour laisser l'UI se mettre à jour
-                    setTimeout(() => handleAnalyze(), 50)
-                  }}
-                >
-                  <div className="flex items-center gap-2 min-w-0">
-                    <span className="text-[10px] font-mono uppercase bg-[#0d131f] border border-[#1e2d40] px-1.5 py-0.5 text-[#64748b] shrink-0">
-                      {item.ioc_type}
-                    </span>
-                    <span className="text-sm font-mono text-[#f1f5f9] truncate">
-                      {item.ioc_value}
-                    </span>
-                  </div>
-                  <div className="flex items-center gap-3 shrink-0 text-[10px] font-mono text-[#64748b]">
-                    <span>
-                      {new Date(item.generated_at).toLocaleDateString('fr-FR', {
-                        day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit',
-                      })}
-                    </span>
-                  </div>
-                </div>
-              ))}
+          {error && !loading && (
+            <div className="cr26-state is-error" role="alert">
+              <AlertCircle size={26} aria-hidden="true" />
+              <h2>L’analyse a échoué</h2>
+              <p>{error}</p>
+              <button type="button" className="cr26-btn" onClick={() => void handleAnalyze()} disabled={!iocValue.trim()}><RefreshCw size={14} aria-hidden="true" /> Réessayer</button>
             </div>
           )}
+
+          {result && !loading && <ResultView result={result} actions={actions} />}
+
+          {!result && !loading && !error && <EngineOverview />}
         </div>
       </div>
     </div>
