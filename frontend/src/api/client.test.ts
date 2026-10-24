@@ -7,7 +7,7 @@ const http = vi.hoisted(() => ({
 }))
 vi.mock('axios', () => ({ default: { create: () => http } }))
 
-import { osintWmnApi, toolsApi } from './client'
+import { ctfApi, osintWmnApi, toolsApi } from './client'
 
 describe('osintWmnApi.getJob', () => {
   beforeEach(() => { http.get.mockReset() })
@@ -43,6 +43,19 @@ describe('toolsApi.list', () => {
     await expect(toolsApi.list({ category: 'offensive', os: 'linux', sub_category: 'network', search: 'nmap', page: 2, limit: 18 })).resolves.toEqual(data)
     expect(http.get).toHaveBeenCalledWith('/tools', {
       params: { category: 'offensive', os: 'linux', sub_category: 'network', search: 'nmap', page: 2, limit: 18 },
+    })
+  })
+})
+
+describe('ctfApi.list', () => {
+  beforeEach(() => { http.get.mockReset() })
+
+  it('transmet les filtres et paramètres de pagination et conserve total_pages typé', async () => {
+    const data = { writeups: [], count: 31, page: 3, limit: 15, total_pages: 3 }
+    http.get.mockResolvedValue({ data })
+    await expect(ctfApi.list({ platform: 'TryHackMe', difficulty: 'hard', search: 'alpha', page: 3, limit: 15 })).resolves.toEqual(data)
+    expect(http.get).toHaveBeenCalledWith('/ctf', {
+      params: { platform: 'TryHackMe', difficulty: 'hard', search: 'alpha', page: 3, limit: 15 },
     })
   })
 })

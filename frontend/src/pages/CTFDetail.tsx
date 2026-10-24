@@ -18,25 +18,40 @@ export default function CTFDetail() {
   const [loading, setLoading] = useState(true)
   const [notFound, setNotFound] = useState(false)
   const [deleting, setDeleting] = useState(false)
+  const [deleteError, setDeleteError] = useState(false)
   const [confirmOpen, setConfirmOpen] = useState(false)
 
   useEffect(() => {
-    if (!id) return
-    ctfApi.get(Number(id))
-      .then(w => { setWriteup(w); setNotFound(false) })
-      .catch(() => setNotFound(true))
-      .finally(() => setLoading(false))
+    let active = true
+    setLoading(true)
+    setWriteup(null)
+    setNotFound(false)
+    setDeleting(false)
+    setDeleteError(false)
+    setConfirmOpen(false)
+    const numericId = Number(id)
+    if (!id || !Number.isSafeInteger(numericId) || numericId < 1) {
+      setNotFound(true)
+      setLoading(false)
+      return () => { active = false }
+    }
+    ctfApi.get(numericId)
+      .then(w => { if (active) setWriteup(w) })
+      .catch(() => { if (active) setNotFound(true) })
+      .finally(() => { if (active) setLoading(false) })
+    return () => { active = false }
   }, [id])
 
   const handleDelete = async () => {
     if (!writeup) return
     setDeleting(true)
+    setDeleteError(false)
     try {
       await ctfApi.delete(writeup.id)
       toast.success('Writeup supprimé avec succès')
       navigate('/ctf')
     } catch {
-      toast.error('Erreur lors de la suppression')
+      setDeleteError(true)
       setDeleting(false)
     }
   }
@@ -87,6 +102,7 @@ export default function CTFDetail() {
                 <Trash2 size={15} aria-hidden="true" /> {deleting ? 'Suppression…' : 'Supprimer'}
               </button>
             </div>
+            {deleteError && <p className="ct26-field-error" role="alert">Suppression non confirmée. Le writeup est toujours affiché ; vérifie le registre avant de réessayer.</p>}
             <dl className="ct26-facts">
               <div><dt>Plateforme</dt><dd><PlatformMark platform={platformOf(writeup.platform)} /></dd></div>
               <div><dt>Machine</dt><dd className="is-mono">{writeup.machine_name ? <><Package size={13} aria-hidden="true" />{writeup.machine_name}</> : '—'}</dd></div>

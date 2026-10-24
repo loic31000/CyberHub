@@ -210,6 +210,7 @@
 
 /* Markdown, read as a technical report. */
 .ct26-md { min-width: 0; max-width: 80ch; color: var(--c-copy); font-size: .93rem; line-height: 1.7; overflow-wrap: anywhere; }
+.ct26-table-wrap { max-width: 100%; overflow-x: auto; margin: 0 0 16px; }
 .ct26-md > :first-child { margin-top: 0; }
 .ct26-md > :last-child { margin-bottom: 0; }
 .ct26-md p { margin: 0 0 12px; }
@@ -224,8 +225,8 @@
 .ct26-md a { color: var(--c-ice); text-underline-offset: 3px; }
 .ct26-md blockquote { margin: 0 0 14px; padding: 8px 14px; border-left: 3px solid var(--c-line-strong); color: var(--c-muted); background: rgb(143 211 255 / .03); }
 .ct26-md :not(pre) > code { padding: 1px 6px; border: 1px solid var(--c-line); border-radius: 5px; background: var(--c-inset); color: #8fe6ff; font: 500 .84em/1.5 var(--c-mono); overflow-wrap: anywhere; }
-.ct26-md table { display: block; max-width: 100%; overflow-x: auto; margin: 0 0 14px; border-collapse: collapse; font-size: .86rem; }
-.ct26-md :is(th, td) { padding: 6px 10px; border: 1px solid var(--c-line); text-align: left; white-space: nowrap; }
+.ct26-md table { width: 100%; border-collapse: collapse; font-size: .86rem; }
+.ct26-md :is(th, td) { min-width: 120px; padding: 6px 10px; border: 1px solid var(--c-line); text-align: left; vertical-align: top; }
 .ct26-md th { background: #0d1b29; color: var(--c-ink); }
 .ct26-md hr { border: 0; border-top: 1px solid var(--c-line); margin: 20px 0; }
 

@@ -1,5 +1,6 @@
 import { Children, isValidElement, useState, type ReactElement, type ReactNode } from 'react'
 import ReactMarkdown, { type Components } from 'react-markdown'
+import remarkGfm from 'remark-gfm'
 import { Check, CheckCircle2, Circle, Copy, Flag } from 'lucide-react'
 import type { CTFDifficulty, CTFPlatform } from '@/types'
 
@@ -59,7 +60,9 @@ function CodeBlock({ language, text }: { language?: string; text: string }) {
   const [copied, setCopied] = useState(false)
   const lines = text.replace(/\n$/, '').split('\n')
   const copy = () => {
-    navigator.clipboard?.writeText(text.replace(/\n$/, ''))
+    const writeText = navigator.clipboard?.writeText
+    if (!writeText) return
+    void writeText.call(navigator.clipboard, text.replace(/\n$/, ''))
       .then(() => { setCopied(true); window.setTimeout(() => setCopied(false), 1600) })
       .catch(() => {})
   }
@@ -97,8 +100,9 @@ const MD_COMPONENTS: Components = {
   h3: ({ children }) => <h4>{children}</h4>,
   h4: ({ children }) => <h5>{children}</h5>,
   a: ({ href, children }) => <a href={href} target="_blank" rel="noreferrer noopener">{children}</a>,
+  table: ({ children }) => <div className="ct26-table-wrap"><table>{children}</table></div>,
 }
 
 export function Markdown({ children }: { children: string }) {
-  return <div className="ct26-md"><ReactMarkdown components={MD_COMPONENTS}>{children}</ReactMarkdown></div>
+  return <div className="ct26-md"><ReactMarkdown remarkPlugins={[remarkGfm]} components={MD_COMPONENTS}>{children}</ReactMarkdown></div>
 }

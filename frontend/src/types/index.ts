@@ -154,12 +154,17 @@ export interface CTFCreateRequest {
 export interface CTFsResponse {
   writeups: CTFWriteup[]
   count: number
+  page?: number
+  limit?: number
+  total_pages?: number
 }
 
 export type CTFFilter = {
   platform?: CTFPlatform | ''
   difficulty?: CTFDifficulty | ''
   search?: string
+  page?: number
+  limit?: number
 }
 
 // ---- CVE ----

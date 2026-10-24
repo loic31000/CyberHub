@@ -25,31 +25,62 @@ export default function CTFForm() {
   const isEdit = Boolean(id)
   const [form, setForm] = useState<CTFCreateRequest>(DEFAULT_FORM)
   const [loading, setLoading] = useState(isEdit)
+  const [loadError, setLoadError] = useState(false)
+  const [loadAttempt, setLoadAttempt] = useState(0)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
-  const [titleError, setTitleError] = useState(false)
+  const [titleError, setTitleError] = useState('')
   const [preview, setPreview] = useState(false)
 
   useEffect(() => {
-    if (!isEdit || !id) return
-    ctfApi.get(Number(id))
-      .then(w => setForm({
+    let active = true
+    if (!isEdit) {
+      setForm(DEFAULT_FORM)
+      setLoading(false)
+      setLoadError(false)
+      setError('')
+      setTitleError('')
+      setPreview(false)
+      return () => { active = false }
+    }
+    setLoading(true)
+    setLoadError(false)
+    setError('')
+    setTitleError('')
+    setPreview(false)
+    if (!id) {
+      setLoadError(true)
+      setLoading(false)
+      return () => { active = false }
+    }
+    const numericId = Number(id)
+    if (!Number.isSafeInteger(numericId) || numericId < 1) {
+      setLoadError(true)
+      setLoading(false)
+      return () => { active = false }
+    }
+    ctfApi.get(numericId)
+      .then(w => { if (active) setForm({
         title: w.title, platform: w.platform, machine_name: w.machine_name,
         difficulty: w.difficulty, category: w.category, content: w.content,
         flags: w.flags, tags: w.tags, completed: w.completed,
-      }))
-      .catch(() => navigate('/ctf'))
-      .finally(() => setLoading(false))
-  }, [id, isEdit, navigate])
+      }) })
+      .catch(() => { if (active) setLoadError(true) })
+      .finally(() => { if (active) setLoading(false) })
+    return () => { active = false }
+  }, [id, isEdit, loadAttempt])
 
   const setField = (field: keyof CTFCreateRequest, value: CTFCreateRequest[keyof CTFCreateRequest]) =>
     setForm(f => ({ ...f, [field]: value }))
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!form.title.trim()) {
-      setTitleError(true)
-      setError('Le titre est requis')
+    if (form.title.trim().length < 2) {
+      const titleMessage = form.title.trim().length === 0
+        ? 'Le titre est requis'
+        : 'Le titre doit comporter au moins deux caractères'
+      setTitleError(titleMessage)
+      setError(titleMessage)
       document.getElementById('ct26-in-title')?.focus()
       return
     }
@@ -74,6 +105,20 @@ export default function CTFForm() {
     <div className="ct26"><div className="ct26-frame">
       <CtfHero status={{ text: 'CHARGEMENT', tone: 'busy' }} />
       <p className="ct26-loading" role="status">Chargement…</p>
+    </div></div>
+  )
+
+  if (loadError) return (
+    <div className="ct26"><div className="ct26-frame">
+      <CtfHero status={{ text: 'RAPPORT INDISPONIBLE', tone: 'warn' }} />
+      <div className="ct26-state is-error" role="alert">
+        <h2>Impossible de charger ce writeup</h2>
+        <p>Aucune modification n’a été envoyée. Réessaie ou retourne au journal.</p>
+        <div className="ct26-actions">
+          <button type="button" className="ct26-btn" onClick={() => setLoadAttempt(attempt => attempt + 1)}>Réessayer</button>
+          <Link to="/ctf" className="ct26-btn">Retour au journal</Link>
+        </div>
+      </div>
     </div></div>
   )
 
@@ -104,12 +149,12 @@ export default function CTFForm() {
                 <label htmlFor="ct26-in-title">Titre <abbr title="obligatoire">*</abbr></label>
                 <input
                   id="ct26-in-title" className="is-title" value={form.title}
-                  onChange={e => { setField('title', e.target.value); if (titleError) { setTitleError(false); setError('') } }}
+                  onChange={e => { setField('title', e.target.value); if (titleError) { setTitleError(''); setError('') } }}
                   placeholder="ex : Lame — HackTheBox" autoComplete="off"
-                  aria-invalid={titleError || undefined}
+                  aria-invalid={Boolean(titleError) || undefined}
                   aria-describedby={titleError ? 'ct26-err-title' : undefined}
                 />
-                {titleError && <p id="ct26-err-title" className="ct26-field-error">LE TITRE EST REQUIS</p>}
+                {titleError && <p id="ct26-err-title" className="ct26-field-error">{titleError}</p>}
               </div>
               <div className="ct26-form-grid is-2">
                 <div className="ct26-field">

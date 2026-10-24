@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { Link } from 'react-router-dom'
 import { ctfApi } from '@/api/client'
 import type { CTFWriteup, CTFFilter, CTFPlatform, CTFDifficulty } from '@/types'
@@ -21,25 +21,32 @@ export default function CTFList() {
   const [loading, setLoading] = useState(true)
   const [listError, setListError] = useState(false)
   const [filters, setFilters] = useState<CTFFilter>({ platform: '', difficulty: '', search: '' })
+  const requestSequence = useRef(0)
 
   const fetchCTF = useCallback(async () => {
+    const requestId = ++requestSequence.current
     setLoading(true)
     setListError(false)
     try {
-      const res = await ctfApi.list({ ...filters, page, limit: LIMIT } as CTFFilter & { page: number; limit: number })
+      const res = await ctfApi.list({ ...filters, page, limit: LIMIT })
+      if (requestId !== requestSequence.current) return
       setWriteups(res.writeups ?? [])
       setCount(Number(res.count))
-      setTotalPages((res as { total_pages?: number }).total_pages ?? 1)
+      setTotalPages(res.total_pages ?? 1)
     } catch {
+      if (requestId !== requestSequence.current) return
       setListError(true)
       toast.error('Impossible de charger les writeups')
       setWriteups([])
     } finally {
-      setLoading(false)
+      if (requestId === requestSequence.current) setLoading(false)
     }
   }, [filters, page])
 
-  useEffect(() => { fetchCTF() }, [fetchCTF])
+  useEffect(() => {
+    void fetchCTF()
+    return () => { requestSequence.current += 1 }
+  }, [fetchCTF])
 
   const updateFilter = <K extends keyof CTFFilter>(k: K, v: CTFFilter[K]) => {
     setPage(1)
