@@ -9,7 +9,7 @@ type Props = {
   hasError: boolean;
   onRetry: () => void;
   onCustomize: (trigger: HTMLElement) => void;
-  onOpen: (title: string) => void;
+  onOpen: (route: string) => void;
 };
 
 /* ÉTAT DE L’ENVIRONNEMENT: the chosen cards, a retry when data failed, the customisation entry. */

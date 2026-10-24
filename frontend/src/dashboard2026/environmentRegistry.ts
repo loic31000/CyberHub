@@ -17,7 +17,6 @@ import {
   OsintGlyph,
   PlaybookGlyph,
   RevshellGlyph,
-  SourcesGlyph,
   ToolsGlyph,
   WriteupGlyph,
   type IconComponent,
@@ -26,10 +25,10 @@ import {
 /*
  * Phase 3A.1: registry of the cards that can appear in "État de l'environnement".
  *
- * - System cards keep the visual slots from the prototype. Their live values
- *   are supplied by the authenticated Dashboard; defaults make no status claim.
- * - Module cards are access cards for the 18 Console modules. They show
- *   only name, description and the existing Console route.
+ * - The Console card summarises the local data; its live value is supplied
+ *   by the authenticated Dashboard.
+ * - Module cards give access to the 18 Console modules, one card each. IOC
+ *   Manager and BGP Historian also show their live state.
  *
  * Ids are stable and independent from the displayed titles.
  */
@@ -100,101 +99,68 @@ export const NAVIGATION_MODULES = [DASHBOARD_MODULE, ...MODULES];
 
 /* ---------- environment cards (Phase 3A.1) ---------- */
 
+/*
+ * One card per module or function. A card opens a real Console route; the
+ * cards whose data the Dashboard loads (Console, IOC Manager, BGP Historian)
+ * also show that state. Defaults make no status claim.
+ */
+
+/* The state a card shows: replaced by the Dashboard's live values. */
+export type CardSignal = {
+  status: string;
+  secondary: string;
+  tone: "ready" | "quiet" | "attention";
+  bars: number[];
+};
+
 type BaseCard = {
   id: string;
   title: string;
   icon: IconComponent;
   category: ModuleCategory;
   keywords: string[];
+  route: string; // real route in the Console (frontend/src/App.tsx)
 };
 
-export type SystemCard = BaseCard & {
-  kind: "system";
-  status: string;
-  secondary: string;
-  action: string;
-  tone: "ready" | "quiet" | "attention";
-  bars: number[];
-};
+/* The Console summary: not a module of its own, it covers several. */
+export type SystemCard = BaseCard & CardSignal & { kind: "system"; description: string };
 
 export type ModuleCard = BaseCard & {
   kind: "module";
   moduleId: string;
   description: string;
-  route: string;
+  signal?: CardSignal; // only for modules whose state the Dashboard loads
 };
 
 export type EnvironmentCardDefinition = SystemCard | ModuleCard;
 
-export const SYSTEM_CARDS: SystemCard[] = [
-  {
-    id: "system.console",
-    kind: "system",
-    category: "core",
-    keywords: ["console", "système", "version", "état"],
-    title: "Console",
-    status: "Chargement…",
-    secondary: "Données locales",
-    action: "Dashboard",
-    tone: "quiet",
-    icon: ConsoleGlyph,
-    bars: [18, 24, 34, 46, 62, 74, 58, 82],
-  },
-  {
-    id: "system.mitre",
-    kind: "system",
-    category: "intel",
-    keywords: ["mitre", "att&ck", "index", "ttp"],
-    title: "MITRE",
-    status: "Accès au module",
-    secondary: "Consulter ATT&CK",
-    action: "MITRE ATT&CK",
-    tone: "quiet",
-    icon: MitreGlyph,
-    bars: [12, 22, 28, 43, 57, 70, 51, 78],
-  },
-  {
-    id: "system.sources",
-    kind: "system",
-    category: "ops",
-    keywords: ["sources", "flux", "connecteurs", "synchronisation", "feeds"],
-    title: "Sources",
-    status: "Chargement…",
-    secondary: "Indicateurs locaux",
-    action: "IOC Manager",
-    tone: "quiet",
-    icon: SourcesGlyph,
-    bars: [10, 17, 25, 38, 48, 64, 78, 88],
-  },
-  {
-    id: "system.osint",
-    kind: "system",
-    category: "ops",
-    keywords: ["osint", "jobs", "sources ouvertes"],
-    title: "OSINT",
-    status: "Accès au module",
-    secondary: "Lancer une recherche",
-    action: "OSINT Runner",
-    tone: "quiet",
-    icon: OsintGlyph,
-    bars: [16, 22, 31, 48, 44, 61, 72, 68],
-  },
-  {
-    id: "system.bgp",
-    kind: "system",
-    category: "misc",
-    keywords: ["bgp", "asn", "réseaux", "routage"],
-    title: "BGP",
-    status: "Chargement…",
-    secondary: "Historique BGP",
-    action: "BGP Historian",
-    tone: "quiet",
-    icon: BgpGlyph,
-    bars: [15, 29, 37, 51, 59, 72, 83, 91],
-  },
-];
+/* Shows a state: the Console summary, or a module card with a signal. */
+export const signalOf = (card: EnvironmentCardDefinition): CardSignal | undefined =>
+  card.kind === "system" ? card : card.signal;
 
-// One access card per module, derived from the shared registry.
+export const CONSOLE_CARD: SystemCard = {
+  id: "system.console",
+  kind: "system",
+  category: "core",
+  keywords: ["console", "système", "version", "état", "outils", "writeups"],
+  title: "Console",
+  description: "Outils et writeups enregistrés",
+  status: "Chargement…",
+  secondary: "Données locales",
+  tone: "quiet",
+  icon: ConsoleGlyph,
+  bars: [18, 24, 34, 46, 62, 74, 58, 82],
+  // Its count starts with the tools; the Dashboard itself would reopen this page.
+  route: "/tools",
+};
+
+/* Modules whose state the Dashboard loads; their card carries it. */
+const MODULE_SIGNALS: Record<string, CardSignal> = {
+  ioc: { status: "Chargement…", secondary: "Indicateurs locaux", tone: "quiet", bars: [10, 17, 25, 38, 48, 64, 78, 88] },
+  "bgp-historian": { status: "Chargement…", secondary: "Alertes et snapshots", tone: "quiet", bars: [15, 29, 37, 51, 59, 72, 83, 91] },
+};
+
+// One card per module, derived from the shared registry.
 export const MODULE_CARDS: ModuleCard[] = MODULES.map((module) => ({
   id: `module.${module.id}`,
   kind: "module",
@@ -205,9 +171,10 @@ export const MODULE_CARDS: ModuleCard[] = MODULES.map((module) => ({
   category: module.category,
   keywords: module.keywords,
   icon: module.icon,
+  ...(MODULE_SIGNALS[module.id] && { signal: MODULE_SIGNALS[module.id] }),
 }));
 
-export const ENVIRONMENT_CARDS: EnvironmentCardDefinition[] = [...SYSTEM_CARDS, ...MODULE_CARDS];
+export const ENVIRONMENT_CARDS: EnvironmentCardDefinition[] = [CONSOLE_CARD, ...MODULE_CARDS];
 
 const byId = new Map(ENVIRONMENT_CARDS.map((card) => [card.id, card]));
 
@@ -215,4 +182,31 @@ export function getEnvironmentCard(id: string) {
   return byId.get(id);
 }
 
-export const DEFAULT_ENVIRONMENT_CARDS = SYSTEM_CARDS.map((card) => card.id);
+/*
+ * Cards of earlier versions that duplicated a module card, mapped to that
+ * card: "MITRE" and "OSINT" only repeated the module access, "Sources" showed
+ * the IOC count of IOC Manager and "BGP" the alerts of BGP Historian.
+ */
+export const LEGACY_CARD_IDS: Record<string, string> = {
+  "system.mitre": "module.mitre",
+  "system.osint": "module.osint",
+  "system.sources": "module.ioc",
+  "system.bgp": "module.bgp-historian",
+};
+
+/*
+ * Stored or chosen cards, cleaned: legacy ids mapped to their module card in
+ * place, unknown ids dropped, and one card per module (the first one kept).
+ */
+export function normalizeEnvCards(ids: readonly unknown[]): string[] {
+  const cards = ids
+    .filter((id): id is string => typeof id === "string")
+    .map((id) => LEGACY_CARD_IDS[id] ?? id)
+    .filter((id) => byId.has(id));
+  return [...new Set(cards)];
+}
+
+// The five cards of the original layout, each now on its canonical card.
+export const DEFAULT_ENVIRONMENT_CARDS = normalizeEnvCards([
+  "system.console", "system.mitre", "system.sources", "system.osint", "system.bgp",
+]);

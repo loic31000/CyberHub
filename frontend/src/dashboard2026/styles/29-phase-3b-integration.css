@@ -228,3 +228,9 @@
   flex: none;
   white-space: nowrap;
 }
+
+/* Environment cards: a module title ("IOC Manager", "BGP Historian") wraps between words instead of being cut when the card is narrow. */
+.cyber-dashboard-2026 .environment-copy strong {
+  white-space: normal;
+  text-overflow: clip;
+}

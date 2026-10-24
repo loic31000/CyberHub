@@ -1,4 +1,3 @@
-import { DASHBOARD_MODULE, MODULES } from "../environmentRegistry";
 import type { WidgetPlacement } from "../widgetRegistry";
 import type {
   BgpAlertItem,
@@ -40,7 +39,10 @@ export const CVE_SEVERITY: Record<string, string> = {
 
 const frenchDate = (iso: string) => new Date(iso).toLocaleDateString("fr-FR");
 
-/* Status of the system cards; the module cards only give access, without a value. */
+/*
+ * Live state of the cards that show one: the Console summary, IOC Manager and
+ * BGP Historian. The other module cards only give access, without a value.
+ */
 export function environmentStatuses(data: Pick<DashboardData, "stats" | "ioc" | "bgp">): EnvironmentStatuses {
   const bgpCount = data.bgp.status === "ready" ? data.bgp.data.total : 0;
   return {
@@ -48,15 +50,13 @@ export function environmentStatuses(data: Pick<DashboardData, "stats" | "ioc" | 
       status: stateText(data.stats, (stats) => `${stats.tools_total} outils · ${stats.ctf_total} writeups`),
       secondary: "Données de la Console", tone: data.stats.status === "ready" ? "ready" : "quiet",
     },
-    "system.mitre": { status: "Accès au module", secondary: "Consulter ATT&CK", tone: "quiet" },
-    "system.sources": {
+    "module.ioc": {
       status: stateText(data.ioc, (ioc) => `${ioc.total} IOC enregistrés`),
       secondary: "Indicateurs locaux", tone: data.ioc.status === "ready" ? "ready" : "quiet",
     },
-    "system.osint": { status: "Accès au module", secondary: "Lancer une recherche", tone: "quiet" },
-    "system.bgp": {
+    "module.bgp-historian": {
       status: stateText(data.bgp, (bgp) => bgp.total ? `${counted(bgp.total, "alerte BGP enregistrée", "alertes BGP enregistrées")}` : "Aucune alerte BGP"),
-      secondary: "Historique BGP", tone: bgpCount ? "attention" : data.bgp.status === "ready" ? "ready" : "quiet",
+      secondary: "Alertes et snapshots", tone: bgpCount ? "attention" : data.bgp.status === "ready" ? "ready" : "quiet",
     },
   };
 }
@@ -102,9 +102,4 @@ export function hasDataError(data: Pick<DashboardData, "stats" | "tools" | "bgp"
 export function widgetCounts(widgets: WidgetPlacement[]) {
   const shown = widgets.filter((placement) => placement.visible);
   return { shown, hidden: widgets.length - shown.length };
-}
-
-/* Route of a module from its card title (the environment cards open by title). */
-export function destinationRoute(title: string) {
-  return [DASHBOARD_MODULE, ...MODULES].find((item) => item.title === title)?.route ?? null;
 }

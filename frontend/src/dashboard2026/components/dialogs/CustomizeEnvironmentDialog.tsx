@@ -5,6 +5,7 @@ import {
   ENVIRONMENT_CARDS,
   categoryOf,
   getEnvironmentCard,
+  signalOf,
   type EnvironmentCardDefinition,
   type ModuleCategory,
 } from "../../environmentRegistry";
@@ -19,8 +20,11 @@ type PendingFocus = { id: string; action: "up" | "down" | "replace" | "remove" }
 /* Catalogue search: the same metadata and matching as the global search. */
 const searchableCard = (card: EnvironmentCardDefinition) => ({
   ...card,
-  description: card.kind === "system" ? `Carte système ${card.status} ${card.secondary}` : card.description,
+  description: signalOf(card) ? `${card.description} état ${signalOf(card)?.secondary}` : card.description,
 });
+
+/* What a card shows on the Dashboard, for both lists. */
+const cardKind = (card: EnvironmentCardDefinition) => (signalOf(card) ? "Accès et état du module" : "Accès au module");
 
 export function CustomizeEnvironmentDialog({
   open,
@@ -183,7 +187,7 @@ export function CustomizeEnvironmentDialog({
             <span className="catalog-tag">{categoryOf(card.category).code}</span>
             {shown && !isTarget && <span className="catalog-tag is-shown">Affiché</span>}
           </strong>
-          <small>{card.kind === "system" ? "Carte système · données de la Console" : `${card.description} · ${card.route}`}</small>
+          <small>{card.kind === "system" ? `État de la Console · ${card.description} · ${card.route}` : `${card.description}${card.signal ? " · état affiché" : ""} · ${card.route}`}</small>
         </span>
         <button
           type="button"
@@ -233,8 +237,8 @@ export function CustomizeEnvironmentDialog({
 
         <div className="customize-body">
           <p id="customize-description" className="customize-intro">
-            Choisissez les modules affichés et leur ordre. Les cartes de module donnent accès au module ; elles
-            n’affichent aucune donnée dans cette vue.
+            Choisissez les modules affichés et leur ordre, une carte par module. Chaque carte ouvre son module ;
+            Console, IOC Manager et BGP Historian affichent aussi leur état.
           </p>
 
           <section aria-labelledby="customize-selected-title">
@@ -257,7 +261,7 @@ export function CustomizeEnvironmentDialog({
                       </span>
                       <span className="customize-copy">
                         <strong>{card.title}</strong>
-                        <small>{card.kind === "system" ? "Démonstration" : "Accès au module"}</small>
+                        <small>{card.kind === "system" ? "État de la Console" : cardKind(card)}</small>
                       </span>
                       <span className="customize-actions">
                         <button type="button" data-action="up" aria-label={`Monter ${card.title}`} title="Monter" aria-disabled={first || undefined} onClick={() => !first && move(id, -1)}>
