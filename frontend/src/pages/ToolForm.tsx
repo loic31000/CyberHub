@@ -1,9 +1,12 @@
 // frontend/src/pages/ToolForm.tsx
 import { useState, useEffect } from 'react'
-import { useParams, useNavigate } from 'react-router-dom'
+import { Link, useParams, useNavigate } from 'react-router-dom'
 import { toolsApi } from '@/api/client'
 import type { EthicalLevel, ToolCategory, ToolCreateRequest, ToolOS } from '@/types'
-import { ArrowLeft, Save, Wrench } from 'lucide-react'
+import { ArrowLeft, ChevronDown, Save } from 'lucide-react'
+import ToolsHero from '@/tools26/ToolsHero'
+import { ETHIC_HINT, ETHIC_LABEL } from '@/tools26/parts'
+import '@/tools26/tools.css'
 
 const SUBCATEGORIES = [
   'network', 'web', 'osint', 'brute-force', 'exploitation', 'active-directory',
@@ -19,25 +22,39 @@ const EMPTY: ToolCreateRequest = {
   user_notes: '', tags: '',
 }
 
+type Errors = Partial<Record<keyof ToolCreateRequest, string>>
+type DocKey = 'procedure' | 'install' | 'usage' | 'examples' | 'defense'
+
+/* Operational documentation, folded one per entry so the form stays scannable. */
+const DOC_FIELDS: { key: DocKey; label: string; hint: string }[] = [
+  { key: 'procedure', label: 'Procédure', hint: 'Déroulé opérationnel, étape par étape.' },
+  { key: 'install', label: 'Installation', hint: 'Paquets, binaires, prérequis.' },
+  { key: 'usage', label: 'Utilisation', hint: 'Syntaxe, options principales.' },
+  { key: 'examples', label: 'Exemples', hint: 'Commandes commentées (# commentaire).' },
+  { key: 'defense', label: 'Contre-mesures', hint: 'Détection, durcissement, réponse.' },
+]
+
+const STEPS = [
+  { id: 'tl26-f-identity', label: 'Identité' },
+  { id: 'tl26-f-class', label: 'Classification' },
+  { id: 'tl26-f-command', label: 'Commandes' },
+  { id: 'tl26-f-doc', label: 'Documentation' },
+  { id: 'tl26-f-frame', label: 'Cadre & notes' },
+]
+
+const ERROR_ORDER: (keyof ToolCreateRequest)[] = ['name', 'description', 'input_schema']
+
 export default function ToolForm() {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
   const isEdit = !!id
 
   const [form, setForm] = useState<ToolCreateRequest>(EMPTY)
-  const [errors, setErrors] = useState<Partial<Record<keyof ToolCreateRequest, string>>>({})
+  const [errors, setErrors] = useState<Errors>({})
   const [loading, setLoading] = useState(false)
-
-  const MD_SECTIONS: { key: keyof ToolCreateRequest; label: string }[] = [
-    { key: 'procedure', label: 'PROCÉDURE' },
-    { key: 'install', label: 'INSTALLATION' },
-    { key: 'usage', label: 'UTILISATION' },
-    { key: 'examples', label: 'EXEMPLES' },
-    { key: 'defense', label: 'CONTRE-MESURES' },
-    { key: 'legal_notes', label: 'NOTES LÉGALES' },
-    { key: 'ethical_use_cases', label: "CAS D'USAGE ÉTHIQUE" },
-    { key: 'user_notes', label: 'NOTES PERSONNELLES' },
-  ]
+  const [saveFailed, setSaveFailed] = useState(false)
+  // Documentation entries the user folded or unfolded; the others open when they hold text.
+  const [openDocs, setOpenDocs] = useState<Partial<Record<DocKey, boolean>>>({})
 
   useEffect(() => {
     if (!isEdit) return
@@ -60,13 +77,15 @@ export default function ToolForm() {
     setForm(prev => ({ ...prev, [key]: value }))
 
   const validate = () => {
-    const e: Partial<Record<keyof ToolCreateRequest, string>> = {}
+    const e: Errors = {}
     if (!form.name.trim() || form.name.length < 2) e.name = 'NOM REQUIS (MIN 2 CARACTÈRES)'
     if (!form.description.trim() || form.description.length < 10) e.description = 'DESCRIPTION REQUISE (MIN 10 CARACTÈRES)'
     if (form.input_schema.trim()) {
       try { JSON.parse(form.input_schema) } catch { e.input_schema = 'JSON INVALIDE' }
     }
     setErrors(e)
+    const first = ERROR_ORDER.find(k => e[k])
+    if (first) document.getElementById(`tl26-in-${first}`)?.focus()
     return Object.keys(e).length === 0
   }
 
@@ -74,177 +93,178 @@ export default function ToolForm() {
     e.preventDefault()
     if (!validate()) return
     setLoading(true)
+    setSaveFailed(false)
     try {
       const tool = isEdit ? await toolsApi.update(Number(id), form) : await toolsApi.create(form)
       navigate(`/tools/${tool.id}`)
     } catch {
       setLoading(false)
+      setSaveFailed(true)
     }
   }
 
-  const fieldClass = 'w-full border border-[#1e2d40] bg-[#0d131f] px-4 py-2.5 font-mono text-sm text-[#f1f5f9] placeholder-[#334155] outline-none transition-colors focus:border-[#00d4ff]/50'
-  const textAreaClass = `${fieldClass} resize-y`
-  const labelClass = 'mb-2 block font-mono text-[10px] font-bold uppercase tracking-widest text-[#8a9ab0]'
+  const isDocOpen = (key: DocKey) => openDocs[key] ?? Boolean(form[key].trim())
+  const errorCount = Object.keys(errors).length
+
+  /* Field wiring: label, input id, error message linked by aria-describedby. */
+  const fieldProps = (key: keyof ToolCreateRequest, hintId?: string) => ({
+    id: `tl26-in-${key}`,
+    'aria-invalid': errors[key] ? true : undefined,
+    'aria-describedby': [hintId, errors[key] ? `tl26-err-${key}` : ''].filter(Boolean).join(' ') || undefined,
+  })
+  const errorText = (key: keyof ToolCreateRequest) =>
+    errors[key] ? <p id={`tl26-err-${key}`} className="tl26-field-error">{errors[key]}</p> : null
 
   return (
-    <div className="flex flex-col h-full bg-[#06080f] text-[#f1f5f9]">
-      {/* Bandeau d'en-tête style BGPLookup */}
-      <div className="flex items-center justify-between px-6 py-4 border-b border-[#1e2d40] bg-[#0a0f16]/50">
-        <div className="flex items-center gap-3">
-          <div className="relative">
-            <Wrench className="text-[#00d4ff]" size={20} />
-            <div className="absolute -top-1 -right-1 w-2 h-2 bg-[#10b981] rounded-full animate-pulse shadow-[0_0_8px_#10b981]" />
-          </div>
-          <div>
-            <h1 className="text-sm font-bold tracking-[0.2em] uppercase">TOOL ARSENAL // FORM</h1>
-            <p className="text-[10px] text-[#64748b] font-mono">{isEdit ? 'MODIFICATION DE FICHE EXISTANTE' : 'CRÉATION D\'UNE NOUVELLE FICHE'}</p>
-          </div>
-        </div>
-        <div className="flex items-center gap-4">
-          <button
-            type="button"
-            onClick={() => navigate('/tools')}
-            className="flex items-center gap-2 px-3 py-1.5 bg-[#1e2d40] hover:bg-[#2a3f55] text-[10px] font-bold border border-[#334155] transition-colors"
-          >
-            <ArrowLeft size={12} /> BACK TO ARSENAL
-          </button>
-        </div>
-      </div>
+    <div className="tl26">
+      <div className="tl26-frame">
+        <ToolsHero status={{ text: isEdit ? 'MODIFICATION' : 'NOUVELLE FICHE', mark: isEdit ? `#${id}` : undefined, tone: 'busy' }} />
 
-      {/* Zone de contenu scrollable */}
-      <div className="flex-1 overflow-auto p-6">
-        <div className="max-w-4xl mx-auto w-full space-y-8">
-          <form onSubmit={handleSubmit} className="space-y-8">
-            {/* Informations de base */}
-            <div className="space-y-6 border border-[#1e2d40] bg-[#0a0f16] p-6">
-              <h2 className="border-b border-[#1e2d40] pb-3 font-mono text-[11px] font-bold uppercase tracking-[0.2em] text-[#00d4ff]">INFORMATIONS DE BASE</h2>
-              
-              <div>
-                <label className={labelClass}>NOM *</label>
-                <input 
-                  value={form.name} 
-                  onChange={e => set('name', e.target.value)} 
-                  className={fieldClass} 
-                  placeholder="EX: NMAP" 
-                />
-                {errors.name && <p className="mt-2 font-mono text-[10px] text-[#ef4444] uppercase tracking-widest">{errors.name}</p>}
+        <div className="tl26-crumbs">
+          <Link to={isEdit ? `/tools/${id}` : '/tools'} className="tl26-link">
+            <ArrowLeft size={14} aria-hidden="true" /> {isEdit ? 'Retour à la fiche' : 'Arsenal'}
+          </Link>
+        </div>
+
+        <div className="tl26-form-layout">
+          <nav className="tl26-steps" aria-label="Sections du formulaire">
+            <p>{isEdit ? 'Modifier la fiche' : 'Nouvelle fiche'}</p>
+            <ol>{STEPS.map((s, i) => <li key={s.id}><a href={`#${s.id}`}><span>{String(i + 1).padStart(2, '0')}</span>{s.label}</a></li>)}</ol>
+          </nav>
+
+          <form onSubmit={handleSubmit} className="tl26-form" noValidate>
+            <h2 className="tl26-sr">{isEdit ? `Modifier ${form.name || "l'outil"}` : 'Créer un outil'}</h2>
+
+            {/* 1. Identité */}
+            <section id="tl26-f-identity" className="tl26-form-section" aria-labelledby="tl26-fh-identity">
+              <header><span className="tl26-num">01</span><h3 id="tl26-fh-identity">Identité de l'outil</h3><small>Ce que l'on voit dans le registre</small></header>
+              <div className="tl26-field">
+                <label htmlFor="tl26-in-name">Nom <abbr title="obligatoire">*</abbr></label>
+                <input {...fieldProps('name')} className="is-name" value={form.name} onChange={e => set('name', e.target.value)} placeholder="ex : nmap" autoComplete="off" />
+                {errorText('name')}
               </div>
+              <div className="tl26-field">
+                <label htmlFor="tl26-in-description">Description <abbr title="obligatoire">*</abbr></label>
+                <textarea {...fieldProps('description', 'tl26-hint-description')} value={form.description} onChange={e => set('description', e.target.value)} rows={3} placeholder="Description courte de l'outil…" />
+                <small id="tl26-hint-description">Au moins 10 caractères. Affichée dans le registre et en tête de fiche.</small>
+                {errorText('description')}
+              </div>
+              <div className="tl26-field">
+                <label htmlFor="tl26-in-tags">Tags</label>
+                <input {...fieldProps('tags', 'tl26-hint-tags')} value={form.tags} onChange={e => set('tags', e.target.value)} placeholder="ex : réseau, scan, découverte" />
+                <small id="tl26-hint-tags">Séparés par des virgules.</small>
+              </div>
+            </section>
 
-              <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
-                <div>
-                  <label className={labelClass}>CATÉGORIE *</label>
-                  <select value={form.category} onChange={e => set('category', e.target.value as ToolCategory)} className={fieldClass}>
-                    <option value="offensive">OFFENSIVE</option>
-                    <option value="defensive">DEFENSIVE</option>
+            {/* 2. Classification */}
+            <section id="tl26-f-class" className="tl26-form-section" aria-labelledby="tl26-fh-class">
+              <header><span className="tl26-num">02</span><h3 id="tl26-fh-class">Classification</h3><small>Filtres de l'arsenal</small></header>
+              <div className="tl26-form-grid is-3">
+                <div className="tl26-field">
+                  <label htmlFor="tl26-in-category">Catégorie <abbr title="obligatoire">*</abbr></label>
+                  <select {...fieldProps('category')} value={form.category} onChange={e => set('category', e.target.value as ToolCategory)}>
+                    <option value="offensive">Offensive</option>
+                    <option value="defensive">Défensive</option>
                     <option value="osint">OSINT</option>
                   </select>
                 </div>
-                <div>
-                  <label className={labelClass}>SOUS-CATÉGORIE</label>
-                  <select value={form.sub_category} onChange={e => set('sub_category', e.target.value)} className={fieldClass}>
-                    {SUBCATEGORIES.map(s => <option key={s} value={s}>{s.toUpperCase()}</option>)}
+                <div className="tl26-field">
+                  <label htmlFor="tl26-in-sub_category">Sous-catégorie</label>
+                  <select {...fieldProps('sub_category')} value={form.sub_category} onChange={e => set('sub_category', e.target.value)}>
+                    {SUBCATEGORIES.map(s => <option key={s} value={s}>{s}</option>)}
+                  </select>
+                </div>
+                <div className="tl26-field">
+                  <label htmlFor="tl26-in-os">OS <abbr title="obligatoire">*</abbr></label>
+                  <select {...fieldProps('os')} value={form.os} onChange={e => set('os', e.target.value as ToolOS)}>
+                    <option value="linux">Linux</option>
+                    <option value="windows">Windows</option>
+                    <option value="both">Linux + Windows</option>
                   </select>
                 </div>
               </div>
+              <fieldset className="tl26-ethic-pick">
+                <legend>Niveau éthique</legend>
+                {(['standard', 'elevated', 'warning'] as EthicalLevel[]).map(level => (
+                  <label key={level} data-ethic={level}>
+                    <input type="radio" name="ethical_level" value={level} checked={form.ethical_level === level} onChange={() => set('ethical_level', level)} />
+                    <span><b><i aria-hidden="true" />{ETHIC_LABEL[level]}</b><small>{ETHIC_HINT[level]}</small></span>
+                  </label>
+                ))}
+              </fieldset>
+            </section>
 
-              <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
-                <div>
-                 <label className={labelClass}>OS *</label>
-                 <select value={form.os} onChange={e => set('os', e.target.value as ToolOS)} className={fieldClass}>
-                  <option value="linux">LINUX</option>
-                  <option value="windows">WINDOWS</option>
-                  <option value="both">BOTH (LINUX + WINDOWS)</option>
-                 </select>
+            {/* 3. Commandes */}
+            <section id="tl26-f-command" className="tl26-form-section" aria-labelledby="tl26-fh-command">
+              <header><span className="tl26-num">03</span><h3 id="tl26-fh-command">Commandes & automatisation</h3><small>Générateur de commande</small></header>
+              <div className="tl26-field">
+                <label htmlFor="tl26-in-command_template">Gabarit de commande</label>
+                <input {...fieldProps('command_template', 'tl26-hint-command')} className="is-code" value={form.command_template} onChange={e => set('command_template', e.target.value)} placeholder="nmap -p {{ports}} {{target}}" spellCheck={false} autoComplete="off" />
+                <small id="tl26-hint-command">Paramètres entre doubles accolades : {'{{target}}'}.</small>
+              </div>
+              <div className="tl26-field">
+                <label htmlFor="tl26-in-input_schema">Schéma JSON des paramètres</label>
+                <textarea {...fieldProps('input_schema', 'tl26-hint-schema')} className="is-code" value={form.input_schema} onChange={e => set('input_schema', e.target.value)} rows={5} placeholder='[{"key": "target", "label": "Cible"}]' spellCheck={false} />
+                <small id="tl26-hint-schema">Optionnel. Doit être un JSON valide.</small>
+                {errorText('input_schema')}
+              </div>
+            </section>
+
+            {/* 4. Documentation opérationnelle */}
+            <section id="tl26-f-doc" className="tl26-form-section" aria-labelledby="tl26-fh-doc">
+              <header><span className="tl26-num">04</span><h3 id="tl26-fh-doc">Documentation opérationnelle</h3><small>Markdown · blocs ``` pour les commandes</small></header>
+              <div className="tl26-docs">
+                {DOC_FIELDS.map(doc => {
+                  const open = isDocOpen(doc.key)
+                  const length = form[doc.key].trim().length
+                  return (
+                    <div key={doc.key} className={`tl26-doc-field${open ? ' is-open' : ''}`}>
+                      <h4>
+                        <button type="button" aria-expanded={open} aria-controls={`tl26-doc-${doc.key}`}
+                          onClick={() => setOpenDocs(prev => ({ ...prev, [doc.key]: !open }))}>
+                          <ChevronDown size={16} aria-hidden="true" />
+                          <span>{doc.label}</span>
+                          <small>{length ? `${length.toLocaleString('fr-FR')} caractères` : 'vide'}</small>
+                        </button>
+                      </h4>
+                      <div id={`tl26-doc-${doc.key}`} className="tl26-field" hidden={!open}>
+                        <label htmlFor={`tl26-in-${doc.key}`} className="tl26-sr">{doc.label} (Markdown)</label>
+                        <textarea {...fieldProps(doc.key, `tl26-hint-${doc.key}`)} className="is-code" value={form[doc.key]} onChange={e => set(doc.key, e.target.value)} rows={9} spellCheck={false} />
+                        <small id={`tl26-hint-${doc.key}`}>{doc.hint}</small>
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+            </section>
+
+            {/* 5. Cadre éthique & notes */}
+            <section id="tl26-f-frame" className="tl26-form-section" aria-labelledby="tl26-fh-frame">
+              <header><span className="tl26-num">05</span><h3 id="tl26-fh-frame">Cadre éthique & notes</h3><small>Markdown</small></header>
+              <div className="tl26-form-grid is-2">
+                <div className="tl26-field">
+                  <label htmlFor="tl26-in-legal_notes">Notes légales</label>
+                  <textarea {...fieldProps('legal_notes')} value={form.legal_notes} onChange={e => set('legal_notes', e.target.value)} rows={5} />
                 </div>
-                <div>
-                  <label className={labelClass}>NIVEAU ÉTHIQUE</label>
-                  <select value={form.ethical_level} onChange={e => set('ethical_level', e.target.value as EthicalLevel)} className={fieldClass}>
-                    <option value="standard">STANDARD</option>
-                    <option value="elevated">ELEVATED</option>
-                    <option value="warning">WARNING</option>
-                  </select>
+                <div className="tl26-field">
+                  <label htmlFor="tl26-in-ethical_use_cases">Cas d'usage éthique</label>
+                  <textarea {...fieldProps('ethical_use_cases')} value={form.ethical_use_cases} onChange={e => set('ethical_use_cases', e.target.value)} rows={5} />
                 </div>
               </div>
-
-              <div>
-                <label className={labelClass}>DESCRIPTION *</label>
-                <textarea 
-                  value={form.description} 
-                  onChange={e => set('description', e.target.value)} 
-                  rows={3} 
-                  className={textAreaClass} 
-                  placeholder="DESCRIPTION COURTE DE L'OUTIL..." 
-                />
-                {errors.description && <p className="mt-2 font-mono text-[10px] text-[#ef4444] uppercase tracking-widest">{errors.description}</p>}
+              <div className="tl26-field">
+                <label htmlFor="tl26-in-user_notes">Notes personnelles</label>
+                <textarea {...fieldProps('user_notes')} value={form.user_notes} onChange={e => set('user_notes', e.target.value)} rows={5} />
               </div>
+            </section>
 
-              <div>
-                <label className={labelClass}>TAGS (SÉPARÉS PAR DES VIRGULES)</label>
-                <input 
-                  value={form.tags} 
-                  onChange={e => set('tags', e.target.value)} 
-                  className={fieldClass} 
-                  placeholder="EX: RÉSEAU, SCAN, DÉCOUVERTE" 
-                />
+            <div className="tl26-form-bar">
+              <div className="tl26-form-bar-msg" role="alert">
+                {errorCount > 0 && <span className="is-error">{errorCount} champ{errorCount > 1 ? 's' : ''} à corriger</span>}
+                {saveFailed && <span className="is-error">Enregistrement impossible. Réessaie.</span>}
               </div>
-            </div>
-
-            {/* Générateur de commandes */}
-            <div className="space-y-6 border border-[#1e2d40] bg-[#0a0f16] p-6">
-              <h2 className="border-b border-[#1e2d40] pb-3 font-mono text-[11px] font-bold uppercase tracking-[0.2em] text-[#00d4ff]">GÉNÉRATEUR DE COMMANDES</h2>
-              <div>
-                <label className={labelClass}>TEMPLATE DE COMMANDE</label>
-                <input 
-                  value={form.command_template} 
-                  onChange={e => set('command_template', e.target.value)} 
-                  className={fieldClass} 
-                  placeholder="EX: nmap -p {{ports}} {{target}}" 
-                />
-              </div>
-              <div>
-                <label className={labelClass}>SCHEMA JSON (PARAMÈTRES)</label>
-                <textarea 
-                  value={form.input_schema} 
-                  onChange={e => set('input_schema', e.target.value)} 
-                  rows={4} 
-                  className={textAreaClass} 
-                  placeholder='[{"name": "target", "type": "string"}, ...]' 
-                />
-                {errors.input_schema && <p className="mt-2 font-mono text-[10px] text-[#ef4444] uppercase tracking-widest">{errors.input_schema}</p>}
-              </div>
-            </div>
-
-            {/* Sections Markdown */}
-            {MD_SECTIONS.map(section => (
-              <div key={section.key} className="space-y-3 border border-[#1e2d40] bg-[#0a0f16] p-6">
-                <label className="block border-b border-[#1e2d40] pb-3 font-mono text-[11px] font-bold uppercase tracking-[0.2em] text-[#8a9ab0]">
-                  {section.label} <span className="ml-2 text-[9px] font-normal text-[#64748b] tracking-normal">(MARKDOWN)</span>
-                </label>
-                <textarea
-                  value={form[section.key] as string}
-                  onChange={e => set(section.key, e.target.value as never)}
-                  rows={8}
-                  className={textAreaClass}
-                />
-              </div>
-            ))}
-
-            {/* Actions de formulaire */}
-            <div className="flex justify-end gap-4 pt-4 pb-8 border-t border-[#1e2d40]">
-              <button
-                type="button"
-                onClick={() => navigate(-1)}
-                disabled={loading}
-                className="border border-[#1e2d40] bg-[#0a0f16] px-6 py-3 font-mono text-xs uppercase tracking-widest text-[#8a9ab0] transition-colors hover:bg-[#1e2d40] hover:text-[#f1f5f9]"
-              >
-                ANNULER
-              </button>
-              <button
-                type="submit"
-                disabled={loading}
-                className="flex items-center gap-2 border border-[#00d4ff]/20 bg-[#00d4ff]/10 px-6 py-3 font-mono text-xs font-bold uppercase tracking-widest text-[#00d4ff] transition-colors hover:bg-[#00d4ff]/20 disabled:opacity-50"
-              >
-                <Save size={15} /> {isEdit ? 'SAUVEGARDER' : 'CRÉER L\'OUTIL'}
+              <button type="button" className="tl26-btn" onClick={() => navigate(-1)} disabled={loading}>Annuler</button>
+              <button type="submit" className="tl26-btn is-primary" disabled={loading}>
+                <Save size={15} aria-hidden="true" /> {loading ? 'Enregistrement…' : isEdit ? 'Sauvegarder' : "Créer l'outil"}
               </button>
             </div>
           </form>
