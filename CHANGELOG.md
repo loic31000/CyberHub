@@ -4,7 +4,7 @@
 
 ## CyberHub 2026 — intégrations du 24 octobre 2026 (non taguées)
 
-`main` est au commit `882c1b68e3f01de5512548e5e558e562810c5bb1`. Aucun tag de version n'a été créé pour ces changements.
+`main` est au commit `58fcd0d57bb04985061a6ff27b12702db4e537df`. Aucun tag de version n'a été créé pour ces changements.
 
 - **BGP Lookup et Historian 2.0** — le module de recherche BGP est présent dans `main`; Historian 2.0 ajoute snapshots, provenance et comparaisons ([PR #39](https://github.com/loic31000/CyberHub/pull/39), fusionnée le 24 octobre).
 - **CVE & KEV 2026** — interface de veille CVE renouvelée ([PR #41](https://github.com/loic31000/CyberHub/pull/41), fusionnée le 24 octobre).

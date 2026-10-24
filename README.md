@@ -18,7 +18,7 @@ Console web locale pour centraliser outils, writeups CTF, veille CVE, playbooks 
 
 ## État du projet au 24 octobre 2026
 
-À `main` (`882c1b68`), la Console CyberHub 2026 intègre le Dashboard et le shell initial ([PR #27](https://github.com/loic31000/CyberHub/pull/27)), BGP Lookup et Historian 2.0 ([PR #39](https://github.com/loic31000/CyberHub/pull/39)), CVE & KEV 2026 ([PR #41](https://github.com/loic31000/CyberHub/pull/41)) et Investigations 2026 ([PR #43](https://github.com/loic31000/CyberHub/pull/43)). La [PR #42](https://github.com/loic31000/CyberHub/pull/42) a limité les animations au repos, puis la [PR #44](https://github.com/loic31000/CyberHub/pull/44) a restauré les LED et trajets animés du circuit, avec pause lorsque l'onglet est masqué et respect de `prefers-reduced-motion`. Les performances des animations actives restent à optimiser.
+À `main` (`58fcd0d57bb04985061a6ff27b12702db4e537df`), la Console CyberHub 2026 intègre le Dashboard et le shell initial ([PR #27](https://github.com/loic31000/CyberHub/pull/27)), BGP Lookup et Historian 2.0 ([PR #39](https://github.com/loic31000/CyberHub/pull/39)), CVE & KEV 2026 ([PR #41](https://github.com/loic31000/CyberHub/pull/41)) et Investigations 2026 ([PR #43](https://github.com/loic31000/CyberHub/pull/43)). La [PR #42](https://github.com/loic31000/CyberHub/pull/42) a limité les animations au repos, puis la [PR #44](https://github.com/loic31000/CyberHub/pull/44) a restauré les LED et trajets animés du circuit, avec pause lorsque l'onglet est masqué et respect de `prefers-reduced-motion`. Les performances des animations actives restent à optimiser.
 
 Il s'agit toujours d'une application personnelle locale : backend **Go**, frontend **React**, base **SQLite** locale, données de la Console derrière l'authentification existante. Le globe et le circuit du Dashboard sont illustratifs ; ils ne montrent pas du trafic réel. La réduction des animations coûteuses au repos n'est pas présentée comme définitivement résolue.
 
@@ -222,4 +222,4 @@ Cyber-Hub est destiné **exclusivement à un usage légal et éthique** : tests 
 
 ---
 
-*Documentation de statut actualisée le 24/10/2026 sur `main` `882c1b68`. Le correctif du circuit animé (PR #44) est intégré ; la Landing et Playbooks 2026 ne sont pas encore intégrés.*
+*Documentation de statut actualisée le 24/10/2026 sur `main` `58fcd0d57bb04985061a6ff27b12702db4e537df`. Le correctif du circuit animé (PR #44) est intégré ; la Landing et Playbooks 2026 ne sont pas encore intégrés.*

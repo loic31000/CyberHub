@@ -4,7 +4,7 @@
 
 **Cible fonctionnelle : une seule application frontend React dans `frontend/`.** La landing de présentation, le Dashboard 2026 et les modules existants appartiennent ou appartiendront à cette même expérience. Le backend Go et SQLite reste le service local de l'application. La mise à disposition éventuelle d'une vitrine statique indépendante sur Internet est une **possibilité future**, pas une exigence ni une décision de déploiement.
 
-**Statut d'implémentation au 24 octobre 2026 (`main` `882c1b68`) : partielle.** Cette ADR remplace l'ancienne proposition privilégiant deux applications frontend autonomes.
+**Statut d'implémentation au 24 octobre 2026 (`main` `58fcd0d57bb04985061a6ff27b12702db4e537df`) : partielle.** Cette ADR remplace l'ancienne proposition privilégiant deux applications frontend autonomes.
 
 - **Console 2026 intégrée** : le Dashboard et le shell initial sont issus de la [PR #27](https://github.com/loic31000/CyberHub/pull/27) ; BGP Lookup est présent, Historian 2.0 a été ajouté par la [PR #39](https://github.com/loic31000/CyberHub/pull/39), CVE & KEV 2026 par la [PR #41](https://github.com/loic31000/CyberHub/pull/41), et Investigations 2026 par la [PR #43](https://github.com/loic31000/CyberHub/pull/43). La branche `feat/console-2026-dashboard-prototype` reste une référence historique.
 - **Dashboard et mouvement** : les [PR #42](https://github.com/loic31000/CyberHub/pull/42) et [#44](https://github.com/loic31000/CyberHub/pull/44) sont fusionnées. Le correctif #44 restaure les LED et le circuit animé, avec pause en onglet masqué et mouvement réduit ; il ne résout pas définitivement le coût des animations actives.

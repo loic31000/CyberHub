@@ -1,6 +1,6 @@
 # Branches CyberHub et intégration - état au 24 octobre 2026
 
-> **Mise à jour du 24 octobre 2026 (`main` `882c1b68`) :** PR #26 et #27 restent les bases documentaires et de la Console. BGP Lookup / Historian 2.0 (#39), CVE & KEV 2026 (#41), Investigations 2026 (#43) et les correctifs Dashboard (#42 et restauration du circuit animé #44) sont fusionnés. La performance avec les animations actives reste à améliorer. Playbooks 2026 reste en développement. La Landing / Showcase reste séparée : [PR #25](https://github.com/loic31000/CyberHub/pull/25) est en brouillon, sa tête `1f2a494b` se fonde sur `0db993d6` (avant `main`). Sa démo utilise exclusivement des données fictives. Conserver les analyses de conflits comme risques de portage ; ne pas fusionner directement cette ancienne PR.
+> **Mise à jour du 24 octobre 2026 (`main` `58fcd0d57bb04985061a6ff27b12702db4e537df`) :** PR #26 et #27 restent les bases documentaires et de la Console. BGP Lookup / Historian 2.0 (#39), CVE & KEV 2026 (#41), Investigations 2026 (#43) et les correctifs Dashboard (#42 et restauration du circuit animé #44) sont fusionnés. La performance avec les animations actives reste à améliorer. Playbooks 2026 reste en développement. La Landing / Showcase reste séparée : [PR #25](https://github.com/loic31000/CyberHub/pull/25) est en brouillon, sa tête `1f2a494b` se fonde sur `0db993d6` (avant `main`). Sa démo utilise exclusivement des données fictives. Conserver les analyses de conflits comme risques de portage ; ne pas fusionner directement cette ancienne PR.
 
 Ce document fournit une **photographie de GitHub**, pas de l'état non commité des postes de développement. Il ne déclenche aucune fusion ni suppression de branche.
 
@@ -14,7 +14,7 @@ Les laboratoires et leurs branches permettent de concevoir et tester les interfa
 
 | Branche | Rôle au moment de cette vérification | Action conseillée |
 | --- | --- | --- |
-| `main` | Console locale au SHA `882c1b68`; comprend Dashboard, BGP Lookup / Historian, CVE & KEV 2026 et Investigations 2026. | Base des nouveaux chantiers. |
+| `main` | Console locale au SHA `58fcd0d57bb04985061a6ff27b12702db4e537df`; comprend Dashboard, BGP Lookup / Historian, CVE & KEV 2026 et Investigations 2026. | Base des nouveaux chantiers. |
 | `docs/2026-readme-licensing-audit` | Documentation et décision MIT, **fusionnée** via la [PR #26](https://github.com/loic31000/CyberHub/pull/26) (squash). | Archive ; aucune action. |
 | `feat/integrate-dashboard-2026` | Branche d'intégration de la Console 2026, **fusionnée** via la [PR #27](https://github.com/loic31000/CyberHub/pull/27). | Archive ; aucune action. |
 | `fix/dashboard-animation-performance` | Dashboard Performance, **fusionné** via la [PR #42](https://github.com/loic31000/CyberHub/pull/42). | Référence historique de la phase de performance. |
@@ -69,4 +69,4 @@ Un `git status` local, des fichiers non suivis et des commits non poussés sur l
 
 ## Limites de cette vérification
 
-Cette photographie vérifie les PR #25, #39, #41, #42, #43 et #44 via GitHub et le `main` au SHA `882c1b68` au 24 octobre 2026. Elle ne décrit pas les modifications non commitées des worktrees et n'est pas une comparaison exhaustive de tous les fichiers des branches. Revalider les têtes distantes, les conflits et l'état de chaque chantier avant toute future intégration.
+Cette photographie vérifie les PR #25, #39, #41, #42, #43 et #44 via GitHub et le `main` au SHA `58fcd0d57bb04985061a6ff27b12702db4e537df` au 24 octobre 2026. Elle ne décrit pas les modifications non commitées des worktrees et n'est pas une comparaison exhaustive de tous les fichiers des branches. Revalider les têtes distantes, les conflits et l'état de chaque chantier avant toute future intégration.
