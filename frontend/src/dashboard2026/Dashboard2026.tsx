@@ -58,7 +58,7 @@ export default function Dashboard2026() {
     <CustomizeEnvironmentDialog open={environmentDialog.open} envCards={layout.envCards} onChange={layout.update} onReset={layout.reset} onClose={environmentDialog.close} returnFocus={environmentDialog.returnFocus} persisted={layout.persisted} />
     <CustomizeDashboardDialog open={widgetsDialog.open} widgets={layout.widgets} onChange={layout.updateWidgets} onReset={layout.resetWidgets} onClose={widgetsDialog.close} returnFocus={widgetsDialog.returnFocus} persisted={layout.persisted} />
     <div className="main-content">
-      <DashboardCircuit />
+      <DashboardCircuit motion={false} />
       <div className="workspace dashboard-board" id="dashboard-overview">
         <DashboardHero />
         <EnvironmentSection envCards={layout.envCards} statuses={environmentStatuses(data)} hasError={hasDataError(data)} onRetry={data.retry} onCustomize={environmentDialog.show} onOpen={navigate} />

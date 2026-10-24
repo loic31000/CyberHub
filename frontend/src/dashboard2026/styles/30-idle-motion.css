@@ -1,0 +1,32 @@
+/* Decorative movement does not carry live data; keep the Dashboard calm at rest. */
+:where(.cyber-dashboard-2026) .premium-traveler,
+:where(.cyber-dashboard-2026) .premium-halo,
+:where(.cyber-dashboard-2026) .mini-bars i,
+:where(.cyber-dashboard-2026) .dashboard-board .overview-hero .circuit-pulses path,
+:where(.cyber-dashboard-2026) .dashboard-board .overview-hero .circuit-nodes g,
+:where(.cyber-dashboard-2026) .dashboard-board .overview-hero .chip-aura,
+:where(.cyber-dashboard-2026) .dashboard-board .overview-hero .chip-halo,
+:where(.cyber-dashboard-2026) .dashboard-board .overview-hero .chip-scan,
+:where(.cyber-dashboard-2026) .dashboard-board .threat-beacon i,
+:where(.cyber-dashboard-2026) .threat-status,
+:where(.cyber-dashboard-2026) .threat-status::after,
+:where(.cyber-dashboard-2026) .threat-status-led {
+  animation-play-state: paused !important;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :where(.cyber-dashboard-2026) .premium-traveler,
+  :where(.cyber-dashboard-2026) .premium-halo,
+  :where(.cyber-dashboard-2026) .mini-bars i,
+  :where(.cyber-dashboard-2026) .dashboard-board .overview-hero .circuit-pulses path,
+  :where(.cyber-dashboard-2026) .dashboard-board .overview-hero .circuit-nodes g,
+  :where(.cyber-dashboard-2026) .dashboard-board .overview-hero .chip-aura,
+  :where(.cyber-dashboard-2026) .dashboard-board .overview-hero .chip-halo,
+  :where(.cyber-dashboard-2026) .dashboard-board .overview-hero .chip-scan,
+  :where(.cyber-dashboard-2026) .dashboard-board .threat-beacon i,
+  :where(.cyber-dashboard-2026) .threat-status,
+  :where(.cyber-dashboard-2026) .threat-status::after,
+  :where(.cyber-dashboard-2026) .threat-status-led {
+    animation: none !important;
+  }
+}

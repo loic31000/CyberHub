@@ -35,3 +35,4 @@
 @import "./styles/27-phase-3b-dialogs.css"; /* Phase 3B: catalogue search, customisation dialog */
 @import "./styles/28-phase-3b-widget-finish.css"; /* Phase 3B: widget surfaces and edges */
 @import "./styles/29-phase-3b-integration.css"; /* Phase 3B: integration in the Console layout */
+@import "./styles/30-idle-motion.css"; /* Dashboard idle performance: keep decorative motion still at rest */
