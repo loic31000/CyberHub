@@ -1,9 +1,33 @@
-import { defineConfig } from 'vite'
+import { defineConfig, type ViteDevServer } from 'vite'
 import react from '@vitejs/plugin-react'
 import path from 'path'
+import { readFileSync } from 'node:fs'
+
+function landingStaticMarkup() {
+  return {
+    name: 'cyberhub-landing-static-markup',
+    configureServer(server: ViteDevServer) {
+      server.middlewares.use((request, _response, next) => {
+        if (request.url === '/welcome' || request.url?.startsWith('/welcome?')) {
+          request.url = `/welcome/${request.url.slice('/welcome'.length)}`
+        }
+        next()
+      })
+    },
+    transformIndexHtml(html: string) {
+      const marker = '<!-- LANDING_STATIC_MARKUP -->'
+      if (!html.includes(marker)) return html
+      const markup = readFileSync(
+        path.resolve(__dirname, './src/landing/terminal-story-markup.html'),
+        'utf8',
+      )
+      return html.replace(marker, markup)
+    },
+  }
+}
 
 export default defineConfig({
-  plugins: [react()],
+  plugins: [react(), landingStaticMarkup()],
   resolve: {
     alias: {
       '@': path.resolve(__dirname, './src'),
@@ -34,5 +58,11 @@ export default defineConfig({
   build: {
     outDir: '../backend/web',
     emptyOutDir: true,
+    rollupOptions: {
+      input: {
+        app: path.resolve(__dirname, 'index.html'),
+        welcome: path.resolve(__dirname, 'welcome/index.html'),
+      },
+    },
   },
 })
