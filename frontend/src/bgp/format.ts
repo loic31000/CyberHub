@@ -47,6 +47,13 @@ export function formatGap(fromISO: string, toISO: string): string {
   return `${days} j${hours % 24 ? ` ${hours % 24} h` : ''}`
 }
 
+/** A duration in seconds, in the same words as formatGap ("moins d’1 min" under a minute). */
+export function formatAge(seconds: number): string {
+  if (!Number.isFinite(seconds) || seconds < 0) return 'âge inconnu'
+  if (seconds < 60) return 'moins d’1 min'
+  return formatGap(new Date(0).toISOString(), new Date(seconds * 1000).toISOString())
+}
+
 /** Number of addresses covered by an IPv4 prefix, from its CIDR length. */
 export function ipv4Size(cidr: number): string {
   if (!Number.isInteger(cidr) || cidr < 0 || cidr > 32) return ''

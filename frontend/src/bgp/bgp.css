@@ -597,3 +597,42 @@
   .bgp-spin { animation: none; }
   .bgp-console *, .bgp-console *::before, .bgp-console *::after { transition-duration: 0s !important; }
 }
+
+/* Comparison and provenance states from the backend contract: static, no motion. */
+.bgp-snapshot-meta { display: flex; flex-wrap: wrap; align-items: center; gap: 3px 6px; min-width: 0; }
+.bgp-snapshot-copy .bgp-snapshot-meta > span:first-child { overflow: hidden; color: var(--b-muted); font-size: .72rem; text-overflow: ellipsis; white-space: nowrap; }
+.bgp-snapshot-meta .bgp-prov-tag { flex: none; padding: 2px 5px; font-size: .56rem; }
+.bgp-prov-tag { padding: 4px 7px; border: 1px solid var(--b-line-strong); border-radius: 6px; color: var(--b-muted); font: 600 .62rem/1 var(--b-mono); letter-spacing: .05em; text-transform: uppercase; white-space: nowrap; }
+.bgp-prov-tag[data-state="cache"] { color: var(--b-ice); }
+.bgp-prov-tag[data-state="stale"] { border-color: rgb(245 165 36 / .45); background: rgb(245 165 36 / .1); color: var(--b-warn); }
+.bgp-prov-tag[data-state="unknown"] { border-style: dashed; }
+.bgp-axis-mark[data-provenance="stale"]::after { content: ""; position: absolute; left: 3px; top: -7px; width: 6px; height: 6px; border-radius: 50%; background: var(--b-warn); }
+.bgp-axis-mark[data-provenance="unknown"]:not([data-selected="true"])::before { opacity: .45; }
+.bgp-prov-note { color: var(--b-muted); font: 500 .7rem/1.4 "DM Sans", sans-serif; overflow-wrap: anywhere; }
+.bgp-prov-note[data-state="stale"] { color: var(--b-warn); }
+.bgp-prov-note[data-state="unknown"] { font-style: italic; }
+.bgp-verdict-unreported[data-tone="ok"] svg { background: rgb(95 224 180 / .12); color: var(--b-found); }
+.bgp-verdict-unreported[data-tone="error"] svg { background: rgb(255 122 122 / .12); color: var(--b-bad); }
+.bgp-verdict-errors { margin: 8px 0 0; padding: 0; list-style: none; color: var(--b-bad); font: 500 .72rem/1.4 var(--b-mono); overflow-wrap: anywhere; }
+.bgp-verdict-caveat { display: flex; align-items: center; gap: 6px; margin: 0; color: var(--b-warn); font-size: .78rem; }
+.bgp-list-states { display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: 6px; margin: 0 0 10px; padding: 0; list-style: none; }
+.bgp-list-states li { display: flex; justify-content: space-between; gap: 8px; padding: 6px 9px; border: 1px solid var(--b-line); border-radius: 7px; color: var(--b-copy); font-size: .74rem; }
+.bgp-list-states b { color: var(--b-muted); font: 600 .64rem/1.5 var(--b-mono); letter-spacing: .05em; text-transform: uppercase; }
+.bgp-list-states li[data-state="identical"] b { color: var(--b-found); }
+.bgp-list-states li[data-state="changed"] b { color: var(--b-ice); }
+.bgp-list-states li[data-state="missing"] { border-color: rgb(245 165 36 / .35); }
+.bgp-list-states li[data-state="missing"] b { color: var(--b-warn); }
+.bgp-list-states li[data-state="error"] { border-color: rgb(255 122 122 / .35); }
+.bgp-list-states li[data-state="error"] b { color: var(--b-bad); }
+/*
+ * Hero status: "N ALERTES NON ACQUITTÉES" is wider than the cartouche. On
+ * desktop it wraps between words and the feed mark floats to the right of the
+ * last line, instead of overlapping; the domains use two lines so the hero
+ * keeps the height of the other modules. Phones keep the one-line footer.
+ */
+@media (min-width: 761px) {
+  .bgp-historian .chh-status { display: flow-root; padding-left: 12.4px; text-indent: -12.4px; }
+  .bgp-historian .chh-status strong { display: inline; white-space: normal; }
+  .bgp-historian .chh-status strong i { display: inline-block; margin-right: 6.4px; vertical-align: 1px; }
+  .bgp-historian .chh-status > span { float: right; margin-left: 8px; }
+}

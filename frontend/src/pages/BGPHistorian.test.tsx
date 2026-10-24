@@ -6,7 +6,8 @@ import BGPHistorian from './BGPHistorian'
 import { bgpApi } from '@/api/client'
 import type { BGPAlert, BGPDiffResponse, BGPSnapshot } from '@/types/bgp'
 import {
-  alertFeedScenario, snapshotEmptyDiffScenario, snapshotObjectDiffScenario, snapshotTimelineScenario,
+  alertFeedScenario, snapshotEmptyDiffScenario, snapshotIdenticalDiffScenario, snapshotImpossibleDiffScenario,
+  snapshotObjectDiffScenario, snapshotPartialDiffScenario, snapshotProvenanceScenario, snapshotTimelineScenario,
 } from './__fixtures__/bgpVisualScenarios'
 
 vi.mock('@/api/client', () => ({
@@ -345,6 +346,54 @@ describe('BGP Historian presentation and navigation', () => {
     fireEvent.click(within(shortcuts).getByRole('button', { name: /AS13335/ }))
     expect(await screen.findByLabelText('Comparer le snapshot 2')).toBeTruthy()
     expect(screen.getByTestId('url').textContent).toBe('?asn=13335')
+  })
+
+  describe('backend comparison and provenance contract', () => {
+    const openComparison = async (diff: BGPDiffResponse) => {
+      api.getSnapshots.mockResolvedValue({ items: snapshotProvenanceScenario, total: 3, limit: 50, offset: 0 })
+      api.getDiff.mockResolvedValue(diff)
+      render(<MemoryRouter initialEntries={['/bgp/historian?asn=64496']}><BGPHistorian /></MemoryRouter>)
+      fireEvent.click(await screen.findByRole('button', { name: 'Comparer les deux plus récentes' }))
+      return screen.findByRole('region', { name: 'Comparaison des snapshots' })
+    }
+
+    it('confirms identical data only from the eight list states, with each side’s provenance', async () => {
+      const region = await openComparison(snapshotIdenticalDiffScenario)
+      expect(within(region).getByText('Données identiques.')).toBeTruthy()
+      const states = within(region).getByRole('list', { name: 'État des listes comparées' })
+      expect(within(states).getAllByRole('listitem')).toHaveLength(8)
+      expect(states.textContent).not.toMatch(/manquante|illisible|non renseignée/)
+      expect(region.querySelector('[data-state="before"] .bgp-prov-note')?.textContent).toMatch(/^Cache \(Peers\) · récupéré à .* · âge 4 min à la prise$/)
+      expect(region.querySelector('[data-state="after"] .bgp-prov-note')?.textContent).toMatch(/^Cache périmé \(Peers\) · récupéré à .* · âge 3 h 30 min à la prise$/)
+      expect(within(region).queryByText(/Non renseignées dans ce diff/)).toBeNull()
+    })
+
+    it('reports missing lists without calling the snapshots identical, and unknown provenance', async () => {
+      const region = await openComparison(snapshotPartialDiffScenario)
+      expect(within(region).getByText('Aucune différence sur les listes comparables.')).toBeTruthy()
+      expect(region.textContent).toContain('2 listes n’ont pas pu être comparées (Peers IPv4, Peers IPv6)')
+      expect(within(region).queryByText('Données identiques.')).toBeNull()
+      expect(region.querySelectorAll('.bgp-list-states li[data-state="missing"]')).toHaveLength(2)
+      expect(region.querySelector('[data-state="before"] .bgp-prov-note')?.textContent).toContain('Provenance inconnue')
+    })
+
+    it('declares the comparison impossible when a snapshot is unreadable', async () => {
+      const region = await openComparison(snapshotImpossibleDiffScenario)
+      expect(within(region).getByText('Comparaison impossible.')).toBeTruthy()
+      expect(region.textContent).toContain('Snapshot avant : invalid character')
+      expect(region.textContent).not.toMatch(/Aucune différence|Données identiques/)
+      expect(region.querySelectorAll('.bgp-list-states li[data-state="error"]')).toHaveLength(8)
+    })
+
+    it('tags stale, cached and unknown provenance on the observations', async () => {
+      api.getSnapshots.mockResolvedValue({ items: snapshotProvenanceScenario, total: 3, limit: 50, offset: 0 })
+      render(<MemoryRouter initialEntries={['/bgp/historian?asn=64496']}><BGPHistorian /></MemoryRouter>)
+      await screen.findByLabelText('Comparer le snapshot 312')
+      const tags = [...document.querySelectorAll('.bgp-snapshot-item .bgp-prov-tag')].map(t => [t.getAttribute('data-state'), t.textContent])
+      expect(tags).toEqual([['stale', 'Cache périmé'], ['cache', 'Cache'], ['unknown', 'Provenance inconnue']])
+      expect(document.querySelector('.bgp-axis-mark[data-provenance="stale"]')).not.toBeNull()
+      expect(screen.getByText(/« provenance inconnue » marque les snapshots antérieurs/)).toBeTruthy()
+    })
   })
 
   it('keeps the alert list on screen while it refreshes', async () => {

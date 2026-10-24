@@ -8,13 +8,15 @@ import { TimelineMotif } from '@/bgp/BgpMotifs'
 import type { BGPDiffResponse, BGPSnapshot } from '@/types/bgp'
 import { formatShortDay, isValidASN, isValidDate, parseAPIError, stripASN } from '@/bgp/format'
 import { AlertStream, type FeedStatus } from '@/bgp/HistorianAlerts'
+import { snapshotMoment } from '@/bgp/history'
 import { ComparisonSurface } from '@/bgp/HistorianDiff'
 import { ObservationList, TimeInstrument, type Role } from '@/bgp/HistorianTimeline'
 import { readShortcuts, rememberSnapshotASN, type SnapshotShortcut } from '@/bgp/snapshotShortcuts'
 import '@/bgp/bgp.css'
 
 const PAGE = 50
-const time = (s: BGPSnapshot) => new Date(s.created_at).getTime()
+// Same chronology as the backend: snapshot_date, then created_at for older rows.
+const time = (s: BGPSnapshot) => new Date(snapshotMoment(s)).getTime()
 
 function Spinner() {
   return (
@@ -206,7 +208,11 @@ function SnapshotWorkspace({ asn, alertASNs, onLoadASN }: { asn: number | null; 
 
       {!loading && !error && snapshots.length > 0 && (
         <>
-          <p className="bgp-snapshot-hint">La frise indique l’horodatage du snapshot enregistré par CyberHub. Les réponses BGP peuvent venir du cache ou d’un repli périmé ; l’API ne fournit ni leur âge ni l’heure de collecte source.</p>
+          <p className="bgp-snapshot-hint">
+            {snapshots.some(s => s.provenance_status === 'known')
+              ? 'La frise indique l’horodatage du snapshot enregistré par CyberHub. Chaque observation signale si ses données viennent du cache ou d’un cache périmé, avec l’heure à laquelle CyberHub les a récupérées ; « provenance inconnue » marque les snapshots antérieurs à ce suivi.'
+              : 'La frise indique l’horodatage du snapshot enregistré par CyberHub. Les réponses BGP peuvent venir du cache ou d’un repli périmé ; l’API ne fournit ni leur âge ni l’heure de collecte source.'}
+          </p>
           <TimeInstrument snapshots={snapshots} total={total} selected={selected} roleOf={roleOf} onToggle={toggleSelect} />
 
           <div className="bgp-investigation">
@@ -240,7 +246,7 @@ function SnapshotWorkspace({ asn, alertASNs, onLoadASN }: { asn: number | null; 
                   <h3>Comparaison avant / après</h3>
                   {ordered.length === 2 ? (
                     <p>
-                      <b>AVANT</b> {formatShortDay(ordered[0].created_at)} · #{ordered[0].id} → <b>APRÈS</b> {formatShortDay(ordered[1].created_at)} · #{ordered[1].id}
+                      <b>AVANT</b> {formatShortDay(snapshotMoment(ordered[0]))} · #{ordered[0].id} → <b>APRÈS</b> {formatShortDay(snapshotMoment(ordered[1]))} · #{ordered[1].id}
                     </p>
                   ) : (
                     <p>{selected.length === 0 ? 'Sélectionnez deux observations sur la frise ou dans la liste.' : 'Sélectionnez un second snapshot pour comparer.'}</p>
@@ -322,7 +328,8 @@ export default function BGPHistorian() {
           motif={<TimelineMotif />}
           index={{
             label: 'ROUTING TIMELINE',
-            lines: ['ALERTES', 'SNAPSHOTS', 'AVANT · APRÈS'],
+            // Two domain lines, so the two-line status below keeps the hero at the height of the other modules.
+            lines: ['ALERTES · SNAPSHOTS', 'AVANT · APRÈS'],
             status: !feed ? undefined
               : 'failed' in feed ? { text: 'FLUX INDISPONIBLE', tone: 'warn' }
               : { text: `${feed.count} ALERTE${feed.count === 1 ? '' : 'S'} NON ACQUITTÉE${feed.count === 1 ? '' : 'S'}`, mark: 'FLUX 30 S' },

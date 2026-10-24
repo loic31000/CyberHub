@@ -1,0 +1,28 @@
+{
+  "body": {
+    "items": [
+      {
+        "ASN": 64496,
+        "Acknowledged": false,
+        "AlertType": "prefix_change",
+        "CreatedAt": "2026-10-24T09:00:00Z",
+        "DetectedAt": "2026-10-24T09:00:00Z",
+        "ID": 1,
+        "NewValue": "{\"data\":{\"ipv4_prefixes\":[{\"prefix\":\"203.0.113.0/24\"}],\"ipv6_prefixes\":[]}}",
+        "OldValue": "{\"data\":{\"ipv4_prefixes\":[{\"prefix\":\"192.0.2.0/24\"}],\"ipv6_prefixes\":[]}}",
+        "acknowledged": false,
+        "alert_type": "prefix_change",
+        "asn": 64496,
+        "created_at": "2026-10-24T09:00:00Z",
+        "detected_at": "2026-10-24T09:00:00Z",
+        "id": 1,
+        "new_value": "{\"data\":{\"ipv4_prefixes\":[{\"prefix\":\"203.0.113.0/24\"}],\"ipv6_prefixes\":[]}}",
+        "old_value": "{\"data\":{\"ipv4_prefixes\":[{\"prefix\":\"192.0.2.0/24\"}],\"ipv6_prefixes\":[]}}"
+      }
+    ],
+    "limit": 50,
+    "offset": 0,
+    "total": 1
+  },
+  "http_status": 200
+}

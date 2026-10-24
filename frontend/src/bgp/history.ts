@@ -1,6 +1,9 @@
 // Pure helpers behind BGP Historian. They only reshape what the backend returns
 // (snapshot lists, diffs, alerts); nothing here invents a value.
-import type { BGPAlert, BGPAlertType, BGPDiffField, BGPDiffResponse } from '@/types/bgp'
+import type {
+  BGPAlert, BGPAlertType, BGPComparisonStatus, BGPDataProvenanceMap, BGPDiffField, BGPDiffResponse,
+  BGPProvenanceStatus, BGPSnapshot, BGPSnapshotResponse,
+} from '@/types/bgp'
 
 /* ------------------------------------------------------------------ alerts */
 
@@ -104,17 +107,68 @@ export const COMPARED_SECTIONS: readonly { section: string; label: string; field
 const FIELD_LABEL: Record<string, string> = Object.fromEntries(COMPARED_SECTIONS.flatMap(s =>
   s.fields.map(f => [f, `${s.label} ${f.startsWith('ipv6') ? 'IPv6' : 'IPv4'}`])))
 
+/**
+ * identical / changed / missing (absent on one side) / error (unreadable) come
+ * from the backend's list_status; unreported means the response did not say,
+ * as with backends older than list_status.
+ */
+export type ListState = 'identical' | 'changed' | 'missing' | 'error' | 'unreported'
+export interface ListReport { section: string; field: string; label: string; state: ListState; detail?: string }
+
+/**
+ * changed: at least one confirmed change · identical: the eight lists were
+ * compared and are equal · partial: no change among the lists that could be
+ * compared, others could not · impossible: nothing could be compared ·
+ * unreported: old contract, omitted lists prove nothing.
+ */
+export type ComparisonVerdict = 'changed' | 'identical' | 'partial' | 'impossible' | 'unreported'
+
 export interface DiffAnalysis {
   sections: SectionAnalysis[]
-  /** Lists omitted by the diff response; the API does not say whether they were empty or identical. */
+  /** Every compared list with its state, in a fixed order. */
+  lists: ListReport[]
+  verdict: ComparisonVerdict
+  /** Backend status, or "legacy" when the response predates it. */
+  status: BGPComparisonStatus | 'legacy'
+  decodeErrors: string[]
+  /** Lists the response says nothing about; the API does not say whether they were empty or identical. */
   notReported: string[]
   added: number
   removed: number
   modified: number
 }
 
+const LIST_STATE: Record<string, ListState> = {
+  identical: 'identical', changed: 'changed', 'missing/unavailable': 'missing', error: 'error',
+}
+
+function listReports(response: BGPDiffResponse): ListReport[] {
+  const changes = response.diff.changes as Record<string, Record<string, unknown> | undefined>
+  const statuses = response.diff.list_status ?? {}
+  return COMPARED_SECTIONS.flatMap(({ section, fields }) => fields.map(field => {
+    const reported = statuses[`${section}.data.${field}`]
+    const state: ListState = changes[section]?.[field] ? 'changed' : (reported && LIST_STATE[reported.status]) || 'unreported'
+    const detail = [reported?.older_error, reported?.newer_error].filter(Boolean).join(' · ') || undefined
+    return { section, field, label: FIELD_LABEL[field], state, ...(detail && { detail }) }
+  }))
+}
+
+function verdictOf(lists: ListReport[], decodeErrors: string[]): ComparisonVerdict {
+  if (decodeErrors.length > 0 || lists.every(l => l.state === 'error')) return 'impossible'
+  if (lists.some(l => l.state === 'changed')) return 'changed'
+  if (lists.every(l => l.state === 'identical')) return 'identical'
+  if (lists.every(l => l.state === 'unreported')) return 'unreported'
+  return 'partial'
+}
+
 export function analyzeDiff(response: BGPDiffResponse): DiffAnalysis {
   const changes = response.diff.changes as Record<string, Record<string, BGPDiffField> | undefined>
+  const decode = response.diff.decode_errors ?? {}
+  const decodeErrors = [
+    decode.older && `Snapshot avant : ${decode.older}`,
+    decode.newer && `Snapshot après : ${decode.newer}`,
+  ].filter((e): e is string => Boolean(e))
+  const lists = listReports(response)
   const sections: SectionAnalysis[] = []
   for (const { section, label } of COMPARED_SECTIONS) {
     const fields = Object.entries(changes[section] ?? {}).map(([field, data]) => analyzeField(field, data))
@@ -126,17 +180,94 @@ export function analyzeDiff(response: BGPDiffResponse): DiffAnalysis {
       modified: fields.reduce((n, f) => n + f.modified.length, 0),
     })
   }
-  const notReported = COMPARED_SECTIONS.flatMap(({ section, fields }) => {
-    const returnedFields = new Set(Object.keys(changes[section] ?? {}))
-    return fields.filter(field => !returnedFields.has(field)).map(field => FIELD_LABEL[field])
-  })
   return {
     sections,
-    notReported,
+    lists,
+    verdict: verdictOf(lists, decodeErrors),
+    status: response.diff.status ?? 'legacy',
+    decodeErrors,
+    notReported: lists.filter(l => l.state === 'unreported').map(l => l.label),
     added: sections.reduce((n, s) => n + s.added, 0),
     removed: sections.reduce((n, s) => n + s.removed, 0),
     modified: sections.reduce((n, s) => n + s.modified, 0),
   }
+}
+
+/* ------------------------------------------------- snapshot provenance */
+
+const SECTION_LABEL: Record<string, string> = {
+  info: 'Fiche ASN', prefixes: 'Préfixes', peers: 'Peers', upstreams: 'Upstreams', downstreams: 'Downstreams',
+}
+const SNAPSHOT_SECTIONS = Object.keys(SECTION_LABEL)
+
+/** ripe: all live · cache: some from the fresh cache · stale: some from a stale cache · unknown: not recorded. */
+export type ProvenanceState = 'ripe' | 'cache' | 'stale' | 'unknown'
+
+export interface ProvenanceSummary {
+  state: ProvenanceState
+  staleSections: string[]
+  cachedSections: string[]
+  /** Sections without a recognised provenance. */
+  missingSections: string[]
+  /** Oldest backend retrieval time among the sections. */
+  oldestFetchedAt: string | null
+  maxAgeSeconds: number | null
+}
+
+export function summarizeProvenance(status: BGPProvenanceStatus | undefined, map: BGPDataProvenanceMap | null | undefined): ProvenanceSummary {
+  const known = status !== 'unknown' && map ? map : {}
+  const pick = (source: string) => SNAPSHOT_SECTIONS.filter(s => known[s]?.source === source).map(s => SECTION_LABEL[s])
+  const recognised = SNAPSHOT_SECTIONS.filter(s => ['ripe', 'cache', 'cache-stale'].includes(known[s]?.source ?? ''))
+  const fetched = recognised.map(s => known[s].fetched_at).filter((t): t is string => Boolean(t) && !Number.isNaN(Date.parse(t!)))
+  const ages = recognised.map(s => known[s].age_seconds).filter((a): a is number => typeof a === 'number')
+  const staleSections = pick('cache-stale')
+  const cachedSections = pick('cache')
+  return {
+    state: recognised.length === 0 ? 'unknown' : staleSections.length ? 'stale' : cachedSections.length ? 'cache' : 'ripe',
+    staleSections,
+    cachedSections,
+    missingSections: recognised.length === 0 ? [] : SNAPSHOT_SECTIONS.filter(s => !recognised.includes(s)).map(s => SECTION_LABEL[s]),
+    oldestFetchedAt: fetched.length ? fetched.reduce((a, b) => (Date.parse(a) <= Date.parse(b) ? a : b)) : null,
+    maxAgeSeconds: ages.length ? Math.max(...ages) : null,
+  }
+}
+
+/** The moment a snapshot stands for: snapshot_date, as the backend orders them, else created_at. */
+export function snapshotMoment(s: Pick<BGPSnapshot, 'snapshot_date' | 'created_at'>): string {
+  return s.snapshot_date && !Number.isNaN(Date.parse(s.snapshot_date)) ? s.snapshot_date : s.created_at
+}
+
+/** The toast shown after taking a snapshot, from what the backend actually compared. */
+export function snapshotOutcome(result: BGPSnapshotResponse): { tone: 'success' | 'warning'; message: string } {
+  const alerts = result.alerts?.length ?? 0
+  const found = `${alerts} changement(s) détecté(s)`
+  const previous = `le snapshot #${result.comparison?.previous_snapshot_id}`
+  let tone: 'success' | 'warning' = alerts > 0 ? 'warning' : 'success'
+  let message: string
+  switch (result.comparison?.status) {
+    case 'no_previous':
+      message = 'Snapshot pris — premier snapshot de cet ASN, rien à comparer'
+      break
+    case 'complete':
+      message = alerts > 0 ? `Snapshot pris — ${found} par rapport au snapshot #${result.comparison.previous_snapshot_id} !` : `Snapshot pris — identique au snapshot #${result.comparison.previous_snapshot_id} sur les 8 listes comparées`
+      break
+    case 'incomplete':
+      tone = 'warning'
+      message = `Snapshot pris — comparaison partielle avec ${previous} : certaines listes manquent d’un côté. ${found} sur les listes comparables.`
+      break
+    case 'error':
+      tone = 'warning'
+      message = `Snapshot pris — comparaison impossible avec ${previous} (données illisibles) : aucune alerte n’a pu être calculée.`
+      break
+    default:
+      message = alerts > 0 ? `Snapshot pris — ${found} !` : 'Snapshot pris avec succès'
+  }
+  const stale = summarizeProvenance('known', result.data_provenance).staleSections
+  if (stale.length > 0) {
+    tone = 'warning'
+    message += ` Cache périmé : ${stale.join(', ')} (RIPE Stat indisponible).`
+  }
+  return { tone, message }
 }
 
 /* ----------------------------------------------------- alert contents */

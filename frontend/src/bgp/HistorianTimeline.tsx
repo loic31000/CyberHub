@@ -2,12 +2,15 @@ import { memo, useMemo, useRef, useState, type KeyboardEvent } from 'react'
 import { GitCompare } from 'lucide-react'
 import type { BGPSnapshot } from '@/types/bgp'
 import { formatClock, formatDateTime, formatGap, formatShortDay } from './format'
-import { timeTicks } from './history'
+import { snapshotMoment, summarizeProvenance, timeTicks } from './history'
+import { ProvenanceTag, provenanceText } from './Provenance'
 
 export type Role = 'before' | 'after'
 const ROLE_LABEL: Record<Role, string> = { before: 'avant', after: 'après' }
 
-const time = (s: BGPSnapshot) => new Date(s.created_at).getTime()
+// Snapshots are placed and ordered by snapshot_date, as the backend orders them.
+const momentOf = (s: BGPSnapshot) => snapshotMoment(s)
+const time = (s: BGPSnapshot) => new Date(momentOf(s)).getTime()
 const LANES = 3
 const CLOSE = 1.6 // % of the axis under which two marks share a lane
 
@@ -52,7 +55,7 @@ export const TimeInstrument = memo(function TimeInstrument({ snapshots, total, s
   const last = chronological[chronological.length - 1]
   const picked = chronological.filter(s => selected.includes(s.id))
   const band = picked.length === 2
-    ? { left: geometry.at(time(picked[0])), right: geometry.at(time(picked[1])), gap: formatGap(picked[0].created_at, picked[1].created_at) }
+    ? { left: geometry.at(time(picked[0])), right: geometry.at(time(picked[1])), gap: formatGap(momentOf(picked[0]), momentOf(picked[1])) }
     : null
 
   const move = (event: KeyboardEvent<HTMLDivElement>) => {
@@ -68,8 +71,8 @@ export const TimeInstrument = memo(function TimeInstrument({ snapshots, total, s
   return (
     <figure className="bgp-instrument">
       <figcaption className="bgp-instrument-head">
-        <span><b>{formatShortDay(first.created_at)}</b> → <b>{formatShortDay(last.created_at)}</b></span>
-        <span>{formatGap(first.created_at, last.created_at)} couverts</span>
+        <span><b>{formatShortDay(momentOf(first))}</b> → <b>{formatShortDay(momentOf(last))}</b></span>
+        <span>{formatGap(momentOf(first), momentOf(last))} couverts</span>
         <span>{snapshots.length < total ? `${snapshots.length} plus récentes sur ${total}` : `${total} observation${total > 1 ? 's' : ''}`}</span>
       </figcaption>
       <div className="bgp-axis" role="group" aria-label="Frise des observations, flèches pour parcourir" onKeyDown={move}>
@@ -87,6 +90,7 @@ export const TimeInstrument = memo(function TimeInstrument({ snapshots, total, s
         {chronological.map((snap, i) => {
           const role = roleOf(snap.id)
           const isSelected = selected.includes(snap.id)
+          const provenance = summarizeProvenance(snap.provenance_status, snap.data_provenance)
           return (
             <button
               key={snap.id}
@@ -96,13 +100,14 @@ export const TimeInstrument = memo(function TimeInstrument({ snapshots, total, s
               data-lane={geometry.lanes[i]}
               data-selected={isSelected}
               data-role={role ?? undefined}
+              data-provenance={provenance.state}
               style={{ left: `${geometry.at(time(snap))}%` }}
               tabIndex={i === Math.min(focusIndex, chronological.length - 1) ? 0 : -1}
               onFocus={() => setFocusIndex(i)}
               onClick={() => onToggle(snap.id)}
               aria-pressed={isSelected}
-              aria-label={`Observation #${snap.id}, ${formatDateTime(snap.created_at)}${role ? `, ${ROLE_LABEL[role]}` : ''}`}
-              title={`#${snap.id} · ${formatDateTime(snap.created_at)}`}
+              aria-label={`Observation #${snap.id}, ${formatDateTime(momentOf(snap))}${role ? `, ${ROLE_LABEL[role]}` : ''}`}
+              title={`#${snap.id} · ${formatDateTime(momentOf(snap))}\n${provenanceText(provenance)}`}
             >
               {role && <em>{role === 'before' ? 'AVANT' : 'APRÈS'}</em>}
             </button>
@@ -133,8 +138,11 @@ export const ObservationList = memo(function ObservationList({ snapshots, asn, s
               <input type="checkbox" checked={selected.includes(snap.id)} onChange={() => onToggle(snap.id)} aria-label={`Comparer le snapshot ${snap.id}`} />
               <span className="bgp-snapshot-node" aria-hidden="true" />
               <span className="bgp-snapshot-copy">
-                <time dateTime={snap.created_at}>{formatShortDay(snap.created_at)} <b>{formatClock(snap.created_at)}</b></time>
-                <span title={previous ? `${formatGap(previous.created_at, snap.created_at)} après #${previous.id}` : undefined}>#{snap.id}{previous ? ` · +${formatGap(previous.created_at, snap.created_at)}` : ' · plus ancienne chargée'}</span>
+                <time dateTime={momentOf(snap)}>{formatShortDay(momentOf(snap))} <b>{formatClock(momentOf(snap))}</b></time>
+                <span className="bgp-snapshot-meta">
+                  <span title={previous ? `${formatGap(momentOf(previous), momentOf(snap))} après #${previous.id}` : undefined}>#{snap.id}{previous ? ` · +${formatGap(momentOf(previous), momentOf(snap))}` : ' · plus ancienne chargée'}</span>
+                  <ProvenanceTag status={snap.provenance_status} map={snap.data_provenance} />
+                </span>
               </span>
               {role && <span className="bgp-snapshot-role" data-role={role}>{ROLE_LABEL[role]}</span>}
               {idx === 0 && !role && <span className="bgp-latest-badge">Le plus récent</span>}

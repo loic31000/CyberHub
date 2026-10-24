@@ -1,0 +1,45 @@
+{
+  "body": {
+    "alerts": null,
+    "comparison": {
+      "previous_snapshot_id": null,
+      "status": "no_previous"
+    },
+    "data_provenance": {
+      "downstreams": {
+        "age_seconds": 0,
+        "fetched_at": "2026-10-24T12:00:00Z",
+        "source": "ripe"
+      },
+      "info": {
+        "age_seconds": 0,
+        "fetched_at": "2026-10-24T12:00:00Z",
+        "source": "ripe"
+      },
+      "peers": {
+        "age_seconds": 0,
+        "fetched_at": "2026-10-24T12:00:00Z",
+        "source": "ripe"
+      },
+      "prefixes": {
+        "age_seconds": 0,
+        "fetched_at": "2026-10-24T12:00:00Z",
+        "source": "ripe"
+      },
+      "upstreams": {
+        "age_seconds": 0,
+        "fetched_at": "2026-10-24T12:00:00Z",
+        "source": "ripe"
+      }
+    },
+    "snapshot": {
+      "ASN": 64510,
+      "CreatedAt": "2026-10-24T12:00:00Z",
+      "FullDataJSON": "{\"downstreams\":{\"data\":{\"ipv4_downstreams\":[],\"ipv6_downstreams\":[]},\"status\":\"ok\"},\"info\":{\"data\":{},\"status\":\"ok\"},\"peers\":{\"data\":{\"ipv4_peers\":[],\"ipv6_peers\":[]},\"status\":\"ok\"},\"prefixes\":{\"data\":{\"ipv4_prefixes\":[],\"ipv6_prefixes\":[]},\"status\":\"ok\"},\"upstreams\":{\"data\":{\"ipv4_upstreams\":[],\"ipv6_upstreams\":[]},\"status\":\"ok\"}}",
+      "ID": 6,
+      "SnapshotDate": "2026-10-24T12:00:00Z",
+      "TakenBy": "local"
+    }
+  },
+  "http_status": 201
+}

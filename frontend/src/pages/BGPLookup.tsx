@@ -18,6 +18,7 @@ import {
 } from '@/bgp/LookupParts'
 import { readVisits, recordVisit, writeVisits } from '@/bgp/visits'
 import { rememberSnapshotASN } from '@/bgp/snapshotShortcuts'
+import { snapshotOutcome } from '@/bgp/history'
 import '@/bgp/bgp.css'
 
 type SearchMode = 'asn' | 'ip' | 'search'
@@ -120,11 +121,11 @@ function ASNDossier({ asn, info, cache, visited, onOpenASN }: {
     try {
       const result = await bgpApi.takeSnapshot(asn)
       rememberSnapshotASN({ asn, last: new Date().toISOString() })
-      const alertCount = result.alerts?.length ?? 0
-      if (alertCount > 0) toast.warning(`Snapshot pris — ${alertCount} changement(s) détecté(s) !`)
-      else toast.success('Snapshot pris avec succès')
+      const outcome = snapshotOutcome(result)
+      toast[outcome.tone](outcome.message)
     } catch (e: unknown) {
-      toast.error(e instanceof Error ? e.message : 'Erreur snapshot')
+      // The backend explains which section failed ("erreur récupération 'peers': ...").
+      toast.error(parseAPIError(e))
     } finally {
       setSnapping(false)
     }

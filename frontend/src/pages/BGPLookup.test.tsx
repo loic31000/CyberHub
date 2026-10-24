@@ -4,6 +4,7 @@ import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/re
 import { MemoryRouter, useLocation, useNavigate } from 'react-router-dom'
 import BGPLookup from './BGPLookup'
 import { bgpApi } from '@/api/client'
+import { toast } from '@/store/toast'
 import type { ASNInfo } from '@/types/bgp'
 import {
   asnSearchListScenario, downstreamScenario, peerScenario, upstreamScenario,
@@ -363,6 +364,17 @@ describe('BGP Lookup presentation and navigation', () => {
     renderPage('/bgp?asn=22773')
     expect(await screen.findByRole('button', { name: 'Ouvrir AS1299 Arelion, déjà visité' })).toBeTruthy()
     expect(screen.getByRole('button', { name: 'Retour à AS1299' })).toBeTruthy()
+  })
+
+  it('says when the new snapshot could not be compared with the previous one', async () => {
+    api.lookupASN.mockResolvedValue(envelope(asnInfo))
+    api.lookupASNPrefixes.mockResolvedValue(envelope({ ipv4_prefixes: [], ipv6_prefixes: [] }))
+    api.takeSnapshot.mockResolvedValue({ snapshot: {}, alerts: [], comparison: { status: 'error', previous_snapshot_id: 7 } })
+    renderPage('/bgp?asn=13335')
+
+    fireEvent.click(await screen.findByRole('button', { name: /Prendre un snapshot/ }))
+    await waitFor(() => expect(vi.mocked(toast.warning)).toHaveBeenCalledWith(expect.stringContaining('comparaison impossible avec le snapshot #7')))
+    expect(vi.mocked(toast.success)).not.toHaveBeenCalled()
   })
 
   it('remembers an ASN once a snapshot is taken, for the Historian shortcuts', async () => {

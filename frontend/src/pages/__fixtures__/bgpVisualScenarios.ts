@@ -1,6 +1,6 @@
 import type {
-  ASNInfo, BGPAlert, BGPDownstream, BGPDiffResponse, BGPPeer, BGPSnapshot,
-  BGPUpstream, IPv4Prefix, SearchASN,
+  ASNInfo, BGPAlert, BGPDataProvenance, BGPDataProvenanceMap, BGPDownstream, BGPDiffResponse, BGPListStatus,
+  BGPPeer, BGPSnapshot, BGPUpstream, IPv4Prefix, SearchASN,
 } from '@/types/bgp'
 
 // Preview/test-only presentation data. ASNs and prefixes use documentation ranges;
@@ -49,6 +49,64 @@ export const snapshotLongHistoryScenario: BGPSnapshot[] = Array.from({ length: 1
   const at = new Date(Date.UTC(2026, 9, 23, 12) - (index * 6 + (index % 7) * 1.5) * 86_400_000)
   return { id: 900 - index, created_at: at.toISOString(), asn: 64496, snapshot_date: at.toISOString(), taken_by: 'local' }
 })
+
+const LIST_KEYS = ['prefixes', 'peers', 'upstreams', 'downstreams'].flatMap(section =>
+  ['ipv4', 'ipv6'].map(family => `${section}.data.${family}_${section}`))
+const listStatus = (overrides: Record<string, BGPListStatus> = {}): Record<string, BGPListStatus> =>
+  ({ ...Object.fromEntries(LIST_KEYS.map(key => [key, { status: 'identical' as const }])), ...overrides })
+
+/** Per-section provenance as recorded by the current backend. */
+const provenance = (at: string, peers: BGPDataProvenance = { source: 'cache', fetched_at: at, age_seconds: 240 }): BGPDataProvenanceMap => ({
+  info: { source: 'ripe', fetched_at: at, age_seconds: 0 },
+  prefixes: { source: 'ripe', fetched_at: at, age_seconds: 0 },
+  peers,
+  upstreams: { source: 'ripe', fetched_at: at, age_seconds: 0 },
+  downstreams: { source: 'ripe', fetched_at: at, age_seconds: 0 },
+})
+
+/** Snapshots from the current backend: one legacy (unknown provenance), one with a stale peers section. */
+export const snapshotProvenanceScenario: BGPSnapshot[] = [
+  { id: 312, created_at: '2026-10-24T09:00:00Z', snapshot_date: '2026-10-24T09:00:00Z', asn: 64496, taken_by: 'local',
+    provenance_status: 'known', data_provenance: provenance('2026-10-24T09:00:00Z', { source: 'cache-stale', fetched_at: '2026-10-24T05:30:00Z', age_seconds: 12_600 }) },
+  { id: 311, created_at: '2026-10-23T09:00:00Z', snapshot_date: '2026-10-23T09:00:00Z', asn: 64496, taken_by: 'local',
+    provenance_status: 'known', data_provenance: provenance('2026-10-23T09:00:00Z') },
+  { id: 310, created_at: '2026-10-20T09:00:00Z', snapshot_date: '2026-10-20T09:00:00Z', asn: 64496, taken_by: 'local',
+    provenance_status: 'unknown', data_provenance: null },
+]
+
+const meta = (s: BGPSnapshot) => ({
+  id: s.id, created_at: s.created_at, snapshot_date: s.snapshot_date, asn: s.asn,
+  provenance_status: s.provenance_status, data_provenance: s.data_provenance,
+})
+
+/** Current backend: all eight lists compared and reported identical. */
+export const snapshotIdenticalDiffScenario: BGPDiffResponse = {
+  older: meta(snapshotProvenanceScenario[1]),
+  newer: meta(snapshotProvenanceScenario[0]),
+  diff: { status: 'complete', changed_fields: [], changes: {}, list_status: listStatus() },
+}
+
+/** Current backend: the legacy snapshot has no peers lists, so they cannot be compared. */
+export const snapshotPartialDiffScenario: BGPDiffResponse = {
+  older: meta(snapshotProvenanceScenario[2]),
+  newer: meta(snapshotProvenanceScenario[1]),
+  diff: {
+    status: 'incomplete', changed_fields: [], changes: {},
+    list_status: listStatus({ 'peers.data.ipv4_peers': { status: 'missing/unavailable' }, 'peers.data.ipv6_peers': { status: 'missing/unavailable' } }),
+  },
+}
+
+const decodeError = "invalid character 'i' looking for beginning of object key string"
+/** Current backend: the older snapshot JSON is unreadable. */
+export const snapshotImpossibleDiffScenario: BGPDiffResponse = {
+  older: meta(snapshotProvenanceScenario[2]),
+  newer: meta(snapshotProvenanceScenario[0]),
+  diff: {
+    status: 'error', changed_fields: [], changes: {},
+    list_status: Object.fromEntries(LIST_KEYS.map(key => [key, { status: 'error' as const, older_error: decodeError }])),
+    decode_errors: { older: decodeError },
+  },
+}
 
 /** Empty diff payload: the API omits unreported lists, so this does not prove equality. */
 export const snapshotEmptyDiffScenario: BGPDiffResponse = {

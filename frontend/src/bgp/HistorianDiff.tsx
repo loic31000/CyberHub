@@ -1,11 +1,15 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { AlertCircle, ArrowRight, Copy, GitCompare, Minus, Plus, RefreshCw, X } from 'lucide-react'
+import { AlertCircle, ArrowRight, CheckCircle2, Copy, GitCompare, Minus, Plus, RefreshCw, X, XCircle } from 'lucide-react'
 import { toast } from '@/store/toast'
 import type { BGPDiffResponse } from '@/types/bgp'
 import { formatDateTime, formatGap } from './format'
-import { analyzeDiff, type DiffItem, type FieldAnalysis } from './history'
+import { analyzeDiff, snapshotMoment, type DiffItem, type FieldAnalysis, type ListState } from './history'
+import { ProvenanceNote } from './Provenance'
 
 const LIST_LIMIT = 200
+const LIST_STATE_LABEL: Record<ListState, string> = {
+  identical: 'identique', changed: 'modifiée', missing: 'manquante', error: 'illisible', unreported: 'non renseignée',
+}
 
 function copyLines(lines: string[], what: string) {
   navigator.clipboard.writeText(lines.join('\n')).then(() => toast.success(`${what} copiés (${lines.length})`))
@@ -92,7 +96,8 @@ function FieldBlock({ field, raw }: { field: FieldAnalysis; raw: unknown }) {
 /**
  * The comparison of two snapshots: verdict first, then the interval, the
  * changes per compared list with before / after volumes, and the raw data.
- * The backend returns changed lists only; omitted lists remain unknown.
+ * The verdict follows the backend's list_status: identical only when all
+ * eight lists were compared; with an older backend, omitted lists remain unknown.
  */
 export function ComparisonSurface({ diffResponse, onClose }: { diffResponse: BGPDiffResponse; onClose: () => void }) {
   const { older, newer, diff } = diffResponse
@@ -117,11 +122,14 @@ export function ComparisonSurface({ diffResponse, onClose }: { diffResponse: BGP
     }
   }, [])
 
-  const noReportedDiff = analysis.sections.length === 0
+  const { verdict } = analysis
+  const notCompared = analysis.lists.filter(l => l.state === 'missing' || l.state === 'error')
   const changes = diff.changes as Record<string, Record<string, unknown> | undefined>
+  const olderAt = snapshotMoment({ snapshot_date: older.snapshot_date ?? '', created_at: older.created_at })
+  const newerAt = snapshotMoment({ snapshot_date: newer.snapshot_date ?? '', created_at: newer.created_at })
 
   return (
-    <section className="bgp-diff" role="region" aria-labelledby="bgp-diff-title" data-no-reported-diff={noReportedDiff}>
+    <section className="bgp-diff" role="region" aria-labelledby="bgp-diff-title" data-verdict={verdict} data-no-reported-diff={analysis.sections.length === 0}>
       <header className="bgp-diff-head">
         <GitCompare size={16} aria-hidden="true" />
         <h2 id="bgp-diff-title">Comparaison des snapshots</h2>
@@ -130,9 +138,25 @@ export function ComparisonSurface({ diffResponse, onClose }: { diffResponse: BGP
 
       {/* 1 · verdict */}
       <div className="bgp-verdict" aria-live="polite">
-        {noReportedDiff ? (
+        {verdict === 'impossible' && (
+          <div className="bgp-verdict-unreported" data-tone="error">
+            <XCircle size={18} aria-hidden="true" />
+            <span>
+              <strong>Comparaison impossible.</strong> Les données d’au moins un snapshot sont illisibles : ni changement ni stabilité ne peuvent être affirmés.
+              {analysis.decodeErrors.length > 0 && <ul className="bgp-verdict-errors">{analysis.decodeErrors.map(e => <li key={e}>{e}</li>)}</ul>}
+            </span>
+          </div>
+        )}
+        {verdict === 'identical' && (
+          <p className="bgp-verdict-unreported" data-tone="ok"><CheckCircle2 size={18} aria-hidden="true" /><span><strong>Données identiques.</strong> Les 8 listes comparées (préfixes, peers, upstreams, downstreams IPv4/IPv6) sont les mêmes dans les deux snapshots.</span></p>
+        )}
+        {verdict === 'partial' && (
+          <p className="bgp-verdict-unreported"><AlertCircle size={18} aria-hidden="true" /><span><strong>Aucune différence sur les listes comparables.</strong> {notCompared.length} liste{notCompared.length > 1 ? 's' : ''} n’{notCompared.length > 1 ? 'ont' : 'a'} pas pu être comparée{notCompared.length > 1 ? 's' : ''} ({notCompared.map(l => l.label).join(', ')}) : elles ne sont pas déclarées identiques.</span></p>
+        )}
+        {verdict === 'unreported' && (
           <p className="bgp-verdict-unreported"><AlertCircle size={18} aria-hidden="true" /><span><strong>Aucune différence n’est renvoyée par l’API.</strong> Les listes omises ne peuvent pas être déclarées identiques ou absentes à partir de ce diff.</span></p>
-        ) : (
+        )}
+        {verdict === 'changed' && (
           <>
             <div className="bgp-verdict-figures">
               <span className="is-added"><Plus size={14} aria-hidden="true" /><b>{analysis.added}</b> ajouté{analysis.added > 1 ? 's' : ''}</span>
@@ -142,20 +166,25 @@ export function ComparisonSurface({ diffResponse, onClose }: { diffResponse: BGP
             <ul className="bgp-verdict-sections" aria-label="Sections modifiées">
               {analysis.sections.map(s => <li key={s.section}>{s.label} <small>+{s.added} / −{s.removed}{s.modified ? ` / ~${s.modified}` : ''}</small></li>)}
             </ul>
+            {notCompared.length > 0 && (
+              <p className="bgp-verdict-caveat"><AlertCircle size={13} aria-hidden="true" /> Non comparées : {notCompared.map(l => l.label).join(', ')}. Leur état reste inconnu.</p>
+            )}
           </>
         )}
       </div>
 
-      {/* 2 · interval */}
+      {/* 2 · interval, with where each snapshot's data came from */}
       <div className="bgp-diff-span">
         <div data-state="before">
           <span>AVANT · #{older.id}</span>
-          <time dateTime={older.created_at}>{formatDateTime(older.created_at)}</time>
+          <time dateTime={olderAt}>{formatDateTime(olderAt)}</time>
+          <ProvenanceNote status={older.provenance_status} map={older.data_provenance} />
         </div>
-        <div className="bgp-diff-gap"><ArrowRight size={14} aria-hidden="true" /><small>{formatGap(older.created_at, newer.created_at)}</small></div>
+        <div className="bgp-diff-gap"><ArrowRight size={14} aria-hidden="true" /><small>{formatGap(olderAt, newerAt)}</small></div>
         <div data-state="after">
           <span>APRÈS · #{newer.id}</span>
-          <time dateTime={newer.created_at}>{formatDateTime(newer.created_at)}</time>
+          <time dateTime={newerAt}>{formatDateTime(newerAt)}</time>
+          <ProvenanceNote status={newer.provenance_status} map={newer.data_provenance} />
         </div>
       </div>
       {/* 3 · changes, 4 · raw data */}
@@ -167,6 +196,13 @@ export function ComparisonSurface({ diffResponse, onClose }: { diffResponse: BGP
           </section>
         ))}
         <footer className="bgp-diff-scope">
+          {analysis.status !== 'legacy' && (
+            <ul className="bgp-list-states" aria-label="État des listes comparées">
+              {analysis.lists.map(l => (
+                <li key={l.field} data-state={l.state} title={l.detail}>{l.label} <b>{LIST_STATE_LABEL[l.state]}</b></li>
+              ))}
+            </ul>
+          )}
           {analysis.notReported.length > 0 && <p><b>Non renseignées dans ce diff :</b> {analysis.notReported.join(', ')}. L’API omet les listes sans différence et ne précise pas si une liste omise était vide ou identique.</p>}
           <p><b>Non comparés par l’API :</b> nom, pays et registre de l’ASN. Les listes examinées sont les préfixes, peers, upstreams et downstreams IPv4/IPv6.</p>
         </footer>
