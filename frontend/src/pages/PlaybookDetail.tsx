@@ -1,221 +1,276 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import { useParams, useNavigate, Link } from 'react-router-dom'
+import { ArrowLeft, Pencil, Trash2, RotateCcw, Check, AlertCircle, RefreshCw, SearchX } from 'lucide-react'
 import { playbookApi } from '@/api/client'
 import type { Playbook, PlaybookStep } from '@/types'
-import { ArrowLeft, Edit, Trash2, RotateCcw, CheckCircle2, Circle, BookOpen } from 'lucide-react'
-import ConfirmModal from '@/components/ConfirmModal'
 import { toast } from '@/store/toast'
+import PbHero from '@/pb26/PbHero'
+import ConfirmDialog from '@/pb26/ConfirmDialog'
+import { ProgressBadge, ProgressMeter, apiError, formatDay, isNotFound, orderedSteps, progressOf, scenarioLabel } from '@/pb26/parts'
+import '@/pb26/pb.css'
 
+type Load = { status: 'loading' } | { status: 'error' } | { status: 'missing' } | { status: 'ready' }
+
+/*
+ * One playbook and its checklist. The backend's toggle flips a step rather
+ * than setting it, so a click is never applied optimistically: the step is
+ * locked until the server answers, its answer is the truth, and a reset waits
+ * for pending toggles (and blocks new ones) so no answer lands on a stale list.
+ * When an answer is lost, the playbook is reloaded to learn its real state.
+ */
 export default function PlaybookDetail() {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
+  const playbookId = Number(id)
   const [playbook, setPlaybook] = useState<Playbook | null>(null)
-  const [loading, setLoading] = useState(true)
-  const [toggling, setToggling] = useState<number | null>(null)
-  const [resetting, setResetting] = useState(false)
-  const [deleting, setDeleting] = useState(false)
-  const [confirmOpen, setConfirmOpen] = useState(false)
+  const [load, setLoad] = useState<Load>({ status: 'loading' })
+  const [attempt, setAttempt] = useState(0)
+  const [pending, setPending] = useState<ReadonlySet<number>>(new Set())
   const [resetOpen, setResetOpen] = useState(false)
+  const [resetting, setResetting] = useState(false)
+  const [deleteOpen, setDeleteOpen] = useState(false)
+  const [deleting, setDeleting] = useState(false)
+  const [announce, setAnnounce] = useState('')
+  // Bumped by every reload or reset: answers started before it are dropped.
+  const epoch = useRef(0)
+  const pendingRef = useRef(new Set<number>())
+  const stepRefs = useRef(new Map<number, HTMLButtonElement>())
+
+  const setPendingStep = (stepId: number, on: boolean) => {
+    const next = new Set(pendingRef.current)
+    if (on) next.add(stepId); else next.delete(stepId)
+    pendingRef.current = next
+    setPending(next)
+  }
+
+  const reload = useCallback((quiet = false) => {
+    const current = ++epoch.current
+    pendingRef.current = new Set()
+    setPending(new Set())
+    if (!quiet) setLoad({ status: 'loading' })
+    playbookApi.get(playbookId)
+      .then(pb => {
+        if (current !== epoch.current) return
+        setPlaybook(pb)
+        setLoad({ status: 'ready' })
+      })
+      .catch(err => {
+        if (current !== epoch.current) return
+        if (quiet) { toast.error('Impossible de resynchroniser la checklist'); return }
+        setLoad({ status: isNotFound(err) ? 'missing' : 'error' })
+      })
+  }, [playbookId])
 
   useEffect(() => {
-    if (!id) return
-    playbookApi.get(Number(id))
-      .then(setPlaybook)
-      .catch(() => navigate('/playbooks'))
-      .finally(() => setLoading(false))
-  }, [id, navigate])
+    if (!Number.isInteger(playbookId) || playbookId <= 0) { setLoad({ status: 'missing' }); return }
+    reload()
+  }, [playbookId, attempt, reload])
 
-  const handleToggle = async (step: PlaybookStep) => {
-    if (!playbook || toggling !== null) return
-    setToggling(step.id)
+  const toggle = async (step: PlaybookStep) => {
+    if (!playbook || resetting || pendingRef.current.has(step.id)) return
+    const current = epoch.current
+    setPendingStep(step.id, true)
     try {
       const updated = await playbookApi.toggleStep(playbook.id, step.id)
-      setPlaybook((pb) =>
-        pb ? { ...pb, steps: pb.steps.map((s) => s.id === step.id ? { ...s, checked: updated.checked } : s) } : pb
-      )
+      if (current !== epoch.current) return
+      setPlaybook(pb => pb && { ...pb, steps: pb.steps.map(s => (s.id === step.id ? { ...s, checked: updated.checked } : s)) })
+      setAnnounce(`Étape ${step.order} ${updated.checked ? 'validée' : 'à refaire'}`)
+    } catch (err) {
+      if (current !== epoch.current) return
+      toast.error(apiError(err, 'L’étape n’a pas pu être mise à jour'))
+      // The flip may or may not have happened: ask the server.
+      reload(true)
+      return
     } finally {
-      setToggling(null)
+      if (current === epoch.current) setPendingStep(step.id, false)
     }
   }
 
-  const handleReset = async () => {
-    if (!playbook) return
+  const reset = async () => {
+    if (!playbook || pendingRef.current.size) return
     setResetting(true)
+    const current = ++epoch.current
     try {
       await playbookApi.reset(playbook.id)
-      setPlaybook((pb) =>
-        pb ? { ...pb, steps: pb.steps.map((s) => ({ ...s, checked: false })) } : pb
-      )
-      toast.success('Étapes remises à zéro')
-    } catch {
-      toast.error('Erreur lors du reset')
+      if (current !== epoch.current) return
+      setPlaybook(pb => pb && { ...pb, steps: pb.steps.map(s => ({ ...s, checked: false })) })
+      setResetOpen(false)
+      setAnnounce('Checklist réinitialisée')
+      toast.success('Checklist réinitialisée')
+    } catch (err) {
+      toast.error(apiError(err, 'La réinitialisation a échoué'))
+      setResetOpen(false)
+      reload(true)
     } finally {
       setResetting(false)
     }
   }
 
-  const handleDelete = async () => {
+  const remove = async () => {
     if (!playbook) return
     setDeleting(true)
     try {
       await playbookApi.delete(playbook.id)
-      toast.success(`Playbook "${playbook.title}" supprimé`)
+      toast.success(`Playbook « ${playbook.title} » supprimé`)
       navigate('/playbooks')
-    } catch {
-      toast.error('Erreur lors de la suppression')
+    } catch (err) {
+      toast.error(apiError(err, 'La suppression a échoué'))
       setDeleting(false)
+      setDeleteOpen(false)
     }
   }
 
-  if (loading) {
-    return (
-      <div className="flex h-full items-center justify-center bg-[#06080f]">
-        <p className="font-mono text-xs text-[#64748b]">CHARGEMENT...</p>
-      </div>
-    )
+  const steps = orderedSteps(playbook?.steps)
+  const p = progressOf(steps)
+  const nextStep = steps.find(s => !s.checked)
+
+  // Arrow keys move between steps; Home and End jump to the ends.
+  const onStepKey = (event: React.KeyboardEvent, index: number) => {
+    const target = event.key === 'ArrowDown' ? index + 1 : event.key === 'ArrowUp' ? index - 1
+      : event.key === 'Home' ? 0 : event.key === 'End' ? steps.length - 1 : null
+    if (target === null || target < 0 || target >= steps.length) return
+    event.preventDefault()
+    stepRefs.current.get(steps[target].id)?.focus()
   }
 
-  if (!playbook) return null
-
-  const steps = playbook.steps ?? []
-  const done = steps.filter((s) => s.checked).length
-  const total = steps.length
-  const pct = total > 0 ? Math.round((done / total) * 100) : 0
+  const heroStatus = load.status === 'error'
+    ? { text: 'DONNÉES INDISPONIBLES', tone: 'warn' as const }
+    : load.status === 'ready'
+      ? { text: `${p.done}/${p.total} ÉTAPES`, mark: `${p.pct} %`, tone: p.state === 'done' ? 'ok' as const : 'busy' as const }
+      : undefined
 
   return (
-    <div className="flex flex-col h-full bg-[#06080f] text-[#f1f5f9]">
-      {/* Bandeau d'en-tête style BGPLookup */}
-      <div className="flex items-center justify-between px-6 py-4 border-b border-[#1e2d40] bg-[#0a0f16]/50">
-        <div className="flex items-center gap-3">
-          <div className="relative">
-            <BookOpen className="text-[#00d4ff]" size={20} />
-            <div className="absolute -top-1 -right-1 w-2 h-2 bg-[#10b981] rounded-full animate-pulse shadow-[0_0_8px_#10b981]" />
+    <div className="pb26">
+      <div className="pb26-frame" data-layout="detail">
+        <PbHero status={heroStatus} />
+
+        <nav className="pb26-crumbs" aria-label="Fil d’Ariane">
+          <Link to="/playbooks" className="pb26-link"><ArrowLeft size={14} aria-hidden="true" /> Tous les playbooks</Link>
+        </nav>
+
+        {load.status === 'loading' && <div className="pb26-loading" role="status">Chargement du playbook…</div>}
+
+        {load.status === 'error' && (
+          <div className="pb26-state is-error" role="alert">
+            <AlertCircle size={26} aria-hidden="true" />
+            <h2>Impossible de charger ce playbook</h2>
+            <p>Le backend n’a pas répondu. Réessayez dans un instant.</p>
+            <button type="button" className="pb26-btn" onClick={() => setAttempt(n => n + 1)}><RefreshCw size={14} aria-hidden="true" /> Réessayer</button>
           </div>
-          <div>
-            <h1 className="text-sm font-bold tracking-[0.2em] uppercase">PLAYBOOKS // DETAIL</h1>
-            <p className="text-[10px] text-[#64748b] font-mono">
-              {playbook.title} • {playbook.scenario || 'incident response'}
-            </p>
+        )}
+
+        {load.status === 'missing' && (
+          <div className="pb26-state">
+            <SearchX size={28} aria-hidden="true" />
+            <h2>Playbook introuvable</h2>
+            <p>Il a peut-être été supprimé, ou le lien est incorrect.</p>
+            <Link to="/playbooks" className="pb26-btn">Retour aux playbooks</Link>
           </div>
-        </div>
-        <div className="flex items-center gap-4">
-          <Link
-            to="/playbooks"
-            className="flex items-center gap-2 px-3 py-1.5 bg-[#1e2d40] hover:bg-[#2a3f55] text-[10px] font-bold border border-[#334155] transition-colors"
-          >
-            <ArrowLeft size={12} /> BACK TO INDEX
-          </Link>
-        </div>
+        )}
+
+        {load.status === 'ready' && playbook && (
+          <div className="pb26-detail" data-progress={p.state}>
+            <article className="pb26-detail-main" aria-labelledby="pb26-title">
+              <header className="pb26-intro">
+                <span className="pb26-tag">{scenarioLabel(playbook.scenario)}</span>
+                <h2 id="pb26-title">{playbook.title}</h2>
+                {playbook.description && <p className="pb26-lede">{playbook.description}</p>}
+              </header>
+
+              <section className="pb26-checklist" aria-labelledby="pb26-checklist-title">
+                <div className="pb26-checklist-head">
+                  <h3 id="pb26-checklist-title">Checklist</h3>
+                  {nextStep && <p className="pb26-next">Prochaine étape <span>n° {steps.indexOf(nextStep) + 1}</span></p>}
+                  {!nextStep && p.total > 0 && <p className="pb26-next is-done"><Check size={14} aria-hidden="true" /> Toutes les étapes sont validées</p>}
+                </div>
+                {steps.length === 0 ? (
+                  <div className="pb26-state is-inline">
+                    <p>Ce playbook n’a encore aucune étape.</p>
+                    <Link to={`/playbooks/${playbook.id}/edit`} className="pb26-btn"><Pencil size={14} aria-hidden="true" /> Ajouter des étapes</Link>
+                  </div>
+                ) : (
+                  <ol className="pb26-steps">
+                    {steps.map((step, i) => {
+                      const busy = pending.has(step.id)
+                      return (
+                        <li key={step.id} className="pb26-step" data-checked={step.checked} data-next={step === nextStep || undefined}>
+                          <button
+                            ref={el => { if (el) stepRefs.current.set(step.id, el); else stepRefs.current.delete(step.id) }}
+                            type="button"
+                            role="checkbox"
+                            aria-checked={step.checked}
+                            aria-busy={busy || undefined}
+                            aria-disabled={busy || resetting || undefined}
+                            className="pb26-step-btn"
+                            onClick={() => toggle(step)}
+                            onKeyDown={e => onStepKey(e, i)}
+                          >
+                            <span className="pb26-step-node" aria-hidden="true">{step.checked ? <Check size={14} strokeWidth={2.75} /> : i + 1}</span>
+                            <span className="pb26-step-text">{step.content}</span>
+                            {busy
+                              ? <span className="pb26-step-meta">Envoi…</span>
+                              : step === nextStep && <span className="pb26-step-meta is-next" aria-hidden="true">À faire</span>}
+                          </button>
+                        </li>
+                      )
+                    })}
+                  </ol>
+                )}
+                <p className="pb26-hint">Espace ou Entrée pour cocher, flèches ↑ ↓ pour passer d’une étape à l’autre.</p>
+                <p className="pb26-sr" aria-live="polite">{announce}</p>
+              </section>
+            </article>
+
+            <aside className="pb26-aside" aria-label="Progression et actions">
+              <div className="pb26-aside-progress">
+                <div className="pb26-aside-figures">
+                  <b>{p.pct}<small>%</small></b>
+                  <ProgressBadge state={p.state} />
+                </div>
+                <ProgressMeter progress={p} label={`Progression : ${p.done} étapes validées sur ${p.total}, ${p.pct} %`} />
+                <p>{p.done} étape{p.done > 1 ? 's' : ''} validée{p.done > 1 ? 's' : ''} sur {p.total}</p>
+              </div>
+
+              <div className="pb26-aside-actions">
+                <Link to={`/playbooks/${playbook.id}/edit`} className="pb26-btn"><Pencil size={15} aria-hidden="true" /> Modifier</Link>
+                <button type="button" className="pb26-btn is-quiet" onClick={() => setResetOpen(true)} disabled={p.done === 0 || resetting || pending.size > 0}>
+                  <RotateCcw size={15} aria-hidden="true" /> Réinitialiser
+                </button>
+              </div>
+
+              <dl className="pb26-meta">
+                <div><dt>Créé le</dt><dd>{formatDay(playbook.created_at)}</dd></div>
+                <div><dt>Mis à jour</dt><dd>{formatDay(playbook.updated_at)}</dd></div>
+              </dl>
+
+              <button type="button" className="pb26-text-btn is-danger" onClick={() => setDeleteOpen(true)} disabled={deleting}>
+                <Trash2 size={14} aria-hidden="true" /> Supprimer le playbook
+              </button>
+            </aside>
+          </div>
+        )}
       </div>
 
-      {/* Zone de contenu scrollable */}
-      <div className="flex-1 overflow-auto p-6 space-y-6">
-        {/* Carte principale */}
-        <div className="border border-[#1e2d40] bg-[#0a0f16] p-6 space-y-5">
-          <div className="flex flex-wrap items-start justify-between gap-3">
-            <div>
-              <h1 className="text-2xl font-mono font-bold uppercase tracking-[0.15em] text-[#f1f5f9]">
-                {playbook.title}
-              </h1>
-              {playbook.scenario && (
-                <span className="inline-block mt-2 border border-[#1e2d40] bg-[#0d131f] px-2 py-0.5 font-mono text-[9px] uppercase tracking-widest text-[#64748b]">
-                  {playbook.scenario}
-                </span>
-              )}
-            </div>
-            <span className={`text-lg font-mono font-bold ${pct === 100 ? 'text-[#10b981]' : 'text-[#00d4ff]'}`}>
-              {pct}%
-            </span>
-          </div>
-
-          {playbook.description && (
-            <p className="font-mono text-[13px] leading-relaxed text-[#cbd5e1]">
-              {playbook.description}
-            </p>
-          )}
-
-          {/* Barre de progression */}
-          <div>
-            <div className="flex justify-between text-[10px] font-mono text-[#64748b] mb-1">
-              <span>{done}/{total} étapes complétées</span>
-              {pct === 100 && <span className="text-[#10b981]">✓ TERMINÉ</span>}
-            </div>
-            <div className="h-1.5 bg-[#1e2d40] rounded-full overflow-hidden">
-              <div
-                className={`h-full rounded-full transition-all duration-500 ${pct === 100 ? 'bg-[#10b981]' : 'bg-[#00d4ff]'}`}
-                style={{ width: `${pct}%` }}
-              />
-            </div>
-          </div>
-
-          {/* Boutons d'action */}
-          <div className="flex flex-wrap gap-3 pt-2 border-t border-[#1e2d40]">
-            <button
-              onClick={() => setResetOpen(true)}
-              disabled={resetting || done === 0}
-              className="flex items-center gap-2 border border-[#eab308]/20 bg-[#eab308]/10 px-4 py-2 font-mono text-[10px] font-bold uppercase tracking-widest text-[#eab308] transition-colors hover:bg-[#eab308]/20 disabled:opacity-40"
-            >
-              <RotateCcw size={13} /> RESET
-            </button>
-            <Link
-              to={`/playbooks/${playbook.id}/edit`}
-              className="flex items-center gap-2 border border-[#00d4ff]/20 bg-[#00d4ff]/10 px-4 py-2 font-mono text-[10px] font-bold uppercase tracking-widest text-[#00d4ff] transition-colors hover:bg-[#00d4ff]/20"
-            >
-              <Edit size={13} /> MODIFIER
-            </Link>
-            <button
-              onClick={() => setConfirmOpen(true)}
-              disabled={deleting}
-              className="flex items-center gap-2 border border-[#ef4444]/20 bg-[#ef4444]/10 px-4 py-2 font-mono text-[10px] font-bold uppercase tracking-widest text-[#ef4444] transition-colors hover:bg-[#ef4444]/20 disabled:opacity-50"
-            >
-              <Trash2 size={13} /> {deleting ? '...' : 'SUPPRIMER'}
-            </button>
-          </div>
-        </div>
-
-        {/* Checklist des étapes */}
-        <div className="space-y-2">
-          {steps.map((step) => (
-            <button
-              key={step.id}
-              onClick={() => handleToggle(step)}
-              disabled={toggling === step.id}
-              className={`w-full flex items-start gap-3 p-4 border text-left transition-all ${
-                step.checked
-                  ? 'border-[#10b981]/30 bg-[#10b981]/5 opacity-80'
-                  : 'border-[#1e2d40] bg-[#0a0f16] hover:border-[#00d4ff]/30 hover:bg-[#0a0f16]/80'
-              } ${toggling === step.id ? 'opacity-50' : ''}`}
-            >
-              <span className="mt-0.5 flex-shrink-0">
-                {step.checked
-                  ? <CheckCircle2 size={18} className="text-[#10b981]" />
-                  : <Circle size={18} className="text-[#4a6480]" />}
-              </span>
-              <span className={`font-mono text-sm leading-relaxed ${step.checked ? 'line-through text-[#64748b]' : 'text-[#cbd5e1]'}`}>
-                {step.content}
-              </span>
-              <span className="ml-auto flex-shrink-0 text-[10px] font-mono text-[#4a6480]">{step.order}</span>
-            </button>
-          ))}
-        </div>
-      </div>
-
-      <ConfirmModal
+      <ConfirmDialog
         open={resetOpen}
-        title="RÉINITIALISER LE PLAYBOOK ?"
-        message="Toutes les étapes cochées seront remises à zéro. La progression actuelle sera perdue."
-        confirmLabel="RESET"
-        onConfirm={() => { setResetOpen(false); handleReset() }}
+        title="Réinitialiser la checklist ?"
+        message={`Les ${p.done} étape${p.done > 1 ? 's' : ''} validée${p.done > 1 ? 's' : ''} seront décochées. La progression actuelle sera perdue.`}
+        confirmLabel="Réinitialiser"
+        busyLabel="Réinitialisation…"
+        tone="warn"
+        busy={resetting}
+        onConfirm={reset}
         onCancel={() => setResetOpen(false)}
       />
-      <ConfirmModal
-        open={confirmOpen}
-        title="SUPPRIMER CE PLAYBOOK ?"
-        message={`"${playbook.title}" — CETTE ACTION EST IRRÉVERSIBLE.`}
-        confirmLabel="SUPPRIMER"
-        danger
-        onConfirm={() => { setConfirmOpen(false); handleDelete() }}
-        onCancel={() => setConfirmOpen(false)}
+      <ConfirmDialog
+        open={deleteOpen}
+        title="Supprimer le playbook ?"
+        message={playbook ? `« ${playbook.title} » et ses ${p.total} étapes seront supprimés définitivement.` : ''}
+        confirmLabel="Supprimer"
+        busyLabel="Suppression…"
+        busy={deleting}
+        onConfirm={remove}
+        onCancel={() => setDeleteOpen(false)}
       />
     </div>
   )
