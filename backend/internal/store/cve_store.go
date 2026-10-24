@@ -82,7 +82,8 @@ func ImportNVD(items []models.NVDImportItem) (int, int, error) {
 	created, skipped := 0, 0
 	for _, nvd := range items {
 		cveID := nvd.CVE.ID
-		if cveID == "" {
+		if !models.IsValidCVEID(cveID) {
+			skipped++
 			continue
 		}
 

@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"fmt"
 	"log"
 	"net/http"
 	"strconv"
@@ -61,6 +62,10 @@ func CreateCVE(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
+	if !models.IsValidCVEID(req.CVEID) {
+		c.JSON(http.StatusBadRequest, gin.H{"error": models.CVEIDFormatError})
+		return
+	}
 
 	item, err := store.CreateCVE(&req)
 	if err != nil {
@@ -82,6 +87,15 @@ func UpdateCVE(c *gin.Context) {
 	if err = c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
+	}
+	if !models.IsValidCVEID(req.CVEID) {
+		// CVE IDs are immutable in the edit form. Let an unchanged legacy ID
+		// continue to be edited, but never accept a new invalid value.
+		current, lookupErr := store.GetCVEByID(id)
+		if lookupErr != nil || req.CVEID != current.CVEID {
+			c.JSON(http.StatusBadRequest, gin.H{"error": models.CVEIDFormatError})
+			return
+		}
 	}
 
 	item, err := store.UpdateCVE(id, &req)
@@ -120,6 +134,14 @@ func ImportNVD(c *gin.Context) {
 	if len(req.Vulnerabilities) == 0 {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Aucune vulnérabilité dans le payload"})
 		return
+	}
+	for i, item := range req.Vulnerabilities {
+		if !models.IsValidCVEID(item.CVE.ID) {
+			c.JSON(http.StatusBadRequest, gin.H{
+				"error": fmt.Sprintf("vulnerabilities[%d].cve.id: %s", i, models.CVEIDFormatError),
+			})
+			return
+		}
 	}
 
 	created, skipped, err := store.ImportNVD(req.Vulnerabilities)

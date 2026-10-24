@@ -1,6 +1,18 @@
 package models
 
-import "time"
+import (
+	"regexp"
+	"time"
+)
+
+const CVEIDFormatError = "Format de CVE-ID attendu : CVE-AAAA-NNNN"
+
+var cveIDPattern = regexp.MustCompile(`^CVE-\d{4}-\d{4,}$`)
+
+// IsValidCVEID matches the format used by the CVE create form.
+func IsValidCVEID(id string) bool {
+	return cveIDPattern.MatchString(id)
+}
 
 type CVESeverity string
 
