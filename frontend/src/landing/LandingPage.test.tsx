@@ -8,16 +8,15 @@ import { AppRoutes } from '@/App'
 vi.mock('./useStoryRuntime', () => ({ useStoryRuntime: vi.fn() }))
 
 describe('public Landing route', () => {
-  it('renders the fictional Terminal to IOC story without the authenticated shell', () => {
+  it('renders the fictional Terminal to IOC story without the authenticated shell', async () => {
     render(
       <MemoryRouter initialEntries={['/welcome']}>
         <AppRoutes />
       </MemoryRouter>,
     )
 
-    expect(screen.getByRole('heading', { level: 1 }).textContent).toContain(
-      "Un indice n'est pas",
-    )
+    const heading = await screen.findByRole('heading', { level: 1 })
+    expect(heading.textContent).toContain("Un indice n'est pas")
     const executionNote = document.querySelector('.terminal-bottom > span')
     expect(executionNote?.textContent?.replace(/\s+/g, ' ').trim()).toContain(
       'aucune commande réellement exécutée',

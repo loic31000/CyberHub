@@ -1,15 +1,22 @@
 import { lazy, Suspense } from 'react'
 import { BrowserRouter, Route, Routes } from 'react-router-dom'
 import Loader from '@/components/Loader'
-import LandingPage from '@/landing/LandingPage'
 
+const LandingPage = lazy(() => import('@/landing/LandingPage'))
 const Login = lazy(() => import('@/pages/Login'))
 const ConsoleRoutes = lazy(() => import('./ConsoleRoutes'))
 
 export function AppRoutes() {
   return (
     <Routes>
-      <Route path="/welcome" element={<LandingPage />} />
+      <Route
+        path="/welcome"
+        element={
+          <Suspense fallback={<Loader />}>
+            <LandingPage />
+          </Suspense>
+        }
+      />
       <Route path="/login" element={<Login />} />
       <Route path="/*" element={<ConsoleRoutes />} />
     </Routes>

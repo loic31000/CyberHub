@@ -1,5 +1,6 @@
 import { useStoryRuntime } from './useStoryRuntime'
 import storyMarkup from './terminal-story-markup.html?raw'
+import './landing.css'
 
 export default function LandingPage() {
   useStoryRuntime()
