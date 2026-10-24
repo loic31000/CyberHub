@@ -62,6 +62,24 @@ describe('Dashboard 2026 — comportement de référence', () => {
   beforeEach(() => { localStorage.clear() })
   afterEach(() => { cleanup(); vi.clearAllMocks() })
 
+  it('met en pause les animations du Dashboard uniquement quand l’onglet est masqué', () => {
+    readyData()
+    const hiddenDescriptor = Object.getOwnPropertyDescriptor(document, 'hidden')
+    const { container } = renderDashboard()
+    const root = container.querySelector('.cyber-dashboard-2026') as HTMLElement
+
+    Object.defineProperty(document, 'hidden', { configurable: true, value: true })
+    fireEvent(document, new Event('visibilitychange'))
+    expect(root.hasAttribute('data-motion-paused')).toBe(true)
+
+    Object.defineProperty(document, 'hidden', { configurable: true, value: false })
+    fireEvent(document, new Event('visibilitychange'))
+    expect(root.hasAttribute('data-motion-paused')).toBe(false)
+
+    if (hiddenDescriptor) Object.defineProperty(document, 'hidden', hiddenDescriptor)
+    else Reflect.deleteProperty(document, 'hidden')
+  })
+
   it('affiche les cinq widgets dans leur ordre et leur taille par défaut', async () => {
     readyData()
     const { container } = renderDashboard()
