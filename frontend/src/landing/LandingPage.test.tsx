@@ -18,7 +18,10 @@ describe('public Landing route', () => {
     expect(screen.getByRole('heading', { level: 1 }).textContent).toContain(
       "Un indice n'est pas",
     )
-    expect(screen.getByText(/aucune commande réellement exécutée/i)).toBeTruthy()
+    const executionNote = document.querySelector('.terminal-bottom > span')
+    expect(executionNote?.textContent?.replace(/\s+/g, ' ').trim()).toContain(
+      'aucune commande réellement exécutée',
+    )
     expect(screen.getByRole('button', { name: /rejouer/i })).toBeTruthy()
     expect(screen.getByRole('navigation', { name: /navigation principale/i })).toBeTruthy()
   })
