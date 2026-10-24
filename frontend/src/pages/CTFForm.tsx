@@ -1,23 +1,23 @@
 import { useState, useEffect } from 'react'
-import { useNavigate, useParams } from 'react-router-dom'
+import { useNavigate, useParams, Link } from 'react-router-dom'
 import { ctfApi } from '@/api/client'
 import type { CTFCreateRequest, CTFPlatform, CTFDifficulty } from '@/types'
-import { Save, ArrowLeft, FileText } from 'lucide-react'
-
-const PLATFORMS: CTFPlatform[] = ['TryHackMe', 'HackTheBox', 'Root-Me', 'PicoCTF', 'Autre']
-const DIFFICULTIES: CTFDifficulty[] = ['easy', 'medium', 'hard', 'insane']
+import { ArrowLeft, Eye, Pencil, Save } from 'lucide-react'
+import CtfHero from '@/ctf26/CtfHero'
+import { DIFFICULTIES, DIFF_LABEL, Markdown, PLATFORMS } from '@/ctf26/parts'
+import '@/ctf26/ctf.css'
 
 const DEFAULT_FORM: CTFCreateRequest = {
-  title: '',
-  platform: 'HackTheBox',
-  machine_name: '',
-  difficulty: 'medium',
-  category: '',
-  content: '',
-  flags: '',
-  tags: '',
-  completed: false,
+  title: '', platform: 'HackTheBox', machine_name: '', difficulty: 'medium',
+  category: '', content: '', flags: '', tags: '', completed: false,
 }
+
+const STEPS = [
+  { id: 'ct26-f-challenge', label: 'Challenge' },
+  { id: 'ct26-f-class', label: 'Classification' },
+  { id: 'ct26-f-results', label: 'Résultats' },
+  { id: 'ct26-f-writeup', label: 'Writeup' },
+]
 
 export default function CTFForm() {
   const { id } = useParams<{ id: string }>()
@@ -27,28 +27,32 @@ export default function CTFForm() {
   const [loading, setLoading] = useState(isEdit)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
+  const [titleError, setTitleError] = useState(false)
+  const [preview, setPreview] = useState(false)
 
   useEffect(() => {
     if (!isEdit || !id) return
     ctfApi.get(Number(id))
-      .then((w) => setForm({
-        title: w.title,
-        platform: w.platform,
-        machine_name: w.machine_name,
-        difficulty: w.difficulty,
-        category: w.category,
-        content: w.content,
-        flags: w.flags,
-        tags: w.tags,
-        completed: w.completed,
+      .then(w => setForm({
+        title: w.title, platform: w.platform, machine_name: w.machine_name,
+        difficulty: w.difficulty, category: w.category, content: w.content,
+        flags: w.flags, tags: w.tags, completed: w.completed,
       }))
       .catch(() => navigate('/ctf'))
       .finally(() => setLoading(false))
   }, [id, isEdit, navigate])
 
+  const setField = (field: keyof CTFCreateRequest, value: CTFCreateRequest[keyof CTFCreateRequest]) =>
+    setForm(f => ({ ...f, [field]: value }))
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!form.title.trim()) { setError('Le titre est requis'); return }
+    if (!form.title.trim()) {
+      setTitleError(true)
+      setError('Le titre est requis')
+      document.getElementById('ct26-in-title')?.focus()
+      return
+    }
     setSaving(true)
     setError('')
     try {
@@ -66,180 +70,131 @@ export default function CTFForm() {
     }
   }
 
-  const setField = (field: keyof CTFCreateRequest, value: CTFCreateRequest[keyof CTFCreateRequest]) =>
-    setForm((f) => ({ ...f, [field]: value }))
-
-  if (loading) return <div className="flex h-full items-center justify-center bg-[#06080f]"><p className="font-mono text-xs text-[#64748b]">CHARGEMENT...</p></div>
-
-  const fieldClass = 'w-full border border-[#1e2d40] bg-[#0d131f] px-4 py-2.5 font-mono text-sm text-[#f1f5f9] placeholder-[#334155] outline-none transition-colors focus:border-[#00d4ff]/50'
-  const textAreaClass = `${fieldClass} resize-y`
-  const labelClass = 'mb-2 block font-mono text-[10px] font-bold uppercase tracking-widest text-[#8a9ab0]'
+  if (loading) return (
+    <div className="ct26"><div className="ct26-frame">
+      <CtfHero status={{ text: 'CHARGEMENT', tone: 'busy' }} />
+      <p className="ct26-loading" role="status">Chargement…</p>
+    </div></div>
+  )
 
   return (
-    <div className="flex flex-col h-full bg-[#06080f] text-[#f1f5f9]">
-      {/* Bandeau d'en-tête style BGPLookup */}
-      <div className="flex items-center justify-between px-6 py-4 border-b border-[#1e2d40] bg-[#0a0f16]/50">
-        <div className="flex items-center gap-3">
-          <div className="relative">
-            <FileText className="text-[#00d4ff]" size={20} />
-            <div className="absolute -top-1 -right-1 w-2 h-2 bg-[#10b981] rounded-full animate-pulse shadow-[0_0_8px_#10b981]" />
-          </div>
-          <div>
-            <h1 className="text-sm font-bold tracking-[0.2em] uppercase">CTF WRITEUPS // FORM</h1>
-            <p className="text-[10px] text-[#64748b] font-mono">
-              {isEdit ? 'MODIFICATION DE WRITEUP' : 'NOUVEAU WRITEUP'}
-            </p>
-          </div>
+    <div className="ct26">
+      <div className="ct26-frame">
+        <CtfHero status={{ text: isEdit ? 'MODIFICATION' : 'NOUVEAU WRITEUP', mark: isEdit ? `#${id}` : undefined, tone: 'busy' }} />
+
+        <div className="ct26-crumbs">
+          <Link to={isEdit ? `/ctf/${id}` : '/ctf'} className="ct26-link">
+            <ArrowLeft size={14} aria-hidden="true" /> {isEdit ? 'Retour au rapport' : 'Journal'}
+          </Link>
         </div>
-        <div className="flex items-center gap-4">
-          <button
-            type="button"
-            onClick={() => navigate('/ctf')}
-            className="flex items-center gap-2 px-3 py-1.5 bg-[#1e2d40] hover:bg-[#2a3f55] text-[10px] font-bold border border-[#334155] transition-colors"
-          >
-            <ArrowLeft size={12} /> BACK TO INDEX
-          </button>
-        </div>
-      </div>
 
-      {/* Zone de contenu scrollable */}
-      <div className="flex-1 overflow-auto p-6">
-        <div className="max-w-4xl mx-auto w-full space-y-8">
-          {error && (
-            <div className="border-l-2 border-[#ef4444] bg-[#ef4444]/5 p-4 font-mono text-[11px] text-[#ef4444]">
-              {error}
-            </div>
-          )}
+        <div className="ct26-form-layout">
+          <nav className="ct26-steps" aria-label="Sections du formulaire">
+            <p>{isEdit ? 'Modifier le writeup' : 'Nouveau writeup'}</p>
+            <ol>{STEPS.map((s, i) => <li key={s.id}><a href={`#${s.id}`}><span>{String(i + 1).padStart(2, '0')}</span>{s.label}</a></li>)}</ol>
+          </nav>
 
-          <form onSubmit={handleSubmit} className="space-y-8">
-            {/* Informations principales */}
-            <div className="space-y-6 border border-[#1e2d40] bg-[#0a0f16] p-6">
-              <h2 className="border-b border-[#1e2d40] pb-3 font-mono text-[11px] font-bold uppercase tracking-[0.2em] text-[#00d4ff]">
-                INFORMATIONS PRINCIPALES
-              </h2>
+          <form onSubmit={handleSubmit} className="ct26-form" noValidate>
+            <h2 className="ct26-sr">{isEdit ? `Modifier ${form.title || 'le writeup'}` : 'Créer un writeup'}</h2>
 
-              <div>
-                <label className={labelClass}>TITRE *</label>
+            {/* 1. Challenge */}
+            <section id="ct26-f-challenge" className="ct26-form-section" aria-labelledby="ct26-fh-challenge">
+              <header><span className="ct26-num">01</span><h3 id="ct26-fh-challenge">Challenge</h3><small>Ce que l'on résout</small></header>
+              <div className="ct26-field">
+                <label htmlFor="ct26-in-title">Titre <abbr title="obligatoire">*</abbr></label>
                 <input
-                  type="text"
-                  className={fieldClass}
-                  placeholder="EX: Lame — HackTheBox"
-                  value={form.title}
-                  onChange={(e) => setField('title', e.target.value)}
+                  id="ct26-in-title" className="is-title" value={form.title}
+                  onChange={e => { setField('title', e.target.value); if (titleError) { setTitleError(false); setError('') } }}
+                  placeholder="ex : Lame — HackTheBox" autoComplete="off"
+                  aria-invalid={titleError || undefined}
+                  aria-describedby={titleError ? 'ct26-err-title' : undefined}
                 />
+                {titleError && <p id="ct26-err-title" className="ct26-field-error">LE TITRE EST REQUIS</p>}
               </div>
-
-              <div className="grid grid-cols-1 gap-6 md:grid-cols-3">
-                <div>
-                  <label className={labelClass}>PLATEFORME</label>
-                  <select
-                    className={fieldClass}
-                    value={form.platform}
-                    onChange={(e) => setField('platform', e.target.value as CTFPlatform)}
-                  >
+              <div className="ct26-form-grid is-2">
+                <div className="ct26-field">
+                  <label htmlFor="ct26-in-platform">Plateforme</label>
+                  <select id="ct26-in-platform" value={form.platform} onChange={e => setField('platform', e.target.value as CTFPlatform)}>
                     {PLATFORMS.map(p => <option key={p} value={p}>{p}</option>)}
                   </select>
                 </div>
-                <div>
-                  <label className={labelClass}>NOM MACHINE</label>
-                  <input
-                    type="text"
-                    className={fieldClass}
-                    placeholder="EX: Lame"
-                    value={form.machine_name}
-                    onChange={(e) => setField('machine_name', e.target.value)}
-                  />
+                <div className="ct26-field">
+                  <label htmlFor="ct26-in-machine">Nom de la machine</label>
+                  <input id="ct26-in-machine" value={form.machine_name} onChange={e => setField('machine_name', e.target.value)} placeholder="ex : Lame" autoComplete="off" />
                 </div>
-                <div>
-                  <label className={labelClass}>DIFFICULTÉ</label>
-                  <select
-                    className={`${fieldClass} capitalize`}
-                    value={form.difficulty}
-                    onChange={(e) => setField('difficulty', e.target.value as CTFDifficulty)}
-                  >
-                    {DIFFICULTIES.map(d => <option key={d} value={d} className="capitalize">{d}</option>)}
+              </div>
+            </section>
+
+            {/* 2. Classification */}
+            <section id="ct26-f-class" className="ct26-form-section" aria-labelledby="ct26-fh-class">
+              <header><span className="ct26-num">02</span><h3 id="ct26-fh-class">Classification</h3><small>Filtres du journal</small></header>
+              <div className="ct26-form-grid is-2">
+                <div className="ct26-field">
+                  <label htmlFor="ct26-in-difficulty">Difficulté</label>
+                  <select id="ct26-in-difficulty" value={form.difficulty} onChange={e => setField('difficulty', e.target.value as CTFDifficulty)}>
+                    {DIFFICULTIES.map(d => <option key={d} value={d}>{DIFF_LABEL[d]}</option>)}
                   </select>
                 </div>
-              </div>
-
-              <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
-                <div>
-                  <label className={labelClass}>CATÉGORIE</label>
-                  <input
-                    type="text"
-                    className={fieldClass}
-                    placeholder="EX: Web, Pwn, Forensic..."
-                    value={form.category}
-                    onChange={(e) => setField('category', e.target.value)}
-                  />
-                </div>
-                <div>
-                  <label className={labelClass}>TAGS (VIRGULE-SÉPARÉS)</label>
-                  <input
-                    type="text"
-                    className={fieldClass}
-                    placeholder="EX: privesc, linux, smb"
-                    value={form.tags}
-                    onChange={(e) => setField('tags', e.target.value)}
-                  />
+                <div className="ct26-field">
+                  <label htmlFor="ct26-in-category">Catégorie</label>
+                  <input id="ct26-in-category" value={form.category} onChange={e => setField('category', e.target.value)} placeholder="ex : Web, Pwn, Forensic…" autoComplete="off" />
                 </div>
               </div>
-
-              <div>
-                <label className={labelClass}>FLAGS (VIRGULE-SÉPARÉS)</label>
-                <input
-                  type="text"
-                  className={fieldClass}
-                  placeholder="EX: HTB{abc123}, user.txt: abc..."
-                  value={form.flags}
-                  onChange={(e) => setField('flags', e.target.value)}
-                />
+              <div className="ct26-field">
+                <label htmlFor="ct26-in-tags">Tags</label>
+                <input id="ct26-in-tags" value={form.tags} onChange={e => setField('tags', e.target.value)} placeholder="ex : privesc, linux, smb" aria-describedby="ct26-hint-tags" autoComplete="off" />
+                <small id="ct26-hint-tags">Séparés par des virgules.</small>
               </div>
-
-              <label className="flex items-center gap-3 cursor-pointer">
-                <input
-                  type="checkbox"
-                  className="w-4 h-4 accent-[#10b981]"
-                  checked={form.completed}
-                  onChange={(e) => setField('completed', e.target.checked)}
-                />
-                <span className="font-mono text-[11px] text-[#8a9ab0] uppercase tracking-widest">
-                  MACHINE COMPLÉTÉE (ROOT/PWNED)
-                </span>
+              <label className="ct26-check">
+                <input type="checkbox" checked={form.completed} onChange={e => setField('completed', e.target.checked)} />
+                <span><b>Machine terminée</b><small>Root / pwned. Sinon, marquée « en cours ».</small></span>
               </label>
-            </div>
+            </section>
 
-            {/* Writeup (Markdown) */}
-            <div className="space-y-3 border border-[#1e2d40] bg-[#0a0f16] p-6">
-              <label className="block border-b border-[#1e2d40] pb-3 font-mono text-[11px] font-bold uppercase tracking-[0.2em] text-[#8a9ab0]">
-                WRITEUP <span className="ml-2 text-[9px] font-normal text-[#64748b] tracking-normal">(MARKDOWN)</span>
-              </label>
-              <textarea
-                className={textAreaClass}
-                rows={16}
-                placeholder="## Enumération&#10;&#10;```bash&#10;nmap -sV -sC target&#10;```&#10;&#10;## Exploitation&#10;..."
-                value={form.content}
-                onChange={(e) => setField('content', e.target.value)}
-              />
-            </div>
+            {/* 3. Résultats */}
+            <section id="ct26-f-results" className="ct26-form-section" aria-labelledby="ct26-fh-results">
+              <header><span className="ct26-num">03</span><h3 id="ct26-fh-results">Résultats</h3><small>Éléments sensibles</small></header>
+              <div className="ct26-field">
+                <label htmlFor="ct26-in-flags">Flags</label>
+                <input id="ct26-in-flags" className="is-mono" value={form.flags} onChange={e => setField('flags', e.target.value)} placeholder="ex : HTB{…}, user.txt: …" aria-describedby="ct26-hint-flags" spellCheck={false} autoComplete="off" />
+                <small id="ct26-hint-flags">Séparés par des virgules. Affichés comme éléments sensibles sur le rapport.</small>
+              </div>
+            </section>
 
-            {/* Actions du formulaire */}
-            <div className="flex justify-end gap-4 pt-4 pb-8 border-t border-[#1e2d40]">
-              <button
-                type="button"
-                onClick={() => navigate('/ctf')}
-                disabled={saving}
-                className="border border-[#1e2d40] bg-[#0a0f16] px-6 py-3 font-mono text-xs uppercase tracking-widest text-[#8a9ab0] transition-colors hover:bg-[#1e2d40] hover:text-[#f1f5f9]"
-              >
-                ANNULER
-              </button>
-              <button
-                type="submit"
-                disabled={saving}
-                className="flex items-center gap-2 border border-[#00d4ff]/20 bg-[#00d4ff]/10 px-6 py-3 font-mono text-xs font-bold uppercase tracking-widest text-[#00d4ff] transition-colors hover:bg-[#00d4ff]/20 disabled:opacity-50"
-              >
-                <Save size={15} />
-                {saving ? 'SAUVEGARDE...' : (isEdit ? 'METTRE À JOUR' : 'CRÉER LE WRITEUP')}
+            {/* 4. Writeup */}
+            <section id="ct26-f-writeup" className="ct26-form-section" aria-labelledby="ct26-fh-writeup">
+              <header>
+                <span className="ct26-num">04</span><h3 id="ct26-fh-writeup">Writeup</h3>
+                <div className="ct26-seg" role="group" aria-label="Mode d'édition du writeup">
+                  <button type="button" aria-pressed={!preview} onClick={() => setPreview(false)}><Pencil size={13} aria-hidden="true" /> Éditer</button>
+                  <button type="button" aria-pressed={preview} onClick={() => setPreview(true)}><Eye size={13} aria-hidden="true" /> Aperçu</button>
+                </div>
+              </header>
+              {preview ? (
+                <div className="ct26-preview">
+                  {form.content.trim() ? <Markdown>{form.content}</Markdown> : <p className="ct26-empty-doc">Rien à prévisualiser.</p>}
+                </div>
+              ) : (
+                <div className="ct26-field">
+                  <label htmlFor="ct26-in-content" className="ct26-sr">Contenu du writeup (Markdown)</label>
+                  <textarea
+                    id="ct26-in-content" className="is-code" value={form.content}
+                    onChange={e => setField('content', e.target.value)} rows={18}
+                    placeholder={'## Énumération\n\n```bash\nnmap -sV -sC cible\n```\n\n## Exploitation\n…'}
+                    aria-describedby="ct26-hint-content" spellCheck={false}
+                  />
+                  <small id="ct26-hint-content">Markdown. Blocs ``` pour les commandes ; les commentaires # sont colorés.</small>
+                </div>
+              )}
+            </section>
+
+            <div className="ct26-form-bar">
+              <div className="ct26-form-bar-msg" role="alert">
+                {error && <span className="is-error">{error}</span>}
+              </div>
+              <button type="button" className="ct26-btn" onClick={() => navigate(isEdit && id ? `/ctf/${id}` : '/ctf')} disabled={saving}>Annuler</button>
+              <button type="submit" className="ct26-btn is-primary" disabled={saving}>
+                <Save size={15} aria-hidden="true" /> {saving ? 'Enregistrement…' : isEdit ? 'Mettre à jour' : 'Créer le writeup'}
               </button>
             </div>
           </form>
