@@ -1,206 +1,139 @@
 import { useState, useMemo } from 'react'
-import { Binary, Copy, Check, ArrowLeftRight, Trash2, AlertTriangle } from 'lucide-react'
+import { AlertTriangle, ArrowLeftRight, ArrowRight, Check, Copy, Trash2 } from 'lucide-react'
 import { OPERATIONS, GROUPS, transform } from '@/types/encoder'
-import type { EncoderOperation } from '@/types/encoder'
+import type { EncoderGroup, EncoderOperation } from '@/types/encoder'
 import { toast } from '@/store/toast'
-import clsx from 'clsx'
+import EncoderHero from '@/encoder26/EncoderHero'
+import '@/encoder26/encoder.css'
+
+/* Short help per family, kept from the previous quick-reference (data unchanged). */
+const QUICK_REF: { group: EncoderGroup; ex: string }[] = [
+  { group: 'Base64', ex: 'Hello ⇄ SGVsbG8=' },
+  { group: 'URL', ex: 'a b ⇄ a%20b' },
+  { group: 'Hex', ex: 'Hi ⇄ 4869' },
+  { group: 'ROT13', ex: 'Hello → Uryyb' },
+  { group: 'HTML', ex: '<b> ⇄ &lt;b&gt;' },
+]
 
 export default function EncoderDecoder() {
-  const [input, setInput]       = useState('')
+  const [input, setInput] = useState('')
   const [activeOp, setActiveOp] = useState<EncoderOperation>('base64-encode')
-  const [copied, setCopied]     = useState(false)
+  const [copied, setCopied] = useState(false)
 
   const result = useMemo(() => transform(activeOp, input), [activeOp, input])
+  const activeConfig = OPERATIONS.find(o => o.id === activeOp)!
+  const canUseOutput = Boolean(result.output) && !result.error
 
   const handleCopy = () => {
-    if (!result.output || result.error) return
-    navigator.clipboard.writeText(result.output).then(() => {
-      setCopied(true)
-      setTimeout(() => setCopied(false), 2000)
-      toast.success('Copié dans le presse-papiers')
-    })
+    if (!canUseOutput) return
+    navigator.clipboard?.writeText(result.output)
+      .then(() => {
+        setCopied(true)
+        window.setTimeout(() => setCopied(false), 1800)
+        toast.success('Copié dans le presse-papiers')
+      })
+      .catch(() => {})
   }
-
-  const handleSwap = () => {
-    if (!result.output || result.error) return
-    setInput(result.output)
-  }
-
+  const handleSwap = () => { if (canUseOutput) setInput(result.output) }
   const handleClear = () => setInput('')
 
-  const activeConfig = OPERATIONS.find((o) => o.id === activeOp)!
-
   return (
-    <div className="flex flex-col h-full bg-[#06080f] text-[#f1f5f9]">
+    <div className="en26">
+      <div className="en26-frame">
+        <EncoderHero status={{ text: `${activeConfig.group.toUpperCase()} · ${activeConfig.label.toUpperCase()}`, mark: 'LOCAL' }} />
 
-      {/* ── Header ─────────────────────────────────────────────────────────── */}
-      <div className="flex items-center justify-between px-6 py-4 border-b border-[#1e2d40] bg-[#0a0f16]/50">
-        <div className="flex items-center gap-3">
-          <div className="relative">
-            <Binary className="text-cyan-400" size={20} />
-            <div className="absolute -top-1 -right-1 w-2 h-2 bg-[#10b981] rounded-full animate-pulse shadow-[0_0_8px_#10b981]" />
+        {/* Operation selector: one row per family, operations as a segment. */}
+        <section className="en26-ops" aria-label="Opération">
+          <span className="en26-ops-title">Opération</span>
+          <div className="en26-ops-grid">
+            {GROUPS.map(group => {
+              const ops = OPERATIONS.filter(o => o.group === group)
+              return (
+                <div key={group} className="en26-fam" role="group" aria-label={group}>
+                  <span className="en26-fam-label">{group}</span>
+                  <div className="en26-seg">
+                    {ops.map(op => (
+                      <button key={op.id} type="button" className="en26-seg-btn"
+                        aria-pressed={activeOp === op.id}
+                        aria-label={`${group} ${op.label}`}
+                        onClick={() => setActiveOp(op.id)}>
+                        {activeOp === op.id && <Check size={13} aria-hidden="true" />}{op.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )
+            })}
           </div>
-          <div>
-            <h1 className="text-sm font-bold tracking-[0.2em] uppercase">ENCODER // DECODER</h1>
-            <p className="text-[10px] text-[#64748b] font-mono">
-              Transformations locales — Base64, URL, Hex, ROT13, HTML entities
-            </p>
-          </div>
-        </div>
-        <div className="flex items-center gap-4 font-mono text-[10px]">
-          <span className="text-[#64748b]">MODE</span>
-          <span className="text-[#10b981]">LOCAL</span>
-        </div>
-      </div>
+        </section>
 
-      {/* ── Content ────────────────────────────────────────────────────────── */}
-      <div className="flex-1 overflow-auto p-6 space-y-5">
-
-        {/* Operation buttons */}
-        <div className="space-y-2.5">
-          {GROUPS.map((group) => (
-            <div key={group} className="flex items-center gap-2 flex-wrap">
-              <span className="text-[10px] font-mono font-bold text-[#4a6480] tracking-[0.15em] w-14 shrink-0 uppercase">
-                {group}
-              </span>
-              {OPERATIONS.filter((op) => op.group === group).map((op) => (
-                <button
-                  key={op.id}
-                  onClick={() => setActiveOp(op.id)}
-                  className={clsx(
-                    'text-[10px] font-mono font-bold uppercase tracking-wider px-3 py-1.5 border transition-colors',
-                    activeOp === op.id
-                      ? 'border-cyan-500/40 bg-cyan-500/10 text-cyan-400'
-                      : 'border-[#1e2d40] bg-[#06080f] text-[#64748b] hover:border-cyan-500/40 hover:text-cyan-400'
-                  )}
-                >
-                  {op.label}
-                </button>
-              ))}
-            </div>
-          ))}
-        </div>
-
-        {/* Active operation indicator */}
-        <div className="flex items-center gap-2 font-mono text-[10px] text-[#4a6480]">
-          <span className="w-1.5 h-1.5 rounded-full bg-cyan-400 shadow-[0_0_6px_#00d4ff]" />
-          OPÉRATION ACTIVE :
-          <span className="text-cyan-400 tracking-widest uppercase">
-            {activeConfig.group} → {activeConfig.label}
-          </span>
-        </div>
-
-        {/* Textareas */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-
-          {/* Input */}
-          <div className="space-y-2">
-            <div className="flex items-center justify-between">
-              <span className="text-[10px] font-mono font-bold text-[#4a6480] tracking-[0.15em]">
-                INPUT
-              </span>
-              <div className="flex items-center gap-3">
-                <span className="text-[10px] font-mono text-[#2a3f55]">
-                  {input.length} car.
-                </span>
-                <button
-                  onClick={handleClear}
-                  disabled={!input}
-                  className="flex items-center gap-1 text-[10px] font-mono text-[#64748b] hover:text-[#ef4444] transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
-                >
-                  <Trash2 size={11} />
-                  CLEAR
+        {/* Workspace: INPUT → active operation → OUTPUT. */}
+        <section className="en26-workspace" aria-label="Transformation">
+          <div className="en26-pane">
+            <div className="en26-pane-head">
+              <h2 className="en26-pane-title">Input</h2>
+              <div className="en26-pane-tools">
+                <span className="en26-count">{input.length.toLocaleString('fr-FR')} car.</span>
+                <button type="button" className="en26-tool" onClick={handleClear} disabled={!input}>
+                  <Trash2 size={13} aria-hidden="true" /> Clear
                 </button>
               </div>
             </div>
-            <textarea
-              value={input}
-              onChange={(e) => setInput(e.target.value)}
-              placeholder="Entrez votre texte ici…"
-              className="w-full h-64 bg-[#0a0f16] border border-[#1e2d40] text-sm font-mono text-[#f1f5f9] placeholder-[#2a3f55] px-4 py-3 resize-none focus:outline-none focus:border-cyan-500/40 transition-colors"
-              spellCheck={false}
-            />
+            <label className="en26-sr" htmlFor="en26-input">Texte à transformer</label>
+            <textarea id="en26-input" className="en26-area" value={input}
+              onChange={e => setInput(e.target.value)} placeholder="Entrez ou collez votre texte ici…"
+              spellCheck={false} autoCapitalize="off" autoCorrect="off" />
           </div>
 
-          {/* Output */}
-          <div className="space-y-2">
-            <div className="flex items-center justify-between">
-              <span className="text-[10px] font-mono font-bold text-[#4a6480] tracking-[0.15em]">
-                OUTPUT
-              </span>
-              <div className="flex items-center gap-3">
-                {!result.error && (
-                  <span className="text-[10px] font-mono text-[#2a3f55]">
-                    {result.output.length} car.
-                  </span>
-                )}
-                <button
-                  onClick={handleSwap}
-                  disabled={!result.output || !!result.error}
-                  title="Déplacer l'output vers l'input"
-                  className="flex items-center gap-1 text-[10px] font-mono text-[#64748b] hover:text-cyan-400 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
-                >
-                  <ArrowLeftRight size={11} />
-                  SWAP
+          <div className="en26-pivot" aria-hidden="true">
+            <span className="en26-pivot-op">{activeConfig.group} · {activeConfig.label}</span>
+            <ArrowRight className="en26-pivot-arrow" size={18} />
+          </div>
+
+          <div className="en26-pane" data-error={result.error ? true : undefined}>
+            <div className="en26-pane-head">
+              <h2 className="en26-pane-title">Output</h2>
+              <div className="en26-pane-tools">
+                {!result.error && <span className="en26-count">{result.output.length.toLocaleString('fr-FR')} car.</span>}
+                <button type="button" className="en26-tool" onClick={handleSwap} disabled={!canUseOutput}
+                  title="Déplacer l'output vers l'input">
+                  <ArrowLeftRight size={13} aria-hidden="true" /> Swap
                 </button>
-                <button
-                  onClick={handleCopy}
-                  disabled={!result.output || !!result.error}
-                  className="flex items-center gap-1 text-[10px] font-mono text-[#64748b] hover:text-cyan-400 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
-                >
-                  {copied
-                    ? <><Check size={11} className="text-green-400" /> COPIÉ</>
-                    : <><Copy size={11} /> COPIER</>
-                  }
+                <button type="button" className="en26-tool is-copy" data-copied={copied || undefined}
+                  onClick={handleCopy} disabled={!canUseOutput}>
+                  {copied ? <Check size={13} aria-hidden="true" /> : <Copy size={13} aria-hidden="true" />}
+                  {copied ? 'Copié' : 'Copier'}
                 </button>
               </div>
             </div>
-            <textarea
-              value={result.error ? '' : result.output}
-              readOnly
-              placeholder={result.error ? '' : 'Résultat…'}
-              className={clsx(
-                'w-full h-64 border text-sm font-mono px-4 py-3 resize-none focus:outline-none transition-colors',
-                result.error
-                  ? 'bg-[#1a0808] border-[#ef4444]/40 text-[#ef4444] placeholder-[#4a1a1a]'
-                  : 'bg-[#0a0f16] border-[#1e2d40] text-[#10b981] placeholder-[#2a3f55]'
-              )}
-              spellCheck={false}
-            />
-            {result.error && (
-              <div className="flex items-center gap-2 text-[11px] font-mono text-[#ef4444]">
-                <AlertTriangle size={12} className="shrink-0" />
-                {result.error}
+            <label className="en26-sr" htmlFor="en26-output">Résultat</label>
+            {result.error ? (
+              <div className="en26-error" role="alert">
+                <AlertTriangle size={18} aria-hidden="true" />
+                <div>
+                  <p className="en26-error-title">Transformation impossible</p>
+                  <p className="en26-error-msg">{result.error}</p>
+                </div>
               </div>
+            ) : (
+              <textarea id="en26-output" className="en26-area is-output" value={result.output} readOnly
+                placeholder="Le résultat apparaît ici…" spellCheck={false} />
             )}
           </div>
-        </div>
+        </section>
 
-        {/* Quick-ref table */}
-        <div className="border border-[#1e2d40] bg-[#0a0f16] p-4 space-y-2">
-          <p className="text-[10px] font-mono font-bold text-[#4a6480] tracking-[0.15em] uppercase mb-3">
-            Référence rapide
-          </p>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-x-8 gap-y-1 text-[11px] font-mono">
-            {[
-              { op: 'Base64 encode', ex: 'Hello → SGVsbG8=' },
-              { op: 'Base64 decode', ex: 'SGVsbG8= → Hello' },
-              { op: 'URL encode',    ex: 'a b → a%20b' },
-              { op: 'URL decode',    ex: 'a%20b → a b' },
-              { op: 'Hex encode',    ex: 'Hi → 4869' },
-              { op: 'Hex decode',    ex: '4869 → Hi' },
-              { op: 'ROT13',        ex: 'Hello → Uryyb' },
-              { op: 'HTML encode',  ex: '<b> → &lt;b&gt;' },
-              { op: 'HTML decode',  ex: '&lt;b&gt; → <b>' },
-            ].map(({ op, ex }) => (
-              <div key={op} className="flex items-center gap-2 text-[#4a6480]">
-                <span className="text-[#2a3f55]">›</span>
-                <span className="text-[#64748b] shrink-0">{op}</span>
-                <span className="text-[#2a3f55] truncate">{ex}</span>
-              </div>
+        {/* Quick reference: secondary, collapsible. */}
+        <details className="en26-ref">
+          <summary>
+            <span>Référence rapide</span>
+            <span className="en26-ref-hint">{OPERATIONS.length} opérations · Base64, URL, Hex, ROT13, HTML</span>
+          </summary>
+          <ul className="en26-ref-list">
+            {QUICK_REF.map(({ group, ex }) => (
+              <li key={group}><span className="en26-ref-fam">{group}</span><code>{ex}</code></li>
             ))}
-          </div>
-        </div>
+          </ul>
+        </details>
       </div>
     </div>
   )
