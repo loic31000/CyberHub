@@ -103,14 +103,14 @@ async function loadInOrder(order: Gate[]) {
 describe('Knowledge Atlas — initial render after refresh (#77)', () => {
   it('composes ALL once, after every source has settled (CVE → MITRE → CLOAK → LOLBins)', async () => {
     const active = await loadInOrder(['CVE', 'MITRE', 'CLOAK', 'LOLBINS'])
-    expect(active).toBe('Ouvrir awk')
+    expect(active).toBe('Ouvrir CVE-2026-1234')
     expect(cards().length).toBeGreaterThan(0)
     expect(mounted).toBe(cards().length)
   })
 
   it('reaches the same final composition whatever the arrival order (LOLBins → CLOAK → CVE → MITRE)', async () => {
     const active = await loadInOrder(['LOLBINS', 'CLOAK', 'CVE', 'MITRE'])
-    expect(active).toBe('Ouvrir awk')
+    expect(active).toBe('Ouvrir CVE-2026-1234')
     expect(mounted).toBe(cards().length)
   })
 

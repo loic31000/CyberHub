@@ -218,7 +218,10 @@ export function sortItems(items: KnowledgeItem[], key: SortKey, query = ''): Kno
   switch (key) {
     case 'relevance': {
       const score = new Map(copy.map(item => [item.key, relevance(item, query)]))
-      return copy.sort((a, b) => score.get(b.key)! - score.get(a.key)! || byStr(a.id, b.id))
+      // Without a search every record ties: fall back to the product order
+      // (CVE → ATT&CK → CLOAK → LOLBins), then ID. A search keeps its ranking.
+      const bySource = query.trim() ? () => 0 : (a: KnowledgeItem, b: KnowledgeItem) => SOURCES.indexOf(a.source) - SOURCES.indexOf(b.source)
+      return copy.sort((a, b) => score.get(b.key)! - score.get(a.key)! || bySource(a, b) || byStr(a.id, b.id))
     }
     case 'id-asc': return copy.sort((a, b) => byStr(a.id, b.id))
     case 'id-desc': return copy.sort((a, b) => byStr(b.id, a.id))
