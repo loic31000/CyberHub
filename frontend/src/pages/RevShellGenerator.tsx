@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { AlertTriangle, Check, Info, ShieldAlert, Zap } from 'lucide-react'
 import { revshellApi } from '@/api/client'
 import { LANG_CONFIGS, OS_GROUPS } from '@/types/revshell'
@@ -23,46 +23,69 @@ const ENCODINGS: { id: RevShellEncoding; label: string }[] = [
 
 export default function RevShellGenerator() {
   const [form, setForm] = useState<FormState>({ ip: '', port: 4444, lang: 'bash', encode: 'none' })
+  const [portInput, setPortInput] = useState('4444')
   const [result, setResult] = useState<RevShellResponse | null>(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const requestGeneration = useRef(0)
+  const portNumber = /^\d+$/.test(portInput.trim()) ? Number(portInput.trim()) : NaN
+  const portValid = Number.isSafeInteger(portNumber) && portNumber >= 1 && portNumber <= 65535
 
-  // Debounced fetch on any form change (behaviour unchanged).
   useEffect(() => {
-    if (!form.ip.trim()) {
+    const ip = form.ip.trim()
+    if (!ip || !portValid) {
       setResult(null)
       setError(null)
+      setLoading(false)
       return
     }
-    const timer = setTimeout(async () => {
-      setLoading(true)
-      setError(null)
+    const generation = ++requestGeneration.current
+    setResult(null)
+    setError(null)
+    setLoading(true)
+    const timer = window.setTimeout(async () => {
       try {
-        const res = await revshellApi.generate({
-          ip: form.ip.trim(),
-          port: form.port,
-          lang: form.lang,
-          encode: form.encode,
-        })
-        setResult(res)
+        const res = await revshellApi.generate({ ip, port: portNumber, lang: form.lang, encode: form.encode })
+        if (generation === requestGeneration.current) setResult(res)
       } catch {
-        setError('Erreur de génération — vérifiez l\'IP')
-        setResult(null)
+        if (generation === requestGeneration.current) {
+          setError('Impossible de g\u00e9n\u00e9rer le payload.')
+          setResult(null)
+        }
       } finally {
-        setLoading(false)
+        if (generation === requestGeneration.current) setLoading(false)
       }
     }, 300)
-    return () => clearTimeout(timer)
-  }, [form])
+    return () => {
+      window.clearTimeout(timer)
+      if (generation === requestGeneration.current) requestGeneration.current += 1
+    }
+  }, [form, portInput, portValid, portNumber])
 
-  const setField = <K extends keyof FormState>(key: K, value: FormState[K]) =>
-    setForm((prev) => ({ ...prev, [key]: value }))
+  const setField = <K extends keyof FormState>(key: K, value: FormState[K]) => {
+    requestGeneration.current += 1
+    setResult(null)
+    setError(null)
+    setLoading(Boolean((key === 'ip' ? String(value) : form.ip).trim()) && portValid)
+    setForm(prev => ({ ...prev, [key]: value }))
+  }
 
+  const setPortValue = (value: string) => {
+    requestGeneration.current += 1
+    setPortInput(value)
+    setResult(null)
+    setError(null)
+    const candidate = /^\d+$/.test(value.trim()) ? Number(value.trim()) : NaN
+    const valid = Number.isSafeInteger(candidate) && candidate >= 1 && candidate <= 65535
+    setLoading(Boolean(form.ip.trim()) && valid)
+    if (valid) setForm(prev => ({ ...prev, port: candidate }))
+  }
   const activeLangConfig = LANG_CONFIGS.find((l) => l.id === form.lang)!
   const hasHost = Boolean(form.ip.trim())
 
   const status = !hasHost ? { text: 'EN ATTENTE', mark: 'LHOST REQUIS' }
     : loading ? { text: 'GÉNÉRATION', tone: 'busy' as const }
+    : !portValid ? { text: 'PORT INVALIDE', tone: 'warn' as const }
     : error ? { text: 'ERREUR', tone: 'warn' as const }
     : { text: `${activeLangConfig.label.toUpperCase()} · ${OS_LABEL[activeLangConfig.os].toUpperCase()}`, mark: form.encode === 'none' ? 'BRUT' : form.encode.toUpperCase() }
 
@@ -84,10 +107,13 @@ export default function RevShellGenerator() {
               <span className="rs26-endpoint-sep" aria-hidden="true">:</span>
               <div className="rs26-field is-port">
                 <label htmlFor="rs26-lport">LPORT</label>
-                <input id="rs26-lport" type="number" value={form.port} min={1} max={65535}
-                  onChange={e => setField('port', parseInt(e.target.value, 10) || 4444)} />
+                <input id="rs26-lport" type="text" inputMode="numeric" value={portInput}
+                  aria-invalid={!portValid || undefined}
+                  aria-describedby={!portValid ? 'rs26-port-error' : undefined}
+                  onChange={e => setPortValue(e.target.value)} />
               </div>
             </div>
+            {!portValid && <p id="rs26-port-error" className="rs26-error-msg" role="alert">Port requis: 1-65535.</p>}
           </div>
 
           <div className="rs26-encoding" role="group" aria-labelledby="rs26-enc-label">
@@ -151,9 +177,11 @@ export default function RevShellGenerator() {
           ) : result ? (
             <>
               <CodePanel title="Payload" code={result.payload} variant="payload"
-                badge={<OsMark os={result.os} />} onCopy={() => toast.success('Payload copié')} copyLabel="Copier le payload" />
+                badge={<OsMark os={String(result.os ?? '')} />} onCopy={() => toast.success('Payload copié')}
+                onCopyError={() => toast.error('Impossible de copier le payload')} copyLabel="Copier le payload" />
               <CodePanel title="Listener" code={result.listener} variant="listener"
-                badge={<span className="rs26-tag">Côté attaquant</span>} onCopy={() => toast.success('Listener copié')} copyLabel="Copier le listener" />
+                badge={<span className="rs26-tag">Côté attaquant</span>} onCopy={() => toast.success('Listener copié')}
+                onCopyError={() => toast.error('Impossible de copier le listener')} copyLabel="Copier le listener" />
 
               {form.encode !== 'none' && (
                 <p className="rs26-note is-enc">
