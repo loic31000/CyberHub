@@ -15,7 +15,13 @@ function parseTags(raw: string): string[] {
   if (!raw) return []
   try {
     const p: unknown = JSON.parse(raw)
-    if (Array.isArray(p)) return p as string[]
+    if (Array.isArray(p)) return p.flatMap(value => {
+      if (typeof value === 'string' || typeof value === 'number') {
+        const text = String(value).trim()
+        return text ? [text] : []
+      }
+      return []
+    })
     return []
   } catch {
     return raw.split(',').map(t => t.trim()).filter(Boolean)
@@ -33,7 +39,13 @@ function parseJsonArray(raw?: string): string[] {
   if (!raw) return []
   try {
     const parsed: unknown = JSON.parse(raw)
-    if (Array.isArray(parsed)) return parsed.map(String)
+    if (Array.isArray(parsed)) return parsed.flatMap(value => {
+      if (typeof value === 'string' || typeof value === 'number') {
+        const text = String(value).trim()
+        return text ? [text] : []
+      }
+      return []
+    })
     return []
   } catch {
     return raw.split(',').map(item => item.trim()).filter(Boolean)
@@ -47,7 +59,8 @@ function formatJsonArray(raw?: string): string {
 // ── Export helpers ────────────────────────────────────────────────────────────
 
 function slugify(str: string): string {
-  return str.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 50) || 'note'
+  return str.normalize('NFKD').replace(/[\u0300-\u036f]/g, '').toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 50) || 'note'
 }
 
 function downloadFile(content: string, filename: string, mimeType: string) {
@@ -56,8 +69,13 @@ function downloadFile(content: string, filename: string, mimeType: string) {
   const a = document.createElement('a')
   a.href = url
   a.download = filename
+  a.style.display = 'none'
+  document.body.appendChild(a)
   a.click()
-  URL.revokeObjectURL(url)
+  a.remove()
+  // Let the browser consume the object URL before releasing it.
+  const revokeObjectURL = URL.revokeObjectURL.bind(URL)
+  window.setTimeout(() => revokeObjectURL(url), 1000)
 }
 
 function noteToTxt(note: Note): string {
@@ -92,7 +110,7 @@ function noteToMarkdown(note: Note): string {
 }
 
 function noteToHTML(note: Note): string {
-  const esc = (s: string) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+  const esc = (s: string) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;')
   const tags = parseTags(note.tags)
   const iocs = parseJsonArray(note.linked_iocs)
   const techs = parseJsonArray(note.linked_techniques)
@@ -137,12 +155,19 @@ function doExportAll(notes: Note[], fmt: ExportFormat) {
     downloadFile(notes.map(noteToMarkdown).join('\n\n---\n\n'), `notes-${ts}.md`, 'text/markdown')
     return
   }
-  const esc = (s: string) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+  const esc = (s: string) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;')
   const body = notes
-    .map(n => `<section><h2>${esc(n.title)}</h2><div class="meta">${esc(formatDate(n.updated_at))}</div><pre>${esc(n.content || '')}</pre></section>`)
+    .map(n => {
+      const tags = parseTags(n.tags)
+      const iocs = parseJsonArray(n.linked_iocs)
+      const techs = parseJsonArray(n.linked_techniques)
+      const cves = parseJsonArray(n.linked_cves)
+      const links = [...iocs.map(v => `IOC:${v}`), ...techs.map(v => `MITRE:${v}`), ...cves]
+      return `<section><h2>${esc(n.title)}</h2><div class="meta">${esc(formatDate(n.created_at))} · ${esc(formatDate(n.updated_at))}</div>${tags.map(tag => `<span class="tag">${esc(tag)}</span>`).join('')}${links.length ? `<div class="links">${links.map(esc).join(', ')}</div>` : ''}<pre>${esc(n.content || '')}</pre></section>`
+    })
     .join('\n')
   downloadFile(
-    `<!DOCTYPE html><html><head><meta charset="utf-8"><title>Notes — CyberHub</title><style>body{font-family:monospace;background:#06080f;color:#f1f5f9;padding:2em}h2{color:#00d4ff}.meta{color:#64748b;font-size:.8em}pre{white-space:pre-wrap;background:#0d131f;border:1px solid #1e2d40;padding:1em}section{margin-bottom:3em;border-bottom:1px solid #1e2d40;padding-bottom:2em}</style></head><body>${body}</body></html>`,
+    `<!DOCTYPE html><html lang="fr"><head><meta charset="utf-8"><title>Notes — CyberHub</title><style>body{font-family:monospace;background:#06080f;color:#f1f5f9;padding:2em}h2{color:#00d4ff}.meta{color:#64748b;font-size:.8em}.tag{background:#0d131f;border:1px solid #1e2d40;color:#00d4ff;padding:2px 8px;margin-right:4px;font-size:.8em;display:inline-block}.links{border:1px solid #1e2d40;padding:1em;background:#0d131f;margin:1em 0;font-size:.85em;color:#64748b}pre{white-space:pre-wrap;background:#0d131f;border:1px solid #1e2d40;padding:1em}section{margin-bottom:3em;border-bottom:1px solid #1e2d40;padding-bottom:2em}</style></head><body>${body}</body></html>`,
     `notes-${ts}.html`, 'text/html'
   )
 }
@@ -160,7 +185,11 @@ function htmlToText(html: string): string {
 
 function serializeField(val: unknown): string {
   if (typeof val === 'string') return val
-  if (Array.isArray(val)) return JSON.stringify(val.map(String))
+  if (Array.isArray(val)) return JSON.stringify(val.flatMap(value => {
+    if (typeof value !== 'string' && typeof value !== 'number') return []
+    const text = String(value).trim()
+    return text ? [text] : []
+  }))
   return ''
 }
 
@@ -263,6 +292,7 @@ function NoteEditor({ initial, onSave, onCancel }: NoteEditorProps) {
   const [linkedCves, setLinkedCves] = useState(() => formatJsonArray(initial?.linked_cves))
   const [saving, setSaving] = useState(false)
   const [titleError, setTitleError] = useState(false)
+  const [saveError, setSaveError] = useState<string | null>(null)
 
   const handleSave = async () => {
     if (!title.trim()) {
@@ -272,6 +302,7 @@ function NoteEditor({ initial, onSave, onCancel }: NoteEditorProps) {
       return
     }
     setSaving(true)
+    setSaveError(null)
     try {
       const tagArr = tags.split(',').map(t => t.trim()).filter(Boolean)
       const iocArr = linkedIocs.split(',').map(t => t.trim()).filter(Boolean)
@@ -285,6 +316,9 @@ function NoteEditor({ initial, onSave, onCancel }: NoteEditorProps) {
         linked_techniques: JSON.stringify(techArr),
         linked_cves: JSON.stringify(cveArr),
       })
+    } catch {
+      setSaveError('Impossible d’enregistrer la note. Vérifiez votre connexion et réessayez.')
+      toast.error('Impossible d’enregistrer la note')
     } finally {
       setSaving(false)
     }
@@ -300,7 +334,8 @@ function NoteEditor({ initial, onSave, onCancel }: NoteEditorProps) {
           onChange={e => { setTitle(e.target.value); if (titleError) setTitleError(false) }}
           placeholder="Titre de la note" aria-invalid={titleError || undefined}
           aria-describedby={titleError ? 'nt26-err-title' : undefined} />
-        {titleError && <p id="nt26-err-title" className="nt26-field-error">Le titre est requis</p>}
+        {titleError && <p id="nt26-err-title" className="nt26-field-error" role="alert">Le titre est requis</p>}
+        {saveError && <p className="nt26-field-error" role="alert">{saveError}</p>}
         <label className="nt26-sr" htmlFor="nt26-in-content">Corps de la note</label>
         <textarea id="nt26-in-content" className="nt26-ed-body" value={content}
           onChange={e => setContent(e.target.value)} placeholder="Rédigez la note… (texte / Markdown)"
@@ -353,10 +388,20 @@ function NoteEditor({ initial, onSave, onCancel }: NoteEditorProps) {
 function ExportMenu({ note, notes }: { note: Note | null; notes: Note[] }) {
   const [open, setOpen] = useState(false)
   const ref = useRef<HTMLDivElement>(null)
+  const triggerRef = useRef<HTMLButtonElement>(null)
+  const closeAndRestoreFocus = () => {
+    setOpen(false)
+    triggerRef.current?.focus()
+  }
   useEffect(() => {
     if (!open) return
     const onDown = (e: MouseEvent) => { if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false) }
-    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setOpen(false) }
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        e.preventDefault()
+        closeAndRestoreFocus()
+      }
+    }
     document.addEventListener('mousedown', onDown)
     document.addEventListener('keydown', onKey)
     return () => { document.removeEventListener('mousedown', onDown); document.removeEventListener('keydown', onKey) }
@@ -367,17 +412,17 @@ function ExportMenu({ note, notes }: { note: Note | null; notes: Note[] }) {
   ]
   return (
     <div className="nt26-export" ref={ref}>
-      <button type="button" className="nt26-btn" aria-haspopup="menu" aria-expanded={open} aria-label="Exporter" title="Exporter des notes" onClick={() => setOpen(v => !v)} disabled={notes.length === 0 && !note}>
+      <button ref={triggerRef} type="button" className="nt26-btn" aria-expanded={open} aria-controls="nt26-export-options" aria-label="Exporter" title="Exporter des notes" onClick={() => setOpen(v => !v)} disabled={notes.length === 0 && !note}>
         <Download size={15} aria-hidden="true" /> <span className="nt26-export-text">Exporter</span>
       </button>
       {open && (
-        <div className="nt26-export-menu" role="menu">
+        <div id="nt26-export-options" className="nt26-export-menu">
           {note && (
             <div className="nt26-export-group" role="group" aria-label="Note actuelle">
               <p>Note actuelle</p>
               <div className="nt26-export-row">
                 {FMT.map(f => (
-                  <button key={f.id} type="button" role="menuitem" onClick={() => { doExportSingle(note, f.id); setOpen(false) }}>{f.label}</button>
+                  <button key={f.id} type="button" onClick={() => { doExportSingle(note, f.id); closeAndRestoreFocus() }}>{f.label}</button>
                 ))}
               </div>
             </div>
@@ -386,8 +431,8 @@ function ExportMenu({ note, notes }: { note: Note | null; notes: Note[] }) {
             <p>Toutes les notes <span>{notes.length}</span></p>
             <div className="nt26-export-row">
               {FMT.map(f => (
-                <button key={f.id} type="button" role="menuitem" disabled={notes.length === 0}
-                  onClick={() => { doExportAll(notes, f.id); setOpen(false) }}>{f.label}</button>
+                <button key={f.id} type="button" disabled={notes.length === 0}
+                  onClick={() => { doExportAll(notes, f.id); closeAndRestoreFocus() }}>{f.label}</button>
               ))}
             </div>
           </div>
@@ -412,39 +457,45 @@ export default function NotesPage() {
   const [importing, setImporting] = useState(false)
   const [confirmDeleteId, setConfirmDeleteId] = useState<number | null>(null)
   const [mobilePane, setMobilePane] = useState<'list' | 'doc'>('list')
+  const listRequestId = useRef(0)
   const navigate = useNavigate()
 
-  const loadNotes = useCallback(async () => {
+  const runListRequest = useCallback(async (request: () => ReturnType<typeof notesApi.list>, isSearch: boolean) => {
+    const requestId = ++listRequestId.current
     setLoading(true)
+    setSearching(isSearch)
     setListError(false)
     try {
-      const res = await notesApi.list()
-      setNotes(res.notes)
+      const res = await request()
+      if (requestId !== listRequestId.current) return
+      const latestNotes = Array.isArray(res.notes) ? res.notes : []
+      setNotes(latestNotes)
+      setSelectedNote(current => current
+        ? latestNotes.find(note => note.id === current.id) ?? null
+        : null)
     } catch {
+      if (requestId !== listRequestId.current) return
       setListError(true)
-      toast.error('Impossible de charger les notes')
+      toast.error(isSearch ? 'Erreur de recherche' : 'Impossible de charger les notes')
     } finally {
-      setLoading(false)
+      if (requestId === listRequestId.current) {
+        setLoading(false)
+        setSearching(false)
+      }
     }
   }, [])
+
+  const loadNotes = useCallback(() => runListRequest(() => notesApi.list(), false), [runListRequest])
 
   useEffect(() => { loadNotes() }, [loadNotes])
 
   const handleSearch = async () => {
-    if (!searchQ.trim()) { setSearchActive(false); loadNotes(); return }
-    setSearching(true)
+    const query = searchQ.trim()
+    if (!query) { setSearchActive(false); await loadNotes(); return }
     setSearchActive(true)
-    try {
-      const res = await notesApi.search(searchQ)
-      setNotes(res.notes)
-    } catch {
-      setListError(true)
-      toast.error('Erreur de recherche')
-    } finally {
-      setSearching(false)
-    }
+    await runListRequest(() => notesApi.search(query), true)
   }
-  const clearSearch = () => { setSearchQ(''); setSearchActive(false); loadNotes() }
+  const clearSearch = () => { setSearchQ(''); setSearchActive(false); void loadNotes() }
 
   const openNote = (note: Note) => { setSelectedNote(note); setMode('view'); setMobilePane('doc') }
   const startNew = () => { setMode('new'); setSelectedNote(null); setMobilePane('doc') }
@@ -479,27 +530,43 @@ export default function NotesPage() {
   }
 
   const navigateToLink = (type: RefKind, value: string) => {
-    if (type === 'ioc') { navigate(`/ioc?selected=${encodeURIComponent(value)}`); return }
-    if (type === 'mitre') { navigate(`/mitre?find=${encodeURIComponent(value)}`); return }
-    navigate(`/cve?find=${encodeURIComponent(value)}`)
+    const normalized = value.trim()
+    if (!normalized) return
+    if (type === 'ioc') {
+      const id = Number(normalized)
+      if (!/^\d+$/.test(normalized) || !Number.isSafeInteger(id) || id < 1) {
+        toast.error('Référence IOC invalide : un ID numérique est attendu')
+        return
+      }
+      navigate(`/ioc?selected=${encodeURIComponent(normalized)}`)
+      return
+    }
+    if (type === 'mitre') {
+      const technique = normalized.toUpperCase()
+      if (!/^T\d{4}(?:\.\d{3})?$/.test(technique)) {
+        toast.error('Référence MITRE invalide : format Txxxx attendu')
+        return
+      }
+      navigate(`/mitre?find=${encodeURIComponent(technique)}`)
+      return
+    }
+    if (!/^CVE-\d{4}-\d{4,}$/i.test(normalized)) {
+      toast.error('Référence CVE invalide : format CVE-AAAA-NNNN attendu')
+      return
+    }
+    navigate(`/cve?find=${encodeURIComponent(normalized.toUpperCase())}`)
   }
 
   const handleImportFiles = async (e: ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files ?? [])
     e.target.value = ''
     if (!files.length) return
-    const allNotes: NoteCreateRequest[] = []
-    const errors: string[] = []
-    await Promise.all(
-      files.map(async file => {
-        try {
-          const parsed = await readFileAsNotes(file)
-          allNotes.push(...parsed)
-        } catch (err) {
-          errors.push(err instanceof Error ? err.message : String(err))
-        }
-      })
-    )
+    const outcomes = await Promise.all(files.map(async file => {
+      try { return { notes: await readFileAsNotes(file), error: null } }
+      catch (err) { return { notes: [], error: err instanceof Error ? err.message : String(err) } }
+    }))
+    const allNotes = outcomes.flatMap(outcome => outcome.notes)
+    const errors = outcomes.flatMap(outcome => outcome.error ? [outcome.error] : [])
     errors.forEach(msg => toast.error(msg))
     if (!allNotes.length) return
     if (allNotes.length === 1) {
@@ -581,12 +648,11 @@ export default function NotesPage() {
                 onChange={e => setSearchQ(e.target.value)}
                 onKeyDown={e => { if (e.key === 'Enter') handleSearch() }}
                 placeholder="Rechercher une note…" autoComplete="off" aria-busy={searching || undefined} />
-              {searching
-                ? <span className="nt26-search-clear" aria-hidden="true"><Loader2 size={15} className="nt26-spin" /></span>
-                : searchQ && <button type="button" className="nt26-search-clear" onClick={clearSearch} aria-label="Effacer la recherche"><X size={15} aria-hidden="true" /></button>}
+              {searching && <span className="nt26-search-spinner" aria-hidden="true"><Loader2 size={15} className="nt26-spin" /></span>}
+              {searchQ && <button type="button" className="nt26-search-clear" onClick={clearSearch} aria-label="Effacer la recherche"><X size={15} aria-hidden="true" /></button>}
             </div>
 
-            <div className="nt26-list" role="list">
+            <div className="nt26-list" role="list" aria-busy={loading || searching || importing || undefined}>
               {loading ? (
                 <div className="nt26-list-state" role="status"><Loader2 size={20} className="nt26-spin" aria-hidden="true" /> Chargement…</div>
               ) : listError ? (
@@ -691,7 +757,7 @@ export default function NotesPage() {
                     {tags.length > 0 && (
                       <section className="nt26-ctx-sec">
                         <h3>Tags</h3>
-                        <ul className="nt26-ctx-tags" aria-label="Tags">{tags.map(t => <li key={t}>{t}</li>)}</ul>
+                          <ul className="nt26-ctx-tags" aria-label="Tags">{tags.map((t, index) => <li key={`${t}-${index}`}>{t}</li>)}</ul>
                       </section>
                     )}
                     {hasRefs && (

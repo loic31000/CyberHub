@@ -104,6 +104,7 @@
 .nt26-search input:focus { border-color: #6fd0e4; outline: 0; box-shadow: 0 0 0 3px rgb(0 212 255 / .12); }
 .nt26-search-clear { position: absolute; right: 7px; display: inline-grid; place-items: center; width: 28px; height: 28px; border: 0; border-radius: 7px; background: transparent; color: var(--c-muted); }
 .nt26-search-clear:hover { color: var(--c-ink); background: #12263a; }
+.nt26-search-spinner { position: absolute; right: 42px; display: inline-grid; place-items: center; color: var(--c-muted); pointer-events: none; }
 
 .nt26-list { min-height: 0; overflow-y: auto; display: grid; align-content: start; margin: 0 -4px; padding: 0 4px; }
 .nt26-list-state { display: grid; justify-items: center; gap: 10px; padding: 40px 16px; color: var(--c-muted); font: 500 .84rem/1.4 "DM Sans", sans-serif; text-align: center; }
