@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect, useRef } from 'react'
 import { AlertTriangle, ArrowLeftRight, ArrowRight, Check, Copy, Trash2 } from 'lucide-react'
 import { OPERATIONS, GROUPS, transform } from '@/types/encoder'
 import type { EncoderGroup, EncoderOperation } from '@/types/encoder'
@@ -19,20 +19,40 @@ export default function EncoderDecoder() {
   const [input, setInput] = useState('')
   const [activeOp, setActiveOp] = useState<EncoderOperation>('base64-encode')
   const [copied, setCopied] = useState(false)
+  const copyTimeoutRef = useRef<number | undefined>(undefined)
+  const copyRequestRef = useRef(0)
 
   const result = useMemo(() => transform(activeOp, input), [activeOp, input])
   const activeConfig = OPERATIONS.find(o => o.id === activeOp)!
   const canUseOutput = Boolean(result.output) && !result.error
 
-  const handleCopy = () => {
+  useEffect(() => () => {
+    copyRequestRef.current++
+    window.clearTimeout(copyTimeoutRef.current)
+  }, [])
+
+  useEffect(() => {
+    copyRequestRef.current++
+    window.clearTimeout(copyTimeoutRef.current)
+    setCopied(false)
+  }, [activeOp, input])
+
+  const handleCopy = async () => {
     if (!canUseOutput) return
-    navigator.clipboard?.writeText(result.output)
-      .then(() => {
-        setCopied(true)
-        window.setTimeout(() => setCopied(false), 1800)
-        toast.success('Copié dans le presse-papiers')
-      })
-      .catch(() => {})
+    const requestId = ++copyRequestRef.current
+    window.clearTimeout(copyTimeoutRef.current)
+    setCopied(false)
+    try {
+      const clipboard = navigator.clipboard
+      if (typeof clipboard?.writeText !== 'function') throw new Error('Clipboard API indisponible')
+      await clipboard.writeText(result.output)
+      if (requestId !== copyRequestRef.current) return
+      setCopied(true)
+      toast.success('Copié dans le presse-papiers')
+      copyTimeoutRef.current = window.setTimeout(() => setCopied(false), 1800)
+    } catch {
+      if (requestId === copyRequestRef.current) toast.error('Impossible de copier le résultat')
+    }
   }
   const handleSwap = () => { if (canUseOutput) setInput(result.output) }
   const handleClear = () => setInput('')

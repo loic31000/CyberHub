@@ -36,6 +36,8 @@ export const OPERATIONS: EncoderConfig[] = [
 
 export const GROUPS: EncoderGroup[] = ['Base64', 'URL', 'Hex', 'ROT13', 'HTML']
 
+class UserTransformError extends Error {}
+
 // Encode UTF-8 string → base64 (full Unicode support, no deprecated escape())
 function b64Encode(input: string): string {
   const bytes = new TextEncoder().encode(input)
@@ -45,9 +47,19 @@ function b64Encode(input: string): string {
 
 // Decode base64 → UTF-8 string
 function b64Decode(input: string): string {
-  const bin = atob(input.trim())
+  let bin: string
+  try {
+    // atob accepts ASCII whitespace, which is useful for pasted/multiline data.
+    bin = atob(input.trim())
+  } catch {
+    throw new UserTransformError('Base64 invalide : vérifiez les caractères et le padding.')
+  }
   const bytes = Uint8Array.from(bin, (c) => c.codePointAt(0)!)
-  return new TextDecoder().decode(bytes)
+  try {
+    return new TextDecoder('utf-8', { fatal: true }).decode(bytes)
+  } catch {
+    throw new UserTransformError('Le Base64 ne contient pas de texte UTF-8 valide.')
+  }
 }
 
 export function transform(op: EncoderOperation, input: string): TransformResult {
@@ -70,7 +82,11 @@ export function transform(op: EncoderOperation, input: string): TransformResult 
         break
 
       case 'url-decode':
-        output = decodeURIComponent(input)
+        try {
+          output = decodeURIComponent(input)
+        } catch {
+          throw new UserTransformError('URL invalide : la séquence encodée est mal formée.')
+        }
         break
 
       case 'hex-encode':
@@ -82,9 +98,9 @@ export function transform(op: EncoderOperation, input: string): TransformResult 
       case 'hex-decode': {
         const hex = input.replace(/\s+/g, '')
         if (!/^[0-9a-fA-F]*$/.test(hex))
-          throw new Error('Hex invalide : caractères non hexadécimaux détectés')
+          throw new UserTransformError('Hex invalide : caractères non hexadécimaux détectés.')
         if (hex.length % 2 !== 0)
-          throw new Error('Hex invalide : nombre de caractères impair')
+          throw new UserTransformError('Hex invalide : nombre de caractères impair.')
         const bytes = new Uint8Array(hex.match(/.{2}/g)!.map((b) => parseInt(b, 16)))
         output = new TextDecoder().decode(bytes)
         break
@@ -126,7 +142,9 @@ export function transform(op: EncoderOperation, input: string): TransformResult 
   } catch (e) {
     return {
       output: '',
-      error: e instanceof Error ? e.message : 'Transformation échouée',
+      error: e instanceof UserTransformError
+        ? e.message
+        : 'La transformation a échoué. Vérifiez la valeur saisie.',
     }
   }
 }
