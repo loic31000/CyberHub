@@ -1,15 +1,27 @@
 import { useState, useEffect, useCallback, useRef, type ChangeEvent } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { FileText, Plus, Search, Trash2, Edit2, X, Save, Loader2, Download, Upload } from 'lucide-react'
+import {
+  AlertTriangle, ChevronLeft, Download, Edit2, FileText, Loader2,
+  Plus, Save, Search, Trash2, Upload, X,
+} from 'lucide-react'
 import { notesApi } from '@/api/client'
 import type { Note, NoteCreateRequest } from '@/types/note'
 import { toast } from '@/store/toast'
+import ConfirmModal from '@/components/ConfirmModal'
+import NotesHero from '@/notes26/NotesHero'
+import '@/notes26/notes.css'
 
 function parseTags(raw: string): string[] {
   if (!raw) return []
   try {
     const p: unknown = JSON.parse(raw)
-    if (Array.isArray(p)) return p as string[]
+    if (Array.isArray(p)) return p.flatMap(value => {
+      if (typeof value === 'string' || typeof value === 'number') {
+        const text = String(value).trim()
+        return text ? [text] : []
+      }
+      return []
+    })
     return []
   } catch {
     return raw.split(',').map(t => t.trim()).filter(Boolean)
@@ -27,7 +39,13 @@ function parseJsonArray(raw?: string): string[] {
   if (!raw) return []
   try {
     const parsed: unknown = JSON.parse(raw)
-    if (Array.isArray(parsed)) return parsed.map(String)
+    if (Array.isArray(parsed)) return parsed.flatMap(value => {
+      if (typeof value === 'string' || typeof value === 'number') {
+        const text = String(value).trim()
+        return text ? [text] : []
+      }
+      return []
+    })
     return []
   } catch {
     return raw.split(',').map(item => item.trim()).filter(Boolean)
@@ -41,7 +59,8 @@ function formatJsonArray(raw?: string): string {
 // ── Export helpers ────────────────────────────────────────────────────────────
 
 function slugify(str: string): string {
-  return str.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 50) || 'note'
+  return str.normalize('NFKD').replace(/[\u0300-\u036f]/g, '').toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 50) || 'note'
 }
 
 function downloadFile(content: string, filename: string, mimeType: string) {
@@ -50,8 +69,13 @@ function downloadFile(content: string, filename: string, mimeType: string) {
   const a = document.createElement('a')
   a.href = url
   a.download = filename
+  a.style.display = 'none'
+  document.body.appendChild(a)
   a.click()
-  URL.revokeObjectURL(url)
+  a.remove()
+  // Let the browser consume the object URL before releasing it.
+  const revokeObjectURL = URL.revokeObjectURL.bind(URL)
+  window.setTimeout(() => revokeObjectURL(url), 1000)
 }
 
 function noteToTxt(note: Note): string {
@@ -86,7 +110,7 @@ function noteToMarkdown(note: Note): string {
 }
 
 function noteToHTML(note: Note): string {
-  const esc = (s: string) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+  const esc = (s: string) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;')
   const tags = parseTags(note.tags)
   const iocs = parseJsonArray(note.linked_iocs)
   const techs = parseJsonArray(note.linked_techniques)
@@ -131,12 +155,19 @@ function doExportAll(notes: Note[], fmt: ExportFormat) {
     downloadFile(notes.map(noteToMarkdown).join('\n\n---\n\n'), `notes-${ts}.md`, 'text/markdown')
     return
   }
-  const esc = (s: string) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+  const esc = (s: string) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;')
   const body = notes
-    .map(n => `<section><h2>${esc(n.title)}</h2><div class="meta">${esc(formatDate(n.updated_at))}</div><pre>${esc(n.content || '')}</pre></section>`)
+    .map(n => {
+      const tags = parseTags(n.tags)
+      const iocs = parseJsonArray(n.linked_iocs)
+      const techs = parseJsonArray(n.linked_techniques)
+      const cves = parseJsonArray(n.linked_cves)
+      const links = [...iocs.map(v => `IOC:${v}`), ...techs.map(v => `MITRE:${v}`), ...cves]
+      return `<section><h2>${esc(n.title)}</h2><div class="meta">${esc(formatDate(n.created_at))} · ${esc(formatDate(n.updated_at))}</div>${tags.map(tag => `<span class="tag">${esc(tag)}</span>`).join('')}${links.length ? `<div class="links">${links.map(esc).join(', ')}</div>` : ''}<pre>${esc(n.content || '')}</pre></section>`
+    })
     .join('\n')
   downloadFile(
-    `<!DOCTYPE html><html><head><meta charset="utf-8"><title>Notes — CyberHub</title><style>body{font-family:monospace;background:#06080f;color:#f1f5f9;padding:2em}h2{color:#00d4ff}.meta{color:#64748b;font-size:.8em}pre{white-space:pre-wrap;background:#0d131f;border:1px solid #1e2d40;padding:1em}section{margin-bottom:3em;border-bottom:1px solid #1e2d40;padding-bottom:2em}</style></head><body>${body}</body></html>`,
+    `<!DOCTYPE html><html lang="fr"><head><meta charset="utf-8"><title>Notes — CyberHub</title><style>body{font-family:monospace;background:#06080f;color:#f1f5f9;padding:2em}h2{color:#00d4ff}.meta{color:#64748b;font-size:.8em}.tag{background:#0d131f;border:1px solid #1e2d40;color:#00d4ff;padding:2px 8px;margin-right:4px;font-size:.8em;display:inline-block}.links{border:1px solid #1e2d40;padding:1em;background:#0d131f;margin:1em 0;font-size:.85em;color:#64748b}pre{white-space:pre-wrap;background:#0d131f;border:1px solid #1e2d40;padding:1em}section{margin-bottom:3em;border-bottom:1px solid #1e2d40;padding-bottom:2em}</style></head><body>${body}</body></html>`,
     `notes-${ts}.html`, 'text/html'
   )
 }
@@ -154,7 +185,11 @@ function htmlToText(html: string): string {
 
 function serializeField(val: unknown): string {
   if (typeof val === 'string') return val
-  if (Array.isArray(val)) return JSON.stringify(val.map(String))
+  if (Array.isArray(val)) return JSON.stringify(val.flatMap(value => {
+    if (typeof value !== 'string' && typeof value !== 'number') return []
+    const text = String(value).trim()
+    return text ? [text] : []
+  }))
   return ''
 }
 
@@ -214,7 +249,33 @@ async function readFileAsNotes(file: File): Promise<NoteCreateRequest[]> {
   throw new Error(`Format non supporté : .${ext}`)
 }
 
-// ── Sub-components ────────────────────────────────────────────────────────────
+// ── Reference section ───────────────────────────────────────────────────────
+
+type RefKind = 'ioc' | 'mitre' | 'cve'
+const REF_META: Record<RefKind, { label: string }> = {
+  ioc: { label: 'IOC' },
+  mitre: { label: 'MITRE ATT&CK' },
+  cve: { label: 'CVE' },
+}
+const refText = (kind: RefKind, v: string) => (kind === 'ioc' ? `IOC #${v}` : kind === 'mitre' ? v : v)
+
+function RefGroup({ kind, values, onOpen }: { kind: RefKind; values: string[]; onOpen: (kind: RefKind, v: string) => void }) {
+  if (values.length === 0) return null
+  return (
+    <div className="nt26-refgroup" data-kind={kind}>
+      <p className="nt26-refgroup-label"><i aria-hidden="true" />{REF_META[kind].label} <span>{values.length}</span></p>
+      <ul>
+        {values.map(v => (
+          <li key={v}>
+            <button type="button" onClick={() => onOpen(kind, v)}>{refText(kind, v)}</button>
+          </li>
+        ))}
+      </ul>
+    </div>
+  )
+}
+
+// ── Editor ──────────────────────────────────────────────────────────────────
 
 interface NoteEditorProps {
   initial?: Note
@@ -230,10 +291,18 @@ function NoteEditor({ initial, onSave, onCancel }: NoteEditorProps) {
   const [linkedTechniques, setLinkedTechniques] = useState(() => formatJsonArray(initial?.linked_techniques))
   const [linkedCves, setLinkedCves] = useState(() => formatJsonArray(initial?.linked_cves))
   const [saving, setSaving] = useState(false)
+  const [titleError, setTitleError] = useState(false)
+  const [saveError, setSaveError] = useState<string | null>(null)
 
   const handleSave = async () => {
-    if (!title.trim()) { toast.error('Titre requis'); return }
+    if (!title.trim()) {
+      setTitleError(true)
+      toast.error('Titre requis')
+      document.getElementById('nt26-in-title')?.focus()
+      return
+    }
     setSaving(true)
+    setSaveError(null)
     try {
       const tagArr = tags.split(',').map(t => t.trim()).filter(Boolean)
       const iocArr = linkedIocs.split(',').map(t => t.trim()).filter(Boolean)
@@ -247,71 +316,128 @@ function NoteEditor({ initial, onSave, onCancel }: NoteEditorProps) {
         linked_techniques: JSON.stringify(techArr),
         linked_cves: JSON.stringify(cveArr),
       })
+    } catch {
+      setSaveError('Impossible d’enregistrer la note. Vérifiez votre connexion et réessayez.')
+      toast.error('Impossible d’enregistrer la note')
     } finally {
       setSaving(false)
     }
   }
 
-  const inputCls = 'w-full bg-[#0d131f] border border-[#1e2d40] rounded px-3 py-2 font-mono text-sm text-[#f1f5f9] placeholder-[#334155] focus:outline-none focus:border-[#00d4ff]/60'
-
   return (
-    <div className="space-y-4">
-      <input
-        type="text"
-        value={title}
-        onChange={e => setTitle(e.target.value)}
-        placeholder="TITRE DE LA NOTE"
-        className={inputCls + ' font-bold'}
-        autoFocus
-      />
-      <textarea
-        value={content}
-        onChange={e => setContent(e.target.value)}
-        placeholder="Contenu Markdown…"
-        rows={16}
-        className="w-full bg-[#0d131f] border border-[#1e2d40] rounded px-3 py-2 font-mono text-sm text-[#f1f5f9] placeholder-[#334155] focus:outline-none focus:border-[#00d4ff]/60 resize-y"
-      />
-      <input
-        type="text"
-        value={tags}
-        onChange={e => setTags(e.target.value)}
-        placeholder="TAGS (séparés par virgule)"
-        className={inputCls}
-      />
-      <input
-        type="text"
-        value={linkedIocs}
-        onChange={e => setLinkedIocs(e.target.value)}
-        placeholder="IOCS liés (IDs séparés par virgule)"
-        className={inputCls}
-      />
-      <input
-        type="text"
-        value={linkedTechniques}
-        onChange={e => setLinkedTechniques(e.target.value)}
-        placeholder="TECHNIQUES MITRE liées (IDs séparés par virgule)"
-        className={inputCls}
-      />
-      <input
-        type="text"
-        value={linkedCves}
-        onChange={e => setLinkedCves(e.target.value)}
-        placeholder="CVE liées (IDs séparés par virgule)"
-        className={inputCls}
-      />
-      <div className="flex gap-3 pt-2">
-        <button
-          onClick={handleSave}
-          disabled={saving}
-          className="flex items-center gap-2 border border-[#00d4ff]/20 bg-[#00d4ff]/10 px-4 py-2 font-mono text-[10px] font-bold uppercase tracking-widest text-[#00d4ff] transition-colors hover:bg-[#00d4ff]/20 disabled:opacity-50"
-        >
-          <Save size={14} />
-          {saving ? 'SAUVEGARDE...' : 'SAUVEGARDER'}
-        </button>
-        <button onClick={onCancel} className="flex items-center gap-2 border border-[#1e2d40] px-4 py-2 font-mono text-[10px] font-bold uppercase tracking-widest text-[#64748b] hover:text-[#f1f5f9] transition-colors">
-          <X size={14} /> ANNULER
-        </button>
+    <form className="nt26-editor" onSubmit={e => { e.preventDefault(); handleSave() }} noValidate>
+      {/* Writing surface: title and body dominate, minimal chrome. */}
+      <div className="nt26-ed-main">
+        <p className="nt26-ed-kicker">{initial ? 'Édition de note' : 'Nouvelle note'}</p>
+        <label className="nt26-sr" htmlFor="nt26-in-title">Titre de la note</label>
+        <input id="nt26-in-title" className="nt26-ed-title" value={title} autoFocus
+          onChange={e => { setTitle(e.target.value); if (titleError) setTitleError(false) }}
+          placeholder="Titre de la note" aria-invalid={titleError || undefined}
+          aria-describedby={titleError ? 'nt26-err-title' : undefined} />
+        {titleError && <p id="nt26-err-title" className="nt26-field-error" role="alert">Le titre est requis</p>}
+        {saveError && <p className="nt26-field-error" role="alert">{saveError}</p>}
+        <label className="nt26-sr" htmlFor="nt26-in-content">Corps de la note</label>
+        <textarea id="nt26-in-content" className="nt26-ed-body" value={content}
+          onChange={e => setContent(e.target.value)} placeholder="Rédigez la note… (texte / Markdown)"
+          rows={18} spellCheck={false} />
+        <div className="nt26-ed-actions">
+          <button type="button" className="nt26-ghost" onClick={onCancel} disabled={saving}>Annuler</button>
+          <button type="submit" className="nt26-btn is-primary" disabled={saving}>
+            {saving ? <Loader2 size={15} className="nt26-spin" aria-hidden="true" /> : <Save size={15} aria-hidden="true" />}
+            {saving ? 'Enregistrement…' : 'Sauvegarder'}
+          </button>
+        </div>
       </div>
+
+      {/* Metadata rail: classification and references, secondary to the content. */}
+      <aside className="nt26-ed-side">
+        <div className="nt26-side-sec">
+          <h3>Classification</h3>
+          <div className="nt26-side-field">
+            <label htmlFor="nt26-in-tags">Tags</label>
+            <input id="nt26-in-tags" className="nt26-side-in" value={tags} onChange={e => setTags(e.target.value)}
+              placeholder="incident, phishing, prod" aria-describedby="nt26-hint-tags" />
+            <small id="nt26-hint-tags">Séparés par des virgules.</small>
+          </div>
+        </div>
+        <div className="nt26-side-sec">
+          <h3>Références liées</h3>
+          <div className="nt26-side-field" data-kind="ioc">
+            <label htmlFor="nt26-in-iocs"><i aria-hidden="true" />IOC</label>
+            <input id="nt26-in-iocs" className="nt26-side-in is-mono" value={linkedIocs} onChange={e => setLinkedIocs(e.target.value)}
+              placeholder="IDs, séparés par virgule" autoComplete="off" />
+          </div>
+          <div className="nt26-side-field" data-kind="mitre">
+            <label htmlFor="nt26-in-techs"><i aria-hidden="true" />MITRE ATT&amp;CK</label>
+            <input id="nt26-in-techs" className="nt26-side-in is-mono" value={linkedTechniques} onChange={e => setLinkedTechniques(e.target.value)}
+              placeholder="T1059, T1105" autoComplete="off" />
+          </div>
+          <div className="nt26-side-field" data-kind="cve">
+            <label htmlFor="nt26-in-cves"><i aria-hidden="true" />CVE</label>
+            <input id="nt26-in-cves" className="nt26-side-in is-mono" value={linkedCves} onChange={e => setLinkedCves(e.target.value)}
+              placeholder="CVE-2024-1234" autoComplete="off" />
+          </div>
+        </div>
+      </aside>
+    </form>
+  )
+}
+
+// ── Export menu ───────────────────────────────────────────────────────────────
+
+function ExportMenu({ note, notes }: { note: Note | null; notes: Note[] }) {
+  const [open, setOpen] = useState(false)
+  const ref = useRef<HTMLDivElement>(null)
+  const triggerRef = useRef<HTMLButtonElement>(null)
+  const closeAndRestoreFocus = () => {
+    setOpen(false)
+    triggerRef.current?.focus()
+  }
+  useEffect(() => {
+    if (!open) return
+    const onDown = (e: MouseEvent) => { if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false) }
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        e.preventDefault()
+        closeAndRestoreFocus()
+      }
+    }
+    document.addEventListener('mousedown', onDown)
+    document.addEventListener('keydown', onKey)
+    return () => { document.removeEventListener('mousedown', onDown); document.removeEventListener('keydown', onKey) }
+  }, [open])
+
+  const FMT: { id: ExportFormat; label: string }[] = [
+    { id: 'json', label: 'JSON' }, { id: 'md', label: 'Markdown' }, { id: 'txt', label: 'TXT' }, { id: 'html', label: 'HTML' },
+  ]
+  return (
+    <div className="nt26-export" ref={ref}>
+      <button ref={triggerRef} type="button" className="nt26-btn" aria-expanded={open} aria-controls="nt26-export-options" aria-label="Exporter" title="Exporter des notes" onClick={() => setOpen(v => !v)} disabled={notes.length === 0 && !note}>
+        <Download size={15} aria-hidden="true" /> <span className="nt26-export-text">Exporter</span>
+      </button>
+      {open && (
+        <div id="nt26-export-options" className="nt26-export-menu">
+          {note && (
+            <div className="nt26-export-group" role="group" aria-label="Note actuelle">
+              <p>Note actuelle</p>
+              <div className="nt26-export-row">
+                {FMT.map(f => (
+                  <button key={f.id} type="button" onClick={() => { doExportSingle(note, f.id); closeAndRestoreFocus() }}>{f.label}</button>
+                ))}
+              </div>
+            </div>
+          )}
+          <div className="nt26-export-group" role="group" aria-label="Toutes les notes">
+            <p>Toutes les notes <span>{notes.length}</span></p>
+            <div className="nt26-export-row">
+              {FMT.map(f => (
+                <button key={f.id} type="button" disabled={notes.length === 0}
+                  onClick={() => { doExportAll(notes, f.id); closeAndRestoreFocus() }}>{f.label}</button>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
@@ -320,55 +446,59 @@ function NoteEditor({ initial, onSave, onCancel }: NoteEditorProps) {
 
 export default function NotesPage() {
   const [notes, setNotes] = useState<Note[]>([])
-  const [loading, setLoading] = useState(false)
+  const [loading, setLoading] = useState(true)
+  const [listError, setListError] = useState(false)
   const [selectedNote, setSelectedNote] = useState<Note | null>(null)
   const [mode, setMode] = useState<'view' | 'edit' | 'new'>('view')
   const [searchQ, setSearchQ] = useState('')
-  const [_searching, setSearching] = useState(false)
-  const [exportOpen, setExportOpen] = useState(false)
+  const [searching, setSearching] = useState(false)
+  const [searchActive, setSearchActive] = useState(false)
   const [importPreview, setImportPreview] = useState<NoteCreateRequest[] | null>(null)
   const [importing, setImporting] = useState(false)
-  const exportMenuRef = useRef<HTMLDivElement>(null)
+  const [confirmDeleteId, setConfirmDeleteId] = useState<number | null>(null)
+  const [mobilePane, setMobilePane] = useState<'list' | 'doc'>('list')
+  const listRequestId = useRef(0)
   const navigate = useNavigate()
 
-  const loadNotes = useCallback(async () => {
+  const runListRequest = useCallback(async (request: () => ReturnType<typeof notesApi.list>, isSearch: boolean) => {
+    const requestId = ++listRequestId.current
     setLoading(true)
+    setSearching(isSearch)
+    setListError(false)
     try {
-      const res = await notesApi.list()
-      setNotes(res.notes)
+      const res = await request()
+      if (requestId !== listRequestId.current) return
+      const latestNotes = Array.isArray(res.notes) ? res.notes : []
+      setNotes(latestNotes)
+      setSelectedNote(current => current
+        ? latestNotes.find(note => note.id === current.id) ?? null
+        : null)
     } catch {
-      toast.error('Impossible de charger les notes')
+      if (requestId !== listRequestId.current) return
+      setListError(true)
+      toast.error(isSearch ? 'Erreur de recherche' : 'Impossible de charger les notes')
     } finally {
-      setLoading(false)
+      if (requestId === listRequestId.current) {
+        setLoading(false)
+        setSearching(false)
+      }
     }
   }, [])
 
+  const loadNotes = useCallback(() => runListRequest(() => notesApi.list(), false), [runListRequest])
+
   useEffect(() => { loadNotes() }, [loadNotes])
 
-  // Close export dropdown on outside click
-  useEffect(() => {
-    if (!exportOpen) return
-    const handler = (e: MouseEvent) => {
-      if (exportMenuRef.current && !exportMenuRef.current.contains(e.target as Node)) {
-        setExportOpen(false)
-      }
-    }
-    document.addEventListener('mousedown', handler)
-    return () => document.removeEventListener('mousedown', handler)
-  }, [exportOpen])
-
   const handleSearch = async () => {
-    if (!searchQ.trim()) { loadNotes(); return }
-    setSearching(true)
-    try {
-      const res = await notesApi.search(searchQ)
-      setNotes(res.notes)
-    } catch {
-      toast.error('Erreur de recherche')
-    } finally {
-      setSearching(false)
-    }
+    const query = searchQ.trim()
+    if (!query) { setSearchActive(false); await loadNotes(); return }
+    setSearchActive(true)
+    await runListRequest(() => notesApi.search(query), true)
   }
+  const clearSearch = () => { setSearchQ(''); setSearchActive(false); void loadNotes() }
+
+  const openNote = (note: Note) => { setSelectedNote(note); setMode('view'); setMobilePane('doc') }
+  const startNew = () => { setMode('new'); setSelectedNote(null); setMobilePane('doc') }
 
   const handleCreate = async (req: NoteCreateRequest) => {
     const note = await notesApi.create(req)
@@ -376,6 +506,7 @@ export default function NotesPage() {
     setNotes(prev => [note, ...prev])
     setSelectedNote(note)
     setMode('view')
+    setMobilePane('doc')
   }
 
   const handleUpdate = async (req: NoteCreateRequest) => {
@@ -387,40 +518,55 @@ export default function NotesPage() {
     setMode('view')
   }
 
-  const handleDelete = async (id: number) => {
-    if (!confirm('Supprimer cette note ?')) return
+  const performDelete = async (id: number) => {
     try {
       await notesApi.delete(id)
       toast.success('Note supprimée')
       setNotes(prev => prev.filter(n => n.id !== id))
-      if (selectedNote?.id === id) { setSelectedNote(null); setMode('view') }
+      if (selectedNote?.id === id) { setSelectedNote(null); setMode('view'); setMobilePane('list') }
     } catch {
       toast.error('Impossible de supprimer')
     }
   }
 
-  const navigateToLink = (type: 'ioc' | 'mitre' | 'cve', value: string) => {
-    if (type === 'ioc') { navigate(`/ioc?selected=${encodeURIComponent(value)}`); return }
-    if (type === 'mitre') { navigate(`/mitre?find=${encodeURIComponent(value)}`); return }
-    navigate(`/cve?find=${encodeURIComponent(value)}`)
+  const navigateToLink = (type: RefKind, value: string) => {
+    const normalized = value.trim()
+    if (!normalized) return
+    if (type === 'ioc') {
+      const id = Number(normalized)
+      if (!/^\d+$/.test(normalized) || !Number.isSafeInteger(id) || id < 1) {
+        toast.error('Référence IOC invalide : un ID numérique est attendu')
+        return
+      }
+      navigate(`/ioc?selected=${encodeURIComponent(normalized)}`)
+      return
+    }
+    if (type === 'mitre') {
+      const technique = normalized.toUpperCase()
+      if (!/^T\d{4}(?:\.\d{3})?$/.test(technique)) {
+        toast.error('Référence MITRE invalide : format Txxxx attendu')
+        return
+      }
+      navigate(`/mitre?find=${encodeURIComponent(technique)}`)
+      return
+    }
+    if (!/^CVE-\d{4}-\d{4,}$/i.test(normalized)) {
+      toast.error('Référence CVE invalide : format CVE-AAAA-NNNN attendu')
+      return
+    }
+    navigate(`/cve?find=${encodeURIComponent(normalized.toUpperCase())}`)
   }
 
   const handleImportFiles = async (e: ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files ?? [])
     e.target.value = ''
     if (!files.length) return
-    const allNotes: NoteCreateRequest[] = []
-    const errors: string[] = []
-    await Promise.all(
-      files.map(async file => {
-        try {
-          const parsed = await readFileAsNotes(file)
-          allNotes.push(...parsed)
-        } catch (err) {
-          errors.push(err instanceof Error ? err.message : String(err))
-        }
-      })
-    )
+    const outcomes = await Promise.all(files.map(async file => {
+      try { return { notes: await readFileAsNotes(file), error: null } }
+      catch (err) { return { notes: [], error: err instanceof Error ? err.message : String(err) } }
+    }))
+    const allNotes = outcomes.flatMap(outcome => outcome.notes)
+    const errors = outcomes.flatMap(outcome => outcome.error ? [outcome.error] : [])
     errors.forEach(msg => toast.error(msg))
     if (!allNotes.length) return
     if (allNotes.length === 1) {
@@ -431,6 +577,7 @@ export default function NotesPage() {
         setNotes(prev => [note, ...prev])
         setSelectedNote(note)
         setMode('view')
+        setMobilePane('doc')
       } catch {
         toast.error("Échec de l'import")
       } finally {
@@ -461,290 +608,209 @@ export default function NotesPage() {
     if (fail) toast.error(`${fail} note(s) en échec`)
     setImportPreview(null)
     setImporting(false)
-    if (created.length > 0) { setSelectedNote(created[0]); setMode('view') }
+    if (created.length > 0) { setSelectedNote(created[0]); setMode('view'); setMobilePane('doc') }
   }
 
+  const status = loading ? { text: 'CHARGEMENT', tone: 'busy' as const }
+    : listError ? { text: 'REGISTRE INDISPONIBLE', tone: 'warn' as const }
+    : selectedNote && mode === 'view' ? { text: 'NOTE OUVERTE', mark: `#${selectedNote.id}` }
+    : mode !== 'view' ? { text: mode === 'new' ? 'NOUVELLE NOTE' : 'ÉDITION', tone: 'busy' as const }
+    : { text: `${notes.length.toLocaleString('fr-FR')} NOTE${notes.length > 1 ? 'S' : ''}`, mark: searchActive ? 'RECHERCHE' : 'REGISTRE' }
+
   return (
-    <div className="flex flex-col h-full bg-[#06080f] text-[#f1f5f9]">
-      {/* Header */}
-      <div className="flex items-center justify-between px-6 py-4 border-b border-[#1e2d40] bg-[#0a0f16]/50">
-        <div className="flex items-center gap-3">
-          <div className="relative">
-            <FileText className="text-[#00d4ff]" size={20} />
-            <div className="absolute -top-1 -right-1 w-2 h-2 bg-[#10b981] rounded-full animate-pulse shadow-[0_0_8px_#10b981]" />
-          </div>
-          <div>
-            <h1 className="text-sm font-bold tracking-[0.2em] uppercase">NOTES // OPERATIONS</h1>
-            <p className="text-[10px] text-[#64748b] font-mono">
-              Notes opérationnelles liées à vos IOCs, techniques et CVE
-            </p>
-          </div>
-        </div>
-        <div className="flex items-center gap-2 font-mono text-[10px]">
-          <span className="text-[#64748b] hidden sm:block">STATUS</span>
-          <span className="text-[#10b981] hidden sm:block">ONLINE</span>
+    <div className="nt26">
+      <div className="nt26-frame">
+        <NotesHero status={status} />
 
-          {/* Import */}
-          <label className="flex items-center gap-1.5 px-3 py-1.5 bg-[#1e2d40] hover:bg-[#2a3f55] font-bold border border-[#334155] transition-colors cursor-pointer select-none">
-            <Upload size={12} /> IMPORT
-            <input
-              type="file"
-              accept=".json,.txt,.md,.html,.htm"
-              multiple
-              onChange={handleImportFiles}
-              className="hidden"
-            />
-          </label>
-
-          {/* Export */}
-          <div className="relative" ref={exportMenuRef}>
-            <button
-              onClick={() => setExportOpen(v => !v)}
-              className="flex items-center gap-1.5 px-3 py-1.5 bg-[#1e2d40] hover:bg-[#2a3f55] font-bold border border-[#334155] transition-colors"
-            >
-              <Download size={12} /> EXPORT
+        <div className="nt26-workspace" data-pane={mobilePane}>
+          {/* Registre */}
+          <aside className="nt26-registre" aria-label="Registre des notes">
+            <div className="nt26-reg-head">
+              <div className="nt26-reg-title">
+                <span>Carnet</span>
+                {!loading && !listError && <b>{notes.length.toLocaleString('fr-FR')}</b>}
+              </div>
+              <div className="nt26-reg-tools">
+                <label className="nt26-reg-tool" title="Importer des notes">
+                  <Upload size={15} aria-hidden="true" /><span className="nt26-sr">Importer</span>
+                  <input type="file" accept=".json,.txt,.md,.html,.htm" multiple onChange={handleImportFiles} />
+                </label>
+                <ExportMenu note={selectedNote} notes={notes} />
+              </div>
+            </div>
+            <button type="button" className="nt26-new" onClick={startNew}>
+              <Plus size={16} aria-hidden="true" /> Nouvelle note
             </button>
-            {exportOpen && (
-              <div className="absolute right-0 top-full mt-1 border border-[#1e2d40] bg-[#0a0f16] z-50 min-w-[170px] shadow-xl py-1">
-                {selectedNote && (
-                  <>
-                    <p className="px-3 pt-1.5 pb-1 text-[9px] text-[#4a6480] uppercase tracking-widest">NOTE ACTUELLE</p>
-                    {(['json', 'md', 'txt', 'html'] as const).map(fmt => (
-                      <button
-                        key={fmt}
-                        onClick={() => { doExportSingle(selectedNote, fmt); setExportOpen(false) }}
-                        className="w-full text-left px-4 py-1.5 text-[11px] text-[#cbd5e1] hover:bg-[#1e2d40] hover:text-[#00d4ff] transition-colors"
-                      >
-                        {fmt === 'json' ? 'Exporter en JSON' : fmt === 'md' ? 'Exporter en Markdown' : fmt === 'txt' ? 'Exporter en TXT' : 'Exporter en HTML'}
+            <div className="nt26-search">
+              <Search size={17} aria-hidden="true" />
+              <label className="nt26-sr" htmlFor="nt26-search-in">Rechercher une note</label>
+              <input id="nt26-search-in" type="search" value={searchQ}
+                onChange={e => setSearchQ(e.target.value)}
+                onKeyDown={e => { if (e.key === 'Enter') handleSearch() }}
+                placeholder="Rechercher une note…" autoComplete="off" aria-busy={searching || undefined} />
+              {searching && <span className="nt26-search-spinner" aria-hidden="true"><Loader2 size={15} className="nt26-spin" /></span>}
+              {searchQ && <button type="button" className="nt26-search-clear" onClick={clearSearch} aria-label="Effacer la recherche"><X size={15} aria-hidden="true" /></button>}
+            </div>
+
+            <div className="nt26-list" role="list" aria-busy={loading || searching || importing || undefined}>
+              {loading ? (
+                <div className="nt26-list-state" role="status"><Loader2 size={20} className="nt26-spin" aria-hidden="true" /> Chargement…</div>
+              ) : listError ? (
+                <div className="nt26-list-state is-error" role="alert">
+                  <AlertTriangle size={22} aria-hidden="true" />
+                  <p>Chargement impossible</p>
+                  <button type="button" className="nt26-btn" onClick={searchActive ? handleSearch : loadNotes}>Réessayer</button>
+                </div>
+              ) : notes.length === 0 ? (
+                <div className="nt26-list-state">
+                  <FileText size={22} aria-hidden="true" />
+                  <p>{searchActive ? 'Aucune note ne correspond.' : 'Aucune note. Créez-en une !'}</p>
+                  {searchActive && <button type="button" className="nt26-btn" onClick={clearSearch}>Effacer la recherche</button>}
+                </div>
+              ) : (
+                notes.map(note => {
+                  const tags = parseTags(note.tags)
+                  const refs = [
+                    { k: 'IOC', n: parseJsonArray(note.linked_iocs).length },
+                    { k: 'ATT&CK', n: parseJsonArray(note.linked_techniques).length },
+                    { k: 'CVE', n: parseJsonArray(note.linked_cves).length },
+                  ].filter(r => r.n > 0)
+                  const active = selectedNote?.id === note.id && mode === 'view'
+                  return (
+                    <div key={note.id} role="listitem" className="nt26-entry" data-active={active || undefined}>
+                      <button type="button" className="nt26-entry-main" aria-current={active || undefined} onClick={() => openNote(note)}>
+                        <span className="nt26-entry-title">{note.title}</span>
+                        <span className="nt26-entry-date">{formatDate(note.updated_at)}</span>
+                        {note.content && <span className="nt26-entry-excerpt">{note.content}</span>}
+                        {(tags.length > 0 || refs.length > 0) && (
+                          <span className="nt26-entry-foot">
+                            {tags.length > 0 && <span className="nt26-entry-tags">{tags.slice(0, 3).join(' · ')}{tags.length > 3 ? ' …' : ''}</span>}
+                            {refs.length > 0 && <span className="nt26-entry-refs">{refs.map(r => `${r.k} ${r.n}`).join('  ·  ')}</span>}
+                          </span>
+                        )}
                       </button>
-                    ))}
-                    <div className="border-t border-[#1e2d40] my-1" />
-                  </>
-                )}
-                <p className="px-3 pt-1.5 pb-1 text-[9px] text-[#4a6480] uppercase tracking-widest">
-                  TOUTES ({notes.length})
-                </p>
-                {(['json', 'md', 'txt', 'html'] as const).map(fmt => (
-                  <button
-                    key={fmt}
-                    onClick={() => { doExportAll(notes, fmt); setExportOpen(false) }}
-                    className="w-full text-left px-4 py-1.5 text-[11px] text-[#cbd5e1] hover:bg-[#1e2d40] hover:text-[#00d4ff] transition-colors"
-                  >
-                    {fmt === 'json' ? 'Exporter tout en JSON' : fmt === 'md' ? 'Exporter tout en Markdown' : fmt === 'txt' ? 'Exporter tout en TXT' : 'Exporter tout en HTML'}
-                  </button>
-                ))}
-              </div>
-            )}
-          </div>
-
-          {/* New note */}
-          <button
-            onClick={() => { setMode('new'); setSelectedNote(null) }}
-            className="flex items-center gap-1.5 px-3 py-1.5 bg-[#1e2d40] hover:bg-[#2a3f55] font-bold border border-[#334155] transition-colors"
-          >
-            <Plus size={12} /> NEW NOTE
-          </button>
-        </div>
-      </div>
-
-      {/* Content */}
-      <div className="flex-1 overflow-auto p-6">
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 h-full min-h-0">
-          {/* Left — note list */}
-          <div className="border border-[#1e2d40] bg-[#0a0f16] flex flex-col overflow-hidden">
-            <div className="p-4 border-b border-[#1e2d40]">
-              <div className="flex gap-2">
-                <div className="relative flex-1">
-                  <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#4a6480]" />
-                  <input
-                    type="text"
-                    value={searchQ}
-                    onChange={e => setSearchQ(e.target.value)}
-                    onKeyDown={e => e.key === 'Enter' && handleSearch()}
-                    placeholder="Rechercher une note..."
-                    className="w-full bg-[#0d131f] border border-[#1e2d40] pl-9 pr-3 py-2 font-mono text-sm text-[#f1f5f9] placeholder-[#2a3f55] focus:outline-none focus:border-[#00d4ff]/40"
-                  />
-                </div>
-                <button
-                  onClick={handleSearch}
-                  className="flex items-center gap-1 px-3 py-2 border border-[#1e2d40] text-[#64748b] hover:text-[#00d4ff] hover:border-[#00d4ff]/40 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-[#00d4ff]"
-                  aria-label="Rechercher"
-                >
-                  <Search size={14} />
-                </button>
-              </div>
-            </div>
-
-            <div className="flex-1 overflow-y-auto p-2 space-y-1">
-              {loading && (
-                <div className="flex justify-center py-8">
-                  <Loader2 size={20} className="animate-spin text-[#00d4ff]" />
-                </div>
-              )}
-              {!loading && notes.length === 0 && (
-                <p className="text-xs font-mono text-[#64748b] text-center py-8">AUCUNE NOTE. CRÉEZ-EN UNE !</p>
-              )}
-              {notes.map(note => (
-                <div
-                  key={note.id}
-                  onClick={() => { setSelectedNote(note); setMode('view') }}
-                  className={`p-3 border cursor-pointer transition-colors ${
-                    selectedNote?.id === note.id
-                      ? 'border-[#00d4ff]/40 bg-[#00d4ff]/5'
-                      : 'border-[#1e2d40] hover:border-[#00d4ff]/20 hover:bg-[#0d131f]/50'
-                  }`}
-                >
-                  <div className="flex items-start justify-between gap-2">
-                    <p className="text-sm font-mono font-bold text-[#f1f5f9] truncate flex-1">{note.title}</p>
-                    <button
-                      onClick={e => { e.stopPropagation(); handleDelete(note.id) }}
-                      className="text-[#64748b] hover:text-red-400 shrink-0 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-[#00d4ff]"
-                      aria-label="Supprimer"
-                    >
-                      <Trash2 size={13} />
-                    </button>
-                  </div>
-                  <p className="text-[10px] font-mono text-[#64748b] mt-0.5">{formatDate(note.updated_at)}</p>
-                  {parseTags(note.tags).length > 0 && (
-                    <div className="flex flex-wrap gap-1 mt-1.5">
-                      {parseTags(note.tags).slice(0, 3).map(tag => (
-                        <span key={tag} className="text-[9px] font-mono px-1.5 py-0.5 border border-[#1e2d40] bg-[#0d131f] text-[#64748b]">{tag}</span>
-                      ))}
+                      <button type="button" className="nt26-entry-del" onClick={() => setConfirmDeleteId(note.id)} aria-label={`Supprimer la note ${note.title}`}>
+                        <Trash2 size={14} aria-hidden="true" />
+                      </button>
                     </div>
-                  )}
-                </div>
-              ))}
+                  )
+                })
+              )}
             </div>
-          </div>
+          </aside>
 
-          {/* Right — viewer / editor */}
-          <div className="lg:col-span-2 border border-[#1e2d40] bg-[#0a0f16] overflow-y-auto p-5">
-            {mode === 'new' && (
-              <NoteEditor onSave={handleCreate} onCancel={() => setMode('view')} />
+          {/* Document / editor */}
+          <section className="nt26-doc" aria-label="Note">
+            {mobilePane === 'doc' && (
+              <button type="button" className="nt26-back" onClick={() => setMobilePane('list')}>
+                <ChevronLeft size={16} aria-hidden="true" /> Registre
+              </button>
             )}
 
-            {mode === 'edit' && selectedNote && (
-              <NoteEditor initial={selectedNote} onSave={handleUpdate} onCancel={() => setMode('view')} />
-            )}
+            {mode === 'new' && <NoteEditor onSave={handleCreate} onCancel={() => { setMode('view'); setMobilePane('list') }} />}
+            {mode === 'edit' && selectedNote && <NoteEditor initial={selectedNote} onSave={handleUpdate} onCancel={() => setMode('view')} />}
 
             {mode === 'view' && !selectedNote && (
-              <div className="flex flex-col items-center justify-center h-full text-[#64748b]">
-                <FileText size={40} className="mb-3 opacity-30" />
-                <p className="text-sm font-mono">SÉLECTIONNEZ UNE NOTE OU CRÉEZ-EN UNE NOUVELLE</p>
+              <div className="nt26-empty">
+                <FileText size={40} aria-hidden="true" />
+                <h2>Aucune note sélectionnée</h2>
+                <p>Choisis une note dans le registre, ou crée-en une nouvelle.</p>
+                <button type="button" className="nt26-btn is-primary" onClick={startNew}><Plus size={15} aria-hidden="true" /> Nouvelle note</button>
               </div>
             )}
 
-            {mode === 'view' && selectedNote && (
-              <div className="space-y-5">
-                <div className="flex items-start justify-between gap-3 flex-wrap">
-                  <h2 className="text-xl font-mono font-bold uppercase tracking-wide text-[#f1f5f9]">{selectedNote.title}</h2>
-                  <button
-                    onClick={() => setMode('edit')}
-                    className="flex items-center gap-2 border border-[#00d4ff]/20 bg-[#00d4ff]/10 px-3 py-1.5 font-mono text-[10px] font-bold uppercase tracking-widest text-[#00d4ff] transition-colors hover:bg-[#00d4ff]/20"
-                  >
-                    <Edit2 size={13} /> MODIFIER
-                  </button>
-                </div>
-                <p className="text-[10px] font-mono text-[#64748b]">
-                  CRÉÉE LE {formatDate(selectedNote.created_at)} · MODIFIÉE LE {formatDate(selectedNote.updated_at)}
-                </p>
-                {parseTags(selectedNote.tags).length > 0 && (
-                  <div className="flex flex-wrap gap-1.5">
-                    {parseTags(selectedNote.tags).map(tag => (
-                      <span key={tag} className="text-[10px] font-mono px-2 py-0.5 border border-[#00d4ff]/30 bg-[#00d4ff]/5 text-[#00d4ff]">{tag}</span>
-                    ))}
+            {mode === 'view' && selectedNote && (() => {
+              const tags = parseTags(selectedNote.tags)
+              const iocs = parseJsonArray(selectedNote.linked_iocs)
+              const techs = parseJsonArray(selectedNote.linked_techniques)
+              const cves = parseJsonArray(selectedNote.linked_cves)
+              const hasRefs = iocs.length > 0 || techs.length > 0 || cves.length > 0
+              return (
+                <article className="nt26-note">
+                  {/* Document column: title and content dominate. */}
+                  <div className="nt26-note-main">
+                    <header className="nt26-note-head">
+                      <p className="nt26-note-kicker">Dossier opérationnel · #{selectedNote.id}</p>
+                      <h2>{selectedNote.title}</h2>
+                      <div className="nt26-note-actions">
+                        <button type="button" className="nt26-ghost" onClick={() => setMode('edit')}><Edit2 size={14} aria-hidden="true" /> Modifier</button>
+                        <button type="button" className="nt26-ghost is-danger" onClick={() => setConfirmDeleteId(selectedNote.id)}><Trash2 size={14} aria-hidden="true" /> Supprimer</button>
+                      </div>
+                    </header>
+                    <div className="nt26-content" aria-label="Contenu">
+                      {selectedNote.content
+                        ? <pre tabIndex={0}>{selectedNote.content}</pre>
+                        : <p className="nt26-content-empty">Cette note n'a pas encore de contenu.</p>}
+                    </div>
                   </div>
-                )}
-                {(parseJsonArray(selectedNote.linked_iocs).length > 0 || parseJsonArray(selectedNote.linked_techniques).length > 0 || parseJsonArray(selectedNote.linked_cves).length > 0) && (
-                  <div className="space-y-3 border border-[#1e2d40] p-4 bg-[#0d131f]">
-                    <p className="text-[10px] font-mono text-[#4a6480] uppercase tracking-wider">LIENS</p>
-                    {parseJsonArray(selectedNote.linked_iocs).length > 0 && (
-                      <div className="flex flex-wrap gap-2">
-                        {parseJsonArray(selectedNote.linked_iocs).map(id => (
-                          <button
-                            key={id}
-                            onClick={() => navigateToLink('ioc', id)}
-                            className="text-[11px] font-mono px-2 py-1 border border-[#1e2d40] bg-[#0d131f] text-[#f1f5f9] hover:border-[#00d4ff] hover:text-[#00d4ff] transition-colors"
-                          >
-                            IOC #{id}
-                          </button>
-                        ))}
-                      </div>
+
+                  {/* Context rail: dossier metadata, tags and linked references. */}
+                  <aside className="nt26-context" aria-label="Contexte de la note">
+                    <section className="nt26-ctx-sec">
+                      <h3>Chronologie</h3>
+                      <dl className="nt26-ctx-meta">
+                        <div><dt>Créée</dt><dd>{formatDate(selectedNote.created_at)}</dd></div>
+                        <div><dt>Modifiée</dt><dd>{formatDate(selectedNote.updated_at)}</dd></div>
+                        {selectedNote.created_by && <div><dt>Auteur</dt><dd>{selectedNote.created_by}</dd></div>}
+                      </dl>
+                    </section>
+                    {tags.length > 0 && (
+                      <section className="nt26-ctx-sec">
+                        <h3>Tags</h3>
+                          <ul className="nt26-ctx-tags" aria-label="Tags">{tags.map((t, index) => <li key={`${t}-${index}`}>{t}</li>)}</ul>
+                      </section>
                     )}
-                    {parseJsonArray(selectedNote.linked_techniques).length > 0 && (
-                      <div className="flex flex-wrap gap-2">
-                        {parseJsonArray(selectedNote.linked_techniques).map(tech => (
-                          <button
-                            key={tech}
-                            onClick={() => navigateToLink('mitre', tech)}
-                            className="text-[11px] font-mono px-2 py-1 border border-[#1e2d40] bg-[#0d131f] text-[#f1f5f9] hover:border-[#00d4ff] hover:text-[#00d4ff] transition-colors"
-                          >
-                            MITRE {tech}
-                          </button>
-                        ))}
-                      </div>
+                    {hasRefs && (
+                      <section className="nt26-ctx-sec" aria-labelledby="nt26-refs-title">
+                        <h3 id="nt26-refs-title">Références liées</h3>
+                        <div className="nt26-ctx-refs">
+                          <RefGroup kind="ioc" values={iocs} onOpen={navigateToLink} />
+                          <RefGroup kind="mitre" values={techs} onOpen={navigateToLink} />
+                          <RefGroup kind="cve" values={cves} onOpen={navigateToLink} />
+                        </div>
+                      </section>
                     )}
-                    {parseJsonArray(selectedNote.linked_cves).length > 0 && (
-                      <div className="flex flex-wrap gap-2">
-                        {parseJsonArray(selectedNote.linked_cves).map(cve => (
-                          <button
-                            key={cve}
-                            onClick={() => navigateToLink('cve', cve)}
-                            className="text-[11px] font-mono px-2 py-1 border border-[#1e2d40] bg-[#0d131f] text-[#f1f5f9] hover:border-[#00d4ff] hover:text-[#00d4ff] transition-colors"
-                          >
-                            {cve}
-                          </button>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                )}
-                <div className="prose prose-invert prose-sm max-w-none">
-                  <pre className="text-sm font-mono text-[#cbd5e1] whitespace-pre-wrap break-words bg-[#0d131f] border border-[#1e2d40] p-4 leading-relaxed">
-                    {selectedNote.content || <span className="text-[#64748b] italic">Aucun contenu</span>}
-                  </pre>
-                </div>
-              </div>
-            )}
-          </div>
+                  </aside>
+                </article>
+              )
+            })()}
+          </section>
         </div>
       </div>
 
-      {/* Import confirmation overlay */}
       {importPreview && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60">
-          <div className="bg-[#0a0f16] border border-[#1e2d40] p-6 max-w-lg w-full mx-4 space-y-4 shadow-2xl">
-            <p className="text-sm font-mono font-bold text-[#00d4ff] uppercase tracking-widest">
-              IMPORT — {importPreview.length} NOTE(S) DÉTECTÉE(S)
-            </p>
-            <div className="max-h-60 overflow-y-auto space-y-1 border border-[#1e2d40] bg-[#0d131f] p-3">
+        <div className="nt26-dialog-layer" role="dialog" aria-modal="true" aria-labelledby="nt26-import-title">
+          <div className="nt26-dialog-scrim" onClick={() => !importing && setImportPreview(null)} aria-hidden="true" />
+          <div className="nt26-dialog">
+            <header>
+              <h2 id="nt26-import-title">Import — {importPreview.length} note(s) détectée(s)</h2>
+              <button type="button" className="nt26-icon-btn" onClick={() => setImportPreview(null)} disabled={importing} aria-label="Fermer"><X size={18} aria-hidden="true" /></button>
+            </header>
+            <ol className="nt26-import-list">
               {importPreview.map((n, i) => (
-                <p key={i} className="text-xs font-mono text-[#cbd5e1] truncate">
-                  <span className="text-[#4a6480] mr-2">{String(i + 1).padStart(2, '0')}.</span>
-                  {n.title}
-                </p>
+                <li key={i}><span>{String(i + 1).padStart(2, '0')}</span>{n.title}</li>
               ))}
-            </div>
-            <div className="flex gap-3 pt-1">
-              <button
-                onClick={handleConfirmImport}
-                disabled={importing}
-                className="flex items-center gap-2 border border-[#00d4ff]/20 bg-[#00d4ff]/10 px-4 py-2 font-mono text-[10px] font-bold uppercase tracking-widest text-[#00d4ff] transition-colors hover:bg-[#00d4ff]/20 disabled:opacity-50"
-              >
-                {importing ? <Loader2 size={12} className="animate-spin" /> : <Upload size={12} />}
-                {importing ? 'IMPORTATION...' : `IMPORTER ${importPreview.length} NOTE(S)`}
-              </button>
-              <button
-                onClick={() => setImportPreview(null)}
-                disabled={importing}
-                className="flex items-center gap-2 border border-[#1e2d40] px-4 py-2 font-mono text-[10px] font-bold uppercase tracking-widest text-[#64748b] hover:text-[#f1f5f9] transition-colors disabled:opacity-50"
-              >
-                <X size={12} /> ANNULER
+            </ol>
+            <div className="nt26-dialog-bar">
+              <button type="button" className="nt26-btn" onClick={() => setImportPreview(null)} disabled={importing}>Annuler</button>
+              <button type="button" className="nt26-btn is-primary" onClick={handleConfirmImport} disabled={importing}>
+                {importing ? <Loader2 size={15} className="nt26-spin" aria-hidden="true" /> : <Upload size={15} aria-hidden="true" />}
+                {importing ? 'Importation…' : `Importer ${importPreview.length} note(s)`}
               </button>
             </div>
           </div>
         </div>
       )}
+
+      <ConfirmModal
+        open={confirmDeleteId !== null}
+        title="SUPPRIMER CETTE NOTE ?"
+        message="Cette action est irréversible. La note sera définitivement effacée."
+        confirmLabel="Supprimer"
+        danger
+        onConfirm={() => { const id = confirmDeleteId; setConfirmDeleteId(null); if (id !== null) performDelete(id) }}
+        onCancel={() => setConfirmDeleteId(null)}
+      />
     </div>
   )
 }
