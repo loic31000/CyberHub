@@ -234,6 +234,17 @@ describe('Knowledge Atlas — consultation', () => {
 })
 
 describe('Knowledge Atlas — unified registry and sorting', () => {
+  it('opens ALL on CVE first, identically in the Carousel and the Registry (#95)', async () => {
+    await setup()
+    expect(document.querySelector('.ka-focus-card.is-active')?.getAttribute('aria-label')).toBe('Ouvrir CVE-2026-1234')
+    mode('REGISTRY')
+    const order = Array.from(document.querySelectorAll('.ka-row')).map(row => row.getAttribute('data-source'))
+    expect(order).toEqual(['CVE', 'MITRE', 'CLOAK', 'CLOAK', 'LOLBINS'])
+  })
+  it('keeps the search ranking ahead of the product order (#95)', async () => {
+    await setup(); search('certutil'); mode('REGISTRY')
+    expect(document.querySelector('.ka-row')?.getAttribute('data-source')).toBe('LOLBINS')
+  })
   it('renders ALL with one identical row structure for every source', async () => {
     await setup(); mode('REGISTRY')
     const rows = Array.from(document.querySelectorAll('.ka-row'))
