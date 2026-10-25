@@ -1,81 +1,12 @@
 import { useState, useEffect } from 'react'
-import { Zap, Copy, Check, Terminal, AlertTriangle, Info } from 'lucide-react'
+import { AlertTriangle, Check, Info, ShieldAlert, Zap } from 'lucide-react'
 import { revshellApi } from '@/api/client'
 import { LANG_CONFIGS, OS_GROUPS } from '@/types/revshell'
-import type { RevShellLang, RevShellEncoding, RevShellResponse, RevShellOS } from '@/types/revshell'
+import type { RevShellLang, RevShellEncoding, RevShellResponse } from '@/types/revshell'
 import { toast } from '@/store/toast'
-import clsx from 'clsx'
-
-// ── OS badge ──────────────────────────────────────────────────────────────────
-
-function OSBadge({ os }: { os: RevShellOS }) {
-  const map: Record<RevShellOS, { label: string; cls: string }> = {
-    linux:   { label: 'LINUX',   cls: 'border-[#10b981]/40 bg-[#10b981]/10 text-[#10b981]' },
-    windows: { label: 'WINDOWS', cls: 'border-[#3b82f6]/40 bg-[#3b82f6]/10 text-[#3b82f6]' },
-    cross:   { label: 'CROSS',   cls: 'border-[#f59e0b]/40 bg-[#f59e0b]/10 text-[#f59e0b]' },
-  }
-  const { label, cls } = map[os]
-  return (
-    <span className={clsx('text-[9px] font-mono font-bold border px-1.5 py-0.5 uppercase tracking-wider', cls)}>
-      {label}
-    </span>
-  )
-}
-
-// ── Code block with copy button ───────────────────────────────────────────────
-
-interface CodeBlockProps {
-  label: string
-  code: string
-  accent?: 'green' | 'yellow' | 'cyan'
-  badge?: React.ReactNode
-}
-
-function CodeBlock({ label, code, accent = 'green', badge }: CodeBlockProps) {
-  const [copied, setCopied] = useState(false)
-
-  const colorMap = {
-    green:  'text-[#10b981]',
-    yellow: 'text-[#f59e0b]',
-    cyan:   'text-cyan-400',
-  }
-
-  const handleCopy = () => {
-    navigator.clipboard.writeText(code).then(() => {
-      setCopied(true)
-      setTimeout(() => setCopied(false), 2000)
-      toast.success('Copié dans le presse-papiers')
-    })
-  }
-
-  return (
-    <div className="space-y-2">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <span className="text-[10px] font-mono font-bold text-[#4a6480] tracking-[0.15em]">{label}</span>
-          {badge}
-        </div>
-        <button
-          onClick={handleCopy}
-          className="flex items-center gap-1.5 text-[10px] font-mono text-[#64748b] hover:text-cyan-400 transition-colors"
-        >
-          {copied
-            ? <><Check size={11} className="text-green-400" /> COPIÉ</>
-            : <><Copy size={11} /> COPIER</>
-          }
-        </button>
-      </div>
-      <pre className={clsx(
-        'bg-[#0a0f16] border border-[#1e2d40] px-4 py-3 text-sm font-mono whitespace-pre-wrap break-all leading-relaxed',
-        colorMap[accent],
-      )}>
-        {code}
-      </pre>
-    </div>
-  )
-}
-
-// ── Main page ─────────────────────────────────────────────────────────────────
+import RevShellHero from '@/revshell26/RevShellHero'
+import { CodePanel, OS_LABEL, OsMark } from '@/revshell26/parts'
+import '@/revshell26/revshell.css'
 
 interface FormState {
   ip: string
@@ -85,23 +16,18 @@ interface FormState {
 }
 
 const ENCODINGS: { id: RevShellEncoding; label: string }[] = [
-  { id: 'none',   label: 'None'   },
+  { id: 'none', label: 'Aucun' },
   { id: 'base64', label: 'Base64' },
-  { id: 'url',    label: 'URL'    },
+  { id: 'url', label: 'URL' },
 ]
 
 export default function RevShellGenerator() {
-  const [form, setForm] = useState<FormState>({
-    ip: '',
-    port: 4444,
-    lang: 'bash',
-    encode: 'none',
-  })
-  const [result, setResult]   = useState<RevShellResponse | null>(null)
+  const [form, setForm] = useState<FormState>({ ip: '', port: 4444, lang: 'bash', encode: 'none' })
+  const [result, setResult] = useState<RevShellResponse | null>(null)
   const [loading, setLoading] = useState(false)
-  const [error, setError]     = useState<string | null>(null)
+  const [error, setError] = useState<string | null>(null)
 
-  // Debounced fetch on any form change
+  // Debounced fetch on any form change (behaviour unchanged).
   useEffect(() => {
     if (!form.ip.trim()) {
       setResult(null)
@@ -133,228 +59,132 @@ export default function RevShellGenerator() {
     setForm((prev) => ({ ...prev, [key]: value }))
 
   const activeLangConfig = LANG_CONFIGS.find((l) => l.id === form.lang)!
+  const hasHost = Boolean(form.ip.trim())
+
+  const status = !hasHost ? { text: 'EN ATTENTE', mark: 'LHOST REQUIS' }
+    : loading ? { text: 'GÉNÉRATION', tone: 'busy' as const }
+    : error ? { text: 'ERREUR', tone: 'warn' as const }
+    : { text: `${activeLangConfig.label.toUpperCase()} · ${OS_LABEL[activeLangConfig.os].toUpperCase()}`, mark: form.encode === 'none' ? 'BRUT' : form.encode.toUpperCase() }
 
   return (
-    <div className="flex flex-col h-full bg-[#06080f] text-[#f1f5f9]">
+    <div className="rs26">
+      <div className="rs26-frame">
+        <RevShellHero status={status} />
 
-      {/* ── Header ──────────────────────────────────────────────────────── */}
-      <div className="flex items-center justify-between px-6 py-4 border-b border-[#1e2d40] bg-[#0a0f16]/50">
-        <div className="flex items-center gap-3">
-          <div className="relative">
-            <Zap className="text-cyan-400" size={20} />
-            <div className="absolute -top-1 -right-1 w-2 h-2 bg-[#ef4444] rounded-full animate-pulse shadow-[0_0_8px_#ef4444]" />
-          </div>
-          <div>
-            <h1 className="text-sm font-bold tracking-[0.2em] uppercase">REVSHELL GENERATOR // PAYLOAD</h1>
-            <p className="text-[10px] text-[#64748b] font-mono">
-              Génération de reverse shells — CTF, lab isolé &amp; tests autorisés uniquement
-            </p>
-          </div>
-        </div>
-        <div className="flex items-center gap-4 font-mono text-[10px]">
-          <span className="text-[#64748b]">MODE</span>
-          <span className="text-[#10b981]">STATELESS</span>
-        </div>
-      </div>
-
-      {/* ── Content ─────────────────────────────────────────────────────── */}
-      <div className="flex-1 overflow-auto p-6 space-y-6">
-
-        {/* Form: LHOST / LPORT / Encoding */}
-        <div className="grid grid-cols-1 sm:grid-cols-[1fr_auto_auto] gap-3 items-end">
-
-          {/* LHOST */}
-          <div className="space-y-1.5">
-            <label className="text-[10px] font-mono font-bold text-[#4a6480] tracking-[0.15em]">
-              LHOST
-            </label>
-            <input
-              type="text"
-              value={form.ip}
-              onChange={(e) => setField('ip', e.target.value)}
-              placeholder="10.10.14.1"
-              className="w-full bg-[#0a0f16] border border-[#1e2d40] text-sm font-mono text-[#f1f5f9] placeholder-[#2a3f55] px-3 py-2 focus:outline-none focus:border-cyan-500/40 transition-colors"
-              spellCheck={false}
-            />
+        {/* Session + encoding configuration */}
+        <section className="rs26-config" aria-label="Configuration de session">
+          <div className="rs26-session">
+            <span className="rs26-session-label">Session</span>
+            <div className="rs26-endpoint">
+              <div className="rs26-field">
+                <label htmlFor="rs26-lhost">LHOST</label>
+                <input id="rs26-lhost" type="text" value={form.ip} onChange={e => setField('ip', e.target.value)}
+                  placeholder="10.10.14.1" inputMode="decimal" autoComplete="off" spellCheck={false} />
+              </div>
+              <span className="rs26-endpoint-sep" aria-hidden="true">:</span>
+              <div className="rs26-field is-port">
+                <label htmlFor="rs26-lport">LPORT</label>
+                <input id="rs26-lport" type="number" value={form.port} min={1} max={65535}
+                  onChange={e => setField('port', parseInt(e.target.value, 10) || 4444)} />
+              </div>
+            </div>
           </div>
 
-          {/* LPORT */}
-          <div className="space-y-1.5">
-            <label className="text-[10px] font-mono font-bold text-[#4a6480] tracking-[0.15em]">
-              LPORT
-            </label>
-            <input
-              type="number"
-              value={form.port}
-              min={1}
-              max={65535}
-              onChange={(e) => setField('port', parseInt(e.target.value, 10) || 4444)}
-              className="w-32 bg-[#0a0f16] border border-[#1e2d40] text-sm font-mono text-[#f1f5f9] px-3 py-2 focus:outline-none focus:border-cyan-500/40 transition-colors"
-            />
-          </div>
-
-          {/* Encoding */}
-          <div className="space-y-1.5">
-            <label className="text-[10px] font-mono font-bold text-[#4a6480] tracking-[0.15em]">
-              ENCODING
-            </label>
-            <div className="flex">
-              {ENCODINGS.map((enc) => (
-                <button
-                  key={enc.id}
-                  onClick={() => setField('encode', enc.id)}
-                  className={clsx(
-                    'px-3 py-2 text-[10px] font-mono font-bold uppercase tracking-wider border-y border-r first:border-l transition-colors',
-                    form.encode === enc.id
-                      ? 'border-cyan-500/40 bg-cyan-500/10 text-cyan-400'
-                      : 'border-[#1e2d40] bg-[#06080f] text-[#64748b] hover:text-cyan-400 hover:border-cyan-500/40',
-                  )}
-                >
-                  {enc.label}
+          <div className="rs26-encoding" role="group" aria-labelledby="rs26-enc-label">
+            <span id="rs26-enc-label" className="rs26-session-label">Encodage</span>
+            <div className="rs26-seg">
+              {ENCODINGS.map(enc => (
+                <button key={enc.id} type="button" className="rs26-seg-btn" aria-pressed={form.encode === enc.id}
+                  onClick={() => setField('encode', enc.id)}>
+                  {form.encode === enc.id && <Check size={13} aria-hidden="true" />}{enc.label}
                 </button>
               ))}
             </div>
           </div>
-        </div>
+        </section>
 
-        {/* Language selector — grouped by OS */}
-        <div className="space-y-2.5">
-          {OS_GROUPS.map(({ os, label }) => {
-            const langs = LANG_CONFIGS.filter((l) => l.os === os)
-            return (
-              <div key={os} className="flex items-center gap-2 flex-wrap">
-                <span className="text-[10px] font-mono font-bold text-[#4a6480] tracking-[0.15em] w-20 shrink-0 uppercase">
-                  {label}
-                </span>
-                {langs.map((l) => (
-                  <button
-                    key={l.id}
-                    onClick={() => setField('lang', l.id)}
-                    className={clsx(
-                      'text-[10px] font-mono font-bold uppercase tracking-wider px-3 py-1.5 border transition-colors',
-                      form.lang === l.id
-                        ? os === 'linux'
-                          ? 'border-[#10b981]/40 bg-[#10b981]/10 text-[#10b981]'
-                          : os === 'windows'
-                          ? 'border-[#3b82f6]/40 bg-[#3b82f6]/10 text-[#3b82f6]'
-                          : 'border-[#f59e0b]/40 bg-[#f59e0b]/10 text-[#f59e0b]'
-                        : 'border-[#1e2d40] bg-[#06080f] text-[#64748b] hover:border-cyan-500/40 hover:text-cyan-400',
-                    )}
-                  >
-                    {l.label}
-                  </button>
-                ))}
-              </div>
-            )
-          })}
-        </div>
-
-        {/* Status line */}
-        <div className="flex items-center gap-3 font-mono text-[10px] text-[#4a6480]">
-          <Terminal size={12} className="text-cyan-400 shrink-0" />
-          <span>
-            Lang :
-            <span className="text-cyan-400 ml-1 uppercase tracking-wider">{activeLangConfig.label}</span>
-          </span>
-          <span className="text-[#2a3f55]">|</span>
-          <span>
-            OS :
-          </span>
-          <OSBadge os={activeLangConfig.os} />
-          <span className="text-[#2a3f55]">|</span>
-          <span>
-            Encode :
-            <span className="text-cyan-400 ml-1 uppercase tracking-wider">{form.encode}</span>
-          </span>
-          {loading && (
-            <span className="text-[#64748b] animate-pulse">— génération…</span>
-          )}
-        </div>
-
-        {/* Empty state */}
-        {!form.ip.trim() && (
-          <div className="flex flex-col items-center justify-center border border-[#1e2d40] bg-[#0a0f16] py-16 text-center">
-            <Zap size={36} className="mb-3 text-[#1e2d40]" />
-            <p className="font-mono text-sm uppercase tracking-widest text-[#64748b]">ENTREZ UN LHOST POUR GÉNÉRER</p>
-            <p className="font-mono text-[10px] text-[#2a3f55] mt-1">ex: 10.10.14.1 ou votre IP tun0</p>
+        {/* Language selector, grouped by OS */}
+        <section className="rs26-langs" aria-label="Langage">
+          <span className="rs26-session-label">Langage</span>
+          <div className="rs26-langs-grid">
+            {OS_GROUPS.map(({ os, label }) => {
+              const langs = LANG_CONFIGS.filter(l => l.os === os)
+              return (
+                <div key={os} className="rs26-langgroup" data-os={os} role="group" aria-label={label}>
+                  <span className="rs26-langgroup-label"><i aria-hidden="true" />{label}</span>
+                  <div className="rs26-seg is-wrap">
+                    {langs.map(l => (
+                      <button key={l.id} type="button" className="rs26-seg-btn" aria-pressed={form.lang === l.id}
+                        aria-label={`${label} · ${l.label}`} onClick={() => setField('lang', l.id)}>
+                        {form.lang === l.id && <Check size={13} aria-hidden="true" />}{l.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )
+            })}
           </div>
-        )}
-
-        {/* Error */}
-        {error && (
-          <div className="flex items-center gap-2 border border-[#ef4444]/30 bg-[#1a0808] px-4 py-3 text-sm font-mono text-[#ef4444]">
-            <AlertTriangle size={14} className="shrink-0" />
-            {error}
-          </div>
-        )}
+        </section>
 
         {/* Results */}
-        {result && !loading && (
-          <div className="space-y-5">
-
-            {/* Payload */}
-            <CodeBlock
-              label="PAYLOAD"
-              code={result.payload}
-              accent="green"
-              badge={<OSBadge os={result.os} />}
-            />
-
-            {/* Listener */}
-            <CodeBlock
-              label="LISTENER"
-              code={result.listener}
-              accent="yellow"
-              badge={
-                <span className="text-[9px] font-mono border border-[#4a6480]/40 bg-[#4a6480]/10 text-[#4a6480] px-1.5 py-0.5 uppercase tracking-wider">
-                  ATTACKER
-                </span>
-              }
-            />
-
-            {/* Encoding note */}
-            {form.encode !== 'none' && (
-              <div className="flex items-start gap-2 border border-cyan-500/20 bg-cyan-500/5 px-4 py-3 text-[11px] font-mono text-[#8a9ab0]">
-                <Info size={13} className="text-cyan-400 mt-0.5 shrink-0" />
-                <span>
-                  {form.encode === 'base64' && form.lang === 'powershell' &&
-                    'PowerShell : encodage UTF-16LE → -EncodedCommand. Collez directement dans cmd.exe ou une invite PS.'}
-                  {form.encode === 'base64' && form.lang !== 'powershell' &&
-                    'Payload encodé en base64. La commande décode et exécute en une seule passe.'}
-                  {form.encode === 'url' &&
-                    'Payload URL-encodé. Utilisable dans un paramètre HTTP ou une injection web.'}
-                </span>
-              </div>
-            )}
-
-            {/* Note for source-code payloads */}
-            {(result.lang === 'java' || result.lang === 'golang') && (
-              <div className="flex items-start gap-2 border border-[#f59e0b]/20 bg-[#f59e0b]/5 px-4 py-3 text-[11px] font-mono text-[#8a9ab0]">
-                <Info size={13} className="text-[#f59e0b] mt-0.5 shrink-0" />
-                <span>
-                  {result.lang === 'java' &&
-                    'Sauvegardez dans Exploit.java → javac Exploit.java → java Exploit'}
-                  {result.lang === 'golang' &&
-                    'Sauvegardez dans exploit.go → go run exploit.go'}
-                </span>
-              </div>
-            )}
-          </div>
-        )}
-
-        {/* Loading skeleton */}
-        {loading && form.ip.trim() && (
-          <div className="space-y-5">
-            <div className="space-y-2">
-              <div className="h-3 w-16 bg-[#1e2d40] animate-pulse" />
-              <div className="h-16 bg-[#0a0f16] border border-[#1e2d40] animate-pulse" />
+        <div className="rs26-results" aria-live="polite">
+          {!hasHost ? (
+            <div className="rs26-state">
+              <Zap size={30} aria-hidden="true" />
+              <h2>Entrez un LHOST pour générer</h2>
+              <p>ex : 10.10.14.1 ou votre IP tun0. La génération est automatique.</p>
             </div>
-            <div className="space-y-2">
-              <div className="h-3 w-16 bg-[#1e2d40] animate-pulse" />
-              <div className="h-10 bg-[#0a0f16] border border-[#1e2d40] animate-pulse" />
+          ) : loading ? (
+            <div className="rs26-skeleton" aria-busy="true">
+              <p className="rs26-sr" role="status">Génération en cours…</p>
+              <div className="rs26-skel-panel" aria-hidden="true"><span /><span className="is-tall" /></div>
+              <div className="rs26-skel-panel" aria-hidden="true"><span /><span /></div>
             </div>
-          </div>
-        )}
+          ) : error ? (
+            <div className="rs26-error" role="alert">
+              <AlertTriangle size={20} aria-hidden="true" />
+              <div>
+                <p className="rs26-error-title">Génération impossible</p>
+                <p className="rs26-error-msg">{error}</p>
+              </div>
+            </div>
+          ) : result ? (
+            <>
+              <CodePanel title="Payload" code={result.payload} variant="payload"
+                badge={<OsMark os={result.os} />} onCopy={() => toast.success('Payload copié')} copyLabel="Copier le payload" />
+              <CodePanel title="Listener" code={result.listener} variant="listener"
+                badge={<span className="rs26-tag">Côté attaquant</span>} onCopy={() => toast.success('Listener copié')} copyLabel="Copier le listener" />
+
+              {form.encode !== 'none' && (
+                <p className="rs26-note is-enc">
+                  <Info size={14} aria-hidden="true" />
+                  <span>
+                    {form.encode === 'base64' && form.lang === 'powershell' &&
+                      'PowerShell : encodage UTF-16LE → -EncodedCommand. Collez directement dans cmd.exe ou une invite PS.'}
+                    {form.encode === 'base64' && form.lang !== 'powershell' &&
+                      'Payload encodé en base64. La commande décode et exécute en une seule passe.'}
+                    {form.encode === 'url' &&
+                      'Payload URL-encodé. Utilisable dans un paramètre HTTP ou une injection web.'}
+                  </span>
+                </p>
+              )}
+              {(result.lang === 'java' || result.lang === 'golang') && (
+                <p className="rs26-note is-build">
+                  <Info size={14} aria-hidden="true" />
+                  <span>
+                    {result.lang === 'java' && 'Sauvegardez dans Exploit.java → javac Exploit.java → java Exploit'}
+                    {result.lang === 'golang' && 'Sauvegardez dans exploit.go → go run exploit.go'}
+                  </span>
+                </p>
+              )}
+            </>
+          ) : null}
+        </div>
+
+        <p className="rs26-usage">
+          <ShieldAlert size={14} aria-hidden="true" />
+          Réservé aux CTF, labs isolés et tests sur systèmes autorisés.
+        </p>
       </div>
     </div>
   )
