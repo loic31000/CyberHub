@@ -1,11 +1,10 @@
 // ⚠️ CLOAK — Usage légal et éducatif uniquement.
 // Source : https://github.com/Mickinthemiddle/CLOAK (GPL-2.0)
 
-import { useEffect, useState, useMemo, useCallback } from 'react'
+import { useEffect, useState, useMemo, useCallback, useRef } from 'react'
 import {
-  EyeOff, Search, ChevronRight, ChevronDown,
-  X, ExternalLink, Loader2, AlertTriangle,
-  Lock, Shield, Cpu, User, Activity, Pencil, Trash2,
+  AlertTriangle, ChevronDown, ChevronLeft, ChevronRight, ExternalLink, Layers,
+  Loader2, Pencil, Search, Trash2, X,
 } from 'lucide-react'
 import type {
   CloakData, CloakTactic, CloakTechnique, CloakSubTechnique, CloakProcedure,
@@ -13,116 +12,134 @@ import type {
 import type { CloakAnnotation, AnnotationMap, AnnotationStatus, CloakAnnotationRequest } from '@/types/cloakAnnotation'
 import { cloakAnnotationsApi } from '@/api/client'
 import { toast } from '@/store/toast'
-
-// ── Helpers ───────────────────────────────────────────────────────────────────
+import ConfirmModal from '@/components/ConfirmModal'
+import CloakHero from '@/cloak26/CloakHero'
+import { LEVELS, LevelMark, STATUS_KEY, StatusMark, procUrl } from '@/cloak26/parts'
+import '@/cloak26/cloak.css'
 
 type CloakTypeFilter = 'Technical' | 'Behavioral' | 'Physical' | ''
 
-const typeColor = (type: string) => {
-  switch (type) {
-    case 'Technical':  return 'border-red-500/30 bg-red-500/10 text-red-400'
-    case 'Behavioral': return 'border-orange-500/30 bg-orange-500/10 text-orange-400'
-    case 'Physical':   return 'border-blue-500/30 bg-blue-500/10 text-blue-400'
-    default:           return 'border-gray-600 bg-gray-700/40 text-gray-400'
-  }
+const isRecord = (value: unknown): value is Record<string, unknown> =>
+  typeof value === 'object' && value !== null && !Array.isArray(value)
+
+const safeText = (value: unknown): string => typeof value === 'string' ? value : ''
+const safeId = (value: unknown): number | null =>
+  typeof value === 'number' && Number.isFinite(value) ? value : null
+
+function normalizeCloakData(value: unknown): CloakData {
+  if (!isRecord(value) || !Array.isArray(value.tactics)) throw new Error('Invalid CLOAK data')
+
+  const procedures = (value: unknown): CloakProcedure[] => Array.isArray(value)
+    ? value.flatMap((entry, index) => {
+        if (!isRecord(entry)) return []
+        const id = typeof entry.id === 'string' || safeId(entry.id) !== null ? entry.id as number | string : index
+        return [{ id, name: safeText(entry.name) || `Procedure ${id}`, description: safeText(entry.description), type: safeText(entry.type) }]
+      })
+    : []
+
+  const tactics: CloakTactic[] = value.tactics.flatMap((entry) => {
+    if (!isRecord(entry)) return []
+    const id = safeId(entry.id)
+    if (id === null) return []
+    const techniques: CloakTechnique[] = (Array.isArray(entry.techniques) ? entry.techniques : []).flatMap((techEntry) => {
+      if (!isRecord(techEntry)) return []
+      const techId = safeId(techEntry.id)
+      if (techId === null) return []
+      const subtechniques: CloakSubTechnique[] = (Array.isArray(techEntry.subtechniques) ? techEntry.subtechniques : []).flatMap((subEntry) => {
+        if (!isRecord(subEntry)) return []
+        const subId = safeId(subEntry.id)
+        if (subId === null) return []
+        return [{
+          id: subId,
+          name: safeText(subEntry.name) || `Sous-technique ${subId}`,
+          description: safeText(subEntry.description),
+          type: safeText(subEntry.type),
+          procedures: procedures(subEntry.procedures),
+        }]
+      })
+      return [{
+        id: techId,
+        name: safeText(techEntry.name) || `Technique ${techId}`,
+        description: safeText(techEntry.description),
+        type: safeText(techEntry.type),
+        procedures: procedures(techEntry.procedures),
+        subtechniques,
+      }]
+    })
+    return [{
+      id,
+      name: safeText(entry.name) || `Tactique ${id}`,
+      description: safeText(entry.description),
+      type: safeText(entry.type),
+      techniques,
+    }]
+  })
+
+  return { tactics }
 }
 
-const typeIcon = (type: string): JSX.Element => {
-  switch (type) {
-    case 'Technical':  return <Cpu size={10} />
-    case 'Behavioral': return <User size={10} />
-    case 'Physical':   return <Shield size={10} />
-    default:           return <Activity size={10} />
-  }
+function normalizeAnnotations(value: unknown): CloakAnnotation[] {
+  if (!Array.isArray(value)) throw new Error('Invalid annotations list')
+  return value.flatMap((entry) => {
+    if (!isRecord(entry) || typeof entry.technique_ref !== 'string') return []
+    const rawStatus = entry.status
+    const status: AnnotationStatus = rawStatus === 'a_tester' || rawStatus === 'vu_en_lab' || rawStatus === 'maitrise' ? rawStatus : ''
+    return [{
+      id: safeId(entry.id) ?? 0,
+      technique_ref: entry.technique_ref,
+      user_notes: safeText(entry.user_notes),
+      status,
+      counter_notes: safeText(entry.counter_notes),
+      tags: safeText(entry.tags),
+      created_at: safeText(entry.created_at),
+      updated_at: safeText(entry.updated_at),
+    }]
+  })
 }
 
-const TACTIC_COLORS: Record<string, string> = {
-  'Anonymous browsing':       'border-l-cyan-500 bg-cyan-500/5',
-  'Anonymous communication':  'border-l-blue-500 bg-blue-500/5',
-  'Anonymous cryptocurrency': 'border-l-yellow-500 bg-yellow-500/5',
-  'Anonymous hosting':        'border-l-purple-500 bg-purple-500/5',
-  'Anonymous identity':       'border-l-pink-500 bg-pink-500/5',
-  'Anonymous transactions':   'border-l-amber-500 bg-amber-500/5',
-  'Data obfuscation':         'border-l-lime-500 bg-lime-500/5',
-  'Physical security':        'border-l-teal-500 bg-teal-500/5',
-  'Plausible deniability':    'border-l-violet-500 bg-violet-500/5',
-  'Reduce attack surface':    'border-l-green-500 bg-green-500/5',
-  'Risk management':          'border-l-orange-500 bg-orange-500/5',
-  'Secure behavior':          'border-l-emerald-500 bg-emerald-500/5',
-  'Tamper protection':        'border-l-red-500 bg-red-500/5',
-}
-const TACTIC_TEXT: Record<string, string> = {
-  'Anonymous browsing':       'text-cyan-400',
-  'Anonymous communication':  'text-blue-400',
-  'Anonymous cryptocurrency': 'text-yellow-400',
-  'Anonymous hosting':        'text-purple-400',
-  'Anonymous identity':       'text-pink-400',
-  'Anonymous transactions':   'text-amber-400',
-  'Data obfuscation':         'text-lime-400',
-  'Physical security':        'text-teal-400',
-  'Plausible deniability':    'text-violet-400',
-  'Reduce attack surface':    'text-green-400',
-  'Risk management':          'text-orange-400',
-  'Secure behavior':          'text-emerald-400',
-  'Tamper protection':        'text-red-400',
-}
-const tacticAccent = (name: string) => TACTIC_COLORS[name] ?? 'border-l-[#00d4ff] bg-[#00d4ff]/5'
-const tacticText   = (name: string) => TACTIC_TEXT[name]   ?? 'text-[#00d4ff]'
+// ── Annotation editor (analyst notebook) ───────────────────────────────────────
 
-// ── Status annotation ─────────────────────────────────────────────────────────
-
-const STATUS_CFG: Record<string, { color: string; dot: string }> = {
-  a_tester:   { color: 'border-yellow-500/30 bg-yellow-500/10 text-yellow-400', dot: 'bg-yellow-400' },
-  vu_en_lab:  { color: 'border-blue-500/30 bg-blue-500/10 text-blue-400',       dot: 'bg-blue-400' },
-  maitrise:   { color: 'border-green-500/30 bg-green-500/10 text-green-400',    dot: 'bg-green-400' },
-}
-
-function StatusDot({ status }: { status: AnnotationStatus }) {
-  if (!status) return null
-  const cfg = STATUS_CFG[status]
-  if (!cfg) return null
-  return <span className={`inline-block w-2 h-2 rounded-full flex-shrink-0 ${cfg.dot}`} />
-}
-
-// ── TypeBadge ─────────────────────────────────────────────────────────────────
-
-function TypeBadge({ type }: { type: string }) {
-  if (!type) return null
-  return (
-    <span className={`flex items-center gap-0.5 text-[9px] px-1.5 py-0.5 border font-mono uppercase ${typeColor(type)}`}>
-      {typeIcon(type)}{type}
-    </span>
-  )
-}
-
-// ── Annotation Panel ──────────────────────────────────────────────────────────
+const STATUS_OPTIONS: { value: AnnotationStatus; label: string }[] = [
+  { value: '', label: 'Non annoté' },
+  { value: 'a_tester', label: 'À tester' },
+  { value: 'vu_en_lab', label: 'Vu en lab' },
+  { value: 'maitrise', label: 'Maîtrisé' },
+]
 
 interface AnnotationPanelProps {
   techniqueRef: string
   itemName: string
   tacticName: string
+  parentName?: string | null
   existingAnnotation: CloakAnnotation | null
   onSaved: (ann: CloakAnnotation) => void
   onDeleted: (ref: string) => void
   onClose: () => void
+  onRequestReset: () => void
 }
 
 function AnnotationPanel({
-  techniqueRef, itemName, tacticName, existingAnnotation, onSaved, onDeleted, onClose,
+  techniqueRef, itemName, tacticName, parentName, existingAnnotation, onSaved, onClose, onRequestReset,
 }: AnnotationPanelProps) {
   const [status, setStatus] = useState<AnnotationStatus>(existingAnnotation?.status ?? '')
   const [userNotes, setUserNotes] = useState(existingAnnotation?.user_notes ?? '')
   const [counter, setCounter] = useState(existingAnnotation?.counter_notes ?? '')
   const [tags, setTags] = useState(existingAnnotation?.tags ?? '')
   const [saving, setSaving] = useState(false)
+  const savingRef = useRef(false)
+  const mountedRef = useRef(true)
+
+  useEffect(() => () => { mountedRef.current = false }, [])
 
   const hasContent = status !== '' || userNotes.trim() !== '' || counter.trim() !== '' || tags.trim() !== ''
 
   const handleSave = async () => {
+    if (savingRef.current) return
     if (!hasContent) {
       toast.error('Remplis au moins un champ avant de sauvegarder')
       return
     }
+    savingRef.current = true
     setSaving(true)
     try {
       const req: CloakAnnotationRequest = {
@@ -133,124 +150,83 @@ function AnnotationPanel({
         tags: tags.trim(),
       }
       const ann = await cloakAnnotationsApi.upsert(req)
+      if (!mountedRef.current) return
       onSaved(ann)
       toast.success('Annotation sauvegardée')
       onClose()
     } catch {
-      toast.error('Erreur lors de la sauvegarde')
+      if (mountedRef.current) toast.error('Erreur lors de la sauvegarde')
     } finally {
-      setSaving(false)
+      savingRef.current = false
+      if (mountedRef.current) setSaving(false)
     }
   }
-
-  const handleReset = async () => {
-    if (!confirm('Supprimer les annotations pour cette technique ?')) return
-    try {
-      await cloakAnnotationsApi.deleteByRef(techniqueRef)
-      onDeleted(techniqueRef)
-      toast.success('Annotation supprimée')
-      onClose()
-    } catch {
-      toast.error('Erreur lors de la suppression')
-    }
-  }
-
-  const textareaCls = 'w-full bg-[#0d131f] border border-[#1e2d40] rounded px-3 py-2 font-mono text-xs text-[#f1f5f9] placeholder-[#334155] focus:outline-none focus:border-[#00d4ff]/60 resize-y'
-  const inputCls    = 'w-full bg-[#0d131f] border border-[#1e2d40] rounded px-3 py-2 font-mono text-xs text-[#f1f5f9] placeholder-[#334155] focus:outline-none focus:border-[#00d4ff]/60'
 
   return (
-    <div className="w-[400px] flex-shrink-0 border-l border-[#1e2d40] flex flex-col h-full bg-[#0a0f16]">
-      <div className="flex items-start justify-between px-4 py-3 border-b border-[#1e2d40] gap-2">
-        <div className="min-w-0 flex-1">
-          <span className={`text-[10px] font-mono font-bold px-2 py-0.5 rounded bg-current/10 ${tacticText(tacticName)}`}>
-            {tacticName}
-          </span>
-          <p className="text-sm font-mono font-bold text-[#f1f5f9] leading-tight mt-1.5">{itemName}</p>
-          <p className="text-[10px] font-mono text-[#00d4ff] mt-0.5">ANNOTER LA FICHE</p>
+    <div className="ck26-inspector-inner">
+      <header className="ck26-insp-head">
+        <div className="ck26-insp-crumb">
+          <span className="ck26-tactic-chip">{tacticName}</span>
+          {parentName && <><ChevronRight size={12} aria-hidden="true" /><span>{parentName}</span></>}
         </div>
-        <button onClick={onClose} className="text-[#64748b] hover:text-[#f1f5f9] flex-shrink-0 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#00d4ff]" aria-label="Fermer"><X size={16} /></button>
+        <button type="button" className="ck26-icon-btn" onClick={onClose} aria-label="Fermer le panneau"><X size={18} aria-hidden="true" /></button>
+      </header>
+      <div className="ck26-insp-title">
+        <p className="ck26-insp-kicker">Carnet d'analyste</p>
+        <h2>{itemName}</h2>
       </div>
 
-      <div className="flex-1 overflow-y-auto p-4 space-y-4">
-        <div>
-          <p className="text-[10px] font-mono text-[#4a6480] uppercase tracking-wider mb-2">STATUT</p>
-          <div className="flex gap-2 flex-wrap">
-            {[
-              { value: '' as AnnotationStatus,          label: 'NON ANNOTÉ' },
-              { value: 'a_tester' as AnnotationStatus,  label: 'À TESTER' },
-              { value: 'vu_en_lab' as AnnotationStatus, label: 'VU EN LAB' },
-              { value: 'maitrise' as AnnotationStatus,  label: 'MAÎTRISÉ' },
-            ].map(opt => (
-              <button
-                key={opt.value}
-                onClick={() => setStatus(opt.value)}
-                className={`flex items-center gap-1.5 text-[11px] font-mono px-3 py-1.5 border transition-colors ${
-                  status === opt.value
-                    ? opt.value ? STATUS_CFG[opt.value].color : 'border-[#00d4ff]/60 text-[#00d4ff] bg-[#00d4ff]/10'
-                    : 'border-[#1e2d40] text-[#64748b] hover:border-[#00d4ff]/40 hover:text-[#8a9ab0]'
-                }`}
-              >
-                {opt.value && <StatusDot status={opt.value} />}
-                {opt.label}
+      <div className="ck26-insp-body">
+        <section className="ck26-field">
+          <h3 id="ck26-ann-status">Statut</h3>
+          <div className="ck26-statusseg" role="group" aria-labelledby="ck26-ann-status">
+            {STATUS_OPTIONS.map(opt => (
+              <button key={opt.value} type="button" className="ck26-statusseg-btn" data-status={opt.value ? STATUS_KEY[opt.value] : 'none'}
+                aria-pressed={status === opt.value} onClick={() => setStatus(opt.value)}>
+                {opt.value && <StatusMark status={opt.value} dotOnly />}{opt.label}
               </button>
             ))}
           </div>
-        </div>
+        </section>
 
-        <div>
-          <p className="text-[10px] font-mono text-[#4a6480] uppercase tracking-wider mb-1.5">NOTES PERSONNELLES</p>
-          <textarea
-            value={userNotes}
-            onChange={e => setUserNotes(e.target.value)}
-            rows={5}
-            placeholder="Tes observations, commandes testées, résultats…"
-            className={textareaCls}
-          />
-        </div>
-
-        <div>
-          <p className="text-[10px] font-mono text-[#4a6480] uppercase tracking-wider mb-1.5">CONTRE-MESURES</p>
-          <textarea
-            value={counter}
-            onChange={e => setCounter(e.target.value)}
-            rows={4}
-            placeholder="Détection SIEM, règles Sigma, mesures défensives…"
-            className={textareaCls}
-          />
-        </div>
-
-        <div>
-          <p className="text-[10px] font-mono text-[#4a6480] uppercase tracking-wider mb-1.5">
-            TAGS PERSONNELS <span className="normal-case font-normal">(séparés par virgule)</span>
-          </p>
-          <input value={tags} onChange={e => setTags(e.target.value)} placeholder="à-tester, priorité-haute, red-team…" className={inputCls} />
-        </div>
+        <section className="ck26-field">
+          <label htmlFor="ck26-ann-notes">Notes personnelles</label>
+          <textarea id="ck26-ann-notes" className="ck26-textarea" value={userNotes} onChange={e => setUserNotes(e.target.value)}
+            rows={6} placeholder="Observations, commandes testées, résultats…" />
+        </section>
+        <section className="ck26-field">
+          <label htmlFor="ck26-ann-counter">Contre-mesures</label>
+          <textarea id="ck26-ann-counter" className="ck26-textarea" value={counter} onChange={e => setCounter(e.target.value)}
+            rows={4} placeholder="Détection SIEM, règles Sigma, mesures défensives…" />
+        </section>
+        <section className="ck26-field">
+          <label htmlFor="ck26-ann-tags">Tags personnels</label>
+          <input id="ck26-ann-tags" className="ck26-input" value={tags} onChange={e => setTags(e.target.value)}
+            placeholder="à-tester, priorité-haute, red-team…" aria-describedby="ck26-ann-tags-hint" />
+          <small id="ck26-ann-tags-hint">Séparés par des virgules.</small>
+        </section>
       </div>
 
-      <div className="px-4 py-3 border-t border-[#1e2d40] flex items-center justify-between gap-2">
-        {existingAnnotation ? (
-          <button onClick={handleReset} className="flex items-center gap-1.5 text-xs font-mono text-red-400/70 hover:text-red-400 transition-colors">
-            <Trash2 size={12} /> RÉINITIALISER
-          </button>
-        ) : <div />}
-        <div className="flex gap-2">
-          <button onClick={onClose} className="px-3 py-1.5 text-xs font-mono border border-[#1e2d40] text-[#64748b] hover:text-[#f1f5f9] transition-colors">
-            ANNULER
-          </button>
-          <button onClick={handleSave} disabled={saving || !hasContent}
-            className="px-3 py-1.5 text-xs font-mono font-bold bg-[#00d4ff] text-[#06080f] hover:bg-[#00d4ff]/80 disabled:opacity-40 transition-colors">
-            {saving ? 'SAUVEGARDE…' : 'SAUVEGARDER'}
+      <footer className="ck26-insp-foot">
+        {existingAnnotation
+          ? <button type="button" className="ck26-ghost is-danger" onClick={onRequestReset}><Trash2 size={14} aria-hidden="true" /> Réinitialiser</button>
+          : <span />}
+        <div className="ck26-insp-foot-actions">
+          <button type="button" className="ck26-ghost" onClick={onClose}>Annuler</button>
+          <button type="button" className="ck26-btn is-primary" onClick={handleSave} disabled={saving || !hasContent}>
+            {saving ? <Loader2 size={14} className="ck26-spin" aria-hidden="true" /> : null}
+            {saving ? 'Sauvegarde…' : 'Sauvegarder'}
           </button>
         </div>
-      </div>
+      </footer>
     </div>
   )
 }
 
-// ── Detail Panel ──────────────────────────────────────────────────────────────
+// ── Inspector detail ────────────────────────────────────────────────────────
 
 type DetailItem =
-  | { kind: 'technique';    tactic: CloakTactic; item: CloakTechnique }
+  | { kind: 'technique'; tactic: CloakTactic; item: CloakTechnique }
   | { kind: 'subtechnique'; tactic: CloakTactic; parent: CloakTechnique; item: CloakSubTechnique }
 
 interface DetailPanelProps {
@@ -258,144 +234,113 @@ interface DetailPanelProps {
   annotation: CloakAnnotation | null
   onClose: () => void
   onAnnotate: () => void
+  onSelectSub: (tactic: CloakTactic, parent: CloakTechnique, sub: CloakSubTechnique) => void
 }
 
-function DetailPanel({ detail, annotation, onClose, onAnnotate }: DetailPanelProps) {
-  const [showProcs, setShowProcs] = useState(true)
-  useEffect(() => setShowProcs(true), [detail])
-
-  const item   = detail.item
+function DetailPanel({ detail, annotation, onClose, onAnnotate, onSelectSub }: DetailPanelProps) {
+  const item = detail.item
   const procs: CloakProcedure[] = item.procedures ?? []
-  const subs   = detail.kind === 'technique' ? (detail.item as CloakTechnique).subtechniques ?? [] : []
+  const subs = detail.kind === 'technique' ? (detail.item as CloakTechnique).subtechniques ?? [] : []
   const tacticName = detail.tactic.name
   const parentName = detail.kind === 'subtechnique' ? detail.parent.name : null
 
   return (
-    <div className="w-[400px] flex-shrink-0 border-l border-[#1e2d40] flex flex-col h-full bg-[#0a0f16]">
-      <div className="flex items-start justify-between px-4 py-3 border-b border-[#1e2d40] gap-2">
-        <div className="min-w-0 flex-1">
-          <div className="flex items-center gap-1.5 flex-wrap mb-1">
-            <span className={`text-[10px] font-mono font-bold px-2 py-0.5 rounded bg-current/10 ${tacticText(tacticName)}`}>
-              {tacticName}
-            </span>
-            {parentName && (
-              <>
-                <ChevronRight size={10} className="text-[#64748b] flex-shrink-0" />
-                <span className="text-[10px] font-mono text-[#64748b] truncate">{parentName}</span>
-              </>
-            )}
-          </div>
-          <p className="text-sm font-mono font-bold text-[#f1f5f9] leading-tight">{item.name}</p>
+    <div className="ck26-inspector-inner">
+      <header className="ck26-insp-head">
+        <div className="ck26-insp-crumb">
+          <span className="ck26-tactic-chip">{tacticName}</span>
+          {parentName && <><ChevronRight size={12} aria-hidden="true" /><span>{parentName}</span></>}
         </div>
-        <div className="flex items-center gap-1.5 flex-shrink-0">
-          <button onClick={onAnnotate}
-            className={`p-1.5 rounded transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-[#00d4ff] ${annotation ? 'text-[#00d4ff] bg-[#00d4ff]/10' : 'text-[#64748b] hover:text-[#00d4ff] hover:bg-[#00d4ff]/10'}`}
-            title="Annoter la fiche"
-            aria-label="Modifier l'annotation">
-            <Pencil size={13} />
+        <div className="ck26-insp-head-actions">
+          <button type="button" className="ck26-ghost" onClick={onAnnotate} aria-label="Annoter la fiche">
+            <Pencil size={14} aria-hidden="true" /> {annotation ? 'Annotation' : 'Annoter'}
           </button>
-          <button onClick={onClose} className="p-1.5 text-[#64748b] hover:text-[#f1f5f9] transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-[#00d4ff]" aria-label="Fermer"><X size={14} /></button>
+          <button type="button" className="ck26-icon-btn" onClick={onClose} aria-label="Fermer le panneau"><X size={18} aria-hidden="true" /></button>
+        </div>
+      </header>
+
+      <div className="ck26-insp-title">
+        <p className="ck26-insp-kicker">{detail.kind === 'subtechnique' ? 'Sous-technique' : 'Technique'}</p>
+        <h2>{item.name}</h2>
+        <div className="ck26-insp-marks">
+          {item.type && <LevelMark type={item.type} />}
+          {annotation?.status && <StatusMark status={annotation.status} />}
         </div>
       </div>
 
-      <div className="flex-1 overflow-y-auto p-4 space-y-4">
-        {annotation?.status && (
-          <div className={`flex items-center gap-2 px-3 py-2 border ${STATUS_CFG[annotation.status]?.color ?? ''}`}>
-            <StatusDot status={annotation.status} />
-            <span className="text-xs font-mono font-bold uppercase">
-              {annotation.status === 'a_tester'  ? 'À TESTER'
-               : annotation.status === 'vu_en_lab' ? 'VU EN LAB'
-               : 'MAÎTRISÉ'}
-            </span>
-          </div>
-        )}
+      <div className="ck26-insp-body">
+        <section className="ck26-insp-sec">
+          <h3>Description</h3>
+          <p className="ck26-prose">{item.description?.trim() || '—'}</p>
+        </section>
 
-        {item.type && (
-          <div>
-            <p className="text-[10px] font-mono text-[#4a6480] uppercase tracking-wider mb-1.5">NIVEAU</p>
-            <TypeBadge type={item.type} />
-          </div>
-        )}
-        <div>
-          <p className="text-[10px] font-mono text-[#4a6480] uppercase tracking-wider mb-1.5">DESCRIPTION</p>
-          <p className="text-xs font-mono text-[#cbd5e1] leading-relaxed whitespace-pre-line">
-            {item.description?.trim() || '—'}
-          </p>
-        </div>
         {subs.length > 0 && (
-          <div>
-            <p className="text-[10px] font-mono text-[#4a6480] uppercase tracking-wider mb-1.5">
-              SOUS-TECHNIQUES ({subs.length})
-            </p>
-            <div className="space-y-1">
+          <section className="ck26-insp-sec">
+            <h3>Sous-techniques <small>{subs.length}</small></h3>
+            <ul className="ck26-sublist">
               {subs.map(st => (
-                <div key={st.id} className="border border-[#1e2d40] bg-[#0d131f] p-2">
-                  <div className="flex items-start justify-between gap-2">
-                    <p className="text-xs font-mono font-bold text-[#f1f5f9] leading-tight">{st.name}</p>
-                    {st.type && <TypeBadge type={st.type} />}
-                  </div>
-                  {st.description && (
-                    <p className="text-[11px] font-mono text-[#8a9ab0] mt-1 leading-relaxed line-clamp-2">{st.description}</p>
-                  )}
-                </div>
+                <li key={st.id}>
+                  <button type="button" className="ck26-subrow" onClick={() => onSelectSub(detail.tactic, detail.item as CloakTechnique, st)}>
+                    <span className="ck26-subrow-arrow" aria-hidden="true">↳</span>
+                    <span className="ck26-subrow-body">
+                      <span className="ck26-subrow-top">
+                        <span className="ck26-subrow-name">{st.name}</span>
+                        {st.type && <LevelMark type={st.type} short />}
+                      </span>
+                      {st.description && <span className="ck26-subrow-desc">{st.description}</span>}
+                    </span>
+                    <ChevronRight size={14} aria-hidden="true" className="ck26-subrow-go" />
+                  </button>
+                </li>
               ))}
-            </div>
-          </div>
-        )}
-        {procs.length > 0 && (
-          <div>
-            <button onClick={() => setShowProcs(v => !v)}
-              className="flex items-center gap-1.5 text-[10px] font-mono text-[#4a6480] uppercase tracking-wider hover:text-[#00d4ff] transition-colors w-full mb-1.5">
-              <Lock size={10} />
-              PROCÉDURES / OUTILS ({procs.length})
-              {showProcs ? <ChevronDown size={10} className="ml-auto" /> : <ChevronRight size={10} className="ml-auto" />}
-            </button>
-            {showProcs && (
-              <div className="space-y-1.5">
-                {procs.map((p, i) => {
-                  const urlMatch = p.description?.match(/https?:\/\/\S+/)
-                  const url = urlMatch?.[0]?.replace(/[.)]+$/, '')
-                  const cleanDesc = p.description?.replace(/https?:\/\/\S+/g, '').trim()
-                  return (
-                    <div key={`${p.id}-${i}`} className="border border-[#1e2d40]/50 bg-[#0d131f] p-2.5">
-                      <div className="flex items-start justify-between gap-2 mb-1">
-                        <p className="text-xs font-mono font-bold text-[#f1f5f9] leading-tight">{p.name}</p>
-                        {url && (
-                          <a href={url} target="_blank" rel="noopener noreferrer" className="text-[#00d4ff] hover:text-[#00d4ff]/80 flex-shrink-0">
-                            <ExternalLink size={11} />
-                          </a>
-                        )}
-                      </div>
-                      {cleanDesc && <p className="text-[11px] font-mono text-[#8a9ab0] leading-relaxed line-clamp-3">{cleanDesc}</p>}
-                    </div>
-                  )
-                })}
-              </div>
-            )}
-          </div>
+            </ul>
+          </section>
         )}
 
-        {annotation?.user_notes && (
-          <div>
-            <p className="text-[10px] font-mono text-[#4a6480] uppercase tracking-wider mb-1.5">NOTES PERSONNELLES</p>
-            <p className="text-xs font-mono text-[#cbd5e1] leading-relaxed whitespace-pre-line">{annotation.user_notes}</p>
-          </div>
+        {procs.length > 0 && (
+          <section className="ck26-insp-sec">
+            <h3>Procédures / outils <small>{procs.length}</small></h3>
+            <ul className="ck26-proclist">
+              {procs.map((p, i) => {
+                const { urls, clean } = procUrl(p.description)
+                return (
+                  <li key={`${p.id}-${i}`} className="ck26-proc">
+                    <div className="ck26-proc-top">
+                      <span className="ck26-proc-name">{p.name}</span>
+                      {urls.length > 0 && <span className="ck26-proc-links">
+                        {urls.map((link, index) => <a key={`${link}-${index}`} href={link} target="_blank" rel="noopener noreferrer" className="ck26-proc-link">
+                          Source{urls.length > 1 ? ` ${index + 1}` : ''} <ExternalLink size={12} aria-hidden="true" />
+                        </a>)}
+                      </span>}
+                    </div>
+                    {clean && <p className="ck26-proc-desc">{clean}</p>}
+                  </li>
+                )
+              })}
+            </ul>
+          </section>
         )}
-        {annotation?.counter_notes && (
-          <div>
-            <p className="text-[10px] font-mono text-[#4a6480] uppercase tracking-wider mb-1.5">CONTRE-MESURES</p>
-            <p className="text-xs font-mono text-[#cbd5e1] leading-relaxed whitespace-pre-line">{annotation.counter_notes}</p>
-          </div>
+
+        {(annotation?.user_notes || annotation?.counter_notes) && (
+          <section className="ck26-insp-sec ck26-notes">
+            <h3>Notes d'analyste</h3>
+            {annotation?.user_notes && (
+              <div className="ck26-note-block"><p className="ck26-note-label">Personnelles</p><p className="ck26-prose">{annotation.user_notes}</p></div>
+            )}
+            {annotation?.counter_notes && (
+              <div className="ck26-note-block"><p className="ck26-note-label">Contre-mesures</p><p className="ck26-prose">{annotation.counter_notes}</p></div>
+            )}
+          </section>
         )}
       </div>
     </div>
   )
 }
 
-// ── TechniqueCard ─────────────────────────────────────────────────────────────
+// ── Technique registry row ──────────────────────────────────────────────────
 
-interface TechCardProps {
-  tactic: CloakTactic; tech: CloakTechnique; selected: boolean
+interface TechRowProps {
+  tactic: CloakTactic; tech: CloakTechnique; selected: boolean; showTactic: boolean
   annotation: CloakAnnotation | null
   onSelect: (tactic: CloakTactic, tech: CloakTechnique) => void
   onSelectSub: (tactic: CloakTactic, tech: CloakTechnique, sub: CloakSubTechnique) => void
@@ -403,90 +348,78 @@ interface TechCardProps {
   selectedSubId?: number; expandedId: number | null; onToggleExpand: (id: number) => void
 }
 
-function TechniqueCard({
-  tactic, tech, selected, annotation, onSelect, onSelectSub, onAnnotate,
+function TechRow({
+  tactic, tech, selected, showTactic, annotation, onSelect, onSelectSub, onAnnotate,
   selectedSubId, expandedId, onToggleExpand,
-}: TechCardProps) {
-  const hasSubs = tech.subtechniques?.length > 0
+}: TechRowProps) {
+  const hasSubs = (tech.subtechniques?.length ?? 0) > 0
   const isExpanded = expandedId === tech.id
   const totalProcs = (tech.procedures?.length ?? 0) +
     (tech.subtechniques?.reduce((a, s) => a + (s.procedures?.length ?? 0), 0) ?? 0)
 
   return (
-    <div className={`group border border-l-2 transition-all duration-150 ${
-      selected ? 'border-[#00d4ff]/60 ring-1 ring-[#00d4ff]/30 ' + tacticAccent(tactic.name)
-               : 'border-[#1e2d40] hover:border-[#00d4ff]/40 ' + tacticAccent(tactic.name)}`}>
-      <button onClick={() => onSelect(tactic, tech)} className="w-full text-left p-3">
-        <div className="flex items-start justify-between gap-2 mb-1.5">
-          <span className={`font-mono text-[10px] font-bold px-1.5 py-0.5 rounded bg-current/10 flex-shrink-0 ${tacticText(tactic.name)}`}>
-            TE-{tech.id}
+    <li className="ck26-tech" data-selected={selected || undefined}>
+      <div className="ck26-tech-line">
+        <span className="ck26-tech-rail" aria-hidden="true" />
+        <button type="button" className="ck26-tech-main" aria-current={selected || undefined} onClick={() => onSelect(tactic, tech)}>
+          <span className="ck26-tech-id">TE-{tech.id}</span>
+          <span className="ck26-tech-body">
+            <span className="ck26-tech-name">{tech.name}</span>
+            <span className="ck26-tech-meta">
+              {showTactic && <span className="ck26-tech-tactic">{tactic.name}</span>}
+              {tech.type && <LevelMark type={tech.type} />}
+              {hasSubs && <span className="ck26-tech-count">{tech.subtechniques.length} sous-tech.</span>}
+              {totalProcs > 0 && <span className="ck26-tech-count">{totalProcs} proc.</span>}
+              {annotation?.status && <StatusMark status={annotation.status} />}
+            </span>
           </span>
-          <div className="flex items-center gap-1 flex-shrink-0">
-            {annotation?.status && <StatusDot status={annotation.status} />}
-            {tech.type && <TypeBadge type={tech.type} />}
-          </div>
-        </div>
-        <p className="text-xs font-mono font-bold text-[#f1f5f9] leading-tight mb-1.5 line-clamp-2">{tech.name}</p>
-        <div className="flex items-center gap-2 text-[10px] font-mono text-[#64748b]">
-          {hasSubs && <span>{tech.subtechniques.length} SOUS-TECH.</span>}
-          {totalProcs > 0 && <span>{totalProcs} PROC.</span>}
-        </div>
-      </button>
-
-      <div className="px-3 pb-1.5 flex items-center justify-between">
-        {hasSubs ? (
-          <button onClick={() => onToggleExpand(tech.id)}
-            className="flex items-center gap-1 text-[10px] font-mono text-[#64748b] hover:text-[#00d4ff] transition-colors">
-            {isExpanded ? <ChevronDown size={10} /> : <ChevronRight size={10} />}
-            <span>{isExpanded ? 'MASQUER SOUS-TECHNIQUES' : 'VOIR SOUS-TECHNIQUES'}</span>
-          </button>
-        ) : <div />}
-        <button
-          onClick={(e) => { e.stopPropagation(); onAnnotate(tactic, tech) }}
-          className={`p-1 rounded transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-[#00d4ff] ${
-            annotation
-              ? 'text-[#00d4ff] opacity-100 hover:bg-[#00d4ff]/10'
-              : 'text-[#64748b] opacity-0 group-hover:opacity-60 hover:!opacity-100 hover:text-[#00d4ff] hover:bg-[#00d4ff]/10'
-          }`}
-          title="Annoter la fiche"
-          aria-label="Modifier l'annotation"
-        >
-          <Pencil size={10} />
         </button>
+        <div className="ck26-tech-side">
+          <button type="button" className="ck26-tech-annotate" data-on={annotation ? true : undefined}
+            onClick={e => { e.stopPropagation(); onAnnotate(tactic, tech) }}
+            aria-label={annotation ? `Modifier l'annotation de ${tech.name}` : `Annoter ${tech.name}`}>
+            <Pencil size={13} aria-hidden="true" />
+          </button>
+          {hasSubs && (
+            <button type="button" className="ck26-tech-expand" aria-expanded={isExpanded}
+              onClick={() => onToggleExpand(tech.id)} aria-label={isExpanded ? 'Masquer les sous-techniques' : 'Voir les sous-techniques'}>
+              <ChevronDown size={15} aria-hidden="true" />
+            </button>
+          )}
+        </div>
       </div>
 
       {isExpanded && hasSubs && (
-        <div className="px-2 pb-2 space-y-1 border-t border-[#1e2d40]/50 pt-2">
+        <ul className="ck26-tech-subs">
           {tech.subtechniques.map(sub => (
-            <button key={sub.id} onClick={() => onSelectSub(tactic, tech, sub)}
-              className={`w-full text-left rounded px-2.5 py-1.5 text-[11px] font-mono transition-colors ${
-                selectedSubId === sub.id
-                  ? 'bg-[#00d4ff]/15 text-[#00d4ff] border border-[#00d4ff]/30'
-                  : 'text-[#8a9ab0] hover:bg-[#1e2d40]/30 hover:text-[#f1f5f9] border border-transparent'}`}>
-              <div className="flex items-center justify-between gap-1.5">
-                <span className="truncate leading-tight">{sub.name}</span>
-                {sub.type && <span className={`text-[8px] px-1 py-px border ${typeColor(sub.type)}`}>{sub.type.charAt(0)}</span>}
-              </div>
-            </button>
+            <li key={sub.id}>
+              <button type="button" className="ck26-subitem" data-selected={selectedSubId === sub.id || undefined}
+                aria-current={selectedSubId === sub.id || undefined} onClick={() => onSelectSub(tactic, tech, sub)}>
+                <span className="ck26-subitem-arrow" aria-hidden="true">↳</span>
+                <span className="ck26-subitem-name">{sub.name}</span>
+                {sub.type && <LevelMark type={sub.type} short />}
+              </button>
+            </li>
           ))}
-        </div>
+        </ul>
       )}
-    </div>
+    </li>
   )
 }
 
-// ── Page principale ───────────────────────────────────────────────────────────
+// ── Page ────────────────────────────────────────────────────────────────────
 
 type RightPanel =
   | { kind: 'detail'; detail: DetailItem }
-  | { kind: 'annotate'; techniqueRef: string; itemName: string; tacticName: string }
+  | { kind: 'annotate'; techniqueRef: string; itemName: string; tacticName: string; parentName?: string | null; selection: { tacticId: number; techniqueId: number } }
   | null
 
-const TYPE_FILTERS: CloakTypeFilter[] = ['Technical', 'Behavioral', 'Physical']
+const TYPE_FILTERS: CloakTypeFilter[] = LEVELS
 
 export default function CLOAKPage() {
   const [data, setData] = useState<CloakData | null>(null)
   const [loadError, setLoadError] = useState(false)
+  const [annotationLoadError, setAnnotationLoadError] = useState(false)
   const [activeTacticId, setActiveTacticId] = useState<number | null>(null)
   const [typeFilter, setTypeFilter] = useState<CloakTypeFilter>('')
   const [query, setQuery] = useState('')
@@ -494,28 +427,47 @@ export default function CLOAKPage() {
   const [rightPanel, setRightPanel] = useState<RightPanel>(null)
   const [expandedId, setExpandedId] = useState<number | null>(null)
   const [annotations, setAnnotations] = useState<AnnotationMap>(new Map())
+  const [confirmResetRef, setConfirmResetRef] = useState<string | null>(null)
+  const panelRef = useRef<HTMLElement>(null)
+  const deletingRef = useRef(false)
+  const [overlayMode, setOverlayMode] = useState(false)
 
-  // ── Chargement JSON CLOAK ──────────────────────────────────────────────────
+  // ── Chargement JSON CLOAK ──
   useEffect(() => {
+    let mounted = true
     fetch('/data/cloak.json')
-      .then(r => { if (!r.ok) throw new Error(); return r.json() as Promise<CloakData> })
+      .then(r => { if (!r.ok) throw new Error('CLOAK data request failed'); return r.json() as Promise<unknown> })
       .then(d => {
-        setData(d)
-        const first = d.tactics.find(tac => tac.name !== 'Unknown')
-        if (first) setActiveTacticId(first.id)
+        const safeData = normalizeCloakData(d)
+        if (!mounted) return
+        setData(safeData)
+        const first = safeData.tactics.find(tac => tac.name !== 'Unknown')
+        setActiveTacticId(first?.id ?? null)
       })
-      .catch(() => setLoadError(true))
+      .catch(() => { if (mounted) setLoadError(true) })
+    return () => { mounted = false }
   }, [])
 
-  // ── Chargement annotations ─────────────────────────────────────────────────
   useEffect(() => {
+    const mq = window.matchMedia('(max-width: 1240px)')
+    const update = () => setOverlayMode(mq.matches)
+    update()
+    mq.addEventListener?.('change', update)
+    return () => mq.removeEventListener?.('change', update)
+  }, [])
+
+  // ── Chargement annotations ──
+  useEffect(() => {
+    let mounted = true
     cloakAnnotationsApi.list()
       .then(list => {
+        const safeList = normalizeAnnotations(list)
         const map = new Map<string, CloakAnnotation>()
-        list.forEach(a => map.set(a.technique_ref, a))
-        setAnnotations(map)
+        safeList.forEach(a => map.set(a.technique_ref, a))
+        if (mounted) setAnnotations(map)
       })
-      .catch(() => {})
+      .catch(() => { if (mounted) setAnnotationLoadError(true) })
+    return () => { mounted = false }
   }, [])
 
   useEffect(() => {
@@ -555,11 +507,11 @@ export default function CLOAKPage() {
     return techs
   }, [data, realTactics, activeTacticId, typeFilter, debouncedQ])
 
-  // ── Ref builder ───────────────────────────────────────────────────────────
+  // ── Ref builder ──
   const techRef = (tacticId: number, techId: number) => `tac-${tacticId}:te-${techId}`
-  const subRef  = (tacticId: number, techId: number, subId: number) => `tac-${tacticId}:te-${techId}:sub-${subId}`
+  const subRef = (tacticId: number, techId: number, subId: number) => `tac-${tacticId}:te-${techId}:sub-${subId}`
 
-  // ── Handlers ──────────────────────────────────────────────────────────────
+  // ── Handlers ──
   const handleSelectTechnique = useCallback((tactic: CloakTactic, tech: CloakTechnique) => {
     setRightPanel({ kind: 'detail', detail: { kind: 'technique', tactic, item: tech } })
   }, [])
@@ -574,6 +526,7 @@ export default function CLOAKPage() {
       techniqueRef: techRef(tactic.id, tech.id),
       itemName: tech.name,
       tacticName: tactic.name,
+      selection: { tacticId: tactic.id, techniqueId: tech.id },
     })
   }, [])
 
@@ -594,6 +547,21 @@ export default function CLOAKPage() {
     setAnnotations(prev => { const m = new Map(prev); m.delete(ref); return m })
   }, [])
 
+  const performReset = async (ref: string) => {
+    if (deletingRef.current) return
+    deletingRef.current = true
+    try {
+      await cloakAnnotationsApi.deleteByRef(ref)
+      handleAnnotationDeleted(ref)
+      toast.success('Annotation supprimée')
+      setRightPanel(null)
+    } catch {
+      toast.error('Erreur lors de la suppression')
+    } finally {
+      deletingRef.current = false
+    }
+  }
+
   const activeTacticStats = useMemo(() => {
     if (!activeTacticId || !data) return null
     const tac = realTactics.find(tac => tac.id === activeTacticId)
@@ -613,214 +581,268 @@ export default function CLOAKPage() {
     return annotations.get(ref) ?? null
   }
 
-  if (loadError) return (
-    <div className="flex-1 flex flex-col items-center justify-center gap-4 p-8 bg-[#06080f]">
-      <AlertTriangle size={32} className="text-yellow-400" />
-      <div className="text-center">
-        <h2 className="text-lg font-mono font-bold text-[#f1f5f9] mb-1">DONNÉES CLOAK INTROUVABLES</h2>
-        <p className="text-sm font-mono text-[#8a9ab0] max-w-md">
-          Le fichier <code className="text-[#00d4ff]">/data/cloak.json</code> n'est pas accessible.
-        </p>
-      </div>
-    </div>
-  )
+  const panelOpen = rightPanel !== null
 
-  if (!data) return (
-    <div className="flex-1 flex items-center justify-center bg-[#06080f]">
-      <Loader2 size={24} className="animate-spin text-[#00d4ff]" />
-    </div>
-  )
+  useEffect(() => {
+    if (!rightPanel) return
+    const selected = rightPanel.kind === 'detail'
+      ? { tacticId: rightPanel.detail.tactic.id, techniqueId: rightPanel.detail.kind === 'technique' ? rightPanel.detail.item.id : rightPanel.detail.parent.id }
+      : rightPanel.selection
+    const visible = filteredTechniques.find(({ tactic, tech }) => tactic.id === selected.tacticId && tech.id === selected.techniqueId)
+    if (!visible) {
+      setRightPanel(null)
+      return
+    }
+    if (rightPanel.kind === 'detail' && rightPanel.detail.kind === 'subtechnique' &&
+      !visible.tech.subtechniques.some(sub => sub.id === rightPanel.detail.item.id)) {
+      setRightPanel(null)
+    }
+  }, [filteredTechniques, rightPanel])
+
+  // Mobile overlay: lock page scroll, Escape closes, return focus.
+  useEffect(() => {
+    if (!panelOpen) return
+    const mq = window.matchMedia('(max-width: 1240px)')
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && !document.querySelector('[role="alertdialog"]')) setRightPanel(null)
+    }
+    const onKeyTrap = (e: KeyboardEvent) => {
+      if (e.key !== 'Tab' || !mq.matches || !panelRef.current) return
+      const focusable = Array.from(panelRef.current.querySelectorAll<HTMLElement>(
+        'button:not([disabled]), a[href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])',
+      ))
+      if (!focusable.length) { e.preventDefault(); panelRef.current.focus(); return }
+      const first = focusable[0]
+      const last = focusable[focusable.length - 1]
+      if (e.shiftKey && (document.activeElement === first || !panelRef.current.contains(document.activeElement))) {
+        e.preventDefault(); last.focus()
+      } else if (!e.shiftKey && (document.activeElement === last || !panelRef.current.contains(document.activeElement))) {
+        e.preventDefault(); first.focus()
+      }
+    }
+    const previousFocus = document.activeElement instanceof HTMLElement ? document.activeElement : null
+    document.addEventListener('keydown', onKey)
+    document.addEventListener('keydown', onKeyTrap)
+    let restore: string | undefined
+    let locked = false
+    let previousInert: Array<[HTMLElement, boolean]> = []
+    const setBackgroundInert = (inert: boolean) => {
+      if (inert) {
+        previousInert = Array.from(document.querySelectorAll<HTMLElement>(
+          '.ck26-frame > :not(.ck26-browser), .ck26-browser > .ck26-rail, .ck26-browser > .ck26-registry',
+        )).map(element => [element, element.inert])
+        previousInert.forEach(([element]) => { element.inert = true })
+      } else {
+        previousInert.forEach(([element, wasInert]) => { element.inert = wasInert })
+        previousInert = []
+      }
+    }
+    const syncOverlay = () => {
+      setOverlayMode(mq.matches)
+      if (mq.matches && !locked) {
+        restore = document.body.style.overflow
+        document.body.style.overflow = 'hidden'
+        setBackgroundInert(true)
+        panelRef.current?.focus()
+        locked = true
+      } else if (!mq.matches && locked) {
+        document.body.style.overflow = restore ?? ''
+        setBackgroundInert(false)
+        locked = false
+      }
+    }
+    mq.addEventListener?.('change', syncOverlay)
+    syncOverlay()
+    return () => {
+      document.removeEventListener('keydown', onKey)
+      document.removeEventListener('keydown', onKeyTrap)
+      mq.removeEventListener?.('change', syncOverlay)
+      if (locked) {
+        document.body.style.overflow = restore ?? ''
+        setBackgroundInert(false)
+        if (previousFocus?.isConnected) previousFocus.focus()
+      }
+    }
+  }, [panelOpen])
+
+  const totalTechniques = useMemo(() => realTactics.reduce((a, tac) => a + tac.techniques.length, 0), [realTactics])
+  const hasFilters = Boolean(debouncedQ.trim() || typeFilter)
+  const activeTacticName = activeTacticId ? realTactics.find(t => t.id === activeTacticId)?.name : null
+
+  const status = loadError ? { text: 'DONNÉES INDISPONIBLES', tone: 'warn' as const }
+    : !data ? { text: 'CHARGEMENT', tone: 'busy' as const }
+    : activeTacticName ? { text: activeTacticName.toUpperCase(), mark: `${activeTacticStats?.techniques ?? 0} TECH.` }
+    : { text: `${realTactics.length} TACTIQUES`, mark: `${totalTechniques} TECHNIQUES` }
+
+  const detailAnnotation = getCurrentDetailAnnotation()
 
   return (
-    <div className="flex flex-col h-full bg-[#06080f] text-[#f1f5f9]">
-      {/* Bandeau d'en-tête style BGPLookup */}
-      <div className="flex items-center justify-between px-6 py-4 border-b border-[#1e2d40] bg-[#0a0f16]/50">
-        <div className="flex items-center gap-3">
-          <div className="relative">
-            <EyeOff className="text-[#00d4ff]" size={20} />
-            <div className="absolute -top-1 -right-1 w-2 h-2 bg-[#10b981] rounded-full animate-pulse shadow-[0_0_8px_#10b981]" />
-          </div>
-          <div>
-            <h1 className="text-sm font-bold tracking-[0.2em] uppercase">CLOAK // CONCEALMENT</h1>
-            <p className="text-[10px] text-[#64748b] font-mono">
-              Concealment Layers for Online Anonymity and Knowledge · OpSec TTPs
-            </p>
-          </div>
-        </div>
-        <div className="flex items-center gap-4 font-mono text-[10px]">
-          <span className="text-[#64748b]">TACTICS</span>
-          <span className="text-[#00d4ff] font-bold">{realTactics.length}</span>
-          <span className="text-[#64748b] ml-2">TECHNIQUES</span>
-          <span className="text-[#00d4ff] font-bold">
-            {realTactics.reduce((a, tac) => a + tac.techniques.length, 0)}
-          </span>
-        </div>
-      </div>
+    <div className="ck26">
+      <div className="ck26-frame">
+        <CloakHero status={status} />
 
-      {/* Barre de recherche et filtres */}
-      <div className="px-6 py-3 border-b border-[#1e2d40] bg-[#0a0f16]/30 flex-shrink-0">
-        <div className="flex items-center gap-3 flex-wrap">
-          <div className="relative flex-1 min-w-[260px]">
-            <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#4a6480]" />
-            <input
-              type="text"
-              value={query}
-              onChange={e => setQuery(e.target.value)}
-              placeholder="Rechercher une technique, un outil…"
-              className="w-full bg-[#0d131f] border border-[#1e2d40] pl-9 pr-3 py-2 font-mono text-xs text-[#f1f5f9] placeholder-[#2a3f55] outline-none focus:border-[#00d4ff]/40"
-            />
-            {query && (
-              <button onClick={() => setQuery('')} className="absolute right-2 top-1/2 -translate-y-1/2 text-[#64748b] hover:text-[#f1f5f9] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#00d4ff]" aria-label="Effacer la recherche">
-                <X size={12} />
-              </button>
-            )}
+        {loadError ? (
+          <div className="ck26-state is-error" role="alert">
+            <AlertTriangle size={30} aria-hidden="true" />
+            <h2>Données CLOAK introuvables</h2>
+            <p>Le fichier <code>/data/cloak.json</code> n'est pas accessible.</p>
           </div>
-        </div>
-        <div className="flex items-center gap-1.5 mt-3 flex-wrap">
-          <span className="text-[10px] font-mono text-[#4a6480] mr-1">NIVEAU :</span>
-          {TYPE_FILTERS.map(tf => (
-            <button key={tf} onClick={() => setTypeFilter(prev => prev === tf ? '' : tf)}
-              className={`flex items-center gap-0.5 text-[10px] font-mono px-2 py-0.5 border transition-colors ${
-                typeFilter === tf ? typeColor(tf) + ' ring-1 ring-current/30' : 'border-[#1e2d40] bg-[#06080f] text-[#64748b] hover:border-[#2a3f55]'
-              }`}>
-              {typeIcon(tf)}{tf}
-            </button>
-          ))}
-          {(debouncedQ || typeFilter) && (
-            <button onClick={() => { setQuery(''); setTypeFilter('') }}
-              className="ml-auto text-[10px] font-mono text-[#00d4ff] hover:underline">
-              RÉINITIALISER LES FILTRES
-            </button>
-          )}
-        </div>
-      </div>
-
-      {/* Corps principal (sidebar tactiques + grille + panneau droit) */}
-      <div className="flex flex-1 overflow-hidden">
-        {/* Sidebar tactiques */}
-        <div className="w-52 flex-shrink-0 border-r border-[#1e2d40] overflow-y-auto bg-[#06080f]">
-          <div className="p-2">
-            <button onClick={() => { setActiveTacticId(null); setRightPanel(null) }}
-              className={`w-full text-left text-[11px] font-mono px-3 py-2 rounded mb-1 transition-colors ${
-                activeTacticId === null ? 'bg-[#00d4ff]/20 text-[#00d4ff] font-bold' : 'text-[#8a9ab0] hover:bg-[#1e2d40]/60 hover:text-[#f1f5f9]'
-              }`}>
-              TOUTES LES TACTIQUES
-            </button>
-            <div className="h-px bg-[#1e2d40] my-2" />
-            {realTactics.map(tac => (
-              <button key={tac.id} onClick={() => handleTacticChange(tac.id)}
-                className={`w-full text-left text-[11px] font-mono px-3 py-1.5 rounded mb-0.5 transition-colors flex items-center gap-1.5 ${
-                  activeTacticId === tac.id
-                    ? `${tacticText(tac.name)} font-bold bg-white/5`
-                    : 'text-[#8a9ab0] hover:bg-[#1e2d40]/60 hover:text-[#f1f5f9]'
-                }`}>
-                <ChevronRight size={10} className={activeTacticId === tac.id ? 'opacity-100 flex-shrink-0' : 'opacity-0 flex-shrink-0'} />
-                <span className="flex-1 truncate leading-tight">{tac.name}</span>
-                <span className={`text-[9px] flex-shrink-0 ${activeTacticId === tac.id ? 'opacity-70' : 'opacity-40'}`}>{tac.techniques.length}</span>
-              </button>
-            ))}
-          </div>
-        </div>
-
-        {/* Grille des techniques */}
-        <div className="flex-1 flex flex-col overflow-hidden">
-          <div className="px-4 py-2 border-b border-[#1e2d40] flex items-center justify-between flex-shrink-0 bg-[#0a0f16]/30">
-            <div className="flex items-center gap-2">
-              {activeTacticId && (
-                <span className={`text-[11px] font-mono font-bold ${tacticText(realTactics.find(tac => tac.id === activeTacticId)?.name ?? '')}`}>
-                  {realTactics.find(tac => tac.id === activeTacticId)?.name}
-                </span>
-              )}
-              <span className="text-[10px] font-mono text-[#64748b]">
-                {filteredTechniques.length} TECHNIQUE{filteredTechniques.length > 1 ? 'S' : ''}
-                {activeTacticStats && !debouncedQ && !typeFilter && (
-                  <span className="ml-1 opacity-60">· {activeTacticStats.subs} SOUS-TECH.</span>
-                )}
-              </span>
-            </div>
-          </div>
-
-          <div className="flex-1 overflow-y-auto p-4">
-            {filteredTechniques.length === 0 ? (
-              <div className="flex flex-col items-center justify-center h-full text-[#64748b]">
-                <EyeOff size={36} className="mb-3 opacity-20" />
-                <p className="text-sm font-mono">AUCUNE TECHNIQUE TROUVÉE</p>
-                <button onClick={() => { setQuery(''); setTypeFilter(''); setActiveTacticId(null) }}
-                  className="mt-2 text-xs text-[#00d4ff] hover:underline">
-                  RÉINITIALISER LES FILTRES
-                </button>
-              </div>
-            ) : (
-              <div className="grid grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-3">
-                {filteredTechniques.map(({ tactic, tech }) => (
-                  <TechniqueCard
-                    key={`${tactic.id}-${tech.id}`}
-                    tactic={tactic} tech={tech}
-                    selected={
-                      rightPanel?.kind === 'detail' &&
-                      rightPanel.detail.kind === 'technique' &&
-                      rightPanel.detail.item.id === tech.id &&
-                      rightPanel.detail.tactic.id === tactic.id
-                    }
-                    annotation={annotations.get(techRef(tactic.id, tech.id)) ?? null}
-                    selectedSubId={
-                      rightPanel?.kind === 'detail' &&
-                      rightPanel.detail.kind === 'subtechnique' &&
-                      rightPanel.detail.tactic.id === tactic.id
-                        ? (rightPanel.detail.item as CloakSubTechnique).id
-                        : undefined
-                    }
-                    onSelect={handleSelectTechnique}
-                    onSelectSub={handleSelectSub}
-                    onAnnotate={handleAnnotate}
-                    expandedId={expandedId}
-                    onToggleExpand={handleToggleExpand}
-                  />
+        ) : !data ? (
+          <div className="ck26-loading" role="status"><Loader2 size={22} className="ck26-spin" aria-hidden="true" /> Chargement de la doctrine…</div>
+        ) : (
+          <>
+            {/* Toolbar: search + level filters */}
+            <section className="ck26-toolbar" aria-label="Recherche et filtres">
+              <label className="ck26-search">
+                <Search size={17} aria-hidden="true" />
+                <span className="ck26-sr">Rechercher une technique</span>
+                <input type="search" value={query} onChange={e => setQuery(e.target.value)}
+                  placeholder="Rechercher une technique, sous-technique, outil…" autoComplete="off" spellCheck={false} />
+                {query && <button type="button" className="ck26-search-clear" onClick={() => setQuery('')} aria-label="Effacer la recherche"><X size={15} aria-hidden="true" /></button>}
+              </label>
+              <div className="ck26-levels" role="group" aria-label="Niveau">
+                <span className="ck26-levels-label">Niveau</span>
+                {TYPE_FILTERS.map(tf => (
+                  <button key={tf} type="button" className="ck26-levelbtn" data-level-btn={tf} aria-pressed={typeFilter === tf}
+                    onClick={() => setTypeFilter(prev => prev === tf ? '' : tf)}>
+                    <LevelMark type={tf} />
+                  </button>
                 ))}
+                {hasFilters && (
+                  <button type="button" className="ck26-link" onClick={() => { setQuery(''); setTypeFilter('') }}>
+                    <X size={13} aria-hidden="true" /> Réinitialiser
+                  </button>
+                )}
               </div>
-            )}
-          </div>
-        </div>
+              {annotationLoadError && <p className="ck26-ann-warning" role="status">Les annotations personnelles n'ont pas pu être chargées. Le référentiel CLOAK reste disponible.</p>}
+            </section>
 
-        {/* Panneau droit : détail ou annotation */}
-        {rightPanel?.kind === 'detail' && (
-          <DetailPanel
-            detail={rightPanel.detail}
-            annotation={getCurrentDetailAnnotation()}
-            onClose={() => setRightPanel(null)}
-            onAnnotate={() => {
-              const d = rightPanel.detail
-              const ref = d.kind === 'technique'
-                ? techRef(d.tactic.id, d.item.id)
-                : subRef(d.tactic.id, d.parent.id, d.item.id)
-              setRightPanel({ kind: 'annotate', techniqueRef: ref, itemName: d.item.name, tacticName: d.tactic.name })
-            }}
-          />
+            {/* Browser: tactics rail + registry + inspector */}
+            <div className="ck26-browser" data-inspector={panelOpen || undefined}>
+              <nav className="ck26-rail" aria-label="Tactiques">
+                <button type="button" className="ck26-rail-item" data-active={activeTacticId === null || undefined}
+                  aria-current={activeTacticId === null || undefined}
+                  onClick={() => { setActiveTacticId(null); setRightPanel(null) }}>
+                  <span className="ck26-rail-name">Toutes les tactiques</span>
+                  <span className="ck26-rail-count">{realTactics.length}</span>
+                </button>
+                <div className="ck26-rail-sep" aria-hidden="true" />
+                {realTactics.map(tac => (
+                  <button key={tac.id} type="button" className="ck26-rail-item" data-active={activeTacticId === tac.id || undefined}
+                    aria-current={activeTacticId === tac.id || undefined} onClick={() => handleTacticChange(tac.id)}>
+                    <span className="ck26-rail-name">{tac.name}</span>
+                    <span className="ck26-rail-count">{tac.techniques.length}</span>
+                  </button>
+                ))}
+              </nav>
+
+              <section className="ck26-registry" aria-label="Techniques">
+                <header className="ck26-registry-head">
+                  <h2>{activeTacticName ?? 'Toutes les tactiques'}</h2>
+                  <p>
+                    <b>{filteredTechniques.length}</b> technique{filteredTechniques.length > 1 ? 's' : ''}
+                    {activeTacticStats && !hasFilters && <> · {activeTacticStats.subs} sous-tech.</>}
+                    {hasFilters && ' (filtré)'}
+                  </p>
+                </header>
+                {filteredTechniques.length === 0 ? (
+                  <div className="ck26-state">
+                    <Layers size={28} aria-hidden="true" />
+                    <h2>Aucune technique trouvée</h2>
+                    <p>Aucune technique ne correspond à ces critères.</p>
+                    <button type="button" className="ck26-btn" onClick={() => { setQuery(''); setTypeFilter(''); setActiveTacticId(null) }}>Réinitialiser</button>
+                  </div>
+                ) : (
+                  <ul className="ck26-techs">
+                    {filteredTechniques.map(({ tactic, tech }) => (
+                      <TechRow
+                        key={`${tactic.id}-${tech.id}`}
+                        tactic={tactic} tech={tech} showTactic={activeTacticId === null}
+                        selected={
+                          rightPanel?.kind === 'detail' &&
+                          rightPanel.detail.kind === 'technique' &&
+                          rightPanel.detail.item.id === tech.id &&
+                          rightPanel.detail.tactic.id === tactic.id
+                        }
+                        annotation={annotations.get(techRef(tactic.id, tech.id)) ?? null}
+                        selectedSubId={
+                          rightPanel?.kind === 'detail' &&
+                          rightPanel.detail.kind === 'subtechnique' &&
+                          rightPanel.detail.tactic.id === tactic.id &&
+                          rightPanel.detail.parent.id === tech.id
+                            ? (rightPanel.detail.item as CloakSubTechnique).id
+                            : undefined
+                        }
+                        onSelect={handleSelectTechnique}
+                        onSelectSub={handleSelectSub}
+                        onAnnotate={handleAnnotate}
+                        expandedId={expandedId}
+                        onToggleExpand={handleToggleExpand}
+                      />
+                    ))}
+                  </ul>
+                )}
+              </section>
+
+              {panelOpen && (
+                <>
+                  <div className="ck26-inspector-scrim" aria-hidden="true" onClick={() => setRightPanel(null)} />
+                  <aside className="ck26-inspector" role="dialog" aria-modal={overlayMode || undefined} aria-label="Inspecteur" tabIndex={-1} ref={panelRef}>
+                    <button type="button" className="ck26-back" onClick={() => setRightPanel(null)}>
+                      <ChevronLeft size={16} aria-hidden="true" /> Registre
+                    </button>
+                    {rightPanel.kind === 'detail' ? (
+                      <DetailPanel
+                        detail={rightPanel.detail}
+                        annotation={detailAnnotation}
+                        onClose={() => setRightPanel(null)}
+                        onSelectSub={handleSelectSub}
+                        onAnnotate={() => {
+                          const d = rightPanel.detail
+                          const ref = d.kind === 'technique' ? techRef(d.tactic.id, d.item.id) : subRef(d.tactic.id, d.parent.id, d.item.id)
+                          setRightPanel({ kind: 'annotate', techniqueRef: ref, itemName: d.item.name, tacticName: d.tactic.name, parentName: d.kind === 'subtechnique' ? d.parent.name : null, selection: { tacticId: d.tactic.id, techniqueId: d.kind === 'technique' ? d.item.id : d.parent.id } })
+                        }}
+                      />
+                    ) : (
+                      <AnnotationPanel
+                        key={rightPanel.techniqueRef}
+                        techniqueRef={rightPanel.techniqueRef}
+                        itemName={rightPanel.itemName}
+                        tacticName={rightPanel.tacticName}
+                        parentName={rightPanel.parentName}
+                        existingAnnotation={annotations.get(rightPanel.techniqueRef) ?? null}
+                        onSaved={handleAnnotationSaved}
+                        onDeleted={handleAnnotationDeleted}
+                        onClose={() => setRightPanel(null)}
+                        onRequestReset={() => setConfirmResetRef(rightPanel.techniqueRef)}
+                      />
+                    )}
+                  </aside>
+                </>
+              )}
+            </div>
+          </>
         )}
-        {rightPanel?.kind === 'annotate' && (
-          <AnnotationPanel
-            techniqueRef={rightPanel.techniqueRef}
-            itemName={rightPanel.itemName}
-            tacticName={rightPanel.tacticName}
-            existingAnnotation={annotations.get(rightPanel.techniqueRef) ?? null}
-            onSaved={handleAnnotationSaved}
-            onDeleted={handleAnnotationDeleted}
-            onClose={() => setRightPanel(null)}
-          />
-        )}
+
+        {/* Attribution / licence — à préserver. */}
+        <footer className="ck26-attrib">
+          <AlertTriangle size={13} aria-hidden="true" />
+          <p>
+            CLOAK — framework académique de référence, usage légal et éducatif uniquement. Licence GPL-2.0 ·{' '}
+            <a href="https://github.com/Mickinthemiddle/CLOAK" target="_blank" rel="noopener noreferrer">Source (Mick Deben / Leiden University)</a>
+          </p>
+        </footer>
       </div>
 
-      {/* Avertissement légal style BGPLookup */}
-      <div className="px-4 py-1.5 border-t border-[#1e2d40] bg-yellow-500/5 flex items-center gap-2 flex-shrink-0">
-        <AlertTriangle size={11} className="text-yellow-400 flex-shrink-0" />
-        <p className="text-[10px] font-mono text-yellow-400/70">
-          CLOAK est un framework académique de référence destiné aux professionnels de la cybersécurité — usage légal et éducatif uniquement.
-          Licence GPL-2.0 ·{' '}
-          <a href="https://github.com/Mickinthemiddle/CLOAK" target="_blank" rel="noopener noreferrer" className="underline hover:text-yellow-300">
-            GitHub
-          </a>
-        </p>
-      </div>
+      <ConfirmModal
+        open={confirmResetRef !== null}
+        title="RÉINITIALISER L'ANNOTATION ?"
+        message="Les annotations personnelles de cette technique seront supprimées."
+        confirmLabel="Réinitialiser"
+        danger
+        onConfirm={() => { const ref = confirmResetRef; setConfirmResetRef(null); if (ref) performReset(ref) }}
+        onCancel={() => setConfirmResetRef(null)}
+      />
     </div>
   )
 }
