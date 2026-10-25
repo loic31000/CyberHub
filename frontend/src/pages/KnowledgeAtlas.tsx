@@ -13,6 +13,7 @@ import LayersWorkspace from '@/knowledge26/layers/LayersWorkspace'
 import CveEditor from '@/knowledge26/records/CveEditor'
 import type { CVEEntry } from '@/types'
 import { useKnowledge } from '@/knowledge26/useKnowledge'
+import KnowledgeLoading from '@/knowledge26/KnowledgeLoading'
 import { SOURCES, SOURCE_LABEL, filterItems, sortItems, sortOptions, type FacetState, type KnowledgeItem, type SortKey, type Source } from '@/knowledge26/model'
 import '@/cve26/cve.css'
 import '@/lolbins26/lolbins.css'
@@ -59,8 +60,23 @@ export default function KnowledgeAtlas() {
   const items = useMemo(() => sortItems(
     filterItems(all, source, query, facets).filter(item => !(onlyTechniques && item.source === 'MITRE' && (item.original as { is_subtechnique?: boolean }).is_subtechnique)),
     sort, query), [all, source, query, facets, sort, onlyTechniques])
-  const loading = SOURCES.some(target => !collections[target])
   const sourceReady = source !== 'TOUT' && !!collections[source]
+  /*
+   * Initial readiness (#77). A source is settled once it has answered, in
+   * success or in error. The view is composed only when every source it needs
+   * has settled — all four for ALL, just one for ?source= — so the collection
+   * is not re-sorted and its cards not re-mounted as each source arrives.
+   * The record deep-link present at load also waits for its record, so the
+   * Carousel opens centred on it instead of jumping from the first card.
+   * That gate concerns the initial load only: later navigation never unmounts
+   * the composed view.
+   */
+  const required = source === 'TOUT' ? SOURCES : [source]
+  const settled = required.every(target => !!collections[target])
+  const linkKey = workspace === 'knowledge' && source !== 'TOUT' && params.get('id')?.trim() && params.get('action') !== 'new'
+    ? `${source}:${params.get('id')!.trim()}:${params.get('action') ?? ''}` : ''
+  const [initialLink, setInitialLink] = useState(linkKey)
+  const viewReady = settled && !(initialLink && initialLink === linkKey)
 
   const recordParams = (item: KnowledgeItem, action?: 'edit') => {
     const next = new URLSearchParams({ source: item.source.toLowerCase(), id: item.id })
@@ -105,6 +121,7 @@ export default function KnowledgeAtlas() {
     handledRequest.current = key
     let active = true
     data.resolve(source, id).then(item => {
+      setInitialLink('')
       if (!active) return
       if (!item) { toast.error(`${SOURCE_LABEL[source]} ${id} introuvable dans Atlas`); return }
       setSelected(item.key); setAnnotationTarget(null)
@@ -159,16 +176,17 @@ export default function KnowledgeAtlas() {
           <button onClick={() => changeWorkspace('layers')}><Layers size={14} /> LAYERS ATT&amp;CK →</button>
         </div>}
         <div className="ka-status">
-          <span aria-live="polite">{loading ? 'Chargement des collections…' : `${items.length} fiches dans la sélection`}</span>
+          <span aria-live="polite">{!viewReady ? 'Chargement des collections…' : `${items.length} fiches dans la sélection`}</span>
           <span>INDEX LOCAL · {all.length} LOADED</span>
           <span>{SOURCES.map(target => `${SOURCE_LABEL[target]} ${collections[target]?.items.length ?? '…'} / ${collections[target]?.total ?? '…'}`).join(' · ')}</span>
         </div>
         {SOURCES.some(target => collections[target]?.error) && <div className="ka-error" role="status">{SOURCES.filter(target => collections[target]?.error).map(target => SOURCE_LABEL[target]).join(', ')} indisponible. Les autres collections restent accessibles. <button onClick={data.retry}>Réessayer</button></div>}
         {data.annotationError && <div className="ka-error" role="status">Annotations CLOAK indisponibles. Le référentiel reste consultable.</div>}
-        {!loading && !items.length && <p className="ka-empty">Aucune connaissance pour cette sélection.</p>}
-        {mode === 'REGISTRY' && <KnowledgeRegistry items={items} selected={selected} onSelect={item => openFresh(item)} annotations={data.annotations} onAnnotate={item => openFresh(item, true)} kevFlags={data.kevFlags} grouped={grouped && source === 'TOUT'} source={source} onEdit={editCVE} />}
-        {mode === 'CAROUSEL' && items.length > 0 && <KnowledgeCarousel items={items} selected={selected} onSelect={item => openFresh(item)} onFocus={setSelected} annotations={data.annotations} kevFlags={data.kevFlags} />}
-        {pageable && <button className="ka-load-page" disabled={collections[source as Source]?.loadingMore} onClick={() => data.loadMore(source as Source)}>{collections[source as Source]?.loadingMore ? 'Chargement…' : `Charger 100 fiches supplémentaires · ${collections[source as Source]?.items.length} / ${collections[source as Source]?.total}`}</button>}
+        {!viewReady && <KnowledgeLoading sources={required} collections={collections} />}
+        {viewReady && !items.length && <p className="ka-empty">Aucune connaissance pour cette sélection.</p>}
+        {viewReady && mode === 'REGISTRY' && <KnowledgeRegistry items={items} selected={selected} onSelect={item => openFresh(item)} annotations={data.annotations} onAnnotate={item => openFresh(item, true)} kevFlags={data.kevFlags} grouped={grouped && source === 'TOUT'} source={source} onEdit={editCVE} />}
+        {viewReady && mode === 'CAROUSEL' && items.length > 0 && <KnowledgeCarousel items={items} selected={selected} onSelect={item => openFresh(item)} onFocus={setSelected} annotations={data.annotations} kevFlags={data.kevFlags} />}
+        {viewReady && pageable && <button className="ka-load-page" disabled={collections[source as Source]?.loadingMore} onClick={() => data.loadMore(source as Source)}>{collections[source as Source]?.loadingMore ? 'Chargement…' : `Charger 100 fiches supplémentaires · ${collections[source as Source]?.items.length} / ${collections[source as Source]?.total}`}</button>}
       </>}
 
     <footer className="ka-footnote">KNOWLEDGE ATLAS · UNIFIED KNOWLEDGE BASE <span>CVE · MITRE ATT&amp;CK · CLOAK (GPL-2.0) · LOLBAS · GTFOBINS</span></footer>
