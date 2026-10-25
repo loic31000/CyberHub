@@ -6,7 +6,7 @@ import type { IOC, IOCCreatePayload, IOCType, IOCTLP, IOCStatus } from '@/types/
 import { toast } from '@/store/toast'
 import CorrelationPanel, { IocCorrelationSummary } from '@/components/CorrelationPanel'
 import ImportIOCModal from '@/components/ImportIOCModal'
-import { Dialog } from '@/mitre/MitreUi'
+import { Dialog } from '@/components/AccessibleDialog'
 import { ModuleHero } from '@/hero/ModuleHero'
 import IocMotif from '@/ioc26/IocMotif'
 import { IocDisplaySettings, useIocDensity } from '@/ioc26/IocPreferences'

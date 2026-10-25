@@ -209,7 +209,7 @@ export default function CorrelationPanel({ result, loading, error, variant }: Pr
             {prepared.techniques.map(t => {
               const tactics = t.tactics
               return <li key={t.technique_id}>
-                <button type="button" className="ioc26-technique-link" onClick={() => navigate(`/mitre?id=${t.technique_id}`)} aria-label={`Voir ${t.technique_id} ${t.name} dans MITRE`}>
+                <button type="button" className="ioc26-technique-link" onClick={() => navigate(`/knowledge?source=mitre&id=${encodeURIComponent(t.technique_id)}`)} aria-label={`Voir ${t.technique_id} ${t.name} dans Knowledge Atlas`}>
                   <span>{t.technique_id}</span><strong>{t.name}</strong>
                 </button>
                 <div className="ioc26-tactics" aria-label="Tactiques MITRE">
@@ -230,8 +230,8 @@ export default function CorrelationPanel({ result, loading, error, variant }: Pr
             </thead>
             <tbody>
               {result.techniques.map((t) => (
-                <tr key={t.technique_id} className="border-b border-border/50 hover:bg-bg-hover cursor-pointer" onClick={() => navigate(`/mitre?id=${t.technique_id}`)}>
-                  <td className="py-1.5 px-2 font-mono text-cyber-cyan"><button type="button" onClick={(event) => { event.stopPropagation(); navigate(`/mitre?id=${t.technique_id}`) }} className="text-left hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-cyber-cyan" aria-label={`Voir la technique ${t.technique_id} dans MITRE`}>{t.technique_id}</button></td>
+                <tr key={t.technique_id} className="border-b border-border/50 hover:bg-bg-hover cursor-pointer" onClick={() => navigate(`/knowledge?source=mitre&id=${encodeURIComponent(t.technique_id)}`)}>
+                  <td className="py-1.5 px-2 font-mono text-cyber-cyan"><button type="button" onClick={(event) => { event.stopPropagation(); navigate(`/knowledge?source=mitre&id=${encodeURIComponent(t.technique_id)}`) }} className="text-left hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-cyber-cyan" aria-label={`Voir la technique ${t.technique_id} dans Knowledge Atlas`}>{t.technique_id}</button></td>
                   <td className="py-1.5 px-2 text-text-primary">{t.name}</td>
                   <td className="py-1.5 px-2 text-text-muted">{t.tactic}</td>
                 </tr>
@@ -259,7 +259,7 @@ export default function CorrelationPanel({ result, loading, error, variant }: Pr
             {attackLayers.map((layer) => (
               <li key={layer.id}>
                 <button
-                  onClick={() => navigate(`/mitre/layers/${layer.id}`)}
+                  onClick={() => navigate(`/knowledge?workspace=layers&id=${layer.id}`)}
                   className="text-xs text-text-secondary hover:text-cyber-cyan hover:underline transition-colors text-left"
                 >
                   → {layer.name}
@@ -367,7 +367,7 @@ export default function CorrelationPanel({ result, loading, error, variant }: Pr
             {(result.lolbins ?? []).map((lb: CorrelationLOLBin, i: number) => (
               <button
                 key={i}
-                onClick={() => navigate('/lolbins')}
+                onClick={() => navigate('/knowledge?source=lolbins')}
                 className="flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium bg-gray-700 text-text-secondary hover:bg-cyber-cyan/20 hover:text-cyber-cyan transition-colors"
               >
                 <span className={lb.os === 'windows' ? 'text-blue-400' : 'text-orange-400'}>

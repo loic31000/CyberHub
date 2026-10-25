@@ -49,7 +49,7 @@ function emptyData() {
   api.cves.mockResolvedValue({ cves: [], count: 0 } as never)
 }
 
-function Location() { return <output data-testid="location">{useLocation().pathname}</output> }
+function Location() { const location = useLocation(); return <output data-testid="location">{location.pathname}{location.search}</output> }
 const renderDashboard = () => render(<MemoryRouter initialEntries={['/dashboard']}><Dashboard2026 /><Location /></MemoryRouter>)
 const widgetOrder = (container: HTMLElement) => [...container.querySelectorAll<HTMLElement>('.widget-grid > .widget')].map((w) => `${w.dataset.widget}:${w.dataset.size}`)
 
@@ -107,7 +107,7 @@ describe('Dashboard 2026 — comportement de référence', () => {
     expect(within(watch).getByText('CRITIQUE')).toBeTruthy()
     expect(within(watch).getByText('4 CVE enregistrées')).toBeTruthy()
     fireEvent.click(within(watch).getByRole('button', { name: /CVE-2099-0003/ }))
-    expect(screen.getByTestId('location').textContent).toBe('/cve/3')
+    expect(screen.getByTestId('location').textContent).toBe('/knowledge?source=cve&id=CVE-2099-0003')
   })
 
   it('liste deux alertes BGP au plus dans Threat Monitor, avec leur état', async () => {
@@ -149,7 +149,7 @@ describe('Dashboard 2026 — comportement de référence', () => {
     expect(screen.getByText('Aucune alerte BGP à afficher')).toBeTruthy()
     expect(screen.getByText('Aucune alerte BGP')).toBeTruthy()
     fireEvent.click(screen.getByRole('button', { name: /CVE & KEV/ }))
-    expect(screen.getByTestId('location').textContent).toBe('/cve')
+    expect(screen.getByTestId('location').textContent).toBe('/knowledge?source=cve')
   })
 
   it('respecte la disposition enregistrée : ordre, tailles et widgets masqués', async () => {
@@ -213,7 +213,7 @@ describe('Dashboard 2026 — comportement de référence', () => {
       readyData()
       const { container } = renderDashboard()
       expect(await screen.findByText('3 alertes BGP enregistrées')).toBeTruthy()
-      expect(cardTitles(container)).toEqual(['Console', 'MITRE ATT&CK', 'IOC Manager', 'OSINT Runner', 'BGP Historian'])
+      expect(cardTitles(container)).toEqual(['Console', 'Knowledge Atlas', 'IOC Manager', 'OSINT Runner', 'BGP Historian'])
       expect(container.querySelectorAll('.environment-card.is-module')).toHaveLength(2)
       expect(container.querySelectorAll('.environment-card .mini-bars')).toHaveLength(3)
     })
@@ -226,8 +226,8 @@ describe('Dashboard 2026 — comportement de référence', () => {
       const { container } = renderDashboard()
       await screen.findByText('3 alertes BGP enregistrées')
       const routes: Record<string, string> = {
-        Console: '/tools', 'MITRE ATT&CK': '/mitre', 'IOC Manager': '/ioc', 'OSINT Runner': '/osint',
-        'BGP Historian': '/bgp/historian', 'BGP Lookup': '/bgp', 'CVE & KEV': '/cve',
+        Console: '/tools', 'Knowledge Atlas': '/knowledge', 'IOC Manager': '/ioc', 'OSINT Runner': '/osint',
+        'BGP Historian': '/bgp/historian', 'BGP Lookup': '/bgp',
       }
       for (const [title, route] of Object.entries(routes)) {
         const card = [...container.querySelectorAll<HTMLElement>('.environment-card')].find((c) => c.querySelector('strong')?.textContent === title)!
@@ -243,7 +243,7 @@ describe('Dashboard 2026 — comportement de référence', () => {
       ], widgets: [{ id: 'watch', visible: true, size: 'large' }, { id: 'network', visible: false, size: 'standard' }] }))
       const first = renderDashboard()
       await screen.findByText('3 alertes BGP enregistrées')
-      expect(cardTitles(first.container)).toEqual(['BGP Historian', 'MITRE ATT&CK', 'BGP Lookup', 'OSINT Runner'])
+      expect(cardTitles(first.container)).toEqual(['BGP Historian', 'Knowledge Atlas', 'BGP Lookup', 'OSINT Runner'])
       expect(widgetOrder(first.container)[0]).toBe('watch:large')
       expect(screen.queryByText('ACTIVITÉ RÉSEAU (APERÇU)')).toBeNull()
 
@@ -254,10 +254,10 @@ describe('Dashboard 2026 — comportement de référence', () => {
       fireEvent.keyDown(dialog, { key: 'Escape' })
       first.unmount()
       const stored = JSON.parse(localStorage.getItem(LAYOUT_STORAGE_KEY) as string)
-      expect(stored.envCards).toEqual(['module.mitre', 'module.bgp-historian', 'module.bgp', 'module.osint'])
+      expect(stored.envCards).toEqual(['module.knowledge', 'module.bgp-historian', 'module.bgp', 'module.osint'])
       const second = renderDashboard()
       await screen.findByText('3 alertes BGP enregistrées')
-      expect(cardTitles(second.container)).toEqual(['MITRE ATT&CK', 'BGP Historian', 'BGP Lookup', 'OSINT Runner'])
+      expect(cardTitles(second.container)).toEqual(['Knowledge Atlas', 'BGP Historian', 'BGP Lookup', 'OSINT Runner'])
       expect(widgetOrder(second.container)[0]).toBe('watch:large')
     })
 
@@ -268,9 +268,9 @@ describe('Dashboard 2026 — comportement de référence', () => {
       fireEvent.click(screen.getByRole('button', { name: 'Personnaliser' }))
       const dialog = await screen.findByRole('dialog')
       const catalog = () => [...dialog.querySelectorAll('.customize-catalog li strong')].map((s) => s.firstChild?.textContent)
-      // 19 entries: Console and the 18 modules, each once.
-      expect(catalog()).toHaveLength(19)
-      expect(new Set(catalog()).size).toBe(19)
+      // 15 entries: Console and the 14 canonical modules, each once.
+      expect(catalog()).toHaveLength(15)
+      expect(new Set(catalog()).size).toBe(15)
       for (const title of ['MITRE', 'OSINT', 'BGP', 'Sources']) expect(catalog()).not.toContain(title)
       expect(within(dialog).getByRole('button', { name: 'BGP Historian : déjà affiché' })).toBeTruthy()
 
@@ -278,16 +278,16 @@ describe('Dashboard 2026 — comportement de référence', () => {
       fireEvent.click(within(dialog).getByRole('button', { name: 'Ajouter BGP Lookup' }))
       expect(cardTitles(container)).toContain('BGP Lookup')
       // Replacing a card cannot pick a card already shown.
-      fireEvent.click(within(dialog).getByRole('button', { name: 'Remplacer MITRE ATT&CK' }))
+      fireEvent.click(within(dialog).getByRole('button', { name: 'Remplacer Knowledge Atlas' }))
       expect(within(dialog).getByRole('button', { name: 'OSINT Runner : déjà affiché' })).toBeTruthy()
-      fireEvent.click(within(dialog).getByRole('button', { name: 'Remplacer MITRE ATT&CK par Layers ATT&CK' }))
-      expect(cardTitles(container)).toEqual(['Console', 'Layers ATT&CK', 'IOC Manager', 'OSINT Runner', 'BGP Historian', 'BGP Lookup'])
+      fireEvent.click(within(dialog).getByRole('button', { name: 'Remplacer Knowledge Atlas par Playbooks' }))
+      expect(cardTitles(container)).toEqual(['Console', 'Playbooks', 'IOC Manager', 'OSINT Runner', 'BGP Historian', 'BGP Lookup'])
       // Remove, then reset to the five original cards.
       fireEvent.click(within(dialog).getByRole('button', { name: 'Retirer IOC Manager' }))
       expect(cardTitles(container)).not.toContain('IOC Manager')
       fireEvent.click(within(dialog).getByRole('button', { name: /Réinitialiser/ }))
       fireEvent.click(within(dialog).getByRole('button', { name: 'Confirmer' }))
-      expect(cardTitles(container)).toEqual(['Console', 'MITRE ATT&CK', 'IOC Manager', 'OSINT Runner', 'BGP Historian'])
+      expect(cardTitles(container)).toEqual(['Console', 'Knowledge Atlas', 'IOC Manager', 'OSINT Runner', 'BGP Historian'])
       expect(localStorage.getItem(LAYOUT_STORAGE_KEY)).toBeNull()
     })
   })

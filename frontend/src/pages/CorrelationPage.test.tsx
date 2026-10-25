@@ -60,7 +60,7 @@ describe('Corrélation 2026', () => {
     expect(screen.getByRole('img', { name: 'Confiance forte, 72 %' })).toBeTruthy()
     const mitre = screen.getByRole('region', { name: 'Techniques MITRE ATT&CK' })
     const link = within(mitre).getByRole('link', { name: /T1071 Application Layer Protocol/ })
-    expect(link.getAttribute('href')).toBe('/mitre?id=T1071')
+    expect(link.getAttribute('href')).toBe('/knowledge?source=mitre&id=T1071')
     expect(within(mitre).getByText('Command and Control')).toBeTruthy()
     expect(screen.getByRole('link', { name: /Réponse Ransomware/ }).getAttribute('href')).toBe('/playbooks/3')
     expect(screen.getByRole('link', { name: /Campagne fictive/ }).getAttribute('href')).toBe('/investigations/8')

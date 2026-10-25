@@ -21,7 +21,7 @@ const clock = new Intl.DateTimeFormat('fr-FR', { hour: '2-digit', minute: '2-dig
 export function sourceLink(event: Pick<InvestigationEvent, 'source_module' | 'source_entity_id'>): string | null {
   const module = event.source_module.trim().toLowerCase()
   const ref = event.source_entity_id.trim()
-  if (module === 'cve' && /^CVE-\d{4}-\d{4,}$/i.test(ref)) return `/cve?find=${encodeURIComponent(ref.toUpperCase())}`
+  if (module === 'cve' && /^CVE-\d{4}-\d{4,}$/i.test(ref)) return `/knowledge?source=cve&id=${encodeURIComponent(ref.toUpperCase())}`
   if (module === 'cve' && /^[1-9]\d*$/.test(ref)) return `/cve/${ref}`
   const asn = /^AS([1-9]\d*)$/i.exec(ref)
   if (module === 'bgp' && asn) return `/bgp/historian?asn=${asn[1]}`

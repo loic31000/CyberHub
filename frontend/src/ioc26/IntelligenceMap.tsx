@@ -164,7 +164,7 @@ export default function IntelligenceMap({ ioc, data, initialGroup = null }: Prop
               </div>
               <button type="button" className="ioc26-map-result-open"
                 aria-label={`Ouvrir la fiche ${technique.technique_id} ${technique.name}`}
-                onClick={() => leaveFor(`/mitre?technique=${encodeURIComponent(technique.technique_id)}`, 'mitre')}>
+                onClick={() => leaveFor(`/knowledge?source=mitre&id=${encodeURIComponent(technique.technique_id)}`, 'mitre')}>
                 Ouvrir la fiche<ExternalLink size={13} aria-hidden="true" />
               </button>
             </li>)}
@@ -177,7 +177,7 @@ export default function IntelligenceMap({ ioc, data, initialGroup = null }: Prop
                   <small className="is-clamped">{cve.description || 'Aucune description disponible.'}</small>
                 </div>
                 <button type="button" className="ioc26-map-result-open" aria-label={`Ouvrir la fiche ${cve.cve_id}`}
-                  onClick={() => leaveFor(`/cve?find=${encodeURIComponent(cve.cve_id)}`, 'cve')}>
+                  onClick={() => leaveFor(`/knowledge?source=cve&id=${encodeURIComponent(cve.cve_id)}`, 'cve')}>
                   Ouvrir la fiche<ExternalLink size={13} aria-hidden="true" />
                 </button>
               </li>

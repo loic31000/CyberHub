@@ -22,5 +22,5 @@ export interface CloakAnnotationRequest {
   tags: string
 }
 
-/** Map technique_ref → annotation pour accès O(1) dans CLOAKPage */
+/** Map technique_ref → annotation pour accès O(1) dans Knowledge Atlas. */
 export type AnnotationMap = Map<string, CloakAnnotation>

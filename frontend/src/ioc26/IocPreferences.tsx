@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { SlidersHorizontal } from 'lucide-react'
-import { Dialog } from '@/mitre/MitreUi'
+import { Dialog } from '@/components/AccessibleDialog'
 
 export type IocDensity = 'comfort' | 'compact'
 const KEY = 'cyberhub:ioc-display:v1'
