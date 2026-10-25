@@ -197,6 +197,21 @@
 .ka-position>span strong { color:#9cefff; font-size:13px; }
 .ka-position>small { font:10.5px var(--ka-mono); letter-spacing:.14em; color:#8aa7b9; }
 
+/* ---------- initial-load scene (#77): ghost cards, real per-source state ---------- */
+.ka-loading-stage { position:relative; height:476px; display:flex; align-items:center; justify-content:center; gap:26px; }
+.ka-ghost { display:block; border:1px solid #1d3747; border-radius:12px 12px 9px 9px; background:linear-gradient(160deg,#0f2230,#0a1520 60%); }
+.ka-ghost.is-center { width:300px; height:240px; border-color:#24485a; animation:ka-ghost 2.4s ease-in-out infinite; }
+.ka-ghost.is-side { width:200px; height:180px; opacity:.45; }
+@keyframes ka-ghost { 0%,100% { opacity:.7; } 50% { opacity:1; } }
+.ka-loading-sources { display:flex; flex-wrap:wrap; justify-content:center; gap:8px 18px; margin:0; padding:6px 24px 24px; list-style:none; color:#8fadbf; font:11px var(--ka-mono); letter-spacing:.06em; }
+.ka-loading-sources li { display:inline-flex; align-items:center; gap:7px; }
+.ka-loading-sources i { width:6px; height:6px; border-radius:2px; background:#3b5566; }
+.ka-loading-sources [data-state=ready] { color:#cfe6f1; }
+.ka-loading-sources [data-state=ready] i { background:var(--accent); }
+.ka-loading-sources [data-state=error] { color:#f2cd8b; }
+.ka-loading-sources [data-state=error] i { background:#e5a85a; }
+@media(max-width:600px) { .ka-loading-stage { height:452px; } .ka-ghost.is-side { display:none; } .ka-ghost.is-center { width:min(300px,80%); } }
+
 /* ---------- unified registry: one grid for every source ---------- */
 .ka-registry { border:1px solid var(--ka-line); border-radius:12px; overflow:hidden; background:linear-gradient(180deg,#0a141f,#08111b); }
 .ka-registry ul { margin:0; padding:0; list-style:none; }
