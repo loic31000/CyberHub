@@ -547,14 +547,14 @@ export default function NotesPage() {
         toast.error('Référence MITRE invalide : format Txxxx attendu')
         return
       }
-      navigate(`/mitre?find=${encodeURIComponent(technique)}`)
+      navigate(`/knowledge?source=mitre&id=${encodeURIComponent(technique)}`)
       return
     }
     if (!/^CVE-\d{4}-\d{4,}$/i.test(normalized)) {
       toast.error('Référence CVE invalide : format CVE-AAAA-NNNN attendu')
       return
     }
-    navigate(`/cve?find=${encodeURIComponent(normalized.toUpperCase())}`)
+    navigate(`/knowledge?source=cve&id=${encodeURIComponent(normalized.toUpperCase())}`)
   }
 
   const handleImportFiles = async (e: ChangeEvent<HTMLInputElement>) => {

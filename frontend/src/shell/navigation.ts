@@ -40,7 +40,7 @@ const SETTINGS: NavItem = {
   keywords: ['settings', 'configuration', 'préférences', 'compte', 'sauvegarde'],
 }
 
-const EXACT = new Set(['/dashboard', '/mitre', '/bgp'])
+const EXACT = new Set(['/dashboard', '/knowledge', '/bgp'])
 
 export const NAV_ITEMS: NavItem[] = [
   ...NAVIGATION_MODULES.map((module) => ({
@@ -71,6 +71,9 @@ export function navItemFor(pathname: string) {
 }
 
 export function breadcrumbFor(pathname: string) {
+  if (pathname === '/knowledge' || pathname.startsWith('/knowledge/')) {
+    return { section: 'INTEL', label: 'Knowledge Atlas' }
+  }
   const item = navItemFor(pathname)
   return item ? { section: categoryOf(item.category).code, label: item.title } : { section: 'CORE', label: 'Dashboard' }
 }

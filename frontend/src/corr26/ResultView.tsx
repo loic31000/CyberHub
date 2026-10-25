@@ -88,7 +88,7 @@ export default function ResultView({ result, actions }: { result: CorrelationRes
                 )}
                 {result.attack_layers?.length > 0 && (
                   <Column id="layers" title="Layers ATT&CK" count={result.attack_layers.length}>
-                    <LinkList items={result.attack_layers.map(l => ({ key: l.id, to: `/mitre/layers/${l.id}`, label: l.name }))} />
+                    <LinkList items={result.attack_layers.map(l => ({ key: l.id, to: `/knowledge?workspace=layers&id=${l.id}`, label: l.name }))} />
                   </Column>
                 )}
               </div>
@@ -106,7 +106,7 @@ export default function ResultView({ result, actions }: { result: CorrelationRes
                 )}
                 {result.lolbins?.length > 0 && (
                   <Column id="lolbins" title="LOLBins / GTFOBins" count={result.lolbins.length}>
-                    <LinkList items={result.lolbins.map(l => ({ key: `${l.os}-${l.name}`, to: '/lolbins', label: l.name, meta: [l.os, l.category].filter(Boolean).join(' · ') }))} />
+                    <LinkList items={result.lolbins.map(l => ({ key: `${l.os}-${l.name}`, to: `/knowledge?source=lolbins&id=${encodeURIComponent(l.name)}`, label: l.name, meta: [l.os, l.category].filter(Boolean).join(' · ') }))} />
                   </Column>
                 )}
                 {result.cloak_tactics?.length > 0 && (
@@ -145,7 +145,7 @@ function Techniques({ techniques }: { techniques: CorrelationTechnique[] }) {
           <ul>
             {rows.map(({ t, others }) => (
               <li key={t.technique_id}>
-                <Link to={`/mitre?id=${encodeURIComponent(t.technique_id)}`} aria-label={`${t.technique_id} ${t.name}, ouvrir dans MITRE`}>
+                <Link to={`/knowledge?source=mitre&id=${encodeURIComponent(t.technique_id)}`} aria-label={`${t.technique_id} ${t.name}, ouvrir dans Knowledge Atlas`}>
                   <span className="cr26-id">{t.technique_id}</span>
                   <span className="cr26-row-title">{t.name}</span>
                   {others.length > 0 && <span className="cr26-also">aussi : {others.join(', ')}</span>}

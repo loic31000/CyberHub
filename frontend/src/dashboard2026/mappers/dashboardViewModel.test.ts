@@ -83,12 +83,15 @@ describe('registre des cartes de l’environnement', () => {
 
   it('associe chaque ancienne carte dupliquée à la carte de son module', () => {
     expect(LEGACY_CARD_IDS).toEqual({
-      'system.mitre': 'module.mitre', 'system.osint': 'module.osint',
+      'system.mitre': 'module.knowledge', 'system.osint': 'module.osint',
       'system.sources': 'module.ioc', 'system.bgp': 'module.bgp-historian',
+      'module.cve': 'module.knowledge', 'module.mitre': 'module.knowledge',
+      'module.mitre-layers': 'module.knowledge', 'module.lolbins': 'module.knowledge',
+      'module.cloak': 'module.knowledge',
     })
     for (const id of Object.keys(LEGACY_CARD_IDS)) expect(getEnvironmentCard(id)).toBeUndefined()
     expect(normalizeEnvCards(['system.bgp', 'module.bgp-historian', 42, 'nope', 'module.bgp', 'system.mitre'])).toEqual([
-      'module.bgp-historian', 'module.bgp', 'module.mitre',
+      'module.bgp-historian', 'module.bgp', 'module.knowledge',
     ])
   })
 })

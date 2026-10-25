@@ -2,7 +2,7 @@ import { useRef, useState, useCallback } from 'react'
 import { createPortal } from 'react-dom'
 import { Upload, FileText, CheckCircle, AlertTriangle } from 'lucide-react'
 import { iocApi } from '@/api/client'
-import { Dialog } from '@/mitre/MitreUi'
+import { Dialog } from '@/components/AccessibleDialog'
 import type { IOCTLP, IOCStatus } from '@/types/ioc'
 import type { ImportResult } from '@/types/threat_intel'
 

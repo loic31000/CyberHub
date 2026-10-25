@@ -1,0 +1,225 @@
+/*
+ * Knowledge Atlas — central dossier. A knowledge sheet rather than a page in
+ * a modal: a slim fixed header, then ONE vertical scroll holding the title
+ * block and numbered editorial sections (a left rail with 01 OVERVIEW…, a
+ * reading column on the right). Facts are hairline-separated columns; lists
+ * are rows with separators — no cards nested inside the card.
+ * Tokens come from knowledge.css (.ka-dossier shares the page tokens).
+ */
+
+.ka-dossier { position:fixed; inset:0; width:100vw; max-width:100vw; height:100dvh; max-height:100dvh; margin:0; padding:0; border:0; background:transparent; color:var(--ka-ink); overflow:hidden; font-family:var(--ka-sans); font-size:15px; }
+.ka-dossier[open] { display:grid; place-items:center; }
+/* the Atlas stays perceptible behind: a tinted veil, not a black-out */
+.ka-dossier::backdrop { background:radial-gradient(ellipse at 50% 55%,rgb(4 10 17 / .5),rgb(3 7 13 / .72)); backdrop-filter:blur(3px) saturate(.8); }
+.ka-dossier-scrim { position:fixed; inset:0; }
+.ka-page[data-dossier] .ka-focus-card.is-active { opacity:0; transition:opacity .18s ease; }
+
+/* archive folder: a source-coloured tab on top, the record sheet below */
+.ka-dossier-folder { position:relative; z-index:1; display:flex; flex-direction:column; width:min(920px,calc(100vw - 56px)); max-height:calc(100dvh - 96px); margin-top:26px; transform-origin:50% 40%; animation:ka-dossier-enter .34s var(--ka-ease) both; }
+.ka-dossier-folder::after { content:""; position:absolute; left:6%; right:6%; bottom:-34px; height:60px; border-radius:50%; background:radial-gradient(ellipse at center,rgb(0 0 0 / .55),transparent 70%); filter:blur(10px); z-index:-1; pointer-events:none; }
+.ka-dossier-tab { position:absolute; left:34px; top:-27px; display:inline-flex; align-items:center; gap:9px; height:28px; padding:0 16px 0 13px; border:1px solid color-mix(in srgb,var(--accent) 55%,#2b4b5e); border-bottom:0; border-radius:9px 9px 0 0; background:linear-gradient(180deg,color-mix(in srgb,var(--accent) 20%,#11222f),#0d1b28); color:color-mix(in srgb,var(--accent) 80%,#fff); font:600 10.5px var(--ka-mono); letter-spacing:.12em; white-space:nowrap; }
+.ka-dossier-tab i { width:6px; height:6px; border-radius:2px; background:var(--accent); box-shadow:0 0 8px var(--accent); }
+.ka-dossier-sheet { position:relative; display:flex; flex-direction:column; min-height:0; max-height:inherit; border:1px solid color-mix(in srgb,var(--accent) 28%,#26465a); border-radius:6px 16px 16px 16px; background:linear-gradient(180deg,color-mix(in srgb,var(--accent) 5%,#0d1b28) 0%,#09131d 34%,#08111a 100%); box-shadow:0 1px 0 rgb(255 255 255 / .03) inset,0 24px 48px -12px rgb(0 0 0 / .6),0 60px 120px -30px rgb(0 0 0 / .65),0 0 0 1px rgb(0 0 0 / .25); overflow:hidden; }
+.ka-dossier-sheet::before { content:""; position:absolute; inset:0 0 auto; height:2px; background:linear-gradient(90deg,var(--accent) 0,var(--accent) 22%,color-mix(in srgb,var(--accent) 30%,transparent) 60%,transparent); opacity:.9; }
+/* a faint paper edge: the record reads as a physical sheet, not a form */
+.ka-dossier-sheet::after { content:""; position:absolute; inset:0; border-radius:inherit; background:radial-gradient(90% 40% at 10% 0%,color-mix(in srgb,var(--accent) 7%,transparent),transparent 60%); pointer-events:none; }
+@keyframes ka-dossier-enter { from { opacity:0; transform:translateY(18px) scale(.97); } }
+
+.ka-dossier-head { display:flex; align-items:center; gap:14px; flex:none; height:56px; padding:0 18px 0 26px; border-bottom:1px solid var(--ka-line); color:#9ab6c7; font:11px var(--ka-mono); letter-spacing:.1em; }
+.ka-dossier-ref { margin-left:auto; overflow:hidden; color:#6f90a2; text-overflow:ellipsis; white-space:nowrap; }
+.ka-dossier-close { flex:none; width:36px; height:36px; border:1px solid #2f5668; border-radius:9px; color:#c4e8f3; font-size:15px; }
+.ka-dossier-close:hover { border-color:#c45864; color:#ffb3bd; }
+
+.ka-dossier-body { flex:1; min-height:0; overflow-y:auto; padding:0 48px 44px; scrollbar-width:thin; scrollbar-color:#35607a transparent; overscroll-behavior:contain; }
+.ka-dossier-title { position:relative; padding:34px 0 30px 0; border-bottom:1px solid var(--ka-line); }
+.ka-dossier-lead { display:flex; align-items:center; gap:12px; }
+.ka-dossier-id { color:color-mix(in srgb,var(--accent,#66ddf2) 75%,#fff); font:600 14px var(--ka-mono); letter-spacing:.02em; }
+.ka-dossier-title h2 { margin:16px 0 10px; color:#f2fbff; font:800 2.15rem/1.1 var(--ka-sans); letter-spacing:-.025em; overflow-wrap:anywhere; }
+.ka-dossier-signal { margin:0; color:#a9c4d4; font:12.5px/1.55 var(--ka-mono); }
+.ka-back { display:inline-flex; align-items:center; gap:7px; margin-bottom:20px; padding:7px 13px; border:1px solid #2d5164; border-radius:999px; background:#0a1824; color:#a6eaf5; font:12px var(--ka-mono); letter-spacing:.02em; }
+.ka-back:hover { border-color:#5ed3e9; color:#e3fbff; }
+
+/* numbered editorial sections: rail on the left, reading column on the right */
+.ka-sec { display:grid; grid-template-columns:150px minmax(0,1fr); gap:36px; padding:32px 0; border-bottom:1px solid var(--ka-line); }
+.ka-sec:last-child { border-bottom:0; }
+.ka-sec-head { display:flex; flex-direction:column; gap:7px; padding-top:3px; }
+.ka-sec-index { color:color-mix(in srgb,var(--accent,#6fcde2) 80%,#fff); font:600 12px var(--ka-mono); letter-spacing:.08em; }
+.ka-sec-head h3 { margin:0; color:#d7e9f2; font:600 12px/1.3 var(--ka-mono); letter-spacing:.16em; }
+.ka-sec-aside { color:var(--ka-muted); font:11.5px/1.4 var(--ka-mono); }
+.ka-sec-body { min-width:0; }
+.ka-prose { max-width:72ch; margin:0; color:#cfdee8; font:15.5px/1.75 var(--ka-sans); white-space:pre-line; overflow-wrap:anywhere; }
+.ka-subhead { margin:28px 0 12px; color:#a8cbda; font:600 11px var(--ka-mono); letter-spacing:.14em; text-transform:uppercase; }
+.ka-sec-body>.ka-subhead:first-child { margin-top:0; }
+.ka-subhead span { color:var(--ka-muted); }
+.ka-empty-note { margin:0; color:#8ea8b9; font:13.5px/1.6 var(--ka-sans); }
+.ka-dossier-note { margin:12px 0 0; padding:9px 12px; border-left:2px solid #e5a85a; background:rgb(229 168 90 / .06); color:#f2cd8b; font-size:13px; }
+
+.ka-facts { display:grid; grid-template-columns:repeat(auto-fill,minmax(170px,1fr)); margin:24px 0 0; border-top:1px solid var(--ka-line); }
+.ka-prose+.ka-facts, .ka-dossier-note+.ka-facts { margin-top:26px; }
+.ka-subhead+.ka-facts { margin-top:0; }
+.ka-fact { min-width:0; padding:14px 18px 14px 16px; border-left:1px solid var(--ka-line); border-bottom:1px solid var(--ka-line); }
+.ka-fact.is-span { grid-column:1 / -1; }
+.ka-fact dt { margin-bottom:7px; color:#88a6b8; font:600 10px var(--ka-mono); letter-spacing:.1em; text-transform:uppercase; }
+.ka-fact dd { margin:0; color:#e9f4f9; font:14.5px/1.55 var(--ka-sans); overflow-wrap:anywhere; }
+.ka-path { display:block; padding:8px 11px; border:1px solid #224155; border-radius:7px; background:#050d15; color:#bfe7f5; font:13px/1.5 var(--ka-mono); overflow-wrap:anywhere; }
+
+/* CVE intelligence: three columns with hairlines */
+.ka-intel { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); border-block:1px solid var(--ka-line); }
+.ka-intel-col { display:grid; align-content:start; gap:10px; min-width:0; padding:18px 18px 20px; }
+.ka-intel-col+.ka-intel-col { border-left:1px solid var(--ka-line); }
+.ka-intel-col:first-child { padding-left:0; }
+.ka-intel-label { color:#88a6b8; font:600 10px var(--ka-mono); letter-spacing:.12em; }
+.ka-intel-col strong { color:#eaf5fa; font:600 14.5px/1.45 var(--ka-sans); }
+.ka-intel-col small { color:#8ea8b9; font:12px/1.45 var(--ka-sans); }
+.ka-intel-col[data-kev="true"] strong { color:#ffb3bd; }
+.ka-cvss-scale { position:relative; height:4px; border-radius:2px; background:#142b3a; overflow:hidden; }
+.ka-cvss-scale i { position:absolute; inset:0 auto 0 0; border-radius:2px; background:var(--sev,#5ed3e9); }
+
+/* lists without cards */
+.ka-plain-list, .ka-ref-list, .ka-chip-list, .ka-subtable, .ka-procedures, .ka-commands { margin:0; padding:0; list-style:none; }
+.ka-plain-list li { padding:10px 0; border-bottom:1px solid var(--ka-line); color:#d9e9f1; font-size:14.5px; }
+.ka-plain-list li:first-child { border-top:1px solid var(--ka-line); }
+.ka-chip-list { display:flex; flex-wrap:wrap; gap:6px; }
+.ka-chip-list li { padding:5px 9px; border:1px solid #284a5d; border-radius:6px; background:#0a1823; color:#c3d9e5; font:12px var(--ka-mono); }
+.ka-ref-list { border-top:1px solid var(--ka-line); }
+.ka-ref-list li { border-bottom:1px solid var(--ka-line); }
+.ka-ref { display:inline-flex; align-items:baseline; gap:12px; max-width:100%; padding:2px 0; text-align:left; color:#d7e9f2; }
+.ka-ref-list .ka-ref { display:flex; width:100%; padding:11px 0; }
+.ka-ref code { flex:none; color:color-mix(in srgb,var(--accent,#69dced) 75%,#fff); font:600 12.5px var(--ka-mono); }
+.ka-ref span { min-width:0; overflow:hidden; color:#cfe1ea; font:14px var(--ka-sans); text-overflow:ellipsis; white-space:nowrap; }
+.ka-ref i { margin-left:auto; padding-left:12px; color:#6f93a6; font:normal 12px var(--ka-mono); }
+.ka-ref:hover code, .ka-ref:hover i { color:#9cf2ff; }
+.ka-ref:hover span { color:#fff; }
+.ka-sec[data-source] .ka-ref code, .ka-ref-list [data-source] code { color:inherit; }
+
+/* CLOAK sub-techniques: a quiet table */
+.ka-subtable { border-top:1px solid var(--ka-line); }
+.ka-subtable li { border-bottom:1px solid var(--ka-line); }
+.ka-subtable li>button, .ka-subtable li>div { display:grid; grid-template-columns:62px minmax(0,1fr) 96px 92px 64px; align-items:start; gap:14px; width:100%; padding:13px 8px 13px 0; text-align:left; }
+.ka-subtable li>button { transition:background-color .15s; }
+.ka-subtable li>button:hover { background:rgb(97 211 154 / .045); }
+.ka-subtable code { color:#8fe7c0; font:600 12px/1.5 var(--ka-mono); }
+.ka-subtable-name { display:grid; gap:4px; min-width:0; }
+.ka-subtable-name strong { color:#eef8fc; font:650 14.5px/1.35 var(--ka-sans); }
+.ka-subtable-name small { display:-webkit-box; overflow:hidden; color:#9fb9c8; font:13px/1.5 var(--ka-sans); -webkit-line-clamp:2; -webkit-box-orient:vertical; }
+.ka-subtable-type, .ka-subtable-status { color:#a8c1cf; font:11.5px/1.5 var(--ka-mono); }
+.ka-subtable-status.is-annotated { color:#a6f1c8; }
+.ka-subtable i { justify-self:end; color:#7fa5b8; font:normal 10.5px/1.5 var(--ka-mono); letter-spacing:.08em; }
+.ka-subtable button:hover i { color:#9cf2ff; }
+
+.ka-procedures { border-top:1px solid var(--ka-line); }
+.ka-procedures li { padding:15px 0; border-bottom:1px solid var(--ka-line); }
+.ka-procedures h5 { display:flex; align-items:baseline; justify-content:space-between; gap:12px; margin:0 0 6px; color:#eef8fc; font:650 14.5px/1.35 var(--ka-sans); }
+.ka-procedures h5 span { display:flex; flex:none; gap:10px; }
+.ka-procedures a { color:#8ce8f5; font:600 12px var(--ka-mono); text-decoration:none; }
+.ka-procedures a:hover { text-decoration:underline; }
+.ka-procedures p { margin:0; color:#b4c9d6; font:14px/1.65 var(--ka-sans); overflow-wrap:anywhere; }
+
+/* LOLBins commands */
+.ka-commands { border-top:1px solid var(--ka-line); }
+.ka-commands li { padding:18px 0; border-bottom:1px solid var(--ka-line); }
+.ka-commands header { display:flex; align-items:center; gap:12px; margin-bottom:8px; }
+.ka-command-index { color:color-mix(in srgb,var(--accent,#b39dff) 75%,#fff); font:600 11px var(--ka-mono); }
+.ka-commands h5 { margin:0; color:#eef8fc; font:650 14.5px var(--ka-sans); }
+.ka-commands header .lb26-priv { margin-left:auto; }
+.ka-commands p { margin:0 0 10px; color:#b4c9d6; font:14px/1.6 var(--ka-sans); }
+.ka-command-line { display:grid; grid-template-columns:minmax(0,1fr) auto; gap:10px; align-items:stretch; }
+.ka-command-line pre { margin:0; min-width:0; padding:11px 13px; overflow-x:auto; border:1px solid #2f5a74; border-left:3px solid var(--c-cmd); border-radius:9px; background:#050d15; color:var(--c-cmd); font:500 13px/1.55 var(--ka-mono); white-space:pre; }
+.ka-command-line code { font:inherit; color:inherit; }
+
+/* CLOAK analyst data */
+.ka-ann-view .ka-facts { margin-top:0; }
+.ka-ann-open { display:inline-flex; align-items:center; gap:7px; margin-top:20px; padding:9px 14px; border:1px solid #3a6f5a; border-radius:8px; background:rgb(97 211 154 / .07); color:#b9f3d5; font:600 12px var(--ka-mono); }
+.ka-ann-open:hover { border-color:#61d39a; color:#e8fff3; }
+.ka-ann-editor fieldset { margin:0 0 16px; padding:0; border:0; }
+.ka-ann-editor legend { margin-bottom:9px; color:#88a6b8; font:600 10px var(--ka-mono); letter-spacing:.12em; text-transform:uppercase; }
+.ka-ann-status { display:flex; flex-wrap:wrap; gap:7px; }
+.ka-ann-status button, .ka-ann-editor footer button { display:inline-flex; align-items:center; gap:6px; padding:8px 12px; border:1px solid #315366; border-radius:7px; background:#0a1824; color:#b9d4e0; font:12.5px var(--ka-sans); }
+.ka-ann-status button[aria-pressed=true], .ka-ann-editor footer .is-primary { border-color:#5ed3e9; background:#11303e; color:#d8fbff; }
+.ka-ann-editor label { display:grid; gap:7px; margin:14px 0; color:#98bacb; font:600 10.5px var(--ka-mono); letter-spacing:.08em; text-transform:uppercase; }
+.ka-ann-editor textarea, .ka-ann-editor input { width:100%; padding:11px 12px; border:1px solid #29495b; border-radius:8px; background:#07131e; color:#dcecf4; font:14px/1.55 var(--ka-sans); text-transform:none; letter-spacing:0; }
+.ka-ann-editor textarea:focus, .ka-ann-editor input:focus { border-color:#4f9db4; outline:none; }
+.ka-ann-editor footer { display:flex; align-items:center; justify-content:space-between; gap:12px; margin-top:20px; padding-top:16px; border-top:1px solid var(--ka-line); }
+.ka-ann-actions { display:flex; gap:8px; }
+.ka-ann-editor footer .is-danger { border-color:#6e3e48; color:#ffadb8; }
+
+/* footer actions */
+.ka-dossier-foot { display:flex; flex:none; flex-wrap:wrap; align-items:center; justify-content:space-between; gap:10px; min-height:58px; padding:10px 18px 10px 26px; border-top:1px solid var(--ka-line); background:#08121b; color:#8fadbf; font:11px var(--ka-mono); }
+.ka-dossier-actions { display:flex; flex-wrap:wrap; align-items:center; gap:8px; }
+.ka-dossier-actions a, .ka-dossier-actions button { display:inline-flex; align-items:center; gap:6px; padding:8px 11px; border:1px solid #315668; border-radius:7px; background:#0a1a26; color:#aeeaf4; font:600 11px var(--ka-mono); letter-spacing:.04em; text-decoration:none; }
+.ka-dossier-actions a:hover, .ka-dossier-actions button:hover { border-color:#5ed3e9; color:#e3fbff; }
+.ka-dossier-actions .is-danger { border-color:#70414a; color:#ffb1bb; }
+.ka-dossier-actions .is-danger:hover { border-color:#c45864; color:#ffd6dc; }
+
+@media(max-width:860px) {
+  .ka-sec { grid-template-columns:minmax(0,1fr); gap:16px; padding:26px 0; }
+  .ka-sec-head { flex-direction:row; align-items:baseline; gap:10px; }
+  .ka-intel { grid-template-columns:minmax(0,1fr); }
+  .ka-intel-col { padding:16px 0; }
+  .ka-intel-col+.ka-intel-col { border-left:0; border-top:1px solid var(--ka-line); }
+}
+@media(max-width:600px) {
+  .ka-dossier-folder { width:100vw; max-height:100dvh; height:100dvh; margin:0; }
+  .ka-dossier-folder::after, .ka-dossier-tab { display:none; }
+  .ka-dossier-sheet { height:100%; border-radius:0; border-inline:0; }
+  .ka-dossier-head { padding:0 12px 0 16px; }
+  .ka-dossier-ref { display:none; }
+  .ka-dossier-close { margin-left:auto; }
+  .ka-dossier-head>span:first-child { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .ka-dossier-body { padding:0 16px 32px; }
+  .ka-dossier-title { padding:24px 0 22px; }
+  .ka-dossier-title h2 { font-size:1.6rem; }
+  .ka-facts { grid-template-columns:minmax(0,1fr) minmax(0,1fr); }
+  .ka-subtable li>button, .ka-subtable li>div { grid-template-columns:52px minmax(0,1fr); grid-template-areas:"id name" "id type" "id status"; gap:4px 12px; }
+  .ka-subtable code { grid-area:id; }
+  .ka-subtable-name { grid-area:name; }
+  .ka-subtable-type { grid-area:type; }
+  .ka-subtable-status { grid-area:status; }
+  .ka-subtable i { display:none; }
+  .ka-command-line { grid-template-columns:minmax(0,1fr); }
+  .ka-command-line .lb26-copy { flex-direction:row; width:auto; min-height:40px; padding:0 14px; gap:6px; justify-self:start; }
+  .ka-dossier-foot { padding:10px 16px; }
+  .ka-dossier-foot>span { display:none; }
+}
+@media(prefers-reduced-motion:reduce) {
+  .ka-dossier-folder { animation:none; }
+  .ka-page[data-dossier] .ka-focus-card.is-active { transition:none; }
+  .ka-dossier * { transition:none!important; }
+}
+
+/* CVE: the folder speaks severity (critical red, high orange…), not the source amber */
+.ka-dossier-folder[data-source="CVE"][data-severity] { --accent:var(--sev,var(--src-cve)); }
+.ka-dossier-folder[data-source="CVE"][data-severity="none"] { --accent:var(--src-cve); }
+
+/* CVE editor: the same archive folder, with form fields drawn in the Atlas language */
+.ka-form-error { margin:22px 0 0; padding:10px 14px; border-left:2px solid #ff5d6c; border-radius:0 8px 8px 0; background:rgb(255 93 108 / .08); color:#ffb3bd; font-size:13.5px; }
+.ka-form-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:18px 22px; }
+.ka-form-grid .is-span { grid-column:1 / -1; }
+.ka-field { display:grid; align-content:start; gap:7px; min-width:0; }
+.ka-field>span, .ka-segment legend { color:#88a6b8; font:600 10px var(--ka-mono); letter-spacing:.12em; text-transform:uppercase; }
+.ka-field input, .ka-field textarea { width:100%; min-height:42px; padding:10px 12px; border:1px solid #24435a; border-radius:8px; background:#07111b; color:#e3f1fa; font:14.5px/1.5 var(--ka-sans); outline:none; transition:border-color .15s,box-shadow .15s; }
+.ka-field textarea { resize:vertical; }
+.ka-field input.is-mono { font:500 14px var(--ka-mono); letter-spacing:.02em; }
+.ka-field input::placeholder, .ka-field textarea::placeholder { color:#5f7a8d; }
+.ka-field input:focus, .ka-field textarea:focus { border-color:#4f9db4; box-shadow:0 0 0 3px rgb(94 211 233 / .1); }
+.ka-field input[readonly] { border-style:dashed; color:#a9c4d4; }
+.ka-field input[aria-invalid=true] { border-color:#ff5d6c; box-shadow:0 0 0 3px rgb(255 93 108 / .1); }
+.ka-field input[type=date] { color-scheme:dark; }
+.ka-field small { color:#7f9db0; font:12px/1.45 var(--ka-sans); }
+.ka-field .ka-chip-list { margin-top:4px; }
+.ka-cvss-live { align-content:center; padding:10px 14px; border:1px solid var(--ka-line); border-radius:8px; background:rgb(5 14 22 / .5); }
+.ka-cvss-live b { color:#a9c4d4; font:600 13px var(--ka-mono); }
+.ka-suggest { justify-self:start; padding:4px 8px; border:1px solid color-mix(in srgb,var(--sev,#5ed3e9) 40%,#2b4b5e); border-radius:6px; color:#d7ebf4; font:11.5px var(--ka-mono); }
+.ka-segment { margin:0; padding:0; border:0; min-width:0; }
+.ka-segment legend { margin-bottom:8px; padding:0; }
+.ka-segment>div { display:flex; flex-wrap:wrap; gap:6px; }
+.ka-segment label { position:relative; cursor:pointer; }
+.ka-segment input { position:absolute; opacity:0; width:1px; height:1px; }
+.ka-segment label>span { display:inline-flex; align-items:center; gap:8px; min-height:36px; padding:0 13px; border:1px solid #24435a; border-radius:8px; background:#07111b; color:#b9d0dc; font:13px var(--ka-sans); transition:border-color .12s,background-color .12s,color .12s; }
+.ka-segment label>span i { width:8px; height:8px; border-radius:2px; background:var(--sev,#7d8ea0); }
+.ka-segment label:hover>span { border-color:#3f7d93; color:#fff; }
+.ka-segment input:checked+span { border-color:var(--sev,#5ed3e9); background:color-mix(in srgb,var(--sev,#5ed3e9) 13%,#07111b); color:#fff; }
+.ka-segment input:focus-visible+span { outline:2px solid #a9f4fa; outline-offset:2px; }
+.ka-dossier-actions .is-primary { border-color:var(--accent); background:color-mix(in srgb,var(--accent) 16%,#0a1a26); color:#fff; }
+@media(max-width:600px) { .ka-form-grid { grid-template-columns:minmax(0,1fr); } }
+.ka-cve-editor .ka-dossier-close { margin-left:auto; }

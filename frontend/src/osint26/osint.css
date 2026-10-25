@@ -4,7 +4,7 @@
  * borders, Manrope / DM Sans, DM Mono for identifiers and figures.
  */
 .os26, .os26-layer {
-  /* Shared dialog (MitreUi) tokens. */
+  /* Shared accessible-dialog tokens. */
   --mx-surface: #0a111c;
   --mx-surface-2: #0d1624;
   --mx-line: #20354b;

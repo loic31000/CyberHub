@@ -1,18 +1,14 @@
 import {
   BgpGlyph,
   CheatsheetGlyph,
-  CloakGlyph,
   ConsoleGlyph,
   CorrelationGlyph,
-  CveGlyph,
   EncoderGlyph,
   HistorianGlyph,
   InvestigationGlyph,
   OverviewGlyph,
   IocGlyph,
   LayersGlyph,
-  LolbinGlyph,
-  MitreGlyph,
   NotesGlyph,
   OsintGlyph,
   PlaybookGlyph,
@@ -27,7 +23,7 @@ import {
  *
  * - The Console card summarises the local data; its live value is supplied
  *   by the authenticated Dashboard.
- * - Module cards give access to the 18 Console modules, one card each. IOC
+ * - Module cards give access to the 14 canonical Console modules, one card each. IOC
  *   Manager and BGP Historian also show their live state.
  *
  * Ids are stable and independent from the displayed titles.
@@ -73,16 +69,13 @@ export const DASHBOARD_MODULE: ModuleDefinition = {
   card: "access",
 };
 
-// The 18 functional modules of the Console, in sidebar order.
+// The 14 canonical modules of the Console, in sidebar order. Knowledge Atlas
+// owns the five former CVE / ATT&CK / Layers / CLOAK / LOLBins entries.
 export const MODULES: ModuleDefinition[] = [
   { id: "tools", title: "Outils", category: "core", description: "Fiches techniques et commandes", route: "/tools", icon: ToolsGlyph, keywords: ["tools", "toolkit", "fiches", "commandes", "scripts", "offensif", "défensif"], card: "access" },
   { id: "ctf", title: "Writeups", category: "core", description: "Base de writeups CTF", route: "/ctf", icon: WriteupGlyph, keywords: ["ctf", "write-up", "challenges", "flags", "solutions", "capture the flag"], card: "access" },
-  { id: "cve", title: "CVE & KEV", category: "intel", description: "Veille CVE, catalogue KEV et EPSS", route: "/cve", icon: CveGlyph, keywords: ["cve", "kev", "epss", "cisa", "nvd", "vulnérabilités", "vulnerabilities", "veille", "patch", "exploit"], card: "access" },
+  { id: "knowledge", title: "Knowledge Atlas", category: "intel", description: "CVE · ATT&CK · CLOAK · LOLBins · Layers", route: "/knowledge", icon: LayersGlyph, keywords: ["knowledge", "atlas", "cve", "kev", "epss", "cisa", "nvd", "mitre", "att&ck", "attack", "cloak", "opsec", "lolbins", "lolbas", "gtfobins", "layers", "navigator", "vulnérabilités", "tactiques", "techniques", "binaires"], card: "access" },
   { id: "playbooks", title: "Playbooks", category: "intel", description: "Procédures de réponse à incident", route: "/playbooks", icon: PlaybookGlyph, keywords: ["playbook", "réponse à incident", "incident response", "ir", "procédures", "runbook"], card: "access" },
-  { id: "mitre", title: "MITRE ATT&CK", category: "intel", description: "Tactiques et techniques ATT&CK", route: "/mitre", icon: MitreGlyph, keywords: ["mitre", "att&ck", "attack", "ttp", "tactiques", "techniques", "matrice"], card: "access" },
-  { id: "mitre-layers", title: "Layers ATT&CK", category: "intel", description: "Calques ATT&CK personnalisés", route: "/mitre/layers", icon: LayersGlyph, keywords: ["layers", "calques", "navigator", "att&ck", "couverture", "heatmap"], card: "access" },
-  { id: "lolbins", title: "LOLBins", category: "intel", description: "Binaires détournables Windows et Linux", route: "/lolbins", icon: LolbinGlyph, keywords: ["lolbins", "lolbas", "gtfobins", "gtfo", "binaires", "living off the land"], card: "access" },
-  { id: "cloak", title: "CLOAK OpSec", category: "ops", description: "Référentiel OpSec et discrétion", route: "/cloak", icon: CloakGlyph, keywords: ["cloak", "opsec", "discrétion", "anonymat", "empreinte", "stealth"], card: "access" },
   { id: "ioc", title: "IOC Manager", category: "ops", description: "Gestion et recherche d’indicateurs", route: "/ioc", icon: IocGlyph, keywords: ["ioc", "indicateurs", "indicators", "compromission", "ip", "domaine", "hash", "sha256", "url"], card: "access" },
   { id: "correlation", title: "Corrélation", category: "ops", description: "Corrélation d’IOC entre sources", route: "/correlation", icon: CorrelationGlyph, keywords: ["correlation", "recoupement", "liens", "graphe", "pivot"], card: "access" },
   { id: "osint", title: "OSINT Runner", category: "ops", description: "Recherche en sources ouvertes", route: "/osint", icon: OsintGlyph, keywords: ["osint", "sources ouvertes", "reconnaissance", "recon", "whois", "dns", "recherche"], card: "access" },
@@ -183,15 +176,19 @@ export function getEnvironmentCard(id: string) {
 }
 
 /*
- * Cards of earlier versions that duplicated a module card, mapped to that
- * card: "MITRE" and "OSINT" only repeated the module access, "Sources" showed
- * the IOC count of IOC Manager and "BGP" the alerts of BGP Historian.
+ * Cards of earlier versions mapped to their canonical module. This also
+ * folds every former knowledge card into the single Atlas entry.
  */
 export const LEGACY_CARD_IDS: Record<string, string> = {
-  "system.mitre": "module.mitre",
+  "system.mitre": "module.knowledge",
   "system.osint": "module.osint",
   "system.sources": "module.ioc",
   "system.bgp": "module.bgp-historian",
+  "module.cve": "module.knowledge",
+  "module.mitre": "module.knowledge",
+  "module.mitre-layers": "module.knowledge",
+  "module.lolbins": "module.knowledge",
+  "module.cloak": "module.knowledge",
 };
 
 /*

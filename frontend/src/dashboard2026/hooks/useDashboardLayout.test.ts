@@ -26,14 +26,14 @@ describe('préférences du Dashboard — format localStorage', () => {
     localStorage.setItem(LAYOUT_STORAGE_KEY, stored)
     const { result } = renderHook(() => useDashboardLayout())
     expect(result.current.envCards).toEqual([
-      'module.cheatsheets', 'module.bgp-historian', 'module.mitre', 'module.bgp', 'module.ioc', 'module.osint', 'system.console',
+      'module.cheatsheets', 'module.bgp-historian', 'module.knowledge', 'module.bgp', 'module.ioc', 'module.osint', 'system.console',
     ])
     expect(result.current.widgets.slice(0, 2)).toEqual(widgets)
     // Nothing is rewritten until the user changes something.
     expect(localStorage.getItem(LAYOUT_STORAGE_KEY)).toBe(stored)
     act(() => result.current.update([...result.current.envCards].reverse()))
     const saved = JSON.parse(localStorage.getItem(LAYOUT_STORAGE_KEY) as string)
-    expect(saved.envCards).toEqual(['system.console', 'module.osint', 'module.ioc', 'module.bgp', 'module.mitre', 'module.bgp-historian', 'module.cheatsheets'])
+    expect(saved.envCards).toEqual(['system.console', 'module.osint', 'module.ioc', 'module.bgp', 'module.knowledge', 'module.bgp-historian', 'module.cheatsheets'])
     expect(saved.envCards.some((id: string) => id.startsWith('system.') && id !== 'system.console')).toBe(false)
     expect(saved.widgets.slice(0, 2)).toEqual(widgets)
   })
@@ -60,7 +60,7 @@ describe('préférences du Dashboard — format localStorage', () => {
     act(() => result.current.updateWidgets(DEFAULT_WIDGETS.map((w) => ({ ...w, visible: w.id !== 'network' }))))
     act(() => result.current.reset())
     expect(result.current.envCards).toEqual(DEFAULT_ENVIRONMENT_CARDS)
-    expect(DEFAULT_ENVIRONMENT_CARDS).toEqual(['system.console', 'module.mitre', 'module.ioc', 'module.osint', 'module.bgp-historian'])
+    expect(DEFAULT_ENVIRONMENT_CARDS).toEqual(['system.console', 'module.knowledge', 'module.ioc', 'module.osint', 'module.bgp-historian'])
     expect(result.current.widgets.find((w) => w.id === 'network')?.visible).toBe(false)
   })
 

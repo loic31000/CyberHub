@@ -43,7 +43,7 @@ describe('Investigations 2026 — fiche', () => {
     expect(within(days[0]).getAllByRole('article')).toHaveLength(2)
     expect(screen.getByText('Élevés ou critiques').nextElementSibling?.textContent).toBe('2')
     // A CVE source links to the catalogue; metadata is shown as written, formatted.
-    expect(screen.getByRole('link', { name: 'Source : cve · CVE-2024-6387' }).getAttribute('href')).toBe('/cve?find=CVE-2024-6387')
+    expect(screen.getByRole('link', { name: 'Source : cve · CVE-2024-6387' }).getAttribute('href')).toBe('/knowledge?source=cve&id=CVE-2024-6387')
     // A bare BGP number could be an alert, a snapshot or an ASN: no link is claimed.
     expect(screen.queryByRole('link', { name: 'Source : bgp · 41' })).toBeNull()
     expect(screen.getByText('Source : bgp · 41')).toBeTruthy()
@@ -52,8 +52,8 @@ describe('Investigations 2026 — fiche', () => {
   })
 
   it('ne crée des liens intermodules que pour des références explicites', () => {
-    expect(sourceLink({ source_module: 'cve', source_entity_id: 'CVE-2024-6387' })).toBe('/cve?find=CVE-2024-6387')
-    expect(sourceLink({ source_module: 'CVE', source_entity_id: 'cve-2024-123456' })).toBe('/cve?find=CVE-2024-123456')
+    expect(sourceLink({ source_module: 'cve', source_entity_id: 'CVE-2024-6387' })).toBe('/knowledge?source=cve&id=CVE-2024-6387')
+    expect(sourceLink({ source_module: 'CVE', source_entity_id: 'cve-2024-123456' })).toBe('/knowledge?source=cve&id=CVE-2024-123456')
     expect(sourceLink({ source_module: 'cve', source_entity_id: '7' })).toBe('/cve/7')
     expect(sourceLink({ source_module: 'cve', source_entity_id: '0' })).toBeNull()
     expect(sourceLink({ source_module: 'cve', source_entity_id: '203.0.113.7' })).toBeNull()

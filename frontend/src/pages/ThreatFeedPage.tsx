@@ -271,7 +271,7 @@ export default function ThreatFeedPage() {
                   )}
                 </div>
                 <button
-                  onClick={() => navigate('/cve')}
+                  onClick={() => navigate('/knowledge?source=cve')}
                   className="flex-shrink-0 text-text-muted hover:text-cyber-cyan transition-colors"
                   title={`Voir dans la veille CVE`}
                 >
