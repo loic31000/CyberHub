@@ -18,9 +18,10 @@ export interface RecordContext {
   onOpenRef: (source: Source, id: string) => void
 }
 
-export function Section({ index, title, aside, children }: { index: string; title: string; aside?: ReactNode; children: ReactNode }) {
+/** `lead`: one short line saying what the section holds, when the title alone is not explicit enough. */
+export function Section({ index, title, aside, lead, children }: { index: string; title: string; aside?: ReactNode; lead?: string; children: ReactNode }) {
   return <section className="ka-sec">
-    <header className="ka-sec-head"><span className="ka-sec-index">{index}</span><h3>{title}</h3>{aside && <span className="ka-sec-aside">{aside}</span>}</header>
+    <header className="ka-sec-head"><span className="ka-sec-index">{index}</span><h3>{title}</h3>{aside && <span className="ka-sec-aside">{aside}</span>}{lead && <p className="ka-sec-lead">{lead}</p>}</header>
     <div className="ka-sec-body">{children}</div>
   </section>
 }

@@ -46,6 +46,7 @@
 .ka-sec-index { color:color-mix(in srgb,var(--accent,#6fcde2) 80%,#fff); font:600 12px var(--ka-mono); letter-spacing:.08em; }
 .ka-sec-head h3 { margin:0; color:#d7e9f2; font:600 12px/1.3 var(--ka-mono); letter-spacing:.16em; }
 .ka-sec-aside { color:var(--ka-muted); font:11.5px/1.4 var(--ka-mono); }
+.ka-sec-lead { margin:2px 0 0; color:#8ea8b9; font:12px/1.45 var(--ka-sans); }
 .ka-sec-body { min-width:0; }
 .ka-prose { max-width:72ch; margin:0; color:#cfdee8; font:15.5px/1.75 var(--ka-sans); white-space:pre-line; overflow-wrap:anywhere; }
 .ka-subhead { margin:28px 0 12px; color:#a8cbda; font:600 11px var(--ka-mono); letter-spacing:.14em; text-transform:uppercase; }
@@ -153,7 +154,8 @@
 
 @media(max-width:860px) {
   .ka-sec { grid-template-columns:minmax(0,1fr); gap:16px; padding:26px 0; }
-  .ka-sec-head { flex-direction:row; align-items:baseline; gap:10px; }
+  .ka-sec-head { flex-direction:row; flex-wrap:wrap; align-items:baseline; gap:4px 10px; }
+  .ka-sec-lead { flex-basis:100%; }
   .ka-intel { grid-template-columns:minmax(0,1fr); }
   .ka-intel-col { padding:16px 0; }
   .ka-intel-col+.ka-intel-col { border-left:0; border-top:1px solid var(--ka-line); }

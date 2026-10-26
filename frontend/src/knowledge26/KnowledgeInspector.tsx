@@ -10,6 +10,7 @@ import type { CloakAnnotation } from '@/types/cloakAnnotation'
 import { SOURCE_LABEL, cleanText, cloakRef, type KnowledgeItem, type Source } from './model'
 import KnowledgeRecord from './KnowledgeRecord'
 import AnnotationPanel from './records/AnnotationPanel'
+import LearningModeSwitch from '@/learning/LearningModeSwitch'
 import type { Enrichment } from './records/CveRecord'
 
 /*
@@ -149,7 +150,7 @@ export default function KnowledgeInspector(props: Props) {
             enriched={mitre} pending={item.source === 'MITRE' && !mitre && !mitreError} failed={mitreError} kev={kev} epss={epss} analyst={analyst} />
         </div>
         <footer className="ka-dossier-foot">
-          <span>Knowledge Atlas · fiche de connaissance</span>
+          <LearningModeSwitch />
           <div className="ka-dossier-actions">
             {item.source === 'CVE' && <>
               <a href={`https://nvd.nist.gov/vuln/detail/${item.id}`} target="_blank" rel="noopener noreferrer">NVD <ExternalLink size={13} /></a>

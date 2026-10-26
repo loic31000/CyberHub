@@ -1,6 +1,8 @@
 import type { ReactNode } from 'react'
 import type { CloakProcedure, CloakSubTechnique } from '@/types/cloak'
 import { cloakRef, type KnowledgeItem } from '../model'
+import Learn from '@/learning/Learn'
+import type { LearningEvidence } from '@/learning/types'
 import { ANNOTATION_LABEL, Fact, Facts, Prose, RefButton, Section, type RecordContext } from './parts'
 
 /*
@@ -12,12 +14,29 @@ import { ANNOTATION_LABEL, Fact, Facts, Prose, RefButton, Section, type RecordCo
 
 const procUrls = (description = '') => [...new Set((description.match(/https?:\/\/[^\s<>"']+/g) ?? []).map(url => url.replace(/[.,;!?)]+$/, '')))]
 
+/* Learning evidence (#78): the dataset fields of this entry and the local annotation, nothing inferred. */
+function cloakEvidence(item: KnowledgeItem, subs: number, procs: { description?: string }[], status: string | undefined, annotated: boolean): LearningEvidence[] {
+  const type = item.signal?.trim()
+  const links = procs.reduce((sum, procedure) => sum + procUrls(procedure.description).length, 0)
+  return [
+    { label: 'Référence', value: item.id, source: 'CLOAK' },
+    ...(item.categories[0] ? [{ label: 'Tactique', value: item.categories[0] }] : []),
+    ...(type && type !== 'Non renseigné' ? [{ label: 'Type', value: type }] : []),
+    { label: 'Niveau', value: item.metadata.find(m => m[0] === 'Niveau')?.[1] || item.facets.kind },
+    ...(subs ? [{ label: 'Sous-techniques', value: String(subs) }] : []),
+    ...(procs.length ? [{ label: 'Procédures', value: String(procs.length) }] : []),
+    ...(links ? [{ label: 'Liens externes', value: String(links) }] : []),
+    ...(annotated ? [{ label: 'Annotation', value: status ? ANNOTATION_LABEL[status] ?? status : 'Notes présentes', source: 'Annotation locale CyberHub' }] : []),
+  ]
+}
+
 export default function CloakRecord({ item, ctx, analyst }: { item: KnowledgeItem; ctx: RecordContext; analyst: ReactNode }) {
   const entry = item.original as { subtechniques?: CloakSubTechnique[]; procedures?: CloakProcedure[]; __parentId?: number }
   const subs = entry.subtechniques ?? []
   const procs = item.procedures ?? entry.procedures ?? []
   const ref = cloakRef(item)
   const sameTactic = (candidate: KnowledgeItem) => candidate.source === 'CLOAK' && candidate.categories[0] === item.categories[0]
+  const annotation = ctx.annotations.get(ref)
   const parent = entry.__parentId ? ctx.allItems.find(candidate => sameTactic(candidate) && candidate.id === `TE-${entry.__parentId}`) : null
 
   return <>
@@ -29,9 +48,11 @@ export default function CloakRecord({ item, ctx, analyst }: { item: KnowledgeIte
         <Fact label="Type">{item.signal || '—'}</Fact>
         {parent && <Fact label="Technique parent"><RefButton id={parent.id} label={parent.title} onClick={() => ctx.onOpen(parent)} /></Fact>}
       </Facts>
+      <Learn id="cloak" evidence={cloakEvidence(item, subs.length, procs, annotation?.status, Boolean(annotation))} />
     </Section>
 
-    {(subs.length > 0 || procs.length > 0) && <Section index="02" title="CONTENT">
+    {(subs.length > 0 || procs.length > 0) && <Section index="02" title={subs.length && procs.length ? 'SUB-TECHNIQUES · PROCEDURES' : subs.length ? 'SUB-TECHNIQUES' : 'PROCEDURES'}
+      lead={subs.length && procs.length ? 'Variantes de cette technique et procédures (outils, services) référencées par CLOAK.' : subs.length ? 'Variantes de cette technique référencées par CLOAK.' : 'Procédures (outils, services) référencées par CLOAK.'}>
       {subs.length > 0 && <>
         <h4 className="ka-subhead">SOUS-TECHNIQUES · {subs.length}</h4>
         <ol className="ka-subtable">{subs.map(sub => {
@@ -60,6 +81,6 @@ export default function CloakRecord({ item, ctx, analyst }: { item: KnowledgeIte
       </>}
     </Section>}
 
-    <Section index={subs.length || procs.length ? '03' : '02'} title="ANALYST DATA">{analyst}</Section>
+    <Section index={subs.length || procs.length ? '03' : '02'} title="ANNOTATION" lead="Annotation locale de l’analyste : statut, notes, contre-mesures, tags.">{analyst}</Section>
   </>
 }

@@ -3,6 +3,7 @@ import { mitreApi } from '@/api/client'
 import type { MITRETechnique } from '@/types'
 import { parseMitre } from '@/lolbins26/parts'
 import type { LOLBin } from '@/types/lolbins'
+import Learn from '@/learning/Learn'
 import { cleanList, cleanText, type KnowledgeItem } from '../model'
 import { Fact, Facts, Prose, RefButton, Section, Subhead, type RecordContext } from './parts'
 
@@ -56,16 +57,18 @@ export default function MitreRecord({ item, ctx, enriched, pending, failed }: {
         <Fact label="Niveau">{isSub ? 'Sous-technique' : 'Technique'}</Fact>
         {isSub && parentId && <Fact label="Technique parent"><RefButton id={parentId} onClick={() => ctx.onOpenRef('MITRE', parentId)} /></Fact>}
       </Facts>
+      {/* The concept, not a copy of the sheet: the facts above are already the evidence. */}
+      <Learn id={isSub ? 'attack-subtechnique' : 'attack-technique'} />
     </Section>
 
-    <Section index="02" title="INTELLIGENCE">
+    <Section index="02" title="DETECTION" lead="Comment repérer cette technique et quelles données collecter.">
       <Subhead>Détection</Subhead>
       {detection ? <Prose>{detection}</Prose> : <p className="ka-empty-note">Non renseignée.</p>}
       <Subhead count={sources.length || undefined}>Sources de données</Subhead>
       {sources.length ? <ul className="ka-chip-list">{sources.map(value => <li key={value}>{value}</li>)}</ul> : <p className="ka-empty-note">Non renseignées.</p>}
     </Section>
 
-    <Section index="03" title="RELATIONS">
+    <Section index="03" title="RELATIONS" lead={isSub ? 'Binaires du catalogue liés à cette sous-technique.' : 'Sous-techniques et binaires du catalogue liés à cette technique.'}>
       {!isSub && <>
         <Subhead count={subs.status === 'ready' ? subs.list.length : undefined}>Sous-techniques</Subhead>
         {subs.status === 'loading' && <p className="ka-empty-note">Recherche des sous-techniques…</p>}
@@ -78,6 +81,7 @@ export default function MitreRecord({ item, ctx, enriched, pending, failed }: {
       {lolbins.length
         ? <ul className="ka-ref-list">{lolbins.map(bin => <li key={bin.key}><RefButton id={bin.id} label={`${(bin.original as LOLBin).os === 'linux' ? 'Linux' : 'Windows'} · ${bin.categories[0]}`} onClick={() => ctx.onOpen(bin)} /></li>)}</ul>
         : <p className="ka-empty-note">Aucun binaire du catalogue n’est rattaché à cette technique.</p>}
+      {lolbins.length > 0 && <Learn id="attack-association" evidence={[{ label: 'Binaires rattachés', value: String(lolbins.length), source: 'Catalogue LOLBAS / GTFOBins' }]} />}
     </Section>
   </>
 }
