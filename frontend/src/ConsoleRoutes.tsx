@@ -20,6 +20,7 @@ const KnowledgeAtlas = lazy(() => import('@/pages/KnowledgeAtlas'))
 const IOCPage = lazy(() => import('@/pages/IOCPage'))
 const BGPLookup = lazy(() => import('@/pages/BGPLookup'))
 const BGPHistorian = lazy(() => import('@/pages/BGPHistorian'))
+const NetworkWorkspace = lazy(() => import('@/network26/NetworkWorkspace'))
 const CorrelationPage = lazy(() => import('@/pages/CorrelationPage'))
 const OSINTRunner = lazy(() => import('@/pages/OSINTRunner'))
 const NotesPage = lazy(() => import('@/pages/NotesPage'))
@@ -86,6 +87,9 @@ export default function ConsoleRoutes() {
 
             {/* Corrélation Globale */}
             <Route path="correlation" element={<CorrelationPage />} />
+
+            {/* Network workspace: one URL per workspace, /network is Overview. */}
+            <Route path="network/*" element={<NetworkWorkspace />} />
 
             {/* BGP / AS Lookup + Historian */}
             <Route path="bgp" element={<BGPLookup />} />

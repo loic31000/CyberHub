@@ -9,6 +9,7 @@ import {
   OverviewGlyph,
   IocGlyph,
   LayersGlyph,
+  NetworkGlyph,
   NotesGlyph,
   OsintGlyph,
   PlaybookGlyph,
@@ -23,7 +24,7 @@ import {
  *
  * - The Console card summarises the local data; its live value is supplied
  *   by the authenticated Dashboard.
- * - Module cards give access to the 14 canonical Console modules, one card each. IOC
+ * - Module cards give access to the 15 canonical Console modules, one card each. IOC
  *   Manager and BGP Historian also show their live state.
  *
  * Ids are stable and independent from the displayed titles.
@@ -69,7 +70,7 @@ export const DASHBOARD_MODULE: ModuleDefinition = {
   card: "access",
 };
 
-// The 14 canonical modules of the Console, in sidebar order. Knowledge Atlas
+// The 15 canonical modules of the Console, in sidebar order. Knowledge Atlas
 // owns the five former CVE / ATT&CK / Layers / CLOAK / LOLBins entries.
 export const MODULES: ModuleDefinition[] = [
   { id: "tools", title: "Outils", category: "core", description: "Fiches techniques et commandes", route: "/tools", icon: ToolsGlyph, keywords: ["tools", "toolkit", "fiches", "commandes", "scripts", "offensif", "défensif"], card: "access" },
@@ -80,6 +81,7 @@ export const MODULES: ModuleDefinition[] = [
   { id: "correlation", title: "Corrélation", category: "ops", description: "Corrélation d’IOC entre sources", route: "/correlation", icon: CorrelationGlyph, keywords: ["correlation", "recoupement", "liens", "graphe", "pivot"], card: "access" },
   { id: "osint", title: "OSINT Runner", category: "ops", description: "Recherche en sources ouvertes", route: "/osint", icon: OsintGlyph, keywords: ["osint", "sources ouvertes", "reconnaissance", "recon", "whois", "dns", "recherche"], card: "access" },
   { id: "investigations", title: "Investigations", category: "ops", description: "Dossiers, chronologie et preuves", route: "/investigations", icon: InvestigationGlyph, keywords: ["investigation", "enquête", "dossier", "case", "preuves", "chronologie", "timeline"], card: "access" },
+  { id: "network", title: "Network", category: "ops", description: "Appareils, trafic, détections et routage", route: "/network", icon: NetworkGlyph, keywords: ["network", "réseau", "appareils", "devices", "trafic", "traffic", "détections", "detections", "ids", "routage", "routing"], card: "access" },
   { id: "notes", title: "Notes", category: "misc", description: "Notes opérationnelles locales", route: "/notes", icon: NotesGlyph, keywords: ["notes", "mémo", "journal", "carnet", "notes opérationnelles"], card: "access" },
   { id: "cheatsheets", title: "Cheatsheets", category: "misc", description: "Commandes clés par outil", route: "/cheatsheets", icon: CheatsheetGlyph, keywords: ["cheatsheet", "aide-mémoire", "mémento", "commandes", "référence"], card: "access" },
   { id: "encoder", title: "Encoder/Decoder", category: "misc", description: "Base64, URL, hexadécimal, ROT", route: "/encoder", icon: EncoderGlyph, keywords: ["encodeur", "décodeur", "base64", "hex", "rot13", "url encode", "encodage", "décodage", "cyberchef"], card: "access" },
