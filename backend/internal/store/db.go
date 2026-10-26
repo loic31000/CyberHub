@@ -79,6 +79,7 @@ func InitDB(dbPath string) error {
 		&models.Investigation{},
 		&models.InvestigationEvent{},
 		&models.AttackLayer{},
+		&models.Finding{}, // #79 — new table only, additive
 	); err != nil {
 		return err
 	}
