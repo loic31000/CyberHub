@@ -32,7 +32,7 @@ var findingIdentityFields = map[string]bool{"source_type": true, "source": true,
 var findingEditableFields = map[string]bool{"description": true, "severity": true, "confidence": true, "explanation": true, "limitation": true, "next_action": true, "evidence": true}
 
 func findingID(c *gin.Context) (uint, bool) {
-	id, err := strconv.ParseUint(c.Param("id"), 10, 64)
+	id, err := strconv.ParseUint(c.Param("id"), 10, strconv.IntSize)
 	if err != nil || id == 0 {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "id invalide"})
 		return 0, false

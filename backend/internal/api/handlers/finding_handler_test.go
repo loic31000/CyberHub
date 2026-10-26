@@ -4,8 +4,10 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"math/big"
 	"net/http"
 	"net/http/httptest"
+	"strconv"
 	"testing"
 
 	"github.com/gin-gonic/gin"
@@ -197,5 +199,23 @@ func TestFindingsAPISeverityUnknown(t *testing.T) {
 	}
 	if w, _ := call(t, r, http.MethodPost, "/api/findings", `{"source_type":"a","source":"h-unknown","category":"c","title":"t","severity":"urgent"}`); w.Code != http.StatusBadRequest {
 		t.Fatalf("an invalid severity must still be refused, got %d", w.Code)
+	}
+}
+
+// An id one past the native uint range (2^32 or 2^64) must be refused by
+// the parser with 400, before any store access, on every :id route.
+func TestFindingsAPIRejectsOutOfRangeID(t *testing.T) {
+	r := findingRouter()
+	tooLarge := new(big.Int).Lsh(big.NewInt(1), strconv.IntSize).String()
+	for _, route := range []struct{ method, path, body string }{
+		{http.MethodGet, "/api/findings/" + tooLarge, ""},
+		{http.MethodPut, "/api/findings/" + tooLarge, `{"severity":"low"}`},
+		{http.MethodPatch, "/api/findings/" + tooLarge + "/status", `{"status":"resolved"}`},
+		{http.MethodDelete, "/api/findings/" + tooLarge, ""},
+	} {
+		w, out := call(t, r, route.method, route.path, route.body)
+		if w.Code != http.StatusBadRequest || out["error"] != "id invalide" {
+			t.Fatalf("%s %s: want 400 id invalide, got %d %s", route.method, route.path, w.Code, w.Body.String())
+		}
 	}
 }
