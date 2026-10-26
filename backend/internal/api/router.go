@@ -275,6 +275,17 @@ func NewRouter(correlationEngine *correlation.CorrelationEngine) *gin.Engine {
 				investigations.GET("/:id/events", invH.ListEvents)
 				investigations.POST("/:id/events", invH.CreateEvent)
 			}
+
+			// Findings (#79): signals deserving attention, deduplicated by fingerprint.
+			findings := protected.Group("/findings")
+			{
+				findings.GET("", handlers.ListFindings)
+				findings.POST("", handlers.CreateFinding)
+				findings.GET("/:id", handlers.GetFinding)
+				findings.PUT("/:id", handlers.UpdateFinding)
+				findings.PATCH("/:id/status", handlers.UpdateFindingStatus)
+				findings.DELETE("/:id", handlers.DeleteFinding)
+			}
 		}
 	}
 
