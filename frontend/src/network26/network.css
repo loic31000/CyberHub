@@ -145,6 +145,12 @@
 .nw26-link span { color: var(--n-muted); font-size: .86rem; }
 .nw26-go { position: absolute; top: 50%; right: 4px; transform: translateY(-50%); color: var(--n-faint); }
 .nw26-link:hover .nw26-go { color: var(--n-cyan-soft); }
+.nw26-link .nw26-link-cta { margin-top: 4px; color: var(--n-cyan-soft); font-size: .84rem; font-weight: 600; }
+.nw26-pivot { display: grid; justify-items: start; gap: 4px; margin-top: 12px; }
+.nw26-pivot-asn { color: var(--n-ink); font: 600 .95rem/1.2 var(--n-mono); }
+.nw26-pivot-links { display: inline-flex; gap: 14px; }
+.nw26-pivot-links a { color: var(--n-cyan-soft); font-size: .86rem; font-weight: 600; text-decoration: none; }
+.nw26-pivot-links a:hover { text-decoration: underline; text-underline-offset: 3px; }
 
 /* source states, without boxes */
 .nw26-empty { display: grid; justify-items: start; gap: 8px; margin: 0; color: var(--n-muted); }

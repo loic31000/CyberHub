@@ -315,6 +315,7 @@
 .bgp-tab:hover { color: var(--b-ink); }
 .bgp-tab[aria-pressed="true"] { border-bottom-color: var(--b-time); color: #ffe6c2; }
 .bgp-historian-bar .bgp-link { margin-bottom: 10px; }
+.bgp-bar-links { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 0 16px; }
 
 .bgp-stream-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; margin-bottom: 16px; }
 .bgp-stream-head h2 { display: flex; align-items: center; gap: 9px; margin: 0; color: var(--b-ink); font: 700 1.15rem/1.25 var(--b-display); }
