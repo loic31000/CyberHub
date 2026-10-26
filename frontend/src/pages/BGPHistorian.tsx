@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
-import { AlertCircle, AlertTriangle, Clock, GitCompare, Loader2, Network } from 'lucide-react'
+import { AlertCircle, AlertTriangle, Clock, GitCompare, Loader2, Network, Waypoints } from 'lucide-react'
 import { bgpApi } from '@/api/client'
 import { toast } from '@/store/toast'
 import { ModuleHero } from '@/hero/ModuleHero'
@@ -345,9 +345,14 @@ export default function BGPHistorian() {
               <Clock size={15} aria-hidden="true" /> Snapshots
             </button>
           </div>
-          <button type="button" className="bgp-link" onClick={() => navigate(asn ? `/bgp?asn=${asn}` : '/bgp')}>
-            <Network size={14} aria-hidden="true" /> BGP Lookup
-          </button>
+          <span className="bgp-bar-links">
+            <button type="button" className="bgp-link" onClick={() => navigate(asn ? `/bgp?asn=${asn}` : '/bgp')}>
+              <Network size={14} aria-hidden="true" /> BGP Lookup
+            </button>
+            <button type="button" className="bgp-link" onClick={() => navigate('/network/routing')}>
+              <Waypoints size={14} aria-hidden="true" /> Network / Routing
+            </button>
+          </span>
         </div>
 
         <section className="bgp-stage is-timeline" aria-label={activeTab === 'alerts' ? 'Changements de routage' : 'Snapshots BGP'}>

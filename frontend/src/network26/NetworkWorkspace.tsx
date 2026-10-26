@@ -5,6 +5,7 @@ import { bgpApi, connectorsApi } from '@/api/client'
 import { ModuleHero, type HeroIndex } from '@/hero/ModuleHero'
 import NetworkFabric, { type BranchInfo, type DomainId } from './NetworkFabric'
 import NetworkMotif from './NetworkMotif'
+import { readVisits } from '@/bgp/visits'
 import SourceState from './SourceState'
 import {
   WORKSPACES, domainState, signalsOf, workspace,
@@ -66,20 +67,46 @@ function SourceWorkspace({ ws, connectors }: { ws: Workspace; connectors: Connec
   )
 }
 
+/* The two specialised BGP instruments Routing leads to; they keep their own pages. */
+const INSTRUMENTS = [
+  { to: '/bgp', name: 'BGP Lookup', cta: 'Ouvrir BGP Lookup', uses: ['ASN et adresses IP', 'Préfixes IPv4 / IPv6', 'Peers et transit', 'Snapshot · export IOC'] },
+  { to: '/bgp/historian', name: 'BGP Historian', cta: 'Ouvrir BGP Historian', uses: ['Alertes de routage', 'Snapshots', 'Comparaison avant / après', 'Historique d’un ASN'] },
+]
+
 function Routing({ alerts }: { alerts: AlertsResult }) {
   const ws = workspace('routing')
+  // Only an ASN really opened in BGP Lookup during this session is offered as a pivot.
+  const [lastASN] = useState(() => readVisits()[0] ?? null)
   return (
     <section className="nw26-view" aria-labelledby="nw26-routing">
       <h2 id="nw26-routing" className="nw26-title">{ws.title}</h2>
-      <p className="nw26-note">{ws.summary} Les outils BGP existants restent disponibles ; leur regroupement dans cet espace est prévu.</p>
+      <p className="nw26-note">{ws.summary} Deux instruments spécialisés, chacun sur sa page.</p>
       <div className="nw26-routing-body">
         <div className="nw26-detail">
           <p className="nw26-figure-line"><AlertsFigure alerts={alerts} /></p>
           <p className="nw26-provenance">Source : BGP Historian · base locale CyberHub</p>
+          {lastASN !== null && (
+            <div className="nw26-pivot">
+              <span className="nw26-provenance">Dernier ASN ouvert dans BGP Lookup (cette session)</span>
+              <strong className="nw26-pivot-asn">AS{lastASN}</strong>
+              <span className="nw26-pivot-links">
+                <Link to={`/bgp?asn=${lastASN}`}>Lookup</Link>
+                <Link to={`/bgp/historian?asn=${lastASN}`}>Historique</Link>
+              </span>
+            </div>
+          )}
         </div>
-        <ul className="nw26-links">
-          <li><Link to="/bgp" className="nw26-link"><strong>BGP Lookup</strong><span>ASN, préfixes et adresses IP</span><ArrowRight size={15} aria-hidden="true" className="nw26-go" /></Link></li>
-          <li><Link to="/bgp/historian" className="nw26-link"><strong>BGP Historian</strong><span>Historique et alertes BGP</span><ArrowRight size={15} aria-hidden="true" className="nw26-go" /></Link></li>
+        <ul className="nw26-links" aria-label="Instruments BGP">
+          {INSTRUMENTS.map((tool) => (
+            <li key={tool.to}>
+              <Link to={tool.to} className="nw26-link" aria-label={tool.cta}>
+                <strong>{tool.name}</strong>
+                <span>{tool.uses.join(' · ')}</span>
+                <span className="nw26-link-cta">{tool.cta}</span>
+                <ArrowRight size={15} aria-hidden="true" className="nw26-go" />
+              </Link>
+            </li>
+          ))}
         </ul>
       </div>
     </section>

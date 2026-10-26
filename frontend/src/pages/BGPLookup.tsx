@@ -458,7 +458,8 @@ export default function BGPLookup() {
               <span className="bgp-source-state">{bgpStatus ? (bgpStatus.available ? 'Disponible' : 'Indisponible') : 'État inconnu'}</span>
               {bgpStatus?.cache_available && <span className="bgp-source-cache">Cache · {Math.max(0, Math.floor(bgpStatus.cache_age_seconds / 60))} min</span>}
             </div>
-            <button type="button" className="bgp-link" onClick={() => navigate('/bgp/historian')}>
+            {/* Keeps the ASN in view, as Historian does towards Lookup. */}
+            <button type="button" className="bgp-link" onClick={() => navigate(currentASN !== null ? `/bgp/historian?asn=${currentASN}` : '/bgp/historian')}>
               <History size={14} aria-hidden="true" /> BGP Historian
             </button>
           </div>
