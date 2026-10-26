@@ -268,9 +268,9 @@ describe('Dashboard 2026 — comportement de référence', () => {
       fireEvent.click(screen.getByRole('button', { name: 'Personnaliser' }))
       const dialog = await screen.findByRole('dialog')
       const catalog = () => [...dialog.querySelectorAll('.customize-catalog li strong')].map((s) => s.firstChild?.textContent)
-      // 15 entries: Console and the 14 canonical modules, each once.
-      expect(catalog()).toHaveLength(15)
-      expect(new Set(catalog()).size).toBe(15)
+      // 16 entries: Console and the 15 canonical modules, each once.
+      expect(catalog()).toHaveLength(16)
+      expect(new Set(catalog()).size).toBe(16)
       for (const title of ['MITRE', 'OSINT', 'BGP', 'Sources']) expect(catalog()).not.toContain(title)
       expect(within(dialog).getByRole('button', { name: 'BGP Historian : déjà affiché' })).toBeTruthy()
 

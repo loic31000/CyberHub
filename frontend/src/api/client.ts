@@ -674,3 +674,11 @@ export const settingsDbApi = {
       .post<{ success: boolean; technique_count: number; updated_at: string }>('/settings/update-cloak')
       .then((r) => r.data),
 }
+
+// ---- Internal connectors (#94), read-only ----
+export const connectorsApi = {
+  list: () =>
+    http
+      .get<import('@/types/connector').ConnectorList>('/connectors')
+      .then((r) => r.data),
+}
