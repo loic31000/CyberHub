@@ -8,6 +8,7 @@ import (
 	"github.com/cyber-hub/cyber-hub/internal/api/handlers"
 	"github.com/cyber-hub/cyber-hub/internal/api/middleware"
 	"github.com/cyber-hub/cyber-hub/internal/cheatsheets"
+	"github.com/cyber-hub/cyber-hub/internal/connectors"
 	"github.com/cyber-hub/cyber-hub/internal/correlation"
 	"github.com/cyber-hub/cyber-hub/internal/osint"
 	"github.com/cyber-hub/cyber-hub/internal/store"
@@ -285,6 +286,14 @@ func NewRouter(correlationEngine *correlation.CorrelationEngine) *gin.Engine {
 				findings.PUT("/:id", handlers.UpdateFinding)
 				findings.PATCH("/:id/status", handlers.UpdateFindingStatus)
 				findings.DELETE("/:id", handlers.DeleteFinding)
+			}
+
+			// Connectors (#94): read-only view of the internal connectors.
+			connH := handlers.NewConnectorsHandler(connectors.Default)
+			connectorsGroup := protected.Group("/connectors")
+			{
+				connectorsGroup.GET("", connH.List)
+				connectorsGroup.GET("/:id", connH.Get)
 			}
 		}
 	}
