@@ -3,8 +3,26 @@ import { Link } from 'react-router-dom'
 import { ArrowUpRight } from 'lucide-react'
 import type { CorrelationResult, CorrelationTechnique } from '@/types/correlation'
 import { readableTactics } from '@/ioc26/intelligenceData'
+import Learn from '@/learning/Learn'
+import LearningModeSwitch from '@/learning/LearningModeSwitch'
+import { useLearningMode } from '@/learning/preferences'
+import type { LearningEvidence } from '@/learning/types'
 import CorrelationMap from './CorrelationMap'
-import { formatDayTime, type GroupId } from './parts'
+import { confidenceOf, formatDayTime, groupsOf, type GroupId } from './parts'
+
+/*
+ * "Why does CyberHub show me this?" (#78). The evidence is only what the
+ * engine really used: its rationale, its confidence and the groups that hold
+ * matches. A missing field is left out — no justification is written here.
+ */
+function correlationEvidence(result: CorrelationResult): LearningEvidence[] {
+  const confidence = typeof result.confidence === 'number' ? confidenceOf(result.confidence) : null
+  return [
+    ...(result.rationale?.trim() ? [{ label: 'Lecture du moteur', value: result.rationale, source: 'Moteur de corrélation CyberHub' }] : []),
+    ...(confidence ? [{ label: 'Confiance', value: `${confidence.pct} % · ${confidence.label}` }] : []),
+    ...groupsOf(result).filter(group => group.count > 0).map(group => ({ label: group.label, value: String(group.count), source: 'Bases locales CyberHub' })),
+  ]
+}
 
 /*
  * One correlation result read as an investigation: the map first, then the
@@ -14,6 +32,8 @@ import { formatDayTime, type GroupId } from './parts'
  */
 export default function ResultView({ result, actions }: { result: CorrelationResult; actions: ReactNode }) {
   const next = result.next_actions ?? []
+  // In guided mode the rationale and next actions are read inside the Learning block, once.
+  const guided = useLearningMode() === 'guided'
   const context = [
     result.tools?.length, result.lolbins?.length, result.cloak_tactics?.length, result.notes?.length,
   ].some(Boolean)
@@ -32,12 +52,14 @@ export default function ResultView({ result, actions }: { result: CorrelationRes
             Analysé le {formatDayTime(result.generated_at)}
             {result.from_cache && <span> · résultat en cache</span>}
           </p>
-          {result.rationale && <p className="cr26-rationale">{result.rationale}</p>}
+          {result.rationale && !guided && <p className="cr26-rationale">{result.rationale}</p>}
+          <Learn id="correlation" evidence={correlationEvidence(result)} next={next.length ? next : undefined} />
+          <LearningModeSwitch />
         </div>
         <div className="cr26-actions">{actions}</div>
       </div>
 
-      {next.length > 0 && (
+      {next.length > 0 && !guided && (
         <section className="cr26-next" aria-labelledby="cr26-next-title">
           <h3 id="cr26-next-title">Prochaines étapes</h3>
           <ol>{next.map((action, i) => <li key={i}><span aria-hidden="true">{i + 1}</span>{action}</li>)}</ol>
